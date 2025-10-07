@@ -81,6 +81,11 @@ export class ScraperService {
       
       console.log(`ScrapeCreators returned ${data.posts?.length || 0} posts`);
       
+      // Log first post structure to understand the API response
+      if (data.posts && data.posts.length > 0) {
+        console.log("First post structure:", JSON.stringify(data.posts[0], null, 2));
+      }
+      
       if (!data.success || !data.posts || data.posts.length === 0) {
         console.log("No posts found in response");
         return [];
