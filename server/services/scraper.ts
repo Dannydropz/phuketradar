@@ -191,30 +191,86 @@ export class ScraperService {
       let pageCount = 0;
 
       while (pageCount < maxPages) {
-        const url = cursor 
+        // Try multiple API parameter combinations to see if any return images
+        const baseUrl = cursor 
           ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
           : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
+        
+        // Try with additional parameters that might enable images
+        const urlsToTry = [
+          baseUrl,
+          `${baseUrl}&fields=full_picture,attachments,text,id,created_time,permalink`,
+          `${baseUrl}&include_attachments=true`,
+          `${baseUrl}&include_images=true`,
+        ];
 
-        console.log(`Fetching page ${pageCount + 1}/${maxPages}...`);
+        console.log(`\n=== Fetching page ${pageCount + 1}/${maxPages} ===`);
+        console.log(`Trying ${urlsToTry.length} different API parameter combinations...`);
 
-        const response = await fetch(url, {
-          headers: {
-            'x-api-key': this.apiKey
+        let data: ScrapeCreatorsResponse | null = null;
+        let successfulUrl = '';
+
+        for (let index = 0; index < urlsToTry.length; index++) {
+          const url = urlsToTry[index];
+          console.log(`\nAttempt ${index + 1}: ${url.substring(0, 100)}...`);
+          
+          const response = await fetch(url, {
+            headers: {
+              'x-api-key': this.apiKey
+            }
+          });
+
+          if (!response.ok) {
+            console.error(`  ❌ Failed with status ${response.status}`);
+            continue;
           }
-        });
 
-        if (!response.ok) {
-          console.error(`Error fetching page ${pageCount + 1}: ${response.status}`);
+          const responseData: ScrapeCreatorsResponse = await response.json();
+          
+          if (responseData.success && responseData.posts && responseData.posts.length > 0) {
+            console.log(`  ✅ Success! Got ${responseData.posts.length} posts`);
+            data = responseData;
+            successfulUrl = url;
+            break;
+          } else {
+            console.log(`  ⚠️ No posts in response`);
+          }
+        }
+
+        if (!data) {
+          console.error(`All API attempts failed for page ${pageCount + 1}`);
           break;
         }
 
-        const data: ScrapeCreatorsResponse = await response.json();
+        console.log(`\nUsing response from: ${successfulUrl.substring(0, 100)}...`);
         
-        // Log first post structure on first page to understand the API response
+        // Enhanced logging on first page to understand the API response
         if (pageCount === 0 && data.posts && data.posts.length > 0) {
-          console.log("=== FIRST POST STRUCTURE (ScrapeCreators API) ===");
-          console.log(JSON.stringify(data.posts[0], null, 2));
-          console.log("=== END FIRST POST STRUCTURE ===");
+          console.log("\n" + "=".repeat(80));
+          console.log("COMPLETE FIRST POST STRUCTURE (ScrapeCreators API)");
+          console.log("=".repeat(80));
+          
+          const firstPost = data.posts[0];
+          console.log(JSON.stringify(firstPost, null, 2));
+          
+          console.log("\n" + "-".repeat(80));
+          console.log("FIELD ANALYSIS:");
+          console.log("-".repeat(80));
+          console.log("Available top-level fields:", Object.keys(firstPost));
+          console.log("Has full_picture?", 'full_picture' in firstPost, firstPost.full_picture || 'N/A');
+          console.log("Has attachments?", 'attachments' in firstPost);
+          if (firstPost.attachments?.data) {
+            console.log("  - Attachments count:", firstPost.attachments.data.length);
+            firstPost.attachments.data.forEach((att, i) => {
+              console.log(`  - Attachment ${i} fields:`, Object.keys(att));
+              console.log(`    - type:`, att.type);
+              console.log(`    - media_type:`, att.media_type);
+              console.log(`    - has media.image.src?:`, !!att.media?.image?.src);
+              console.log(`    - url:`, att.url?.substring(0, 80) || 'N/A');
+            });
+          }
+          console.log("Has videoDetails?", 'videoDetails' in firstPost);
+          console.log("=".repeat(80) + "\n");
         }
 
         if (!data.success || !data.posts || data.posts.length === 0) {
