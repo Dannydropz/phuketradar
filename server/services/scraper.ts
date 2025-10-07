@@ -1,0 +1,90 @@
+
+export interface ScrapedPost {
+  title: string;
+  content: string;
+  imageUrl?: string;
+  sourceUrl: string;
+  publishedAt: Date;
+}
+
+export class ScraperService {
+  private jinaApiUrl = "https://r.jina.ai";
+
+  async scrapeFacebookPage(pageUrl: string): Promise<ScrapedPost[]> {
+    try {
+      // Use JINA AI's reader API to scrape the Facebook page
+      const response = await fetch(`${this.jinaApiUrl}/${pageUrl}`, {
+        headers: {
+          'Accept': 'application/json',
+          'X-Return-Format': 'markdown'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const posts = this.parseJinaResponse(data, pageUrl);
+      return posts;
+    } catch (error) {
+      console.error("Error scraping Facebook page:", error);
+      throw new Error("Failed to scrape Facebook page");
+    }
+  }
+
+  private parseJinaResponse(data: any, sourceUrl: string): ScrapedPost[] {
+    // Parse the JINA response and extract news posts
+    // This is a simplified implementation - in production, you'd need more sophisticated parsing
+    const posts: ScrapedPost[] = [];
+
+    try {
+      const content = typeof data === 'string' ? data : data.content || data.data || '';
+      
+      // Split content into sections that look like posts
+      // This is a basic implementation - you may need to adjust based on actual JINA response format
+      const sections = content.split('\n\n').filter((section: string) => section.trim().length > 100);
+
+      for (const section of sections.slice(0, 10)) { // Limit to 10 most recent posts
+        // Extract title (usually the first line or heading)
+        const lines = section.split('\n').filter((line: string) => line.trim());
+        if (lines.length === 0) continue;
+
+        const title = lines[0].replace(/^#+\s*/, '').trim();
+        const postContent = lines.slice(1).join('\n').trim();
+
+        // Skip if content is too short (likely not a real article)
+        if (postContent.length < 50) continue;
+
+        // Check if it's actual news content (contains certain keywords)
+        const newsKeywords = ['phuket', 'news', 'announced', 'reported', 'today', 'breaking', 'update'];
+        const lowerContent = (title + ' ' + postContent).toLowerCase();
+        const isNews = newsKeywords.some(keyword => lowerContent.includes(keyword));
+
+        if (isNews) {
+          posts.push({
+            title: title.substring(0, 200), // Limit title length
+            content: postContent,
+            sourceUrl,
+            publishedAt: new Date(),
+          });
+        }
+      }
+
+      return posts;
+    } catch (error) {
+      console.error("Error parsing JINA response:", error);
+      return [];
+    }
+  }
+
+  // Alternative method using a different scraping approach if JINA doesn't work well
+  async scrapeWithFallback(pageUrl: string): Promise<ScrapedPost[]> {
+    // This could use scrapecreators.com or another service
+    // For now, return empty array as fallback
+    console.log("Using fallback scraper for:", pageUrl);
+    return [];
+  }
+}
+
+export const scraperService = new ScraperService();
