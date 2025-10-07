@@ -113,7 +113,7 @@ export default function ArticleDetail() {
 
           <div className="mb-8 rounded-lg overflow-hidden bg-muted">
             <img
-              src={article.imageUrl || "https://via.placeholder.com/1200x675/e5e7eb/6b7280?text=Phuket+Radar"}
+              src={article.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='675'%3E%3Crect width='1200' height='675' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%236b7280'%3EPhuket Radar%3C/text%3E%3C/svg%3E"}
               alt={article.title}
               className="w-full h-auto"
               data-testid="img-article-main"
