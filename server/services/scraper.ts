@@ -25,6 +25,9 @@ export class ScraperService {
       }
 
       const data = await response.text();
+      console.log("=== RAW JINA RESPONSE (first 1000 chars) ===");
+      console.log(data.substring(0, 1000));
+      console.log("=== END RAW RESPONSE ===");
       const posts = this.parseJinaResponse(data, pageUrl);
       return posts;
     } catch (error) {
@@ -62,6 +65,7 @@ export class ScraperService {
 
         if (isNews) {
           console.log(`Found potential news article: ${title.substring(0, 50)}...`);
+          console.log(`Content preview: ${postContent.substring(0, 200)}...`);
           posts.push({
             title: title.substring(0, 200), // Limit title length
             content: postContent,

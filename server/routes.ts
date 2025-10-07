@@ -89,12 +89,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process each scraped post
       for (const post of scrapedPosts) {
         try {
+          console.log(`\n=== Processing post: ${post.title.substring(0, 50)} ===`);
+          console.log(`Content length: ${post.content.length} chars`);
+          
           // Translate and rewrite the content
           const translation = await translatorService.translateAndRewrite(
             post.title,
             post.content
           );
 
+          console.log(`Is actual news: ${translation.isActualNews}`);
+          
           // Only create article if it's actual news
           if (translation.isActualNews) {
             const article = await storage.createArticle({
