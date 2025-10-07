@@ -17,6 +17,7 @@ interface ScrapeCreatorsPost {
     id: string;
   };
   created_time?: string;
+  image?: string; // Direct image URL field from ScrapeCreators API
   attachments?: {
     data?: Array<{
       media?: {
@@ -120,15 +121,17 @@ export class ScraperService {
         // Extract image URL - try multiple possible locations
         let imageUrl: string | undefined;
         
-        // Try full_picture first (most common for posts with images)
-        if (post.full_picture) {
+        // Try direct image field first (ScrapeCreators API uses this)
+        if (post.image) {
+          imageUrl = post.image;
+        }
+        // Try full_picture (alternative field)
+        else if (post.full_picture) {
           imageUrl = post.full_picture;
-          console.log(`Found image via full_picture: ${imageUrl.substring(0, 50)}...`);
         }
         // Try video thumbnail
         else if (post.videoDetails?.thumbnail) {
           imageUrl = post.videoDetails.thumbnail;
-          console.log(`Found image via video thumbnail: ${imageUrl.substring(0, 50)}...`);
         }
         // Try attachments
         else if (post.attachments?.data) {
@@ -136,32 +139,23 @@ export class ScraperService {
             // Try direct media image
             if (attachment.media?.image?.src) {
               imageUrl = attachment.media.image.src;
-              console.log(`Found image via attachment media: ${imageUrl.substring(0, 50)}...`);
               break;
             }
             // Try attachment URL
             else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo')) {
               imageUrl = attachment.url;
-              console.log(`Found image via attachment url: ${imageUrl.substring(0, 50)}...`);
               break;
             }
             // Try subattachments (for multi-image posts)
             else if (attachment.subattachments?.data?.[0]?.media?.image?.src) {
               imageUrl = attachment.subattachments.data[0].media.image.src;
-              console.log(`Found image via subattachment: ${imageUrl.substring(0, 50)}...`);
               break;
             }
           }
         }
 
-        if (!imageUrl) {
-          console.log(`No image found for post ${post.id}`);
-        }
-
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
-
-        console.log(`Extracted post: "${title.substring(0, 50)}..." (${content.length} chars, image: ${imageUrl ? 'yes' : 'no'})`);
 
         scrapedPosts.push({
           title: title.trim(),
@@ -191,87 +185,24 @@ export class ScraperService {
       let pageCount = 0;
 
       while (pageCount < maxPages) {
-        // Try multiple API parameter combinations to see if any return images
-        const baseUrl = cursor 
+        const url = cursor 
           ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
           : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
-        
-        // Try with additional parameters that might enable images
-        const urlsToTry = [
-          baseUrl,
-          `${baseUrl}&fields=full_picture,attachments,text,id,created_time,permalink`,
-          `${baseUrl}&include_attachments=true`,
-          `${baseUrl}&include_images=true`,
-        ];
 
-        console.log(`\n=== Fetching page ${pageCount + 1}/${maxPages} ===`);
-        console.log(`Trying ${urlsToTry.length} different API parameter combinations...`);
+        console.log(`Fetching page ${pageCount + 1}/${maxPages}...`);
 
-        let data: ScrapeCreatorsResponse | null = null;
-        let successfulUrl = '';
-
-        for (let index = 0; index < urlsToTry.length; index++) {
-          const url = urlsToTry[index];
-          console.log(`\nAttempt ${index + 1}: ${url.substring(0, 100)}...`);
-          
-          const response = await fetch(url, {
-            headers: {
-              'x-api-key': this.apiKey
-            }
-          });
-
-          if (!response.ok) {
-            console.error(`  ❌ Failed with status ${response.status}`);
-            continue;
+        const response = await fetch(url, {
+          headers: {
+            'x-api-key': this.apiKey
           }
+        });
 
-          const responseData: ScrapeCreatorsResponse = await response.json();
-          
-          if (responseData.success && responseData.posts && responseData.posts.length > 0) {
-            console.log(`  ✅ Success! Got ${responseData.posts.length} posts`);
-            data = responseData;
-            successfulUrl = url;
-            break;
-          } else {
-            console.log(`  ⚠️ No posts in response`);
-          }
-        }
-
-        if (!data) {
-          console.error(`All API attempts failed for page ${pageCount + 1}`);
+        if (!response.ok) {
+          console.error(`Error fetching page ${pageCount + 1}: ${response.status}`);
           break;
         }
 
-        console.log(`\nUsing response from: ${successfulUrl.substring(0, 100)}...`);
-        
-        // Enhanced logging on first page to understand the API response
-        if (pageCount === 0 && data.posts && data.posts.length > 0) {
-          console.log("\n" + "=".repeat(80));
-          console.log("COMPLETE FIRST POST STRUCTURE (ScrapeCreators API)");
-          console.log("=".repeat(80));
-          
-          const firstPost = data.posts[0];
-          console.log(JSON.stringify(firstPost, null, 2));
-          
-          console.log("\n" + "-".repeat(80));
-          console.log("FIELD ANALYSIS:");
-          console.log("-".repeat(80));
-          console.log("Available top-level fields:", Object.keys(firstPost));
-          console.log("Has full_picture?", 'full_picture' in firstPost, firstPost.full_picture || 'N/A');
-          console.log("Has attachments?", 'attachments' in firstPost);
-          if (firstPost.attachments?.data) {
-            console.log("  - Attachments count:", firstPost.attachments.data.length);
-            firstPost.attachments.data.forEach((att, i) => {
-              console.log(`  - Attachment ${i} fields:`, Object.keys(att));
-              console.log(`    - type:`, att.type);
-              console.log(`    - media_type:`, att.media_type);
-              console.log(`    - has media.image.src?:`, !!att.media?.image?.src);
-              console.log(`    - url:`, att.url?.substring(0, 80) || 'N/A');
-            });
-          }
-          console.log("Has videoDetails?", 'videoDetails' in firstPost);
-          console.log("=".repeat(80) + "\n");
-        }
+        const data: ScrapeCreatorsResponse = await response.json();
 
         if (!data.success || !data.posts || data.posts.length === 0) {
           console.log(`No more posts available at page ${pageCount + 1}`);
