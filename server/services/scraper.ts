@@ -7,88 +7,175 @@ export interface ScrapedPost {
   publishedAt: Date;
 }
 
+interface ScrapeCreatorsPost {
+  id: string;
+  text: string;
+  url: string;
+  permalink: string;
+  author?: {
+    name: string;
+    id: string;
+  };
+  created_time?: string;
+  attachments?: {
+    data?: Array<{
+      media?: {
+        image?: {
+          src: string;
+        };
+      };
+    }>;
+  };
+}
+
+interface ScrapeCreatorsResponse {
+  success: boolean;
+  posts: ScrapeCreatorsPost[];
+  cursor?: string;
+}
+
 export class ScraperService {
-  private jinaApiUrl = "https://r.jina.ai";
+  private scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
+  private apiKey = process.env.SCRAPECREATORS_API_KEY;
 
   async scrapeFacebookPage(pageUrl: string): Promise<ScrapedPost[]> {
     try {
-      // Use JINA AI's reader API to scrape the Facebook page
-      const response = await fetch(`${this.jinaApiUrl}/${pageUrl}`, {
+      if (!this.apiKey) {
+        throw new Error("SCRAPECREATORS_API_KEY is not configured");
+      }
+
+      console.log(`Scraping Facebook page: ${pageUrl}`);
+      
+      // Fetch posts from scrapecreators API
+      const response = await fetch(`${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`, {
         headers: {
-          'Accept': 'text/plain',
-          'X-Return-Format': 'markdown'
+          'x-api-key': this.apiKey
         }
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`ScrapeCreators API error (${response.status}):`, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.text();
-      console.log("=== RAW JINA RESPONSE (first 1000 chars) ===");
-      console.log(data.substring(0, 1000));
-      console.log("=== END RAW RESPONSE ===");
-      const posts = this.parseJinaResponse(data, pageUrl);
-      return posts;
+      const data: ScrapeCreatorsResponse = await response.json();
+      
+      console.log(`ScrapeCreators returned ${data.posts?.length || 0} posts`);
+      
+      if (!data.success || !data.posts || data.posts.length === 0) {
+        console.log("No posts found in response");
+        return [];
+      }
+
+      const scrapedPosts = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
+      console.log(`Successfully parsed ${scrapedPosts.length} posts`);
+      
+      return scrapedPosts;
     } catch (error) {
       console.error("Error scraping Facebook page:", error);
       throw new Error("Failed to scrape Facebook page");
     }
   }
 
-  private parseJinaResponse(content: string, sourceUrl: string): ScrapedPost[] {
-    // Parse the JINA markdown response and extract news posts
-    const posts: ScrapedPost[] = [];
+  private parseScrapeCreatorsResponse(posts: ScrapeCreatorsPost[], sourceUrl: string): ScrapedPost[] {
+    const scrapedPosts: ScrapedPost[] = [];
 
+    for (const post of posts) {
+      try {
+        // Skip posts without text content
+        if (!post.text || post.text.trim().length < 20) {
+          console.log(`Skipping post ${post.id} - insufficient text content`);
+          continue;
+        }
+
+        // Extract the first line as title (or use first 100 chars)
+        const lines = post.text.split('\n').filter(line => line.trim());
+        const title = lines[0]?.substring(0, 200) || post.text.substring(0, 100);
+        const content = post.text;
+
+        // Extract image URL if available
+        let imageUrl: string | undefined;
+        if (post.attachments?.data?.[0]?.media?.image?.src) {
+          imageUrl = post.attachments.data[0].media.image.src;
+        }
+
+        // Parse timestamp if available
+        const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
+
+        console.log(`Extracted post: "${title.substring(0, 50)}..." (${content.length} chars)`);
+
+        scrapedPosts.push({
+          title: title.trim(),
+          content: content.trim(),
+          imageUrl,
+          sourceUrl: post.permalink || post.url || sourceUrl,
+          publishedAt,
+        });
+      } catch (error) {
+        console.error(`Error parsing post ${post.id}:`, error);
+        // Continue with next post
+      }
+    }
+
+    return scrapedPosts;
+  }
+
+  // Method to fetch multiple pages of posts using cursor pagination
+  async scrapeFacebookPageWithPagination(pageUrl: string, maxPages: number = 3): Promise<ScrapedPost[]> {
     try {
-      // Split content into sections that look like posts
-      // Facebook posts are often separated by multiple newlines
-      const sections = content.split('\n\n').filter((section: string) => section.trim().length > 100);
+      if (!this.apiKey) {
+        throw new Error("SCRAPECREATORS_API_KEY is not configured");
+      }
 
-      console.log(`Found ${sections.length} potential sections in scraped content`);
+      let allPosts: ScrapedPost[] = [];
+      let cursor: string | undefined;
+      let pageCount = 0;
 
-      for (const section of sections.slice(0, 10)) { // Limit to 10 most recent posts
-        // Extract title (usually the first line or heading)
-        const lines = section.split('\n').filter((line: string) => line.trim());
-        if (lines.length === 0) continue;
+      while (pageCount < maxPages) {
+        const url = cursor 
+          ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
+          : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
 
-        const title = lines[0].replace(/^#+\s*/, '').trim();
-        const postContent = lines.slice(1).join('\n').trim();
+        console.log(`Fetching page ${pageCount + 1}/${maxPages}...`);
 
-        // Skip if content is too short (likely not a real article)
-        if (postContent.length < 50) continue;
+        const response = await fetch(url, {
+          headers: {
+            'x-api-key': this.apiKey
+          }
+        });
 
-        // Check if it's actual news content (contains certain keywords)
-        const newsKeywords = ['phuket', 'news', 'announced', 'reported', 'today', 'breaking', 'update', 'police', 'tourist', 'beach', 'accident'];
-        const lowerContent = (title + ' ' + postContent).toLowerCase();
-        const isNews = newsKeywords.some(keyword => lowerContent.includes(keyword));
+        if (!response.ok) {
+          console.error(`Error fetching page ${pageCount + 1}: ${response.status}`);
+          break;
+        }
 
-        if (isNews) {
-          console.log(`Found potential news article: ${title.substring(0, 50)}...`);
-          console.log(`Content preview: ${postContent.substring(0, 200)}...`);
-          posts.push({
-            title: title.substring(0, 200), // Limit title length
-            content: postContent,
-            sourceUrl,
-            publishedAt: new Date(),
-          });
+        const data: ScrapeCreatorsResponse = await response.json();
+
+        if (!data.success || !data.posts || data.posts.length === 0) {
+          console.log(`No more posts available at page ${pageCount + 1}`);
+          break;
+        }
+
+        const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
+        allPosts = [...allPosts, ...parsed];
+
+        cursor = data.cursor;
+        pageCount++;
+
+        // Break if no cursor for next page
+        if (!cursor) {
+          console.log("No more pages available");
+          break;
         }
       }
 
-      console.log(`Extracted ${posts.length} news posts from content`);
-      return posts;
+      console.log(`Total posts collected: ${allPosts.length} from ${pageCount} pages`);
+      return allPosts;
     } catch (error) {
-      console.error("Error parsing JINA response:", error);
-      return [];
+      console.error("Error scraping with pagination:", error);
+      throw error;
     }
-  }
-
-  // Alternative method using a different scraping approach if JINA doesn't work well
-  async scrapeWithFallback(pageUrl: string): Promise<ScrapedPost[]> {
-    // This could use scrapecreators.com or another service
-    // For now, return empty array as fallback
-    console.log("Using fallback scraper for:", pageUrl);
-    return [];
   }
 }
 

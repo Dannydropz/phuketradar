@@ -78,9 +78,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
       
-      // Scrape the Facebook page
+      // Scrape the Facebook page with pagination (fetch 3 pages = ~9 posts)
       console.log("Starting scrape of:", fbPageUrl);
-      const scrapedPosts = await scraperService.scrapeFacebookPage(fbPageUrl);
+      const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(fbPageUrl, 3);
       
       console.log(`Found ${scrapedPosts.length} potential posts`);
       
