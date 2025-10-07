@@ -102,11 +102,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Only create article if it's actual news
           if (translation.isActualNews) {
+            // Use placeholder image if no image is found from Facebook
+            // This placeholder will be displayed when articles don't have images
+            const placeholderImage = "https://via.placeholder.com/1200x675/e5e7eb/6b7280?text=Phuket+Radar+News";
+            const finalImageUrl = post.imageUrl || placeholderImage;
+            
             const article = await storage.createArticle({
               title: translation.translatedTitle,
               content: translation.translatedContent,
               excerpt: translation.excerpt,
-              imageUrl: post.imageUrl || null,
+              imageUrl: finalImageUrl,
               category: translation.category,
               sourceUrl: post.sourceUrl,
               isPublished: false,

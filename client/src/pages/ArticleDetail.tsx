@@ -111,16 +111,14 @@ export default function ArticleDetail() {
             </div>
           </div>
 
-          {article.imageUrl && (
-            <div className="mb-8 rounded-lg overflow-hidden">
-              <img
-                src={article.imageUrl}
-                alt={article.title}
-                className="w-full h-auto"
-                data-testid="img-article-main"
-              />
-            </div>
-          )}
+          <div className="mb-8 rounded-lg overflow-hidden bg-muted">
+            <img
+              src={article.imageUrl || "https://via.placeholder.com/1200x675/e5e7eb/6b7280?text=Phuket+Radar"}
+              alt={article.title}
+              className="w-full h-auto"
+              data-testid="img-article-main"
+            />
+          </div>
 
           <div
             className="prose prose-lg dark:prose-invert max-w-none"

@@ -24,7 +24,25 @@ interface ScrapeCreatorsPost {
           src: string;
         };
       };
+      type?: string;
+      media_type?: string;
+      url?: string;
+      subattachments?: {
+        data?: Array<{
+          media?: {
+            image?: {
+              src: string;
+            };
+          };
+        }>;
+      };
     }>;
+  };
+  full_picture?: string;
+  videoDetails?: {
+    sdUrl?: string;
+    hdUrl?: string;
+    thumbnail?: string;
   };
 }
 
@@ -94,16 +112,51 @@ export class ScraperService {
         const title = lines[0]?.substring(0, 200) || post.text.substring(0, 100);
         const content = post.text;
 
-        // Extract image URL if available
+        // Extract image URL - try multiple possible locations
         let imageUrl: string | undefined;
-        if (post.attachments?.data?.[0]?.media?.image?.src) {
-          imageUrl = post.attachments.data[0].media.image.src;
+        
+        // Try full_picture first (most common for posts with images)
+        if (post.full_picture) {
+          imageUrl = post.full_picture;
+          console.log(`Found image via full_picture: ${imageUrl.substring(0, 50)}...`);
+        }
+        // Try video thumbnail
+        else if (post.videoDetails?.thumbnail) {
+          imageUrl = post.videoDetails.thumbnail;
+          console.log(`Found image via video thumbnail: ${imageUrl.substring(0, 50)}...`);
+        }
+        // Try attachments
+        else if (post.attachments?.data) {
+          for (const attachment of post.attachments.data) {
+            // Try direct media image
+            if (attachment.media?.image?.src) {
+              imageUrl = attachment.media.image.src;
+              console.log(`Found image via attachment media: ${imageUrl.substring(0, 50)}...`);
+              break;
+            }
+            // Try attachment URL
+            else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo')) {
+              imageUrl = attachment.url;
+              console.log(`Found image via attachment url: ${imageUrl.substring(0, 50)}...`);
+              break;
+            }
+            // Try subattachments (for multi-image posts)
+            else if (attachment.subattachments?.data?.[0]?.media?.image?.src) {
+              imageUrl = attachment.subattachments.data[0].media.image.src;
+              console.log(`Found image via subattachment: ${imageUrl.substring(0, 50)}...`);
+              break;
+            }
+          }
+        }
+
+        if (!imageUrl) {
+          console.log(`No image found for post ${post.id}`);
         }
 
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
 
-        console.log(`Extracted post: "${title.substring(0, 50)}..." (${content.length} chars)`);
+        console.log(`Extracted post: "${title.substring(0, 50)}..." (${content.length} chars, image: ${imageUrl ? 'yes' : 'no'})`);
 
         scrapedPosts.push({
           title: title.trim(),
