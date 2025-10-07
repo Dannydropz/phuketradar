@@ -6,95 +6,116 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Check, X, Eye, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-
-interface ScrapedArticle {
-  id: string;
-  title: string;
-  excerpt: string;
-  content: string;
-  category: string;
-  sourceUrl: string;
-  scrapedAt: Date;
-  status: "pending" | "approved" | "rejected";
-  originalLanguage: string;
-}
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Article } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function AdminDashboard() {
-  // TODO: remove mock functionality - replace with real API data
-  const [articles, setArticles] = useState<ScrapedArticle[]>([
-    {
-      id: "1",
-      title: "New Beach Safety Measures Implemented",
-      excerpt: "Enhanced safety protocols announced for major beaches...",
-      content: "Full article content here...",
-      category: "Breaking",
-      sourceUrl: "https://facebook.com/PhuketTimeNews/posts/123",
-      scrapedAt: new Date(Date.now() - 1000 * 60 * 5),
-      status: "pending",
-      originalLanguage: "Thai",
-    },
-    {
-      id: "2",
-      title: "Tourism Numbers Surge in Q4 2025",
-      excerpt: "Record-breaking tourist arrivals reported...",
-      content: "Full article content here...",
-      category: "Tourism",
-      sourceUrl: "https://facebook.com/PhuketTimeNews/posts/124",
-      scrapedAt: new Date(Date.now() - 1000 * 60 * 15),
-      status: "approved",
-      originalLanguage: "Thai",
-    },
-    {
-      id: "3",
-      title: "Local Markets Report Strong Business",
-      excerpt: "Small businesses experiencing significant growth...",
-      content: "Full article content here...",
-      category: "Business",
-      sourceUrl: "https://facebook.com/PhuketTimeNews/posts/125",
-      scrapedAt: new Date(Date.now() - 1000 * 60 * 30),
-      status: "rejected",
-      originalLanguage: "Thai",
-    },
-  ]);
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const [isScrapingActive, setIsScrapingActive] = useState(false);
+  const { data: articles = [], isLoading } = useQuery<Article[]>({
+    queryKey: ["/api/admin/articles"],
+  });
+
+  const scrapeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/scrape");
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Scraping Complete",
+        description: `Successfully processed ${data.articlesProcessed} articles`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Scraping Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Article> }) => {
+      const res = await apiRequest("PATCH", `/api/admin/articles/${id}`, updates);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+    },
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${id}/publish`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      toast({
+        title: "Article Published",
+        description: "The article is now live on the site",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/articles/${id}`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Article Deleted",
+        description: "The article has been removed",
+      });
+    },
+  });
 
   const handleScrape = () => {
-    setIsScrapingActive(true);
-    console.log("Scraping triggered");
-    setTimeout(() => {
-      setIsScrapingActive(false);
-      console.log("Scraping completed");
-    }, 3000);
+    scrapeMutation.mutate();
   };
 
   const handleApprove = (id: string) => {
-    setArticles((prev) =>
-      prev.map((article) =>
-        article.id === id ? { ...article, status: "approved" as const } : article
-      )
-    );
-    console.log(`Article ${id} approved`);
+    publishMutation.mutate(id);
   };
 
   const handleReject = (id: string) => {
-    setArticles((prev) =>
-      prev.map((article) =>
-        article.id === id ? { ...article, status: "rejected" as const } : article
-      )
-    );
-    console.log(`Article ${id} rejected`);
+    deleteMutation.mutate(id);
   };
 
   const handlePreview = (id: string) => {
-    console.log(`Preview article ${id}`);
+    setLocation(`/article/${id}`);
   };
 
   const stats = {
-    pending: articles.filter((a) => a.status === "pending").length,
-    approved: articles.filter((a) => a.status === "approved").length,
-    rejected: articles.filter((a) => a.status === "rejected").length,
+    pending: articles.filter((a) => !a.isPublished).length,
+    approved: articles.filter((a) => a.isPublished).length,
+    total: articles.length,
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -111,10 +132,10 @@ export default function AdminDashboard() {
             <Button
               size="lg"
               onClick={handleScrape}
-              disabled={isScrapingActive}
+              disabled={scrapeMutation.isPending}
               data-testid="button-scrape"
             >
-              {isScrapingActive ? (
+              {scrapeMutation.isPending ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   Scraping...
@@ -144,7 +165,7 @@ export default function AdminDashboard() {
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Approved</p>
+                  <p className="text-sm text-muted-foreground mb-1">Published</p>
                   <p className="text-3xl font-bold" data-testid="stat-approved">{stats.approved}</p>
                 </div>
                 <Badge className="bg-primary text-primary-foreground text-lg px-4 py-2">
@@ -156,11 +177,11 @@ export default function AdminDashboard() {
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Rejected</p>
-                  <p className="text-3xl font-bold" data-testid="stat-rejected">{stats.rejected}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Total Articles</p>
+                  <p className="text-3xl font-bold" data-testid="stat-total">{stats.total}</p>
                 </div>
                 <Badge variant="secondary" className="text-lg px-4 py-2">
-                  {stats.rejected}
+                  {stats.total}
                 </Badge>
               </div>
             </Card>
@@ -168,86 +189,92 @@ export default function AdminDashboard() {
 
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">Scraped Articles</h2>
-              <div className="space-y-4">
-                {articles.map((article) => (
-                  <div
-                    key={article.id}
-                    className="flex items-start gap-4 p-4 border border-border rounded-lg hover-elevate"
-                    data-testid={`article-row-${article.id}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="secondary" data-testid={`badge-category-${article.id}`}>
-                          {article.category}
-                        </Badge>
-                        <Badge
-                          className={
-                            article.status === "approved"
-                              ? "bg-primary text-primary-foreground"
-                              : article.status === "rejected"
-                              ? "bg-muted text-muted-foreground"
-                              : ""
-                          }
-                          data-testid={`badge-status-${article.id}`}
+              <h2 className="text-2xl font-bold mb-6">Articles</h2>
+              {articles.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">No articles yet. Click "Scrape New Articles" to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {articles.map((article) => (
+                    <div
+                      key={article.id}
+                      className="flex items-start gap-4 p-4 border border-border rounded-lg hover-elevate"
+                      data-testid={`article-row-${article.id}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary" data-testid={`badge-category-${article.id}`}>
+                            {article.category}
+                          </Badge>
+                          <Badge
+                            className={
+                              article.isPublished
+                                ? "bg-primary text-primary-foreground"
+                                : ""
+                            }
+                            data-testid={`badge-status-${article.id}`}
+                          >
+                            {article.isPublished ? "published" : "pending"}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <h3 className="font-semibold mb-1 text-lg" data-testid={`text-title-${article.id}`}>
+                          {article.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                          {article.excerpt}
+                        </p>
+                        <a
+                          href={article.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline"
+                          data-testid={`link-source-${article.id}`}
                         >
-                          {article.status}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(article.scrapedAt, { addSuffix: true })}
-                        </span>
+                          View original source
+                        </a>
                       </div>
-                      <h3 className="font-semibold mb-1 text-lg" data-testid={`text-title-${article.id}`}>
-                        {article.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                        {article.excerpt}
-                      </p>
-                      <a
-                        href={article.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline"
-                        data-testid={`link-source-${article.id}`}
-                      >
-                        View original source
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handlePreview(article.id)}
+                          data-testid={`button-preview-${article.id}`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        {!article.isPublished && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleApprove(article.id)}
+                              className="border-primary text-primary"
+                              disabled={publishMutation.isPending}
+                              data-testid={`button-approve-${article.id}`}
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleReject(article.id)}
+                              className="border-destructive text-destructive"
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-reject-${article.id}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handlePreview(article.id)}
-                        data-testid={`button-preview-${article.id}`}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      {article.status === "pending" && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleApprove(article.id)}
-                            className="border-primary text-primary"
-                            data-testid={`button-approve-${article.id}`}
-                          >
-                            <Check className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleReject(article.id)}
-                            className="border-destructive text-destructive"
-                            data-testid={`button-reject-${article.id}`}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         </div>

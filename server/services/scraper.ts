@@ -15,7 +15,7 @@ export class ScraperService {
       // Use JINA AI's reader API to scrape the Facebook page
       const response = await fetch(`${this.jinaApiUrl}/${pageUrl}`, {
         headers: {
-          'Accept': 'application/json',
+          'Accept': 'text/plain',
           'X-Return-Format': 'markdown'
         }
       });
@@ -24,7 +24,7 @@ export class ScraperService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.text();
       const posts = this.parseJinaResponse(data, pageUrl);
       return posts;
     } catch (error) {
@@ -33,17 +33,16 @@ export class ScraperService {
     }
   }
 
-  private parseJinaResponse(data: any, sourceUrl: string): ScrapedPost[] {
-    // Parse the JINA response and extract news posts
-    // This is a simplified implementation - in production, you'd need more sophisticated parsing
+  private parseJinaResponse(content: string, sourceUrl: string): ScrapedPost[] {
+    // Parse the JINA markdown response and extract news posts
     const posts: ScrapedPost[] = [];
 
     try {
-      const content = typeof data === 'string' ? data : data.content || data.data || '';
-      
       // Split content into sections that look like posts
-      // This is a basic implementation - you may need to adjust based on actual JINA response format
+      // Facebook posts are often separated by multiple newlines
       const sections = content.split('\n\n').filter((section: string) => section.trim().length > 100);
+
+      console.log(`Found ${sections.length} potential sections in scraped content`);
 
       for (const section of sections.slice(0, 10)) { // Limit to 10 most recent posts
         // Extract title (usually the first line or heading)
@@ -57,11 +56,12 @@ export class ScraperService {
         if (postContent.length < 50) continue;
 
         // Check if it's actual news content (contains certain keywords)
-        const newsKeywords = ['phuket', 'news', 'announced', 'reported', 'today', 'breaking', 'update'];
+        const newsKeywords = ['phuket', 'news', 'announced', 'reported', 'today', 'breaking', 'update', 'police', 'tourist', 'beach', 'accident'];
         const lowerContent = (title + ' ' + postContent).toLowerCase();
         const isNews = newsKeywords.some(keyword => lowerContent.includes(keyword));
 
         if (isNews) {
+          console.log(`Found potential news article: ${title.substring(0, 50)}...`);
           posts.push({
             title: title.substring(0, 200), // Limit title length
             content: postContent,
@@ -71,6 +71,7 @@ export class ScraperService {
         }
       }
 
+      console.log(`Extracted ${posts.length} news posts from content`);
       return posts;
     } catch (error) {
       console.error("Error parsing JINA response:", error);
