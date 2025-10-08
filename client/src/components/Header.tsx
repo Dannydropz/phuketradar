@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
+import logoDark from "@assets/PhuketRadar_1759933943849.png";
+import logoLight from "@assets/PhuketRadar (2)_1759934227696.png";
 
 const categories = [
   { name: "All News", path: "/" },
@@ -21,13 +23,12 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-lg">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2 hover-elevate rounded-lg px-3 py-2">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">P</span>
-              </div>
-              <span className="text-xl font-bold">Phuket News</span>
-            </div>
+          <Link href="/" className="flex items-center hover-elevate rounded-lg px-3 py-2" data-testid="link-home">
+            <img 
+              src={theme === "light" ? logoDark : logoLight} 
+              alt="Phuket Radar" 
+              className="h-8 w-auto"
+            />
           </Link>
 
           <nav className="hidden md:flex items-center space-x-1">

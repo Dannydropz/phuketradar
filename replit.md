@@ -1,4 +1,4 @@
-# Phuket News Aggregator
+# Phuket Radar
 
 ## Overview
 

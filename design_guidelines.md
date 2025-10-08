@@ -1,4 +1,4 @@
-# Design Guidelines: Phuket News Aggregator
+# Design Guidelines: Phuket Radar
 
 ## Design Approach
 **Reference-Based Approach**: Inspired by Morning Brew's clean, newsletter-style aesthetic combined with modern news platforms like The Information and Substack. Focus on readability, speed, and professional journalism presentation.
@@ -146,7 +146,7 @@ Use **Heroicons** (outline style) via CDN for consistency - news icons, share ic
 2. Hero Featured Article (full-width, prominent image)
 3. Breaking News Strip (horizontal scroll on mobile)
 4. Latest News Grid (3 columns desktop, responsive)
-5. Category Sections (Phuket News, Tourism, Business, etc.)
+5. Category Sections (Breaking, Tourism, Business, Events, etc.)
 6. Newsletter Signup CTA
 7. Footer (minimal: links, social, credits)
 

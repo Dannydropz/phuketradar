@@ -1,17 +1,23 @@
 import { Link } from "wouter";
 import { Facebook } from "lucide-react";
+import { useTheme } from "./ThemeProvider";
+import logoDark from "@assets/PhuketRadar_1759933943849.png";
+import logoLight from "@assets/PhuketRadar (2)_1759934227696.png";
 
 export function Footer() {
+  const { theme } = useTheme();
+  
   return (
     <footer className="border-t bg-card mt-20">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">P</span>
-              </div>
-              <span className="text-xl font-bold">Phuket News</span>
+            <div className="mb-4">
+              <img 
+                src={theme === "light" ? logoDark : logoLight} 
+                alt="Phuket Radar" 
+                className="h-8 w-auto"
+              />
             </div>
             <p className="text-muted-foreground max-w-md mb-4">
               Your fastest source for breaking news and updates from Phuket, Thailand. 
@@ -74,7 +80,7 @@ export function Footer() {
         </div>
 
         <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Phuket News. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Phuket Radar. All rights reserved.</p>
           <p className="mt-2">Content translated and adapted from original Thai sources.</p>
         </div>
       </div>
