@@ -16,7 +16,7 @@ export function Footer() {
               <img 
                 src={theme === "light" ? logoDark : logoLight} 
                 alt="Phuket Radar" 
-                className="h-8 w-auto"
+                className="h-12 w-auto"
               />
             </div>
             <p className="text-muted-foreground max-w-md mb-4">

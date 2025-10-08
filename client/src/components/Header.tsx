@@ -27,7 +27,7 @@ export function Header() {
             <img 
               src={theme === "light" ? logoDark : logoLight} 
               alt="Phuket Radar" 
-              className="h-8 w-auto"
+              className="h-12 w-auto"
             />
           </Link>
 
