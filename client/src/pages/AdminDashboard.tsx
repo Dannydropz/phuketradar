@@ -3,7 +3,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Check, X, Eye, RefreshCw } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut } from "lucide-react";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -11,10 +11,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Article } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminDashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { logout } = useAdminAuth();
 
   const { data: articles = [], isLoading } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
@@ -96,6 +98,11 @@ export default function AdminDashboard() {
     setLocation(`/article/${id}`);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/admin/login");
+  };
+
   const stats = {
     pending: articles.filter((a) => !a.isPublished).length,
     approved: articles.filter((a) => a.isPublished).length,
@@ -129,24 +136,34 @@ export default function AdminDashboard() {
                 Review and manage scraped articles before publishing
               </p>
             </div>
-            <Button
-              size="lg"
-              onClick={handleScrape}
-              disabled={scrapeMutation.isPending}
-              data-testid="button-scrape"
-            >
-              {scrapeMutation.isPending ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Scraping...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Scrape New Articles
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+              <Button
+                size="lg"
+                onClick={handleScrape}
+                disabled={scrapeMutation.isPending}
+                data-testid="button-scrape"
+              >
+                {scrapeMutation.isPending ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Scraping...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Scrape New Articles
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

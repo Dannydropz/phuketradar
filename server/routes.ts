@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { scraperService } from "./services/scraper";
@@ -6,6 +6,21 @@ import { translatorService } from "./services/translator";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { insertArticleSchema } from "@shared/schema";
 import { z } from "zod";
+
+// Extend session type
+declare module "express-session" {
+  interface SessionData {
+    isAdminAuthenticated?: boolean;
+  }
+}
+
+// Auth middleware
+function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session.isAdminAuthenticated) {
+    return next();
+  }
+  return res.status(401).json({ error: "Unauthorized" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Article routes
@@ -64,6 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (password === adminPassword) {
+        req.session.isAdminAuthenticated = true;
         return res.json({ success: true });
       }
 
@@ -74,8 +90,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all articles (including unpublished)
-  app.get("/api/admin/articles", async (req, res) => {
+  // Admin logout
+  app.post("/api/admin/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  // Get all articles (including unpublished) - PROTECTED
+  app.get("/api/admin/articles", requireAdminAuth, async (req, res) => {
     try {
       const articles = await storage.getAllArticles();
       res.json(articles);
@@ -85,8 +111,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get pending articles
-  app.get("/api/admin/articles/pending", async (req, res) => {
+  // Get pending articles - PROTECTED
+  app.get("/api/admin/articles/pending", requireAdminAuth, async (req, res) => {
     try {
       const articles = await storage.getPendingArticles();
       res.json(articles);
@@ -96,8 +122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Scrape and process articles
-  app.post("/api/admin/scrape", async (req, res) => {
+  // Scrape and process articles - PROTECTED
+  app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
     try {
       const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
       
@@ -164,8 +190,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update article (approve/reject/edit)
-  app.patch("/api/admin/articles/:id", async (req, res) => {
+  // Update article (approve/reject/edit) - PROTECTED
+  app.patch("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -183,8 +209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete article
-  app.delete("/api/admin/articles/:id", async (req, res) => {
+  // Delete article - PROTECTED
+  app.delete("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const success = await storage.deleteArticle(id);
@@ -200,8 +226,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Publish article
-  app.post("/api/admin/articles/:id/publish", async (req, res) => {
+  // Publish article - PROTECTED
+  app.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const article = await storage.updateArticle(id, { isPublished: true });
