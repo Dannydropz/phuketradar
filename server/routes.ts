@@ -52,6 +52,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin routes
 
+  // Admin authentication
+  app.post("/api/admin/auth", async (req, res) => {
+    try {
+      const { password } = req.body;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+
+      if (!adminPassword) {
+        console.error("ADMIN_PASSWORD not set in environment variables");
+        return res.status(500).json({ error: "Server configuration error" });
+      }
+
+      if (password === adminPassword) {
+        return res.json({ success: true });
+      }
+
+      return res.status(401).json({ error: "Invalid password" });
+    } catch (error) {
+      console.error("Auth error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
   // Get all articles (including unpublished)
   app.get("/api/admin/articles", async (req, res) => {
     try {
