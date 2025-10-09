@@ -13,6 +13,11 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Validate required environment variables
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required for database operations");
+}
+
 // PostgreSQL session store for production persistence
 const PgSession = connectPgSimple(session);
 const sessionStore = new PgSession({
@@ -21,15 +26,21 @@ const sessionStore = new PgSession({
 });
 
 // Session middleware for admin authentication
-const sessionSecret = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "fallback-secret-change-me";
-if (!process.env.SESSION_SECRET && process.env.NODE_ENV === "production") {
-  console.warn("WARNING: SESSION_SECRET not set. Using ADMIN_PASSWORD as fallback (not recommended for production).");
+// Capture SESSION_SECRET at startup to prevent runtime issues
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
+  throw new Error(
+    "SESSION_SECRET environment variable is required and must be at least 32 characters for secure session management. " +
+    "Generate a secure random string using: openssl rand -base64 32"
+  );
 }
+
+log(`Session configured with ${SESSION_SECRET.length}-character secret`);
 
 app.use(
   session({
     store: sessionStore,
-    secret: sessionSecret,
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
