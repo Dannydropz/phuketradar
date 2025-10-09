@@ -55,26 +55,34 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
         </div>
       </Link>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {sidebar.map((article) => (
           <Link key={article.id} href={`/article/${article.id}`}>
-            <div className="bg-card border border-card-border rounded-lg p-4 hover-elevate active-elevate-2 cursor-pointer" data-testid={`card-sidebar-${article.id}`}>
-              <div className="flex items-center gap-2 mb-2">
-                {article.isBreaking && (
-                  <Badge className="bg-destructive text-destructive-foreground text-xs font-bold">
-                    BREAKING
+            <div className="flex gap-3 group cursor-pointer" data-testid={`card-sidebar-${article.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {article.isBreaking && (
+                    <Badge className="bg-destructive text-destructive-foreground text-xs font-bold">
+                      BREAKING
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="text-xs" data-testid={`badge-sidebar-category-${article.id}`}>
+                    {article.category}
                   </Badge>
-                )}
-                <Badge variant="secondary" className="text-xs" data-testid={`badge-sidebar-category-${article.id}`}>
-                  {article.category}
-                </Badge>
+                </div>
+                <h3 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors" data-testid={`text-sidebar-title-${article.id}`}>
+                  {article.title}
+                </h3>
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <span data-testid={`text-sidebar-time-${article.id}`}>{formatDistanceToNow(article.publishedAt, { addSuffix: true })}</span>
+                </div>
               </div>
-              <h3 className="font-semibold mb-2 line-clamp-2" data-testid={`text-sidebar-title-${article.id}`}>
-                {article.title}
-              </h3>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <Clock className="w-3 h-3 mr-1" />
-                <span data-testid={`text-sidebar-time-${article.id}`}>{formatDistanceToNow(article.publishedAt, { addSuffix: true })}</span>
+              <div className="w-20 h-20 flex-shrink-0">
+                <img
+                  src={article.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='%23e5e7eb'/%3E%3C/svg%3E"}
+                  alt={article.title}
+                  className="w-full h-full object-cover rounded-md"
+                />
               </div>
             </div>
           </Link>
