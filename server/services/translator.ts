@@ -37,9 +37,12 @@ export class TranslatorService {
 
 Your task:
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
-2. If it's news, translate from Thai to English and rewrite it in a clear, professional news style similar to Morning Brew
-3. Extract a concise excerpt (2-3 sentences)
-4. Categorize the article (Breaking, Tourism, Business, Events, or Other)
+2. REJECT and mark as NOT news if the content is about:
+   - The Thai royal family, monarchy, or king (sensitive political content)
+   - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
+3. If it's acceptable news, translate from Thai to English and rewrite it in a clear, professional news style similar to Morning Brew
+4. Extract a concise excerpt (2-3 sentences)
+5. Categorize the article (Breaking, Tourism, Business, Events, or Other)
 
 Original Title: ${title}
 
@@ -54,7 +57,7 @@ Respond in JSON format:
   "category": "Breaking|Tourism|Business|Events|Other"
 }
 
-If this is NOT actual news (promotional content, greetings, ads, etc.), set isActualNews to false and leave other fields empty.`;
+If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",

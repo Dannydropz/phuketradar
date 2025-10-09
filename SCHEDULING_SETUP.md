@@ -1,6 +1,6 @@
 # Automated Scraping Schedule Setup
 
-This guide explains how to set up automated scraping for Phuket Radar.
+This guide explains how to set up automated scraping for Phuket Radar with **4-hour auto-publishing**.
 
 ## ✅ Database Setup Complete
 
@@ -11,44 +11,42 @@ The application now uses **persistent PostgreSQL database storage**. Articles cr
 The `server/scheduler.ts` file contains the scraping logic that:
 1. Scrapes the Facebook page for new posts
 2. Translates content from Thai to English using OpenAI
-3. Filters out non-news content
-4. Auto-publishes articles (no manual approval needed)
+3. **Filters out sensitive content** (royal family/king news, Phuket Times self-referential posts)
+4. Filters out non-news content (promotional posts, greetings, ads)
+5. **Auto-publishes articles** (no manual approval needed)
 
-## Setting Up Scheduled Deployment in Replit
+## Setting Up 4-Hour Auto-Publishing Schedule
 
-### Method 1: Using Replit's Scheduled Deployments (Recommended)
+### Step-by-Step Instructions
 
-1. **Access Deployments Tool**
-   - Open the Deployments tool from your workspace sidebar
-   - Or search "Deployments" in the command palette
+1. **Access Deployments Tab**
+   - Click on the **Deployments** tab in your Replit workspace sidebar
+   - Or press `Cmd/Ctrl + K` and search for "Deployments"
 
 2. **Create Scheduled Deployment**
-   - Select "Scheduled" deployment type
-   - Click "Set up your published app"
+   - Click **"Create deployment"** or **"New deployment"**
+   - Select **"Scheduled"** deployment type
+   - Click **"Continue"** or **"Set up"**
 
-3. **Configure Schedule**
-   Choose one of these options:
-   - **Natural Language**: "Every 2 hours" or "Every day at 9 AM"
-   - **Cron Expression**: `0 */2 * * *` (every 2 hours)
-   
-   Recommended schedules:
-   - Every 2 hours: `0 */2 * * *`
-   - Every 4 hours: `0 */4 * * *`
-   - Twice daily (9 AM, 9 PM): `0 9,21 * * *`
+3. **Configure 4-Hour Schedule**
+   - **Schedule**: Enter `every 4 hours` or use cron: `0 */4 * * *`
+   - This will run at: 12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM
 
-4. **Set Commands**
+4. **Set Commands** (IMPORTANT - Copy exactly)
    - **Build Command**: `npm install`
    - **Run Command**: `tsx server/scheduler.ts`
-   - **Timeout**: 300 seconds (5 minutes)
+   - **Timeout**: `300` seconds (5 minutes)
 
-5. **Configure Environment Variables**
-   Ensure these secrets are set:
-   - `OPENAI_API_KEY` - Your OpenAI API key
-   - `SCRAPECREATORS_API_KEY` - Your ScrapeCreators API key
+5. **Verify Environment Variables**
+   Your secrets are already configured:
+   - ✅ `OPENAI_API_KEY` - For translation
+   - ✅ `SCRAPECREATORS_API_KEY` - For Facebook scraping
+   - ✅ `DATABASE_URL` - For persistent storage
 
-6. **Publish**
-   - Review settings and click "Publish"
-   - Monitor execution from the Schedule tab
+6. **Deploy & Activate**
+   - Click **"Deploy"** or **"Publish"**
+   - Your scheduled scraper is now active! 🎉
+   - Articles will auto-publish every 4 hours
 
 ### Method 2: Manual Execution
 
@@ -61,18 +59,35 @@ tsx server/scheduler.ts
 
 Or from the admin dashboard, use the "Scrape Now" button.
 
-## Monitoring
+## Monitoring Your Auto-Published Articles
 
-- **Logs**: View execution logs in the Deployments tool
-- **Articles**: Check the admin dashboard to see newly published articles
-- **Costs**: Monitor your Replit Core credits usage
+- **Logs**: Click **"Schedule"** tab in Deployments to view execution logs
+- **Articles**: Visit your homepage - new articles appear automatically
+- **Admin**: Check `/admin` dashboard (if implemented) for all articles
+- **Costs**: Monitor Replit Core credits in your account settings
 
-## Cost Considerations
+## What Gets Published Automatically
 
-- Scheduled deployments consume Replit Core credits
-- OpenAI API calls cost money based on usage
-- ScrapeCreators API has rate limits
-- Recommended: Start with less frequent schedules (4-6 hours) and adjust
+✅ **Included:**
+- Breaking news about Phuket
+- Tourism updates
+- Business news
+- Local events
+- General news about the island
+
+❌ **Filtered Out:**
+- Royal family/king news (sensitive political content)
+- Phuket Times self-referential posts (news about the news source)
+- Promotional content & ads
+- Greetings and filler posts
+- Non-news social media content
+
+## Cost Breakdown
+
+- **Replit Scheduled Deployments**: ~$1.35/month (covered by Core credits)
+- **OpenAI API** (GPT-4-mini): ~$5-10/month depending on volume
+- **ScrapeCreators API**: Check your plan limits
+- **Total**: ~$6-12/month for fully automated news site
 
 ## Troubleshooting
 
