@@ -4,7 +4,6 @@ import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import logoDark from "@assets/PhuketRadar_1759933943849.png";
-import logoLight from "@assets/PhuketRadar (2)_1759934227696.png";
 
 const categories = [
   { name: "All News", path: "/" },
@@ -25,7 +24,7 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center hover-elevate rounded-lg px-3 py-2" data-testid="link-home">
             <img 
-              src={theme === "light" ? logoDark : logoLight} 
+              src={logoDark} 
               alt="Phuket Radar" 
               className="h-16 w-auto"
             />

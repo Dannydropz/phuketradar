@@ -55,7 +55,7 @@ export function EmailSignup() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="bg-header text-header-foreground"
+            variant="default"
             data-testid="button-subscribe"
           >
             {isSubmitting ? "Subscribing..." : "Subscribe"}

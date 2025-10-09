@@ -18,8 +18,8 @@
 
   --foreground: 220 13% 13%;
 
-  --header: 27 100% 57%;
-  --header-foreground: 0 0% 100%;
+  --header: 0 0% 100%;
+  --header-foreground: 0 0% 8%;
 
   --border: 220 13% 91%;
 
@@ -139,8 +139,8 @@
 
   --foreground: 210 20% 98%;
 
-  --header: 27 100% 57%;
-  --header-foreground: 0 0% 100%;
+  --header: 0 0% 100%;
+  --header-foreground: 0 0% 8%;
 
   --border: 217 19% 27%;
 
