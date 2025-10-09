@@ -8,6 +8,26 @@ A modern news aggregation platform that scrapes Thai-language news from Facebook
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+**October 9, 2025 - Database Migration to Persistent Storage**
+- ✅ Migrated from in-memory `MemStorage` to persistent `DatabaseStorage` using PostgreSQL
+- ✅ Created database tables using Drizzle migrations: `users` and `articles`
+- ✅ Verified article persistence across server restarts (5 articles tested successfully)
+- ✅ Updated scheduler to work with persistent database - automated scraping now fully functional
+- ✅ Removed warnings about in-memory storage limitations from scheduler and documentation
+- Environment variables configured: DATABASE_URL, PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
+
+**October 9, 2025 - Author Attribution & UI Enhancements**
+- Added author field to articles with randomized Thai female names (Ploy Srisawat, Natcha Petcharat, Kanya Rattanaporn, Nara Wongsawat, Apinya Thongchai)
+- Author displayed with AI icon badge on article detail pages (Hoodline-style byline)
+- Removed source attribution line from article detail (will add inline citations later)
+- Added "Latest" sidebar to article detail pages with sticky positioning showing 5 most recent articles
+- Logo size increased from h-12 to h-16 in header and footer for better visibility
+- Footer tagline simplified to just "Phuket"
+- Created scheduler.ts for automated scraping with auto-publish feature
+- Created SCHEDULING_SETUP.md with comprehensive setup instructions
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -42,9 +62,10 @@ Preferred communication style: Simple, everyday language.
 
 **Data Layer**
 - Drizzle ORM for type-safe database operations
-- PostgreSQL schema with two main tables: `users` and `articles`
-- In-memory storage implementation (`MemStorage`) for development/testing
-- Articles schema includes: title, content, excerpt, category, source URL, publish status, translation metadata
+- PostgreSQL database (Neon-backed) with persistent storage via `DatabaseStorage` class
+- Schema with two main tables: `users` and `articles`
+- Articles schema includes: id (UUID), title, content, excerpt, category, author, source URL, publish status, translation metadata
+- Automatic persistence - articles survive server restarts and are available across all deployments
 
 **Business Logic Services**
 - **ScraperService**: Facebook page scraping using JINA AI Reader API to extract markdown content from social media posts

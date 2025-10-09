@@ -2,25 +2,22 @@
  * Automated Scraping Scheduler
  * 
  * This module provides automated scraping functionality.
- * To enable scheduled scraping, set up a Scheduled Deployment in Replit:
+ * To enable scheduled scraping, set up a Scheduled Deployment in Replit.
  * 
- * 1. Go to Deployments tool in Replit
- * 2. Select "Scheduled" deployment type
- * 3. Configure schedule (e.g., "Every 2 hours" or cron: "0 */2 * * *")
- * 4. Set run command: tsx server/scheduler.ts
- * 5. Publish the scheduled deployment
+ * Setup Steps:
+ * - Go to Deployments tool in Replit
+ * - Select "Scheduled" deployment type  
+ * - Configure schedule (e.g., "Every 2 hours" or cron: "0 2-23/2 * * *")
+ * - Set run command: tsx server/scheduler.ts
+ * - Ensure environment variables are set: OPENAI_API_KEY, SCRAPECREATORS_API_KEY
+ * - Publish the scheduled deployment
  * 
- * IMPORTANT: This requires a persistent database. In-memory storage will NOT work
- * for scheduled deployments as data is lost when the job completes.
- * You must set up a PostgreSQL database before using scheduled scraping.
+ * The scheduler uses PostgreSQL database storage for persistence, so articles
+ * will be permanently saved and appear in the main application.
  */
 
 import { scraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
-
-// NOTE: For scheduled scraping to work, you need to implement a persistent storage backend
-// The current MemStorage implementation will NOT persist data across scheduled runs
-// TODO: Replace with database-backed storage (PostgreSQL) before enabling scheduled deployments
 import { storage } from "./storage";
 
 export async function runScheduledScrape() {

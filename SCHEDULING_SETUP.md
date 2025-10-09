@@ -2,19 +2,9 @@
 
 This guide explains how to set up automated scraping for Phuket Radar.
 
-## ⚠️ IMPORTANT: Database Requirement
+## ✅ Database Setup Complete
 
-**Scheduled scraping requires a persistent database.** The current in-memory storage will NOT work for scheduled deployments because:
-- Each scheduled run creates a new process
-- In-memory data is lost when the job completes
-- Articles will never appear in the main application
-
-**Before enabling scheduled scraping:**
-1. Set up a PostgreSQL database (use Replit's built-in database tool)
-2. Update the storage implementation to use the database instead of MemStorage
-3. Test manual scraping to ensure articles persist
-
-For now, use the **manual scraping** method via the admin dashboard.
+The application now uses **persistent PostgreSQL database storage**. Articles created by scheduled scraping will be permanently saved and appear in the main application.
 
 ## How It Works
 
