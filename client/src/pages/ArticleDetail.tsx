@@ -137,13 +137,6 @@ export default function ArticleDetail() {
             dangerouslySetInnerHTML={{ __html: article.content }}
             data-testid="content-article-body"
           />
-
-          <div className="mt-12 pt-8 border-t">
-            <p className="text-sm text-muted-foreground italic">
-              This article was translated and adapted from Thai language sources using AI technology. 
-              Original reporting by Phuket Time News.
-            </p>
-          </div>
         </article>
 
         <aside className="lg:col-span-1">
