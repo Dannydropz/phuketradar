@@ -9,6 +9,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { EmailSignup } from "@/components/EmailSignup";
 import { useQuery } from "@tanstack/react-query";
 import type { Article } from "@shared/schema";
+import { PLACEHOLDER_HERO, PLACEHOLDER_THUMBNAIL } from "@/lib/placeholders";
 
 export default function ArticleDetail() {
   const [, params] = useRoute("/article/:id");
@@ -126,7 +127,7 @@ export default function ArticleDetail() {
 
           <div className="mb-8 rounded-lg overflow-hidden bg-muted">
             <img
-              src={article.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='675'%3E%3Crect width='1200' height='675' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%236b7280'%3EPhuket Radar%3C/text%3E%3C/svg%3E"}
+              src={article.imageUrl || PLACEHOLDER_HERO}
               alt={article.title}
               className="w-full h-auto"
               data-testid="img-article-main"
@@ -161,7 +162,7 @@ export default function ArticleDetail() {
                   </div>
                   <div className="w-20 h-20 flex-shrink-0">
                     <img
-                      src={latestArticle.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='%23e5e7eb'/%3E%3C/svg%3E"}
+                      src={latestArticle.imageUrl || PLACEHOLDER_THUMBNAIL}
                       alt={latestArticle.title}
                       className="w-full h-full object-cover rounded-md"
                     />

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { scraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
+import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { insertArticleSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -102,10 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Only create article if it's actual news
           if (translation.isActualNews) {
-            // Use a data URI placeholder if no image is found from Facebook
-            // This creates a simple gray placeholder without external dependencies
-            const placeholderImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='675'%3E%3Crect width='1200' height='675' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%236b7280'%3EPhuket Radar%3C/text%3E%3C/svg%3E";
-            const finalImageUrl = post.imageUrl || placeholderImage;
+            const finalImageUrl = post.imageUrl || PLACEHOLDER_IMAGE;
             
             const article = await storage.createArticle({
               title: translation.translatedTitle,

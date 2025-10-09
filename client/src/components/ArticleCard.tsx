@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { PLACEHOLDER_CARD } from "@/lib/placeholders";
 
 interface ArticleCardProps {
   id: string;
@@ -28,7 +29,7 @@ export function ArticleCard({
       <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
         <div className="relative w-full aspect-video overflow-hidden bg-muted">
           <img
-            src={imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='675'%3E%3Crect width='1200' height='675' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%236b7280'%3EPhuket Radar%3C/text%3E%3C/svg%3E"}
+            src={imageUrl || PLACEHOLDER_CARD}
             alt={title}
             className="w-full h-full object-cover"
             data-testid={`img-article-${id}`}
