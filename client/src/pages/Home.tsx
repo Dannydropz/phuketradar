@@ -74,6 +74,8 @@ export default function Home() {
             }))}
           />
 
+          <EmailSignup />
+
           {latestArticles.length > 0 && (
             <section>
               <h2 className="text-3xl font-bold mb-6">Latest News</h2>
@@ -94,8 +96,6 @@ export default function Home() {
             </section>
           )}
         </div>
-
-        <EmailSignup />
       </main>
       <Footer />
     </div>
