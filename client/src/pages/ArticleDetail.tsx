@@ -2,7 +2,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Share2, Facebook } from "lucide-react";
+import { Clock, Share2 } from "lucide-react";
 import { useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleCard } from "@/components/ArticleCard";
@@ -14,7 +14,7 @@ export default function ArticleDetail() {
   const articleId = params?.id || "";
 
   const { data: article, isLoading } = useQuery<Article>({
-    queryKey: ["/api/articles", articleId],
+    queryKey: [`/api/articles/${articleId}`],
     enabled: !!articleId,
   });
 
@@ -57,6 +57,10 @@ export default function ArticleDetail() {
   const relatedArticles = allArticles
     .filter((a) => a.id !== article.id && a.category === article.category)
     .slice(0, 3);
+  
+  const latestArticles = allArticles
+    .filter((a) => a.id !== article.id)
+    .slice(0, 5);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -75,7 +79,9 @@ export default function ArticleDetail() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
-        <article className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <article className="lg:col-span-2">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               {article.category.toLowerCase() === "breaking" && (
@@ -96,14 +102,20 @@ export default function ArticleDetail() {
             <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-article-title">
               {article.title}
             </h1>
+            <div className="flex items-center gap-3 mb-6">
+              <img 
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300bcd4' stroke-width='2'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'/%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'/%3E%3C/svg%3E" 
+                alt="AI Assisted" 
+                className="w-5 h-5"
+              />
+              <span className="text-sm text-muted-foreground">
+                By <span className="text-foreground font-medium" data-testid="text-author">{article.author}</span>
+              </span>
+            </div>
             <p className="text-xl text-muted-foreground mb-6" data-testid="text-article-excerpt">
               {article.excerpt}
             </p>
-            <div className="flex items-center justify-between border-y py-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Facebook className="w-4 h-4" />
-                <span>Source: <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" data-testid="link-source">Phuket Time News</a></span>
-              </div>
+            <div className="flex items-center justify-end border-y py-4">
               <Button variant="outline" size="sm" onClick={handleShare} data-testid="button-share">
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
@@ -134,26 +146,52 @@ export default function ArticleDetail() {
           </div>
         </article>
 
-        {relatedArticles.length > 0 && (
-          <section className="bg-card border-y mt-12 py-12">
-            <div className="container mx-auto px-4 max-w-6xl">
-              <h2 className="text-3xl font-bold mb-6">Related Articles</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {relatedArticles.map((relatedArticle) => (
-                  <ArticleCard
-                    key={relatedArticle.id}
-                    id={relatedArticle.id}
-                    title={relatedArticle.title}
-                    excerpt={relatedArticle.excerpt}
-                    imageUrl={relatedArticle.imageUrl || undefined}
-                    category={relatedArticle.category}
-                    publishedAt={new Date(relatedArticle.publishedAt)}
-                  />
-                ))}
-              </div>
+        <aside className="lg:col-span-1">
+          <div className="sticky top-20">
+            <h3 className="text-xl font-bold mb-4">Latest</h3>
+            <div className="space-y-4">
+              {latestArticles.map((latestArticle) => (
+                <a 
+                  key={latestArticle.id} 
+                  href={`/article/${latestArticle.id}`}
+                  className="block group hover-elevate rounded-lg p-3"
+                  data-testid={`link-latest-${latestArticle.id}`}
+                >
+                  <h4 className="font-semibold text-sm mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                    {latestArticle.title}
+                  </h4>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3 mr-1" />
+                    <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
+                  </div>
+                </a>
+              ))}
             </div>
-          </section>
-        )}
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    {relatedArticles.length > 0 && (
+      <section className="bg-card border-y mt-12 py-12">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <h2 className="text-3xl font-bold mb-6">Related Articles</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {relatedArticles.map((relatedArticle) => (
+              <ArticleCard
+                key={relatedArticle.id}
+                id={relatedArticle.id}
+                title={relatedArticle.title}
+                excerpt={relatedArticle.excerpt}
+                imageUrl={relatedArticle.imageUrl || undefined}
+                category={relatedArticle.category}
+                publishedAt={new Date(relatedArticle.publishedAt)}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
       </main>
       <Footer />
     </div>

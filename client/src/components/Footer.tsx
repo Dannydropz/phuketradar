@@ -16,12 +16,11 @@ export function Footer() {
               <img 
                 src={theme === "light" ? logoDark : logoLight} 
                 alt="Phuket Radar" 
-                className="h-12 w-auto"
+                className="h-16 w-auto"
               />
             </div>
             <p className="text-muted-foreground max-w-md mb-4">
-              Your fastest source for breaking news and updates from Phuket, Thailand. 
-              Translated from Thai to English for the international community.
+              Phuket
             </p>
             <div className="flex items-center space-x-4">
               <a

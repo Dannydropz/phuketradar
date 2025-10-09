@@ -84,6 +84,7 @@ export class MemStorage implements IStorage {
       imageUrl: insertArticle.imageUrl || null,
       category: insertArticle.category,
       sourceUrl: insertArticle.sourceUrl,
+      author: insertArticle.author || "Ploy Srisawat",
       publishedAt: new Date(),
       isPublished: insertArticle.isPublished ?? false,
       originalLanguage: insertArticle.originalLanguage || null,

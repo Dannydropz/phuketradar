@@ -114,6 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               imageUrl: finalImageUrl,
               category: translation.category,
               sourceUrl: post.sourceUrl,
+              author: translation.author,
               isPublished: false,
               originalLanguage: "th",
               translatedBy: "openai",

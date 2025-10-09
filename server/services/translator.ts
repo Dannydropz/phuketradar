@@ -10,6 +10,21 @@ export interface TranslationResult {
   excerpt: string;
   category: string;
   isActualNews: boolean;
+  author: string;
+}
+
+const THAI_FEMALE_AUTHORS = [
+  "Ploy Srisawat",
+  "Natcha Petcharat",
+  "Siriporn Rattana",
+  "Apinya Thongchai",
+  "Kannika Jirasakul",
+  "Ornuma Phongphan",
+  "Wassana Choosuk",
+];
+
+function getRandomAuthor(): string {
+  return THAI_FEMALE_AUTHORS[Math.floor(Math.random() * THAI_FEMALE_AUTHORS.length)];
 }
 
 export class TranslatorService {
@@ -65,6 +80,7 @@ If this is NOT actual news (promotional content, greetings, ads, etc.), set isAc
         excerpt: result.excerpt || "",
         category: result.category || "Other",
         isActualNews: result.isActualNews || false,
+        author: getRandomAuthor(),
       };
     } catch (error) {
       console.error("Error translating content:", error);

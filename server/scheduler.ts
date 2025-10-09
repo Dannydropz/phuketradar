@@ -1,0 +1,106 @@
+/**
+ * Automated Scraping Scheduler
+ * 
+ * This module provides automated scraping functionality.
+ * To enable scheduled scraping, set up a Scheduled Deployment in Replit:
+ * 
+ * 1. Go to Deployments tool in Replit
+ * 2. Select "Scheduled" deployment type
+ * 3. Configure schedule (e.g., "Every 2 hours" or cron: "0 */2 * * *")
+ * 4. Set run command: tsx server/scheduler.ts
+ * 5. Publish the scheduled deployment
+ * 
+ * IMPORTANT: This requires a persistent database. In-memory storage will NOT work
+ * for scheduled deployments as data is lost when the job completes.
+ * You must set up a PostgreSQL database before using scheduled scraping.
+ */
+
+import { scraperService } from "./services/scraper";
+import { translatorService } from "./services/translator";
+
+// NOTE: For scheduled scraping to work, you need to implement a persistent storage backend
+// The current MemStorage implementation will NOT persist data across scheduled runs
+// TODO: Replace with database-backed storage (PostgreSQL) before enabling scheduled deployments
+import { storage } from "./storage";
+
+export async function runScheduledScrape() {
+  console.log("=== Starting Scheduled Scrape ===");
+  console.log(`Time: ${new Date().toISOString()}`);
+  
+  try {
+    const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
+    
+    // Scrape with pagination (3 pages = ~9 posts)
+    const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(fbPageUrl, 3);
+    console.log(`Found ${scrapedPosts.length} potential posts`);
+    
+    let createdCount = 0;
+    let publishedCount = 0;
+
+    // Process each scraped post
+    for (const post of scrapedPosts) {
+      try {
+        // Translate and rewrite
+        const translation = await translatorService.translateAndRewrite(
+          post.title,
+          post.content
+        );
+
+        // Only create article if it's actual news
+        if (translation.isActualNews) {
+          const placeholderImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='675'%3E%3Crect width='1200' height='675' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%236b7280'%3EPhuket Radar%3C/text%3E%3C/svg%3E";
+          const finalImageUrl = post.imageUrl || placeholderImage;
+          
+          // Create article - auto-publish for scheduled runs
+          const article = await storage.createArticle({
+            title: translation.translatedTitle,
+            content: translation.translatedContent,
+            excerpt: translation.excerpt,
+            imageUrl: finalImageUrl,
+            category: translation.category,
+            sourceUrl: post.sourceUrl,
+            author: translation.author,
+            isPublished: true, // Auto-publish on scheduled runs
+            originalLanguage: "th",
+            translatedBy: "openai",
+          });
+
+          createdCount++;
+          if (article.isPublished) {
+            publishedCount++;
+          }
+          
+          console.log(`✅ Created and published: ${translation.translatedTitle.substring(0, 50)}...`);
+        }
+      } catch (error) {
+        console.error("Error processing post:", error);
+      }
+    }
+
+    console.log(`\n=== Scrape Complete ===`);
+    console.log(`Articles created: ${createdCount}`);
+    console.log(`Articles published: ${publishedCount}`);
+    
+    return {
+      success: true,
+      articlesCreated: createdCount,
+      articlesPublished: publishedCount,
+    };
+  } catch (error) {
+    console.error("Error during scheduled scrape:", error);
+    throw error;
+  }
+}
+
+// If this file is run directly (via npm run scrape), execute the scrape
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runScheduledScrape()
+    .then((result) => {
+      console.log("Scrape completed successfully:", result);
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error("Scrape failed:", error);
+      process.exit(1);
+    });
+}
