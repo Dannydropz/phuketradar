@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
 import { ArticleCard } from "@/components/ArticleCard";
+import { EmailSignup } from "@/components/EmailSignup";
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import type { Article } from "@shared/schema";
@@ -93,6 +94,8 @@ export default function Home() {
             </section>
           )}
         </div>
+
+        <EmailSignup />
       </main>
       <Footer />
     </div>

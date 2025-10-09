@@ -6,6 +6,7 @@ import { Clock, Share2 } from "lucide-react";
 import { useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleCard } from "@/components/ArticleCard";
+import { EmailSignup } from "@/components/EmailSignup";
 import { useQuery } from "@tanstack/react-query";
 import type { Article } from "@shared/schema";
 
@@ -141,21 +142,29 @@ export default function ArticleDetail() {
 
         <aside className="lg:col-span-1">
           <div className="sticky top-20">
-            <h3 className="text-xl font-bold mb-4">Latest</h3>
+            <h3 className="text-xl font-bold mb-6">Latest</h3>
             <div className="space-y-4">
               {latestArticles.map((latestArticle) => (
                 <a 
                   key={latestArticle.id} 
                   href={`/article/${latestArticle.id}`}
-                  className="block group hover-elevate rounded-lg p-3"
+                  className="flex gap-3 group"
                   data-testid={`link-latest-${latestArticle.id}`}
                 >
-                  <h4 className="font-semibold text-sm mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-                    {latestArticle.title}
-                  </h4>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3 mr-1" />
-                    <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                      {latestArticle.title}
+                    </h4>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
+                    </div>
+                  </div>
+                  <div className="w-20 h-20 flex-shrink-0">
+                    <img
+                      src={latestArticle.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='%23e5e7eb'/%3E%3C/svg%3E"}
+                      alt={latestArticle.title}
+                      className="w-full h-full object-cover rounded-md"
+                    />
                   </div>
                 </a>
               ))}
@@ -185,6 +194,8 @@ export default function ArticleDetail() {
         </div>
       </section>
     )}
+
+    <EmailSignup />
       </main>
       <Footer />
     </div>

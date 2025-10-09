@@ -20,7 +20,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-lg">
+    <header className="sticky top-0 z-50 w-full border-b bg-header backdrop-blur-lg">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center hover-elevate rounded-lg px-3 py-2" data-testid="link-home">
@@ -36,7 +36,7 @@ export function Header() {
               <Link key={cat.path} href={cat.path}>
                 <Button
                   variant="ghost"
-                  className={location === cat.path ? "bg-accent" : ""}
+                  className={`text-header-foreground hover:text-header-foreground ${location === cat.path ? "bg-black/20" : ""}`}
                   data-testid={`link-${cat.name.toLowerCase().replace(" ", "-")}`}
                 >
                   {cat.name}
@@ -50,6 +50,7 @@ export function Header() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
+              className="text-header-foreground hover:text-header-foreground"
               data-testid="button-theme-toggle"
             >
               {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
@@ -57,7 +58,7 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden text-header-foreground hover:text-header-foreground"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="button-mobile-menu"
             >
@@ -72,7 +73,7 @@ export function Header() {
               <Link key={cat.path} href={cat.path}>
                 <Button
                   variant="ghost"
-                  className={`w-full justify-start ${location === cat.path ? "bg-accent" : ""}`}
+                  className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === cat.path ? "bg-black/20" : ""}`}
                   onClick={() => setMobileMenuOpen(false)}
                   data-testid={`link-mobile-${cat.name.toLowerCase().replace(" ", "-")}`}
                 >

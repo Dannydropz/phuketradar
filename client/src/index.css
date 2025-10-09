@@ -18,6 +18,9 @@
 
   --foreground: 220 13% 13%;
 
+  --header: 27 100% 57%;
+  --header-foreground: 0 0% 100%;
+
   --border: 220 13% 91%;
 
   --card: 210 20% 98%;
@@ -132,9 +135,12 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 222 47% 11%;
+  --background: 0 0% 8%;
 
   --foreground: 210 20% 98%;
+
+  --header: 27 100% 57%;
+  --header-foreground: 0 0% 100%;
 
   --border: 217 19% 27%;
 
