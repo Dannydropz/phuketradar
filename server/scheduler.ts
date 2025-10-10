@@ -34,10 +34,21 @@ export async function runScheduledScrape() {
     
     let createdCount = 0;
     let publishedCount = 0;
+    let skippedDuplicates = 0;
+    let skippedNotNews = 0;
 
     // Process each scraped post
     for (const post of scrapedPosts) {
       try {
+        // Check if article with this sourceUrl already exists
+        const existingArticle = await storage.getArticleBySourceUrl(post.sourceUrl);
+        
+        if (existingArticle) {
+          skippedDuplicates++;
+          console.log(`⏭️  Skipped duplicate: ${post.title.substring(0, 50)}...`);
+          continue;
+        }
+
         // Translate and rewrite
         const translation = await translatorService.translateAndRewrite(
           post.title,
@@ -66,6 +77,9 @@ export async function runScheduledScrape() {
           }
           
           console.log(`✅ Created and published: ${translation.translatedTitle.substring(0, 50)}...`);
+        } else {
+          skippedNotNews++;
+          console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
         }
       } catch (error) {
         console.error("Error processing post:", error);
@@ -73,11 +87,17 @@ export async function runScheduledScrape() {
     }
 
     console.log(`\n=== Scrape Complete ===`);
+    console.log(`Total posts found: ${scrapedPosts.length}`);
+    console.log(`Skipped (duplicates): ${skippedDuplicates}`);
+    console.log(`Skipped (not news): ${skippedNotNews}`);
     console.log(`Articles created: ${createdCount}`);
     console.log(`Articles published: ${publishedCount}`);
     
     return {
       success: true,
+      totalPosts: scrapedPosts.length,
+      skippedDuplicates,
+      skippedNotNews,
       articlesCreated: createdCount,
       articlesPublished: publishedCount,
     };
