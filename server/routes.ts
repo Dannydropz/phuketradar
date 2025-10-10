@@ -134,10 +134,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Found ${scrapedPosts.length} potential posts`);
       
       const processedArticles = [];
+      let skippedDuplicates = 0;
+      let skippedNotNews = 0;
 
       // Process each scraped post
       for (const post of scrapedPosts) {
         try {
+          // Check if article with this sourceUrl already exists
+          const existingArticle = await storage.getArticleBySourceUrl(post.sourceUrl);
+          
+          if (existingArticle) {
+            skippedDuplicates++;
+            console.log(`⏭️  Skipped duplicate: ${post.title.substring(0, 50)}...`);
+            continue;
+          }
+
           console.log(`\n=== Processing post: ${post.title.substring(0, 50)} ===`);
           console.log(`Content length: ${post.content.length} chars`);
           
@@ -165,6 +176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             processedArticles.push(article);
+          } else {
+            skippedNotNews++;
+            console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
           }
         } catch (error) {
           console.error("Error processing post:", error);
@@ -172,10 +186,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log(`Processed ${processedArticles.length} articles`);
+      console.log(`\n=== Admin Scrape Complete ===`);
+      console.log(`Total posts found: ${scrapedPosts.length}`);
+      console.log(`Skipped (duplicates): ${skippedDuplicates}`);
+      console.log(`Skipped (not news): ${skippedNotNews}`);
+      console.log(`Articles created: ${processedArticles.length}`);
       
       res.json({
         success: true,
+        totalPosts: scrapedPosts.length,
+        skippedDuplicates,
+        skippedNotNews,
         articlesProcessed: processedArticles.length,
         articles: processedArticles,
       });
