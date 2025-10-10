@@ -10,6 +10,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**October 10, 2025 - CRITICAL FIX: Duplicate Article Prevention**
+- ✅ Fixed major bug causing 615 duplicate articles in production (scraper was re-creating same posts every 4 hours)
+- ✅ Added `getArticleBySourceUrl()` method to check for existing articles before creating
+- ✅ Both scheduler and admin scrape now check for duplicates BEFORE translating (saves API costs!)
+- ✅ Enhanced logging: now shows total posts, skipped duplicates, skipped non-news, articles created
+- ✅ Created DUPLICATE_CLEANUP_GUIDE.md with SQL queries to safely remove ~600 duplicate articles from production
+- ✅ Future scrapes will skip existing posts and only translate genuinely new content
+
 **October 10, 2025 - Automated Scraping with Built-in Cron Scheduler**
 - ✅ Implemented node-cron scheduler inside Autoscale deployment (no second deployment needed)
 - ✅ Automatic scraping runs every 4 hours at minute 0 (12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM)
@@ -118,8 +126,9 @@ Preferred communication style: Simple, everyday language.
 - Structured JSON response format ensures consistent data extraction
 
 **Data Flow**
-- Unidirectional data flow: Scraper → Translator → Database → API → Frontend
-- Articles stored in "pending" state until admin approval for quality control
+- Unidirectional data flow: Scraper → Duplicate Check → Translator → Database → API → Frontend
+- Duplicate prevention: Before translating, checks if article with same `sourceUrl` already exists (saves API costs)
+- Articles from scheduler auto-published; articles from admin scrape stored in "pending" state for quality control
 - Published articles cached in TanStack Query with stale-while-revalidate pattern
 
 **Deployment Considerations**
