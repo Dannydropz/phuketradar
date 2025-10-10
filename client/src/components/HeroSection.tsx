@@ -20,6 +20,11 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ featured, sidebar }: HeroSectionProps) {
+  // Check if featured article is fresh (< 8 hours old)
+  const featuredIsFresh = (Date.now() - new Date(featured.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
+  const featuredIsBreaking = featured.category.toLowerCase() === "breaking";
+  const featuredShowRed = featuredIsBreaking && featuredIsFresh;
+  
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
       <Link href={`/article/${featured.id}`} className="lg:col-span-2">
@@ -33,13 +38,12 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
             />
           </div>
           <div className="flex items-center gap-3 mb-3">
-            {featured.isBreaking && (
-              <Badge className="bg-destructive text-destructive-foreground font-bold" data-testid="badge-hero-breaking">
-                BREAKING
-              </Badge>
-            )}
-            <Badge variant="secondary" data-testid="badge-hero-category">
-              {featured.category}
+            <Badge 
+              variant={featuredShowRed ? "destructive" : "secondary"} 
+              className={featuredShowRed ? "font-bold" : ""}
+              data-testid="badge-hero-category"
+            >
+              {featuredIsBreaking ? (featuredShowRed ? "BREAKING" : "Breaking") : featured.category}
             </Badge>
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
@@ -56,18 +60,22 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
       </Link>
 
       <div className="space-y-6">
-        {sidebar.map((article) => (
+        {sidebar.map((article) => {
+          const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
+          const isBreaking = article.category.toLowerCase() === "breaking";
+          const showRed = isBreaking && isFresh;
+          
+          return (
           <Link key={article.id} href={`/article/${article.id}`}>
             <div className="flex gap-3 group cursor-pointer" data-testid={`card-sidebar-${article.id}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  {article.isBreaking && (
-                    <Badge className="bg-destructive text-destructive-foreground text-xs font-bold">
-                      BREAKING
-                    </Badge>
-                  )}
-                  <Badge variant="secondary" className="text-xs" data-testid={`badge-sidebar-category-${article.id}`}>
-                    {article.category}
+                  <Badge 
+                    variant={showRed ? "destructive" : "secondary"} 
+                    className={`text-xs ${showRed ? "font-bold" : ""}`}
+                    data-testid={`badge-sidebar-category-${article.id}`}
+                  >
+                    {isBreaking ? (showRed ? "BREAKING" : "Breaking") : article.category}
                   </Badge>
                 </div>
                 <h3 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors" data-testid={`text-sidebar-title-${article.id}`}>
@@ -86,7 +94,8 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
               </div>
             </div>
           </Link>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

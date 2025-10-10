@@ -86,14 +86,21 @@ export default function ArticleDetail() {
             <article className="lg:col-span-2">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              {article.category.toLowerCase() === "breaking" && (
-                <Badge className="bg-destructive text-destructive-foreground font-bold" data-testid="badge-article-breaking">
-                  BREAKING
-                </Badge>
-              )}
-              <Badge variant="secondary" data-testid="badge-article-category">
-                {article.category}
-              </Badge>
+              {(() => {
+                const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
+                const isBreaking = article.category.toLowerCase() === "breaking";
+                const showRed = isBreaking && isFresh;
+                
+                return (
+                  <Badge 
+                    variant={showRed ? "destructive" : "secondary"} 
+                    className={showRed ? "font-bold" : ""}
+                    data-testid="badge-article-category"
+                  >
+                    {isBreaking ? (showRed ? "BREAKING" : "Breaking") : article.category}
+                  </Badge>
+                );
+              })()}
               <div className="flex items-center text-sm text-muted-foreground">
                 <Clock className="w-3 h-3 mr-1" />
                 <span data-testid="text-article-time">

@@ -24,6 +24,11 @@ export function ArticleCard({
   publishedAt,
   isBreaking,
 }: ArticleCardProps) {
+  // Check if article is fresh (< 8 hours old) for time-based badge styling
+  const isFresh = (Date.now() - new Date(publishedAt).getTime()) < (8 * 60 * 60 * 1000);
+  const isBreakingCategory = category.toLowerCase() === "breaking";
+  const showRedBadge = isBreakingCategory && isFresh;
+  
   return (
     <Link href={`/article/${id}`}>
       <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
@@ -34,16 +39,15 @@ export function ArticleCard({
             className="w-full h-full object-cover"
             data-testid={`img-article-${id}`}
           />
-          {isBreaking && (
-            <Badge className="absolute top-4 left-4 bg-destructive text-destructive-foreground font-bold" data-testid="badge-breaking">
-              BREAKING
-            </Badge>
-          )}
         </div>
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-3 mb-3">
-            <Badge variant="secondary" data-testid={`badge-category-${id}`}>
-              {category}
+            <Badge 
+              variant={showRedBadge ? "destructive" : "secondary"} 
+              className={showRedBadge ? "font-bold" : ""}
+              data-testid={`badge-category-${id}`}
+            >
+              {isBreakingCategory ? (showRedBadge ? "BREAKING" : "Breaking") : category}
             </Badge>
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
