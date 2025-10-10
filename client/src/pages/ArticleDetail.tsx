@@ -9,7 +9,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { EmailSignup } from "@/components/EmailSignup";
 import { useQuery } from "@tanstack/react-query";
 import type { Article } from "@shared/schema";
-import { PLACEHOLDER_HERO, PLACEHOLDER_THUMBNAIL } from "@/lib/placeholders";
+import logoImage from "@assets/PhuketRadar_1759933943849.png";
 
 export default function ArticleDetail() {
   const [, params] = useRoute("/article/:id");
@@ -133,12 +133,23 @@ export default function ArticleDetail() {
           </div>
 
           <div className="mb-8 rounded-lg overflow-hidden bg-muted">
-            <img
-              src={article.imageUrl || PLACEHOLDER_HERO}
-              alt={article.title}
-              className={`w-full ${article.imageUrl ? 'h-auto object-cover' : 'h-[400px] object-contain p-12'}`}
-              data-testid="img-article-main"
-            />
+            {article.imageUrl ? (
+              <img
+                src={article.imageUrl}
+                alt={article.title}
+                className="w-full h-auto object-cover"
+                data-testid="img-article-main"
+              />
+            ) : (
+              <div className="w-full h-[400px] flex items-center justify-center">
+                <img
+                  src={logoImage}
+                  alt="Phuket Radar"
+                  className="w-1/3 h-auto opacity-30"
+                  data-testid="img-article-main"
+                />
+              </div>
+            )}
           </div>
 
           <div
@@ -167,12 +178,22 @@ export default function ArticleDetail() {
                       <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
                     </div>
                   </div>
-                  <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md">
-                    <img
-                      src={latestArticle.imageUrl || PLACEHOLDER_THUMBNAIL}
-                      alt={latestArticle.title}
-                      className={`w-full h-full rounded-md ${latestArticle.imageUrl ? 'object-cover' : 'object-contain p-2'}`}
-                    />
+                  <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
+                    {latestArticle.imageUrl ? (
+                      <img
+                        src={latestArticle.imageUrl}
+                        alt={latestArticle.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <img
+                          src={logoImage}
+                          alt="Phuket Radar"
+                          className="w-3/4 h-auto opacity-30"
+                        />
+                      </div>
+                    )}
                   </div>
                 </a>
               ))}

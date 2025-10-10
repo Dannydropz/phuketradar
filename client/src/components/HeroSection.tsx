@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
-import { PLACEHOLDER_HERO, PLACEHOLDER_THUMBNAIL } from "@/lib/placeholders";
+import logoImage from "@assets/PhuketRadar_1759933943849.png";
 
 interface HeroArticle {
   id: string;
@@ -30,12 +30,23 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
       <Link href={`/article/${featured.id}`} className="lg:col-span-2">
         <div className="group cursor-pointer" data-testid="hero-featured">
           <div className="rounded-lg overflow-hidden mb-4 bg-muted">
-            <img
-              src={featured.imageUrl || PLACEHOLDER_HERO}
-              alt={featured.title}
-              className={`w-full h-[400px] ${featured.imageUrl ? 'object-cover' : 'object-contain p-12'}`}
-              data-testid="img-hero-featured"
-            />
+            {featured.imageUrl ? (
+              <img
+                src={featured.imageUrl}
+                alt={featured.title}
+                className="w-full h-[400px] object-cover"
+                data-testid="img-hero-featured"
+              />
+            ) : (
+              <div className="w-full h-[400px] flex items-center justify-center">
+                <img
+                  src={logoImage}
+                  alt="Phuket Radar"
+                  className="w-1/3 h-auto opacity-30"
+                  data-testid="img-hero-featured"
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3 mb-3">
             <Badge 
@@ -85,12 +96,22 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
                   <span data-testid={`text-sidebar-time-${article.id}`}>{formatDistanceToNow(article.publishedAt, { addSuffix: true })}</span>
                 </div>
               </div>
-              <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md">
-                <img
-                  src={article.imageUrl || PLACEHOLDER_THUMBNAIL}
-                  alt={article.title}
-                  className={`w-full h-full rounded-md ${article.imageUrl ? 'object-cover' : 'object-contain p-2'}`}
-                />
+              <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
+                {article.imageUrl ? (
+                  <img
+                    src={article.imageUrl}
+                    alt={article.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <img
+                      src={logoImage}
+                      alt="Phuket Radar"
+                      className="w-3/4 h-auto opacity-30"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </Link>
