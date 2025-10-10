@@ -4,11 +4,15 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { EmailSignup } from "@/components/EmailSignup";
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
+import { useRoute } from "wouter";
 import type { Article } from "@shared/schema";
 
 export default function Home() {
+  const [, params] = useRoute("/category/:category");
+  const category = params?.category;
+  
   const { data: articles = [], isLoading } = useQuery<Article[]>({
-    queryKey: ["/api/articles"],
+    queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
 
   if (isLoading) {
@@ -48,11 +52,22 @@ export default function Home() {
     );
   }
 
+  const categoryTitle = category 
+    ? category.charAt(0).toUpperCase() + category.slice(1) 
+    : "All News";
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
+          {category && (
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold" data-testid="text-category-title">{categoryTitle}</h1>
+              <p className="text-muted-foreground mt-2">Latest {categoryTitle.toLowerCase()} news from Phuket</p>
+            </div>
+          )}
+          
           <HeroSection
             featured={{
               id: featured.id,
@@ -78,7 +93,7 @@ export default function Home() {
 
           {latestArticles.length > 0 && (
             <section>
-              <h2 className="text-3xl font-bold mb-6">Latest News</h2>
+              <h2 className="text-3xl font-bold mb-6">{category ? "More Stories" : "Latest News"}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {latestArticles.map((article) => (
                   <ArticleCard
