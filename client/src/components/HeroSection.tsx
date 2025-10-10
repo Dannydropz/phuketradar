@@ -33,7 +33,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
             <img
               src={featured.imageUrl || PLACEHOLDER_HERO}
               alt={featured.title}
-              className="w-full h-[400px] object-cover"
+              className={`w-full h-[400px] ${featured.imageUrl ? 'object-cover' : 'object-contain p-12'}`}
               data-testid="img-hero-featured"
             />
           </div>
@@ -85,11 +85,11 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
                   <span data-testid={`text-sidebar-time-${article.id}`}>{formatDistanceToNow(article.publishedAt, { addSuffix: true })}</span>
                 </div>
               </div>
-              <div className="w-20 h-20 flex-shrink-0">
+              <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md">
                 <img
                   src={article.imageUrl || PLACEHOLDER_THUMBNAIL}
                   alt={article.title}
-                  className="w-full h-full object-cover rounded-md"
+                  className={`w-full h-full rounded-md ${article.imageUrl ? 'object-cover' : 'object-contain p-2'}`}
                 />
               </div>
             </div>

@@ -136,7 +136,7 @@ export default function ArticleDetail() {
             <img
               src={article.imageUrl || PLACEHOLDER_HERO}
               alt={article.title}
-              className="w-full h-auto"
+              className={`w-full ${article.imageUrl ? 'h-auto object-cover' : 'h-[400px] object-contain p-12'}`}
               data-testid="img-article-main"
             />
           </div>
@@ -167,11 +167,11 @@ export default function ArticleDetail() {
                       <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
                     </div>
                   </div>
-                  <div className="w-20 h-20 flex-shrink-0">
+                  <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md">
                     <img
                       src={latestArticle.imageUrl || PLACEHOLDER_THUMBNAIL}
                       alt={latestArticle.title}
-                      className="w-full h-full object-cover rounded-md"
+                      className={`w-full h-full rounded-md ${latestArticle.imageUrl ? 'object-cover' : 'object-contain p-2'}`}
                     />
                   </div>
                 </a>

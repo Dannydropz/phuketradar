@@ -36,7 +36,7 @@ export function ArticleCard({
           <img
             src={imageUrl || PLACEHOLDER_CARD}
             alt={title}
-            className="w-full h-full object-cover"
+            className={`w-full h-full ${imageUrl ? 'object-cover' : 'object-contain p-8'}`}
             data-testid={`img-article-${id}`}
           />
         </div>
