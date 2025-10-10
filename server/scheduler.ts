@@ -46,14 +46,12 @@ export async function runScheduledScrape() {
 
         // Only create article if it's actual news
         if (translation.isActualNews) {
-          const finalImageUrl = post.imageUrl || PLACEHOLDER_IMAGE;
-          
           // Create article - auto-publish for scheduled runs
           const article = await storage.createArticle({
             title: translation.translatedTitle,
             content: translation.translatedContent,
             excerpt: translation.excerpt,
-            imageUrl: finalImageUrl,
+            imageUrl: post.imageUrl || null,
             category: translation.category,
             sourceUrl: post.sourceUrl,
             author: translation.author,
