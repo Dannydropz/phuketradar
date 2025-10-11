@@ -57,6 +57,30 @@ export class ScraperService {
   private scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
   private apiKey = process.env.SCRAPECREATORS_API_KEY;
 
+  // Normalize Facebook post URL to handle different formats
+  private normalizeFacebookUrl(url: string): string {
+    try {
+      // Extract the post ID from various Facebook URL formats
+      // Format 1: /posts/pfbid... -> extract pfbid
+      // Format 2: /posts/12345... -> extract numeric ID
+      // We'll normalize to always use the permalink format if available
+      
+      const postIdMatch = url.match(/\/posts\/([^/?]+)/);
+      if (postIdMatch) {
+        const postId = postIdMatch[1];
+        // Return a normalized format using just the post ID
+        // This ensures both pfbid and numeric IDs are treated uniquely
+        return `https://www.facebook.com/posts/${postId}`;
+      }
+      
+      // If no match, return original URL
+      return url;
+    } catch (error) {
+      console.error("Error normalizing Facebook URL:", error);
+      return url;
+    }
+  }
+
   async scrapeFacebookPage(pageUrl: string): Promise<ScrapedPost[]> {
     try {
       if (!this.apiKey) {
@@ -157,11 +181,15 @@ export class ScraperService {
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
 
+        // Normalize the source URL to catch duplicates across different URL formats
+        const rawSourceUrl = post.permalink || post.url || sourceUrl;
+        const normalizedSourceUrl = this.normalizeFacebookUrl(rawSourceUrl);
+
         scrapedPosts.push({
           title: title.trim(),
           content: content.trim(),
           imageUrl,
-          sourceUrl: post.permalink || post.url || sourceUrl,
+          sourceUrl: normalizedSourceUrl,
           publishedAt,
         });
       } catch (error) {
