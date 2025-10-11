@@ -202,7 +202,11 @@ export class ScraperService {
   }
 
   // Method to fetch multiple pages of posts using cursor pagination
-  async scrapeFacebookPageWithPagination(pageUrl: string, maxPages: number = 3): Promise<ScrapedPost[]> {
+  async scrapeFacebookPageWithPagination(
+    pageUrl: string, 
+    maxPages: number = 3,
+    checkForDuplicate?: (sourceUrl: string) => Promise<boolean>
+  ): Promise<ScrapedPost[]> {
     try {
       if (!this.apiKey) {
         throw new Error("SCRAPECREATORS_API_KEY is not configured");
@@ -211,8 +215,9 @@ export class ScraperService {
       let allPosts: ScrapedPost[] = [];
       let cursor: string | undefined;
       let pageCount = 0;
+      let hitKnownPost = false;
 
-      while (pageCount < maxPages) {
+      while (pageCount < maxPages && !hitKnownPost) {
         const url = cursor 
           ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
           : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
@@ -238,7 +243,22 @@ export class ScraperService {
         }
 
         const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
-        allPosts = [...allPosts, ...parsed];
+        
+        // If duplicate checker is provided, check each post and stop if we hit a known one
+        if (checkForDuplicate) {
+          for (const post of parsed) {
+            const isDuplicate = await checkForDuplicate(post.sourceUrl);
+            if (isDuplicate) {
+              console.log(`✋ Hit known post "${post.title.substring(0, 50)}..." - stopping pagination to save API credits`);
+              hitKnownPost = true;
+              break;
+            }
+            allPosts.push(post);
+          }
+        } else {
+          // No duplicate checking, add all posts
+          allPosts = [...allPosts, ...parsed];
+        }
 
         cursor = data.cursor;
         pageCount++;
@@ -250,7 +270,7 @@ export class ScraperService {
         }
       }
 
-      console.log(`Total posts collected: ${allPosts.length} from ${pageCount} pages`);
+      console.log(`Total NEW posts collected: ${allPosts.length} from ${pageCount} page(s)`);
       return allPosts;
     } catch (error) {
       console.error("Error scraping with pagination:", error);
