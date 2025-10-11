@@ -28,27 +28,27 @@ export async function runScheduledScrape() {
   try {
     const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
     
-    // Scrape with pagination (3 pages = ~9 posts)
-    const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(fbPageUrl, 3);
-    console.log(`Found ${scrapedPosts.length} potential posts`);
+    // Create duplicate checker function that stops pagination early to save API credits
+    const checkForDuplicate = async (sourceUrl: string) => {
+      const existing = await storage.getArticleBySourceUrl(sourceUrl);
+      return !!existing;
+    };
+    
+    // Smart scrape: stops when hitting known posts to minimize API usage
+    const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
+      fbPageUrl, 
+      3, // max pages
+      checkForDuplicate // stop early on duplicates
+    );
+    console.log(`Found ${scrapedPosts.length} NEW posts to process`);
     
     let createdCount = 0;
     let publishedCount = 0;
-    let skippedDuplicates = 0;
     let skippedNotNews = 0;
 
     // Process each scraped post
     for (const post of scrapedPosts) {
       try {
-        // Check if article with this sourceUrl already exists
-        const existingArticle = await storage.getArticleBySourceUrl(post.sourceUrl);
-        
-        if (existingArticle) {
-          skippedDuplicates++;
-          console.log(`⏭️  Skipped duplicate: ${post.title.substring(0, 50)}...`);
-          continue;
-        }
-
         // Translate and rewrite
         const translation = await translatorService.translateAndRewrite(
           post.title,
@@ -87,8 +87,7 @@ export async function runScheduledScrape() {
     }
 
     console.log(`\n=== Scrape Complete ===`);
-    console.log(`Total posts found: ${scrapedPosts.length}`);
-    console.log(`Skipped (duplicates): ${skippedDuplicates}`);
+    console.log(`New posts fetched: ${scrapedPosts.length}`);
     console.log(`Skipped (not news): ${skippedNotNews}`);
     console.log(`Articles created: ${createdCount}`);
     console.log(`Articles published: ${publishedCount}`);
@@ -96,7 +95,7 @@ export async function runScheduledScrape() {
     return {
       success: true,
       totalPosts: scrapedPosts.length,
-      skippedDuplicates,
+      skippedDuplicates: 0, // No duplicates - we stop early
       skippedNotNews,
       articlesCreated: createdCount,
       articlesPublished: publishedCount,

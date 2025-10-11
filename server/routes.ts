@@ -127,28 +127,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
       
-      // Scrape the Facebook page with pagination (fetch 3 pages = ~9 posts)
-      console.log("Starting scrape of:", fbPageUrl);
-      const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(fbPageUrl, 3);
+      console.log("Starting smart scrape of:", fbPageUrl);
       
-      console.log(`Found ${scrapedPosts.length} potential posts`);
+      // Create duplicate checker function that stops pagination early
+      const checkForDuplicate = async (sourceUrl: string) => {
+        const existing = await storage.getArticleBySourceUrl(sourceUrl);
+        return !!existing;
+      };
+      
+      // Scrape with smart pagination that stops when hitting known posts
+      const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
+        fbPageUrl, 
+        3, // max pages to fetch
+        checkForDuplicate // stop early if we hit known posts
+      );
+      
+      console.log(`Found ${scrapedPosts.length} NEW posts to process`);
       
       const processedArticles = [];
-      let skippedDuplicates = 0;
       let skippedNotNews = 0;
 
       // Process each scraped post
       for (const post of scrapedPosts) {
         try {
-          // Check if article with this sourceUrl already exists
-          const existingArticle = await storage.getArticleBySourceUrl(post.sourceUrl);
-          
-          if (existingArticle) {
-            skippedDuplicates++;
-            console.log(`⏭️  Skipped duplicate: ${post.title.substring(0, 50)}...`);
-            continue;
-          }
-
           console.log(`\n=== Processing post: ${post.title.substring(0, 50)} ===`);
           console.log(`Content length: ${post.content.length} chars`);
           
@@ -187,15 +188,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`\n=== Admin Scrape Complete ===`);
-      console.log(`Total posts found: ${scrapedPosts.length}`);
-      console.log(`Skipped (duplicates): ${skippedDuplicates}`);
+      console.log(`New posts fetched: ${scrapedPosts.length}`);
       console.log(`Skipped (not news): ${skippedNotNews}`);
       console.log(`Articles created: ${processedArticles.length}`);
       
       res.json({
         success: true,
         totalPosts: scrapedPosts.length,
-        skippedDuplicates,
+        skippedDuplicates: 0, // No duplicates since we stop early
         skippedNotNews,
         articlesProcessed: processedArticles.length,
         articles: processedArticles,
