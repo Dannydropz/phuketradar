@@ -3,7 +3,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Check, X, Eye, RefreshCw, LogOut } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -75,9 +75,25 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
       toast({
         title: "Article Deleted",
         description: "The article has been removed",
+      });
+    },
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("PATCH", `/api/admin/articles/${id}`, { isPublished: false });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      toast({
+        title: "Article Unpublished",
+        description: "The article has been hidden from the site",
       });
     },
   });
@@ -91,6 +107,14 @@ export default function AdminDashboard() {
   };
 
   const handleReject = (id: string) => {
+    deleteMutation.mutate(id);
+  };
+
+  const handleUnpublish = (id: string) => {
+    unpublishMutation.mutate(id);
+  };
+
+  const handleDelete = (id: string) => {
     deleteMutation.mutate(id);
   };
 
@@ -263,7 +287,7 @@ export default function AdminDashboard() {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {!article.isPublished && (
+                        {!article.isPublished ? (
                           <>
                             <Button
                               variant="outline"
@@ -284,6 +308,29 @@ export default function AdminDashboard() {
                               data-testid={`button-reject-${article.id}`}
                             >
                               <X className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleUnpublish(article.id)}
+                              className="border-orange-500 text-orange-500"
+                              disabled={unpublishMutation.isPending}
+                              data-testid={`button-unpublish-${article.id}`}
+                            >
+                              <EyeOff className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDelete(article.id)}
+                              className="border-destructive text-destructive"
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-${article.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </>
                         )}
