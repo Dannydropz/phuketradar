@@ -7,6 +7,7 @@ import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { insertArticleSchema } from "@shared/schema";
 import { z } from "zod";
 import { scrapeJobManager } from "./scrape-jobs";
+import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 
 // Extend session type
 declare module "express-session" {
@@ -164,15 +165,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Job ${job.id}] Found ${scrapedPosts.length} NEW posts to process`);
         scrapeJobManager.updateProgress(job.id, { totalPosts: scrapedPosts.length });
         
+        // Get all existing article embeddings for semantic duplicate detection
+        const existingEmbeddings = await storage.getArticlesWithEmbeddings();
+        console.log(`[Job ${job.id}] Loaded ${existingEmbeddings.length} existing article embeddings`);
+        
         let createdArticles = 0;
         let skippedNotNews = 0;
+        let skippedSemanticDuplicates = 0;
 
         // Process each scraped post
         for (const post of scrapedPosts) {
           try {
             console.log(`[Job ${job.id}] Processing post: ${post.title.substring(0, 50)}`);
             
-            // Translate and rewrite the content
+            // STEP 1: Generate embedding from Thai title (before translation - saves money!)
+            let titleEmbedding: number[] | undefined;
+            try {
+              titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
+              
+              // STEP 2: Check for semantic duplicates
+              const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.9);
+              
+              if (duplicateCheck.isDuplicate) {
+                skippedSemanticDuplicates++;
+                console.log(`[Job ${job.id}] 🔄 Semantic duplicate detected (${(duplicateCheck.similarity * 100).toFixed(1)}% similar)`);
+                console.log(`[Job ${job.id}]    New: ${post.title.substring(0, 60)}...`);
+                console.log(`[Job ${job.id}]    Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
+                
+                // Update progress and skip translation
+                scrapeJobManager.updateProgress(job.id, {
+                  processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
+                  createdArticles,
+                  skippedNotNews,
+                });
+                continue;
+              }
+            } catch (embeddingError) {
+              console.error(`[Job ${job.id}] Error generating embedding, proceeding without semantic check:`, embeddingError);
+              // Continue without semantic duplicate check if embedding fails
+            }
+            
+            // STEP 3: Translate and rewrite the content (only if not a semantic duplicate)
             const translation = await translatorService.translateAndRewrite(
               post.title,
               post.content
@@ -180,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             console.log(`[Job ${job.id}] Is actual news: ${translation.isActualNews}`);
             
-            // Only create article if it's actual news
+            // STEP 4: Only create article if it's actual news
             if (translation.isActualNews) {
               await storage.createArticle({
                 title: translation.translatedTitle,
@@ -193,9 +226,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 isPublished: false,
                 originalLanguage: "th",
                 translatedBy: "openai",
+                embedding: translation.embedding,
               });
 
               createdArticles++;
+              
+              // Add to existing embeddings so we can catch duplicates within this batch
+              if (translation.embedding) {
+                existingEmbeddings.push({
+                  id: 'temp',
+                  title: translation.translatedTitle,
+                  embedding: translation.embedding,
+                });
+              }
             } else {
               skippedNotNews++;
               console.log(`[Job ${job.id}] Skipped non-news: ${post.title.substring(0, 50)}...`);
@@ -203,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Update progress
             scrapeJobManager.updateProgress(job.id, {
-              processedPosts: createdArticles + skippedNotNews,
+              processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
               createdArticles,
               skippedNotNews,
             });
@@ -215,6 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`[Job ${job.id}] Admin Scrape Complete`);
         console.log(`[Job ${job.id}] New posts fetched: ${scrapedPosts.length}`);
+        console.log(`[Job ${job.id}] Skipped (semantic duplicates): ${skippedSemanticDuplicates}`);
         console.log(`[Job ${job.id}] Skipped (not news): ${skippedNotNews}`);
         console.log(`[Job ${job.id}] Articles created: ${createdArticles}`);
         
