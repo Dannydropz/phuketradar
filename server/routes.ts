@@ -6,6 +6,7 @@ import { translatorService } from "./services/translator";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { insertArticleSchema } from "@shared/schema";
 import { z } from "zod";
+import { scrapeJobManager } from "./scrape-jobs";
 
 // Extend session type
 declare module "express-session" {
@@ -125,93 +126,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Scrape and process articles - PROTECTED
+  // Scrape and process articles - PROTECTED (async with job tracking)
   app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
     console.log("=== SCRAPE REQUEST RECEIVED ===");
-    try {
-      const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
-      
-      console.log("Starting smart scrape of:", fbPageUrl);
-      
-      // Create duplicate checker function that stops pagination early
-      const checkForDuplicate = async (sourceUrl: string) => {
-        const existing = await storage.getArticleBySourceUrl(sourceUrl);
-        return !!existing;
-      };
-      
-      // Scrape with smart pagination that stops when hitting known posts
-      const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
-        fbPageUrl, 
-        3, // max pages to fetch
-        checkForDuplicate // stop early if we hit known posts
-      );
-      
-      console.log(`Found ${scrapedPosts.length} NEW posts to process`);
-      
-      const processedArticles = [];
-      let skippedNotNews = 0;
+    
+    // Create job and respond immediately
+    const job = scrapeJobManager.createJob();
+    console.log(`Created scrape job: ${job.id}`);
+    
+    res.json({
+      success: true,
+      jobId: job.id,
+      message: "Scraping started in background",
+    });
+    
+    // Process in background (no await)
+    (async () => {
+      try {
+        scrapeJobManager.updateJob(job.id, { status: 'processing' });
+        
+        const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
+        console.log(`[Job ${job.id}] Starting smart scrape of: ${fbPageUrl}`);
+        
+        // Create duplicate checker function that stops pagination early
+        const checkForDuplicate = async (sourceUrl: string) => {
+          const existing = await storage.getArticleBySourceUrl(sourceUrl);
+          return !!existing;
+        };
+        
+        // Scrape with smart pagination that stops when hitting known posts
+        const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
+          fbPageUrl, 
+          3, // max pages to fetch
+          checkForDuplicate // stop early if we hit known posts
+        );
+        
+        console.log(`[Job ${job.id}] Found ${scrapedPosts.length} NEW posts to process`);
+        scrapeJobManager.updateProgress(job.id, { totalPosts: scrapedPosts.length });
+        
+        let createdArticles = 0;
+        let skippedNotNews = 0;
 
-      // Process each scraped post
-      for (const post of scrapedPosts) {
-        try {
-          console.log(`\n=== Processing post: ${post.title.substring(0, 50)} ===`);
-          console.log(`Content length: ${post.content.length} chars`);
-          
-          // Translate and rewrite the content
-          const translation = await translatorService.translateAndRewrite(
-            post.title,
-            post.content
-          );
+        // Process each scraped post
+        for (const post of scrapedPosts) {
+          try {
+            console.log(`[Job ${job.id}] Processing post: ${post.title.substring(0, 50)}`);
+            
+            // Translate and rewrite the content
+            const translation = await translatorService.translateAndRewrite(
+              post.title,
+              post.content
+            );
 
-          console.log(`Is actual news: ${translation.isActualNews}`);
-          
-          // Only create article if it's actual news
-          if (translation.isActualNews) {
-            const article = await storage.createArticle({
-              title: translation.translatedTitle,
-              content: translation.translatedContent,
-              excerpt: translation.excerpt,
-              imageUrl: post.imageUrl || null,
-              category: translation.category,
-              sourceUrl: post.sourceUrl,
-              author: translation.author,
-              isPublished: false,
-              originalLanguage: "th",
-              translatedBy: "openai",
+            console.log(`[Job ${job.id}] Is actual news: ${translation.isActualNews}`);
+            
+            // Only create article if it's actual news
+            if (translation.isActualNews) {
+              await storage.createArticle({
+                title: translation.translatedTitle,
+                content: translation.translatedContent,
+                excerpt: translation.excerpt,
+                imageUrl: post.imageUrl || null,
+                category: translation.category,
+                sourceUrl: post.sourceUrl,
+                author: translation.author,
+                isPublished: false,
+                originalLanguage: "th",
+                translatedBy: "openai",
+              });
+
+              createdArticles++;
+            } else {
+              skippedNotNews++;
+              console.log(`[Job ${job.id}] Skipped non-news: ${post.title.substring(0, 50)}...`);
+            }
+            
+            // Update progress
+            scrapeJobManager.updateProgress(job.id, {
+              processedPosts: createdArticles + skippedNotNews,
+              createdArticles,
+              skippedNotNews,
             });
-
-            processedArticles.push(article);
-          } else {
-            skippedNotNews++;
-            console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
+          } catch (error) {
+            console.error(`[Job ${job.id}] Error processing post:`, error);
+            // Continue with next post
           }
-        } catch (error) {
-          console.error("Error processing post:", error);
-          // Continue with next post
         }
-      }
 
-      console.log(`\n=== Admin Scrape Complete ===`);
-      console.log(`New posts fetched: ${scrapedPosts.length}`);
-      console.log(`Skipped (not news): ${skippedNotNews}`);
-      console.log(`Articles created: ${processedArticles.length}`);
+        console.log(`[Job ${job.id}] Admin Scrape Complete`);
+        console.log(`[Job ${job.id}] New posts fetched: ${scrapedPosts.length}`);
+        console.log(`[Job ${job.id}] Skipped (not news): ${skippedNotNews}`);
+        console.log(`[Job ${job.id}] Articles created: ${createdArticles}`);
+        
+        scrapeJobManager.markCompleted(job.id);
+      } catch (error) {
+        console.error(`[Job ${job.id}] SCRAPING ERROR:`, error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        scrapeJobManager.markFailed(job.id, errorMessage);
+      }
+    })();
+  });
+
+  // Get scrape job status - PROTECTED
+  app.get("/api/admin/scrape/status/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const job = scrapeJobManager.getJob(id);
       
-      res.json({
-        success: true,
-        totalPosts: scrapedPosts.length,
-        skippedDuplicates: 0, // No duplicates since we stop early
-        skippedNotNews,
-        articlesProcessed: processedArticles.length,
-        articles: processedArticles,
-      });
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      
+      res.json(job);
     } catch (error) {
-      console.error("=== SCRAPING ERROR ===");
-      console.error("Error during scraping:", error);
-      console.error("Stack trace:", error instanceof Error ? error.stack : "No stack trace");
-      res.status(500).json({ 
-        error: "Failed to scrape articles",
-        message: error instanceof Error ? error.message : "Unknown error"
-      });
+      console.error("Error fetching job status:", error);
+      res.status(500).json({ error: "Failed to fetch job status" });
     }
   });
 
