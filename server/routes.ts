@@ -16,9 +16,12 @@ declare module "express-session" {
 
 // Auth middleware
 function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  console.log(`[AUTH CHECK] ${req.method} ${req.path} - Session auth: ${req.session.isAdminAuthenticated}`);
   if (req.session.isAdminAuthenticated) {
+    console.log(`[AUTH CHECK] Authorized - proceeding`);
     return next();
   }
+  console.log(`[AUTH CHECK] Unauthorized - blocking request`);
   return res.status(401).json({ error: "Unauthorized" });
 }
 
