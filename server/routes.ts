@@ -205,10 +205,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Continue without semantic duplicate check if embedding fails
             }
             
-            // STEP 3: Translate and rewrite the content (only if not a semantic duplicate)
+            // STEP 3: Translate and rewrite the content (pass precomputed Thai embedding)
             const translation = await translatorService.translateAndRewrite(
               post.title,
-              post.content
+              post.content,
+              titleEmbedding // Pass precomputed Thai embedding to be stored
             );
 
             console.log(`[Job ${job.id}] Is actual news: ${translation.isActualNews}`);

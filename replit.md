@@ -10,6 +10,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**October 12, 2025 - Semantic Duplicate Detection with OpenAI Embeddings**
+- ✅ Implemented semantic duplicate detection using OpenAI text-embedding-3-small model
+- ✅ Added embedding column (float array) to articles table for vector storage
+- ✅ Created cosine similarity checker with 90% similarity threshold
+- ✅ Embeddings generated from Thai titles BEFORE translation (saves API costs!)
+- ✅ Detects semantic duplicates across different Facebook URL formats (pfbid vs numeric IDs)
+- ✅ Works across multiple news sources - ready for multi-source expansion
+- ✅ Both scheduler and admin scrape now check semantic similarity before translating
+- ✅ Enhanced logging shows semantic duplicate matches with similarity percentage
+- ✅ Embeddings extremely cheap (~$0.0001 per article) vs translation costs (~$0.001-0.01)
+- Technical: Cosine similarity function compares 1536-dimension vectors, detects near-identical stories even with different wording
+
 **October 10, 2025 - CRITICAL FIX: Duplicate Article Prevention**
 - ✅ Fixed major bug causing 615 duplicate articles in production (scraper was re-creating same posts every 4 hours)
 - ✅ Added `getArticleBySourceUrl()` method to check for existing articles before creating
@@ -79,13 +91,16 @@ Preferred communication style: Simple, everyday language.
 - Drizzle ORM for type-safe database operations
 - PostgreSQL database (Neon-backed) with persistent storage via `DatabaseStorage` class
 - Schema with two main tables: `users` and `articles`
-- Articles schema includes: id (UUID), title, content, excerpt, category, author, source URL, publish status, translation metadata
+- Articles schema includes: id (UUID), title, content, excerpt, category, author, source URL, publish status, translation metadata, **embedding vector (1536-dimension float array)**
 - Automatic persistence - articles survive server restarts and are available across all deployments
+- **Semantic duplicate detection**: Embeddings stored for all articles to detect similar stories across different sources
 
 **Business Logic Services**
 - **ScraperService**: Facebook page scraping using JINA AI Reader API to extract markdown content from social media posts
 - **TranslatorService**: OpenAI GPT-4-mini integration for Thai→English translation with intelligent news filtering (distinguishes actual news from promotional content)
 - Translation includes content rewriting in professional news style, automatic excerpt generation, and category classification (Breaking, Tourism, Business, Events, Other)
+- **Embedding generation**: Uses OpenAI text-embedding-3-small to generate 1536-dimension vectors from Thai titles for semantic duplicate detection
+- **Semantic similarity**: Cosine similarity checker with 90% threshold detects near-identical stories even when wording differs
 
 **API Endpoints**
 - `GET /api/articles` - Fetch all published articles
@@ -126,8 +141,9 @@ Preferred communication style: Simple, everyday language.
 - Structured JSON response format ensures consistent data extraction
 
 **Data Flow**
-- Unidirectional data flow: Scraper → Duplicate Check → Translator → Database → API → Frontend
+- Unidirectional data flow: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend
 - Duplicate prevention: Before translating, checks if article with same `sourceUrl` already exists (saves API costs)
+- Semantic duplicate detection: Generates embedding from Thai title, compares with existing embeddings using cosine similarity (90% threshold)
 - Articles from scheduler auto-published; articles from admin scrape stored in "pending" state for quality control
 - Published articles cached in TanStack Query with stale-while-revalidate pattern
 

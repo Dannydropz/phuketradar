@@ -31,7 +31,8 @@ function getRandomAuthor(): string {
 export class TranslatorService {
   async translateAndRewrite(
     title: string,
-    content: string
+    content: string,
+    precomputedEmbedding?: number[]
   ): Promise<TranslationResult> {
     try {
       const prompt = `You are a professional news editor for an English-language news site covering Phuket, Thailand. 
@@ -97,16 +98,9 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
 
       const result = JSON.parse(completion.choices[0].message.content || "{}");
 
-      // Generate embedding from the translated title for semantic duplicate detection
-      let embedding: number[] | undefined;
-      if (result.isActualNews) {
-        try {
-          embedding = await this.generateEmbeddingFromTitle(result.translatedTitle || title);
-        } catch (error) {
-          console.error("Error generating embedding:", error);
-          // Continue without embedding if it fails
-        }
-      }
+      // Use precomputed embedding (from Thai title) if provided
+      // This ensures we always compare embeddings in the same language (Thai)
+      const embedding = precomputedEmbedding;
 
       return {
         translatedTitle: result.translatedTitle || title,

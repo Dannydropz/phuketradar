@@ -75,10 +75,11 @@ export async function runScheduledScrape() {
           // Continue without semantic duplicate check if embedding fails
         }
 
-        // STEP 3: Translate and rewrite (only if not a semantic duplicate)
+        // STEP 3: Translate and rewrite (pass precomputed Thai embedding)
         const translation = await translatorService.translateAndRewrite(
           post.title,
-          post.content
+          post.content,
+          titleEmbedding // Pass precomputed Thai embedding to be stored
         );
 
         // STEP 4: Only create article if it's actual news
