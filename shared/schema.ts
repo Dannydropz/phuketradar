@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22,6 +22,7 @@ export const articles = pgTable("articles", {
   isPublished: boolean("is_published").notNull().default(false),
   originalLanguage: text("original_language").default("th"),
   translatedBy: text("translated_by").default("openai"),
+  embedding: real("embedding").array(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
