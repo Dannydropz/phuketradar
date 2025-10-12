@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -13,25 +13,85 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
+type ScrapeJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+interface ScrapeJob {
+  id: string;
+  status: ScrapeJobStatus;
+  startedAt: string;
+  completedAt?: string;
+  progress: {
+    totalPosts: number;
+    processedPosts: number;
+    createdArticles: number;
+    skippedNotNews: number;
+  };
+  error?: string;
+}
+
 export default function AdminDashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { logout } = useAdminAuth();
+  const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
 
   const { data: articles = [], isLoading } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
   });
+
+  // Poll for job status when there's an active job
+  useEffect(() => {
+    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await apiRequest("GET", `/api/admin/scrape/status/${currentJob.id}`);
+        const job = await res.json() as ScrapeJob;
+        setCurrentJob(job);
+
+        if (job.status === 'completed') {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+          toast({
+            title: "Scraping Complete",
+            description: `Created ${job.progress.createdArticles} new articles`,
+          });
+        } else if (job.status === 'failed') {
+          toast({
+            title: "Scraping Failed",
+            description: job.error || "Unknown error",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error polling job status:", error);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [currentJob, toast]);
 
   const scrapeMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/scrape");
       return await res.json();
     },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+    onSuccess: (data: { jobId: string }) => {
+      setCurrentJob({
+        id: data.jobId,
+        status: 'pending',
+        startedAt: new Date().toISOString(),
+        progress: {
+          totalPosts: 0,
+          processedPosts: 0,
+          createdArticles: 0,
+          skippedNotNews: 0,
+        },
+      });
       toast({
-        title: "Scraping Complete",
-        description: `Successfully processed ${data.articlesProcessed} articles`,
+        title: "Scraping Started",
+        description: "Processing in background...",
       });
     },
     onError: (error: Error) => {
@@ -160,33 +220,47 @@ export default function AdminDashboard() {
                 Review and manage scraped articles before publishing
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleLogout}
-                data-testid="button-logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <Button
-                size="lg"
-                onClick={handleScrape}
-                disabled={scrapeMutation.isPending}
-                data-testid="button-scrape"
-              >
-                {scrapeMutation.isPending ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Scraping...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Scrape New Articles
-                  </>
-                )}
-              </Button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  data-testid="button-logout"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+                <Button
+                  size="lg"
+                  onClick={handleScrape}
+                  disabled={scrapeMutation.isPending || !!(currentJob && currentJob.status !== 'completed' && currentJob.status !== 'failed')}
+                  data-testid="button-scrape"
+                >
+                  {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Scraping...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Scrape New Articles
+                    </>
+                  )}
+                </Button>
+              </div>
+              {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') && (
+                <div className="text-sm text-muted-foreground">
+                  {currentJob.progress.totalPosts > 0 ? (
+                    <span>
+                      Processing {currentJob.progress.processedPosts}/{currentJob.progress.totalPosts} posts
+                      ({currentJob.progress.createdArticles} articles created)
+                    </span>
+                  ) : (
+                    <span>Initializing scraper...</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
