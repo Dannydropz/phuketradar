@@ -20,6 +20,7 @@ import { scraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
 import { storage } from "./storage";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
+import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 
 export async function runScheduledScrape() {
   console.log("=== Starting Scheduled Scrape ===");
@@ -42,20 +43,45 @@ export async function runScheduledScrape() {
     );
     console.log(`Found ${scrapedPosts.length} NEW posts to process`);
     
+    // Get all existing article embeddings for semantic duplicate detection
+    const existingEmbeddings = await storage.getArticlesWithEmbeddings();
+    console.log(`Loaded ${existingEmbeddings.length} existing article embeddings`);
+    
     let createdCount = 0;
     let publishedCount = 0;
     let skippedNotNews = 0;
+    let skippedSemanticDuplicates = 0;
 
     // Process each scraped post
     for (const post of scrapedPosts) {
       try {
-        // Translate and rewrite
+        // STEP 1: Generate embedding from Thai title (before translation - saves money!)
+        let titleEmbedding: number[] | undefined;
+        try {
+          titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
+          
+          // STEP 2: Check for semantic duplicates
+          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.9);
+          
+          if (duplicateCheck.isDuplicate) {
+            skippedSemanticDuplicates++;
+            console.log(`🔄 Semantic duplicate detected (${(duplicateCheck.similarity * 100).toFixed(1)}% similar)`);
+            console.log(`   New: ${post.title.substring(0, 60)}...`);
+            console.log(`   Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
+            continue;
+          }
+        } catch (embeddingError) {
+          console.error(`Error generating embedding, proceeding without semantic check:`, embeddingError);
+          // Continue without semantic duplicate check if embedding fails
+        }
+
+        // STEP 3: Translate and rewrite (only if not a semantic duplicate)
         const translation = await translatorService.translateAndRewrite(
           post.title,
           post.content
         );
 
-        // Only create article if it's actual news
+        // STEP 4: Only create article if it's actual news
         if (translation.isActualNews) {
           // Create article - auto-publish for scheduled runs
           const article = await storage.createArticle({
@@ -69,11 +95,21 @@ export async function runScheduledScrape() {
             isPublished: true, // Auto-publish on scheduled runs
             originalLanguage: "th",
             translatedBy: "openai",
+            embedding: translation.embedding,
           });
 
           createdCount++;
           if (article.isPublished) {
             publishedCount++;
+          }
+          
+          // Add to existing embeddings so we can catch duplicates within this batch
+          if (translation.embedding) {
+            existingEmbeddings.push({
+              id: article.id,
+              title: translation.translatedTitle,
+              embedding: translation.embedding,
+            });
           }
           
           console.log(`✅ Created and published: ${translation.translatedTitle.substring(0, 50)}...`);
@@ -88,6 +124,7 @@ export async function runScheduledScrape() {
 
     console.log(`\n=== Scrape Complete ===`);
     console.log(`New posts fetched: ${scrapedPosts.length}`);
+    console.log(`Skipped (semantic duplicates): ${skippedSemanticDuplicates}`);
     console.log(`Skipped (not news): ${skippedNotNews}`);
     console.log(`Articles created: ${createdCount}`);
     console.log(`Articles published: ${publishedCount}`);
@@ -95,7 +132,7 @@ export async function runScheduledScrape() {
     return {
       success: true,
       totalPosts: scrapedPosts.length,
-      skippedDuplicates: 0, // No duplicates - we stop early
+      skippedSemanticDuplicates,
       skippedNotNews,
       articlesCreated: createdCount,
       articlesPublished: publishedCount,
