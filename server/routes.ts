@@ -124,6 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Scrape and process articles - PROTECTED
   app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
+    console.log("=== SCRAPE REQUEST RECEIVED ===");
     try {
       const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
       
@@ -201,7 +202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         articles: processedArticles,
       });
     } catch (error) {
+      console.error("=== SCRAPING ERROR ===");
       console.error("Error during scraping:", error);
+      console.error("Stack trace:", error instanceof Error ? error.stack : "No stack trace");
       res.status(500).json({ 
         error: "Failed to scrape articles",
         message: error instanceof Error ? error.message : "Unknown error"
