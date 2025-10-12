@@ -11,6 +11,7 @@ export interface TranslationResult {
   category: string;
   isActualNews: boolean;
   author: string;
+  embedding?: number[];
 }
 
 const THAI_FEMALE_AUTHORS = [
@@ -96,6 +97,17 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
 
       const result = JSON.parse(completion.choices[0].message.content || "{}");
 
+      // Generate embedding from the translated title for semantic duplicate detection
+      let embedding: number[] | undefined;
+      if (result.isActualNews) {
+        try {
+          embedding = await this.generateEmbeddingFromTitle(result.translatedTitle || title);
+        } catch (error) {
+          console.error("Error generating embedding:", error);
+          // Continue without embedding if it fails
+        }
+      }
+
       return {
         translatedTitle: result.translatedTitle || title,
         translatedContent: result.translatedContent || content,
@@ -103,6 +115,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         category: result.category || "Other",
         isActualNews: result.isActualNews || false,
         author: getRandomAuthor(),
+        embedding,
       };
     } catch (error) {
       console.error("Error translating content:", error);
@@ -114,6 +127,25 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
     // Simple language detection - check for Thai characters
     const thaiPattern = /[\u0E00-\u0E7F]/;
     return thaiPattern.test(text) ? "th" : "en";
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
+    try {
+      const response = await openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: text,
+      });
+
+      return response.data[0].embedding;
+    } catch (error) {
+      console.error("Error generating embedding:", error);
+      throw new Error("Failed to generate embedding");
+    }
+  }
+
+  async generateEmbeddingFromTitle(title: string): Promise<number[]> {
+    // Generate embedding from the title for semantic duplicate detection
+    return this.generateEmbedding(title);
   }
 }
 
