@@ -20,7 +20,9 @@ Preferred communication style: Simple, everyday language.
 - ✅ Both scheduler and admin scrape now check semantic similarity before translating
 - ✅ Enhanced logging shows semantic duplicate matches with similarity percentage
 - ✅ Embeddings extremely cheap (~$0.0001 per article) vs translation costs (~$0.001-0.01)
+- ✅ **CRITICAL FIX**: Ensures Thai embeddings stored and compared consistently (no language mismatch)
 - Technical: Cosine similarity function compares 1536-dimension vectors, detects near-identical stories even with different wording
+- Architecture: translateAndRewrite() now accepts precomputed embedding, eliminating redundant embedding generation and ensuring consistent Thai-to-Thai comparison
 
 **October 10, 2025 - CRITICAL FIX: Duplicate Article Prevention**
 - ✅ Fixed major bug causing 615 duplicate articles in production (scraper was re-creating same posts every 4 hours)
