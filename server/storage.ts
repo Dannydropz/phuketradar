@@ -15,6 +15,7 @@ export interface IStorage {
   getArticlesByCategory(category: string): Promise<Article[]>;
   getPublishedArticles(): Promise<Article[]>;
   getPendingArticles(): Promise<Article[]>;
+  getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null }[]>;
   createArticle(article: InsertArticle): Promise<Article>;
   updateArticle(id: string, article: Partial<Article>): Promise<Article | undefined>;
   deleteArticle(id: string): Promise<boolean>;
@@ -86,6 +87,17 @@ export class DatabaseStorage implements IStorage {
       .from(articles)
       .where(eq(articles.isPublished, false))
       .orderBy(desc(articles.publishedAt));
+  }
+
+  async getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null }[]> {
+    const result = await db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        embedding: articles.embedding,
+      })
+      .from(articles);
+    return result;
   }
 
   async createArticle(insertArticle: InsertArticle): Promise<Article> {
