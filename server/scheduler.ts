@@ -21,13 +21,15 @@ import { translatorService } from "./services/translator";
 import { storage } from "./storage";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
+import { getEnabledSources } from "./config/news-sources";
 
 export async function runScheduledScrape() {
-  console.log("=== Starting Scheduled Scrape ===");
+  console.log("=== Starting Multi-Source Scheduled Scrape ===");
   console.log(`Time: ${new Date().toISOString()}`);
   
   try {
-    const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
+    const sources = getEnabledSources();
+    console.log(`Scraping ${sources.length} Facebook news sources`);
     
     // Create duplicate checker function that stops pagination early to save API credits
     const checkForDuplicate = async (sourceUrl: string) => {
@@ -35,24 +37,30 @@ export async function runScheduledScrape() {
       return !!existing;
     };
     
-    // Smart scrape: stops when hitting known posts to minimize API usage
-    const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
-      fbPageUrl, 
-      3, // max pages
-      checkForDuplicate // stop early on duplicates
-    );
-    console.log(`Found ${scrapedPosts.length} NEW posts to process`);
-    
     // Get all existing article embeddings for semantic duplicate detection
     const existingEmbeddings = await storage.getArticlesWithEmbeddings();
     console.log(`Loaded ${existingEmbeddings.length} existing article embeddings`);
     
+    let totalPosts = 0;
     let createdCount = 0;
     let publishedCount = 0;
     let skippedNotNews = 0;
     let skippedSemanticDuplicates = 0;
 
-    // Process each scraped post
+    // Loop through each news source
+    for (const source of sources) {
+      console.log(`Scraping source: ${source.name}`);
+      
+      // Smart scrape: stops when hitting known posts to minimize API usage
+      const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
+        source.url, 
+        3, // max pages
+        checkForDuplicate // stop early on duplicates
+      );
+      console.log(`${source.name}: Found ${scrapedPosts.length} NEW posts`);
+      totalPosts += scrapedPosts.length;
+
+    // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
         // STEP 1: Generate embedding from Thai title (before translation - saves money!)
@@ -121,10 +129,11 @@ export async function runScheduledScrape() {
       } catch (error) {
         console.error("Error processing post:", error);
       }
-    }
+    } // End of posts loop
+    } // End of sources loop
 
-    console.log(`\n=== Scrape Complete ===`);
-    console.log(`New posts fetched: ${scrapedPosts.length}`);
+    console.log(`\n=== Multi-Source Scrape Complete ===`);
+    console.log(`Total posts fetched: ${totalPosts}`);
     console.log(`Skipped (semantic duplicates): ${skippedSemanticDuplicates}`);
     console.log(`Skipped (not news): ${skippedNotNews}`);
     console.log(`Articles created: ${createdCount}`);
@@ -132,7 +141,7 @@ export async function runScheduledScrape() {
     
     return {
       success: true,
-      totalPosts: scrapedPosts.length,
+      totalPosts,
       skippedSemanticDuplicates,
       skippedNotNews,
       articlesCreated: createdCount,
