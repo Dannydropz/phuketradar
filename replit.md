@@ -10,6 +10,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**October 12, 2025 - Multi-Source News Aggregation**
+- ✅ Added support for multiple Facebook news sources
+- ✅ Now scraping 3 sources: Phuket Time News, Phuket Info Center, Newshawk Phuket
+- ✅ Semantic duplicate detection works across all sources - same story only published once
+- ✅ AI filtering rejects ads, promotions, and filler content from all sources
+- ✅ Both scheduler and admin scrape loop through all configured sources
+- ✅ Centralized news sources configuration in server/config/news-sources.ts
+
 **October 12, 2025 - Semantic Duplicate Detection with OpenAI Embeddings**
 - ✅ Implemented semantic duplicate detection using OpenAI text-embedding-3-small model
 - ✅ Added embedding column (float array) to articles table for vector storage
@@ -135,7 +143,9 @@ Preferred communication style: Simple, everyday language.
 **Scraping Strategy**
 - JINA AI chosen over direct Facebook Graph API to avoid authentication complexity and rate limits
 - Markdown parsing approach allows flexible post extraction without DOM manipulation
-- Limits processing to 10 most recent posts per scrape to control API costs
+- Multi-source support: scrapes 3 Facebook pages (Phuket Time News, Phuket Info Center, Newshawk Phuket)
+- Centralized configuration in `server/config/news-sources.ts` for easy source management
+- Limits processing to 10 most recent posts per scrape per source to control API costs
 
 **Translation Pipeline**
 - GPT-4-mini selected for cost-effective translation with quality output

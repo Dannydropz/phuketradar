@@ -9,7 +9,7 @@
 export interface NewsSource {
   name: string;
   url: string;
-  enabled: true;
+  enabled: boolean;
 }
 
 export const NEWS_SOURCES: NewsSource[] = [
