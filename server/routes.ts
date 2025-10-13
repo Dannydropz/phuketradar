@@ -8,6 +8,7 @@ import { insertArticleSchema } from "@shared/schema";
 import { z } from "zod";
 import { scrapeJobManager } from "./scrape-jobs";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
+import { getEnabledSources } from "./config/news-sources";
 
 // Extend session type
 declare module "express-session" {
@@ -146,8 +147,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         scrapeJobManager.updateJob(job.id, { status: 'processing' });
         
-        const fbPageUrl = "https://www.facebook.com/PhuketTimeNews";
-        console.log(`[Job ${job.id}] Starting smart scrape of: ${fbPageUrl}`);
+        const sources = getEnabledSources();
+        console.log(`[Job ${job.id}] Starting multi-source scrape of ${sources.length} Facebook pages`);
         
         // Create duplicate checker function that stops pagination early
         const checkForDuplicate = async (sourceUrl: string) => {
@@ -155,25 +156,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return !!existing;
         };
         
-        // Scrape with smart pagination that stops when hitting known posts
-        const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
-          fbPageUrl, 
-          3, // max pages to fetch
-          checkForDuplicate // stop early if we hit known posts
-        );
-        
-        console.log(`[Job ${job.id}] Found ${scrapedPosts.length} NEW posts to process`);
-        scrapeJobManager.updateProgress(job.id, { totalPosts: scrapedPosts.length });
-        
         // Get all existing article embeddings for semantic duplicate detection
         const existingEmbeddings = await storage.getArticlesWithEmbeddings();
         console.log(`[Job ${job.id}] Loaded ${existingEmbeddings.length} existing article embeddings`);
         
+        let totalPosts = 0;
         let createdArticles = 0;
         let skippedNotNews = 0;
         let skippedSemanticDuplicates = 0;
 
-        // Process each scraped post
+        // Loop through each news source
+        for (const source of sources) {
+          console.log(`[Job ${job.id}] Scraping source: ${source.name}`);
+          
+          // Scrape with smart pagination that stops when hitting known posts
+          const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
+            source.url, 
+            3, // max pages to fetch
+            checkForDuplicate // stop early if we hit known posts
+          );
+          
+          console.log(`[Job ${job.id}] ${source.name}: Found ${scrapedPosts.length} NEW posts`);
+          totalPosts += scrapedPosts.length;
+          scrapeJobManager.updateProgress(job.id, { totalPosts });
+
+        // Process each scraped post from this source
         for (const post of scrapedPosts) {
           try {
             console.log(`[Job ${job.id}] Processing post: ${post.title.substring(0, 50)}`);
@@ -252,13 +259,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               skippedNotNews,
             });
           } catch (error) {
-            console.error(`[Job ${job.id}] Error processing post:`, error);
+            console.log(`[Job ${job.id}] Error processing post:`, error);
             // Continue with next post
           }
-        }
+        } // End of posts loop
+        } // End of sources loop
 
-        console.log(`[Job ${job.id}] Admin Scrape Complete`);
-        console.log(`[Job ${job.id}] New posts fetched: ${scrapedPosts.length}`);
+        console.log(`[Job ${job.id}] Multi-Source Scrape Complete`);
+        console.log(`[Job ${job.id}] Total posts fetched: ${totalPosts}`);
         console.log(`[Job ${job.id}] Skipped (semantic duplicates): ${skippedSemanticDuplicates}`);
         console.log(`[Job ${job.id}] Skipped (not news): ${skippedNotNews}`);
         console.log(`[Job ${job.id}] Articles created: ${createdArticles}`);
