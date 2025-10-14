@@ -2,8 +2,11 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { neon } from "@neondatabase/serverless";
+import cron from "node-cron";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { runScheduledScrape } from "./scheduler";
+import { withSchedulerLock } from "./lib/scheduler-lock";
 
 const app = express();
 
@@ -114,4 +117,29 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Start automated scraping with database-locked cron job (runs every 4 hours)
+  // Uses PostgreSQL advisory locks to prevent overlapping executions across server restarts
+  cron.schedule('0 */4 * * *', async () => {
+    const startTime = Date.now();
+    
+    await withSchedulerLock(
+      async () => {
+        log('🕒 Starting scheduled scrape (lock acquired)');
+        try {
+          const result = await runScheduledScrape();
+          const duration = Math.round((Date.now() - startTime) / 1000);
+          log(`✅ Scheduled scrape complete in ${duration}s: ${result.articlesPublished} articles published`);
+        } catch (error) {
+          const duration = Math.round((Date.now() - startTime) / 1000);
+          log(`❌ Scheduled scrape failed after ${duration}s: ${error}`);
+        }
+      },
+      () => {
+        log('⏭️  Skipping scheduled scrape - another instance is already running (lock not acquired)');
+      }
+    );
+  });
+  
+  log('📅 Automated scraping enabled: every 4 hours at minute 0 (with database lock protection)');
 })();
