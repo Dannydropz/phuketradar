@@ -28,10 +28,15 @@ Preferred communication style: Simple, everyday language.
 - ✅ Both scheduler and admin scrape loop through all configured sources
 - ✅ Centralized news sources configuration in server/config/news-sources.ts
 
+**October 14, 2025 - Improved Semantic Duplicate Detection**
+- ✅ Lowered similarity threshold from 90% to 85% to catch more near-duplicates
+- ✅ Now detects stories with same topic but slightly different wording (e.g., different sources covering same event)
+- ✅ Prevents duplicate articles about same story with minor variations in headlines
+
 **October 12, 2025 - Semantic Duplicate Detection with OpenAI Embeddings**
 - ✅ Implemented semantic duplicate detection using OpenAI text-embedding-3-small model
 - ✅ Added embedding column (float array) to articles table for vector storage
-- ✅ Created cosine similarity checker with 90% similarity threshold
+- ✅ Created cosine similarity checker (initially 90%, now 85% threshold)
 - ✅ Embeddings generated from Thai titles BEFORE translation (saves API costs!)
 - ✅ Detects semantic duplicates across different Facebook URL formats (pfbid vs numeric IDs)
 - ✅ Works across multiple news sources - ready for multi-source expansion

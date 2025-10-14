@@ -190,8 +190,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try {
               titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
               
-              // STEP 2: Check for semantic duplicates
-              const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.9);
+              // STEP 2: Check for semantic duplicates (85% threshold catches near-duplicates)
+              const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.85);
               
               if (duplicateCheck.isDuplicate) {
                 skippedSemanticDuplicates++;
