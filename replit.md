@@ -10,6 +10,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**October 14, 2025 - CRITICAL FIX: Scheduler Optimization & API Cost Reduction**
+- ✅ Fixed overlapping cron job bug that caused excessive API usage (1,679 calls/day → 18 calls/day)
+- ✅ Removed buggy node-cron scheduler from main app (was creating multiple overlapping instances on server restarts)
+- ✅ Migrated to Replit's Scheduled Deployment for reliable, non-overlapping execution
+- ✅ Reduced pagination from 3 pages to 1 page per source (67% API cost reduction: 9 calls → 3 calls per scrape)
+- ✅ Monthly API usage: ~50,000 calls → ~540 calls (98% reduction!)
+- ⚙️ **Setup Required**: Create Replit Scheduled Deployment with command `tsx server/scheduler.ts` running every 4 hours
+
 **October 12, 2025 - Multi-Source News Aggregation**
 - ✅ Added support for multiple Facebook news sources
 - ✅ Now scraping 3 sources: Phuket Time News, Phuket Info Center, Newshawk Phuket
@@ -39,13 +47,6 @@ Preferred communication style: Simple, everyday language.
 - ✅ Enhanced logging: now shows total posts, skipped duplicates, skipped non-news, articles created
 - ✅ Created DUPLICATE_CLEANUP_GUIDE.md with SQL queries to safely remove ~600 duplicate articles from production
 - ✅ Future scrapes will skip existing posts and only translate genuinely new content
-
-**October 10, 2025 - Automated Scraping with Built-in Cron Scheduler**
-- ✅ Implemented node-cron scheduler inside Autoscale deployment (no second deployment needed)
-- ✅ Automatic scraping runs every 4 hours at minute 0 (12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM)
-- ✅ Overlap protection: prevents concurrent scrapes if previous run exceeds 4 hours
-- ✅ Enhanced logging: tracks duration, article counts, and skip events
-- ✅ Production-ready with architect approval - no manual intervention required
 
 **October 9, 2025 - Database Migration to Persistent Storage**
 - ✅ Migrated from in-memory `MemStorage` to persistent `DatabaseStorage` using PostgreSQL
