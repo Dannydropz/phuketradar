@@ -2,10 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { neon } from "@neondatabase/serverless";
-import cron from "node-cron";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runScheduledScrape } from "./scheduler";
 
 const app = express();
 
@@ -116,32 +114,4 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
-
-  // Start automated scraping cron job (runs every 4 hours)
-  // Guard flag prevents overlapping executions
-  let isScrapingInProgress = false;
-  
-  cron.schedule('0 */4 * * *', async () => {
-    if (isScrapingInProgress) {
-      log('⏭️  Skipping scheduled scrape - previous scrape still in progress');
-      return;
-    }
-
-    isScrapingInProgress = true;
-    const startTime = Date.now();
-    log('🕒 Starting scheduled scrape');
-
-    try {
-      const result = await runScheduledScrape();
-      const duration = Math.round((Date.now() - startTime) / 1000);
-      log(`✅ Scheduled scrape complete in ${duration}s: ${result.articlesPublished} articles published`);
-    } catch (error) {
-      const duration = Math.round((Date.now() - startTime) / 1000);
-      log(`❌ Scheduled scrape failed after ${duration}s: ${error}`);
-    } finally {
-      isScrapingInProgress = false;
-    }
-  });
-  
-  log('📅 Automated scraping enabled: every 4 hours at minute 0');
 })();
