@@ -172,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Scrape with smart pagination that stops when hitting known posts
           const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
             source.url, 
-            3, // max pages to fetch
+            1, // max pages to fetch (reduced from 3 to minimize API costs)
             checkForDuplicate // stop early if we hit known posts
           );
           
