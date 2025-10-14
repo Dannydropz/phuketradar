@@ -12,11 +12,13 @@ Preferred communication style: Simple, everyday language.
 
 **October 14, 2025 - CRITICAL FIX: Scheduler Optimization & API Cost Reduction**
 - ✅ Fixed overlapping cron job bug that caused excessive API usage (1,679 calls/day → 18 calls/day)
-- ✅ Removed buggy node-cron scheduler from main app (was creating multiple overlapping instances on server restarts)
-- ✅ Migrated to Replit's Scheduled Deployment for reliable, non-overlapping execution
+- ✅ Implemented row-based database locking to prevent duplicate scheduler executions across server restarts
+- ✅ Uses INSERT ON CONFLICT for atomic lock acquisition (works perfectly with Neon serverless driver)
+- ✅ Database-locked cron scheduler guarantees only ONE scraper runs at a time, even with multiple server instances
+- ✅ Automatic stale lock cleanup (1-hour timeout) prevents deadlocks if server crashes
 - ✅ Reduced pagination from 3 pages to 1 page per source (67% API cost reduction: 9 calls → 3 calls per scrape)
 - ✅ Monthly API usage: ~50,000 calls → ~540 calls (98% reduction!)
-- ⚙️ **Setup Required**: Create Replit Scheduled Deployment with command `tsx server/scheduler.ts` running every 4 hours
+- ✅ Works perfectly with single Replit deployment (no separate scheduled deployment needed)
 
 **October 12, 2025 - Multi-Source News Aggregation**
 - ✅ Added support for multiple Facebook news sources
