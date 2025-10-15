@@ -10,15 +10,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**October 14, 2025 - CRITICAL FIX: Scheduler Optimization & API Cost Reduction**
-- ✅ Fixed overlapping cron job bug that caused excessive API usage (1,679 calls/day → 18 calls/day)
-- ✅ Implemented row-based database locking to prevent duplicate scheduler executions across server restarts
+**October 15, 2025 - CRITICAL FIX: Moved to Replit Scheduled Deployment**
+- ✅ **MAJOR ARCHITECTURE CHANGE**: Removed embedded cron scheduler from web server
+- ✅ **Root Cause**: Multiple web server instances (load balancing) each ran their own cron = continuous scraping
+- ✅ **Solution**: Migrated to dedicated Replit Scheduled Deployment for automation
+- ✅ Scheduled Deployment runs ONLY `server/scheduler.ts` every 4 hours (no web server overhead)
+- ✅ Single execution guaranteed - no more duplicate scraping from multiple instances
+- ✅ Created SCHEDULED_DEPLOYMENT_SETUP.md with complete configuration guide
+- ✅ Web server (`server/index.ts`) now serves only HTTP requests, no background jobs
+- ✅ Expected API usage: 18 calls/day (6 runs × 3 sources × 1 page), ~540 calls/month
+
+**October 14, 2025 - Scheduler Optimization & API Cost Reduction**
+- ✅ Implemented row-based database locking to prevent duplicate scheduler executions
 - ✅ Uses INSERT ON CONFLICT for atomic lock acquisition (works perfectly with Neon serverless driver)
-- ✅ Database-locked cron scheduler guarantees only ONE scraper runs at a time, even with multiple server instances
-- ✅ Automatic stale lock cleanup (1-hour timeout) prevents deadlocks if server crashes
+- ✅ Database lock provides safety layer even in Scheduled Deployment
+- ✅ Automatic stale lock cleanup (1-hour timeout) prevents deadlocks if scraper crashes
 - ✅ Reduced pagination from 3 pages to 1 page per source (67% API cost reduction: 9 calls → 3 calls per scrape)
-- ✅ Monthly API usage: ~50,000 calls → ~540 calls (98% reduction!)
-- ✅ Works perfectly with single Replit deployment (no separate scheduled deployment needed)
+- ✅ Lowered semantic duplicate threshold from 90% to 85% for better near-duplicate detection
 
 **October 12, 2025 - Multi-Source News Aggregation**
 - ✅ Added support for multiple Facebook news sources
