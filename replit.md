@@ -10,6 +10,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**October 15, 2025 - CRITICAL FIX: Schema Sync for Production Deployment**
+- ✅ **Root Cause**: Production database had `scheduler_locks` and `session` tables that weren't in Drizzle schema
+- ✅ **Problem**: Replit deployment wanted to DROP these tables, which would break the scheduler and sessions
+- ✅ **Solution**: Added `schedulerLocks` and `session` table definitions to `shared/schema.ts`
+- ✅ scheduler_locks: Used by `server/lib/scheduler-lock.ts` for preventing duplicate scraper runs
+- ✅ session: Auto-created by `connect-pg-simple` library for Express session storage
+- ✅ Both tables now properly tracked in schema - safe to deploy without data loss
+- ✅ Development database synced manually using SQL CREATE TABLE statements
+- Technical: Tables created by libraries/raw SQL must be defined in Drizzle schema or deployment will drop them
+
 **October 15, 2025 - CRITICAL FIX: Moved to Replit Scheduled Deployment**
 - ✅ **MAJOR ARCHITECTURE CHANGE**: Removed embedded cron scheduler from web server
 - ✅ **Root Cause**: Multiple web server instances (load balancing) each ran their own cron = continuous scraping
