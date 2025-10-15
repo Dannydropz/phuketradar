@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -25,6 +25,22 @@ export const articles = pgTable("articles", {
   translatedBy: text("translated_by").default("openai"),
   embedding: real("embedding").array(),
 });
+
+// Scheduler locks table - used by server/lib/scheduler-lock.ts
+export const schedulerLocks = pgTable("scheduler_locks", {
+  lockName: varchar("lock_name", { length: 255 }).primaryKey(),
+  acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
+  instanceId: varchar("instance_id", { length: 255 }),
+});
+
+// Session table - auto-created by connect-pg-simple
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => ({
+  expireIdx: index("IDX_session_expire").on(table.expire),
+}));
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
