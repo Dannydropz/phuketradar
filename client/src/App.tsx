@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +11,6 @@ import ArticleDetail from "@/pages/ArticleDetail";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminLogin from "@/pages/AdminLogin";
 import NotFound from "@/pages/not-found";
-import faviconUrl from "@assets/favicon.png";
 
 function Router() {
   return (
@@ -32,42 +30,6 @@ function Router() {
 }
 
 function App() {
-  // Set favicon dynamically from bundled asset
-  useEffect(() => {
-    const setFavicon = () => {
-      // Update or create favicon link
-      let faviconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement;
-      if (!faviconLink) {
-        faviconLink = document.createElement('link');
-        faviconLink.rel = 'icon';
-        document.head.appendChild(faviconLink);
-      }
-      faviconLink.type = 'image/png';
-      faviconLink.href = faviconUrl;
-      
-      // Update or create shortcut icon (for legacy browsers)
-      let shortcutLink = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement;
-      if (!shortcutLink) {
-        shortcutLink = document.createElement('link');
-        shortcutLink.rel = 'shortcut icon';
-        document.head.appendChild(shortcutLink);
-      }
-      shortcutLink.type = 'image/png';
-      shortcutLink.href = faviconUrl;
-      
-      // Update or create Apple touch icon
-      let appleTouchLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
-      if (!appleTouchLink) {
-        appleTouchLink = document.createElement('link');
-        appleTouchLink.rel = 'apple-touch-icon';
-        document.head.appendChild(appleTouchLink);
-      }
-      appleTouchLink.href = faviconUrl;
-    };
-    
-    setFavicon();
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
