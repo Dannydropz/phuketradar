@@ -6,6 +6,7 @@ import logoImage from "@assets/PhuketRadar_1759933943849.png";
 
 interface HeroArticle {
   id: string;
+  slug?: string | null;
   title: string;
   excerpt: string;
   imageUrl: string;
@@ -25,9 +26,11 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
   const featuredIsBreaking = featured.category.toLowerCase() === "breaking";
   const featuredShowRed = featuredIsBreaking && featuredIsFresh;
   
+  const featuredUrl = featured.slug ? `/article/${featured.slug}` : `/article/${featured.id}`;
+  
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-      <Link href={`/article/${featured.id}`} className="lg:col-span-2">
+      <Link href={featuredUrl} className="lg:col-span-2">
         <div className="group cursor-pointer" data-testid="hero-featured">
           <div className="rounded-lg overflow-hidden mb-4 bg-muted">
             {featured.imageUrl ? (
@@ -75,9 +78,10 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
           const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
           const isBreaking = article.category.toLowerCase() === "breaking";
           const showRed = isBreaking && isFresh;
+          const articleUrl = article.slug ? `/article/${article.slug}` : `/article/${article.id}`;
           
           return (
-          <Link key={article.id} href={`/article/${article.id}`}>
+          <Link key={article.id} href={articleUrl}>
             <div className="flex gap-3 group cursor-pointer" data-testid={`card-sidebar-${article.id}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">

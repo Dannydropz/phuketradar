@@ -71,6 +71,7 @@ export default function Home() {
           <HeroSection
             featured={{
               id: featured.id,
+              slug: featured.slug,
               title: featured.title,
               excerpt: featured.excerpt,
               imageUrl: featured.imageUrl || "",
@@ -80,6 +81,7 @@ export default function Home() {
             }}
             sidebar={sidebar.map((article) => ({
               id: article.id,
+              slug: article.slug,
               title: article.title,
               excerpt: article.excerpt,
               imageUrl: article.imageUrl || "",
@@ -99,6 +101,7 @@ export default function Home() {
                   <ArticleCard
                     key={article.id}
                     id={article.id}
+                    slug={article.slug}
                     title={article.title}
                     excerpt={article.excerpt}
                     imageUrl={article.imageUrl || undefined}

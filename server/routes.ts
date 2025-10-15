@@ -54,11 +54,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single article by ID
-  app.get("/api/articles/:id", async (req, res) => {
+  // Get single article by slug or ID
+  app.get("/api/articles/:slugOrId", async (req, res) => {
     try {
-      const { id } = req.params;
-      const article = await storage.getArticleById(id);
+      const { slugOrId } = req.params;
+      
+      // Try to find by slug first (preferred for SEO)
+      let article = await storage.getArticleBySlug(slugOrId);
+      
+      // Fall back to ID lookup if not found by slug
+      if (!article) {
+        article = await storage.getArticleById(slugOrId);
+      }
       
       if (!article) {
         return res.status(404).json({ error: "Article not found" });

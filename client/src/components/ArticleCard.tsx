@@ -7,6 +7,7 @@ import logoImage from "@assets/PhuketRadar_1759933943849.png";
 
 interface ArticleCardProps {
   id: string;
+  slug?: string | null;
   title: string;
   excerpt: string;
   imageUrl?: string;
@@ -17,6 +18,7 @@ interface ArticleCardProps {
 
 export function ArticleCard({
   id,
+  slug,
   title,
   excerpt,
   imageUrl,
@@ -29,8 +31,11 @@ export function ArticleCard({
   const isBreakingCategory = category.toLowerCase() === "breaking";
   const showRedBadge = isBreakingCategory && isFresh;
   
+  // Use slug for URL if available, fallback to ID
+  const articleUrl = slug ? `/article/${slug}` : `/article/${id}`;
+  
   return (
-    <Link href={`/article/${id}`}>
+    <Link href={articleUrl}>
       <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
         <div className="relative w-full aspect-video overflow-hidden bg-muted">
           {imageUrl ? (

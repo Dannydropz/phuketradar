@@ -1,6 +1,7 @@
 import { type User, type InsertUser, type Article, type InsertArticle, users, articles } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
+import { generateUniqueSlug } from "./lib/seo-utils";
 
 export interface IStorage {
   // User methods
@@ -11,6 +12,7 @@ export interface IStorage {
   // Article methods
   getAllArticles(): Promise<Article[]>;
   getArticleById(id: string): Promise<Article | undefined>;
+  getArticleBySlug(slug: string): Promise<Article | undefined>;
   getArticleBySourceUrl(sourceUrl: string): Promise<Article | undefined>;
   getArticlesByCategory(category: string): Promise<Article[]>;
   getPublishedArticles(): Promise<Article[]>;
@@ -54,6 +56,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(articles)
       .where(eq(articles.id, id));
+    return article || undefined;
+  }
+
+  async getArticleBySlug(slug: string): Promise<Article | undefined> {
+    const [article] = await db
+      .select()
+      .from(articles)
+      .where(eq(articles.slug, slug));
     return article || undefined;
   }
 
@@ -101,6 +111,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createArticle(insertArticle: InsertArticle): Promise<Article> {
+    // Generate a unique slug from title if not provided
+    if (!insertArticle.slug) {
+      // Use provided ID or generate new UUID
+      const articleId = (insertArticle as any).id || crypto.randomUUID();
+      
+      // Create slug from title + first 8 chars of ID for uniqueness
+      const slug = generateUniqueSlug(insertArticle.title, articleId);
+      
+      // Insert with slug, preserving any provided ID
+      const [article] = await db
+        .insert(articles)
+        .values({
+          ...insertArticle,
+          ...(!(insertArticle as any).id && { id: articleId }), // Only set ID if not provided
+          slug,
+        })
+        .returning();
+      return article;
+    }
+    
+    // If slug is provided, use it as-is
     const [article] = await db
       .insert(articles)
       .values(insertArticle)

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +11,15 @@ import { EmailSignup } from "@/components/EmailSignup";
 import { useQuery } from "@tanstack/react-query";
 import type { Article } from "@shared/schema";
 import logoImage from "@assets/PhuketRadar_1759933943849.png";
+import { SEO } from "@/components/SEO";
 
 export default function ArticleDetail() {
-  const [, params] = useRoute("/article/:id");
-  const articleId = params?.id || "";
+  const [, params] = useRoute("/article/:slugOrId");
+  const slugOrId = params?.slugOrId || "";
 
   const { data: article, isLoading } = useQuery<Article>({
-    queryKey: [`/api/articles/${articleId}`],
-    enabled: !!articleId,
+    queryKey: [`/api/articles/${slugOrId}`],
+    enabled: !!slugOrId,
   });
 
   const { data: allArticles = [] } = useQuery<Article[]>({
@@ -64,21 +66,117 @@ export default function ArticleDetail() {
     .filter((a) => a.id !== article.id)
     .slice(0, 5);
 
+  // Generate canonical URL for SEO (SSR-safe)
+  const baseUrl = import.meta.env.VITE_REPLIT_DEV_DOMAIN 
+    ? `https://${import.meta.env.VITE_REPLIT_DEV_DOMAIN}`
+    : (typeof window !== 'undefined' ? window.location.origin : 'https://phuketradar.com');
+  const canonicalUrl = article.slug 
+    ? `${baseUrl}/article/${article.slug}`
+    : `${baseUrl}/article/${article.id}`;
+
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
         title: article.title,
         text: article.excerpt,
-        url: window.location.href,
+        url: canonicalUrl,
       });
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(canonicalUrl);
       console.log("Link copied to clipboard");
     }
   };
+  
+  // Schema.org NewsArticle structured data
+  const newsArticleSchema = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": article.title,
+    "description": article.excerpt,
+    "image": article.imageUrl || `${baseUrl}/og-default.jpg`,
+    "datePublished": article.publishedAt,
+    "dateModified": article.publishedAt,
+    "author": {
+      "@type": "Person",
+      "name": article.author
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Phuket Radar",
+      "logo": {
+        "@type": "ImageObject",
+        "url": logoImage
+      }
+    },
+    "articleSection": article.category,
+    "url": canonicalUrl
+  };
+  
+  // Schema.org BreadcrumbList structured data
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": baseUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": article.category,
+        "item": `${baseUrl}/category/${article.category.toLowerCase()}`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": article.title,
+        "item": canonicalUrl
+      }
+    ]
+  };
+
+  // Add structured data scripts to head with cleanup
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    // Create and append NewsArticle script
+    const newsScript = document.createElement('script');
+    newsScript.type = 'application/ld+json';
+    newsScript.text = JSON.stringify(newsArticleSchema);
+    newsScript.id = 'news-article-schema';
+    document.head.appendChild(newsScript);
+    
+    // Create and append BreadcrumbList script
+    const breadcrumbScript = document.createElement('script');
+    breadcrumbScript.type = 'application/ld+json';
+    breadcrumbScript.text = JSON.stringify(breadcrumbSchema);
+    breadcrumbScript.id = 'breadcrumb-schema';
+    document.head.appendChild(breadcrumbScript);
+    
+    // Cleanup on unmount or when article changes
+    return () => {
+      const oldNewsScript = document.getElementById('news-article-schema');
+      const oldBreadcrumbScript = document.getElementById('breadcrumb-schema');
+      if (oldNewsScript) oldNewsScript.remove();
+      if (oldBreadcrumbScript) oldBreadcrumbScript.remove();
+    };
+  }, [newsArticleSchema, breadcrumbSchema]);
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO 
+        title={article.title}
+        description={article.excerpt}
+        image={article.imageUrl || undefined}
+        url={canonicalUrl}
+        type="article"
+        publishedTime={article.publishedAt}
+        author={article.author}
+      />
+      
       <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
@@ -163,10 +261,12 @@ export default function ArticleDetail() {
           <div className="sticky top-20">
             <h3 className="text-xl font-bold mb-6">Latest</h3>
             <div className="space-y-4">
-              {latestArticles.map((latestArticle) => (
+              {latestArticles.map((latestArticle) => {
+                const latestUrl = latestArticle.slug ? `/article/${latestArticle.slug}` : `/article/${latestArticle.id}`;
+                return (
                 <a 
                   key={latestArticle.id} 
-                  href={`/article/${latestArticle.id}`}
+                  href={latestUrl}
                   className="flex gap-3 group"
                   data-testid={`link-latest-${latestArticle.id}`}
                 >
@@ -196,7 +296,8 @@ export default function ArticleDetail() {
                     )}
                   </div>
                 </a>
-              ))}
+                );
+              })}
             </div>
           </div>
         </aside>
@@ -212,6 +313,7 @@ export default function ArticleDetail() {
               <ArticleCard
                 key={relatedArticle.id}
                 id={relatedArticle.id}
+                slug={relatedArticle.slug}
                 title={relatedArticle.title}
                 excerpt={relatedArticle.excerpt}
                 imageUrl={relatedArticle.imageUrl || undefined}
