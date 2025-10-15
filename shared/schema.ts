@@ -27,10 +27,11 @@ export const articles = pgTable("articles", {
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts
+// Matches raw SQL: CREATE TABLE IF NOT EXISTS scheduler_locks (...)
 export const schedulerLocks = pgTable("scheduler_locks", {
-  lockName: varchar("lock_name", { length: 255 }).primaryKey(),
+  lockName: varchar("lock_name").primaryKey(),
   acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
-  instanceId: varchar("instance_id", { length: 255 }),
+  instanceId: varchar("instance_id"),
 });
 
 // Session table - auto-created by connect-pg-simple
