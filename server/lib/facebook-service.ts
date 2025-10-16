@@ -36,13 +36,15 @@ function getArticleUrl(article: Article): string {
 }
 
 export async function postArticleToFacebook(article: Article): Promise<{ postId: string; postUrl: string } | null> {
+  console.log(`📘 Attempting to post article to Facebook: ${article.title.substring(0, 60)}...`);
+  
   if (!FB_PAGE_ACCESS_TOKEN) {
-    console.error("FB_PAGE_ACCESS_TOKEN not configured");
+    console.error("❌ FB_PAGE_ACCESS_TOKEN not configured");
     return null;
   }
 
   if (!article.imageUrl) {
-    console.error(`Article ${article.id} has no image, skipping Facebook post`);
+    console.error(`❌ Article ${article.id} has no image, skipping Facebook post`);
     return null;
   }
 
@@ -52,6 +54,11 @@ export async function postArticleToFacebook(article: Article): Promise<{ postId:
     
     // Post message: title + excerpt + hashtags
     const postMessage = `${article.title}\n\n${article.excerpt}\n\n${hashtags}`;
+
+    console.log(`📘 Posting to Facebook API...`);
+    console.log(`   Page ID: ${FB_PAGE_ID}`);
+    console.log(`   Image URL: ${article.imageUrl}`);
+    console.log(`   Token length: ${FB_PAGE_ACCESS_TOKEN.length} characters`);
 
     // Post photo to Facebook
     const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
@@ -66,9 +73,11 @@ export async function postArticleToFacebook(article: Article): Promise<{ postId:
       }),
     });
 
+    console.log(`📘 Facebook API response status: ${photoResponse.status}`);
+
     if (!photoResponse.ok) {
       const error = await photoResponse.text();
-      console.error("Facebook photo post failed:", error);
+      console.error("❌ Facebook photo post failed:", error);
       return null;
     }
 
