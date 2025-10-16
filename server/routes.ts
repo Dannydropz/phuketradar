@@ -9,6 +9,7 @@ import { z } from "zod";
 import { scrapeJobManager } from "./scrape-jobs";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
+import { postArticleToFacebook } from "./lib/facebook-service";
 
 // Extend session type
 declare module "express-session" {
@@ -354,6 +355,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error publishing article:", error);
       res.status(500).json({ error: "Failed to publish article" });
+    }
+  });
+
+  // Post article to Facebook - PROTECTED
+  app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+      
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can be posted to Facebook" });
+      }
+
+      if (article.facebookPostId) {
+        return res.status(400).json({ error: "Article already posted to Facebook" });
+      }
+
+      const fbResult = await postArticleToFacebook(article);
+      
+      if (!fbResult) {
+        return res.status(500).json({ error: "Failed to post to Facebook" });
+      }
+
+      const updatedArticle = await storage.updateArticle(id, {
+        facebookPostId: fbResult.postId,
+        facebookPostUrl: fbResult.postUrl,
+      });
+
+      res.json(updatedArticle);
+    } catch (error) {
+      console.error("Error posting to Facebook:", error);
+      res.status(500).json({ error: "Failed to post to Facebook" });
     }
   });
 

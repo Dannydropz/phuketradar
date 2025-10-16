@@ -3,7 +3,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2 } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -158,6 +158,27 @@ export default function AdminDashboard() {
     },
   });
 
+  const facebookPostMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${id}/facebook`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Posted to Facebook",
+        description: "The article has been shared on your Facebook page",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Facebook Post Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleScrape = () => {
     scrapeMutation.mutate();
   };
@@ -180,6 +201,10 @@ export default function AdminDashboard() {
 
   const handlePreview = (id: string) => {
     setLocation(`/article/${id}`);
+  };
+
+  const handlePostToFacebook = (id: string) => {
+    facebookPostMutation.mutate(id);
   };
 
   const handleLogout = async () => {
@@ -386,6 +411,19 @@ export default function AdminDashboard() {
                           </>
                         ) : (
                           <>
+                            {!article.facebookPostId && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handlePostToFacebook(article.id)}
+                                className="border-blue-500 text-blue-500"
+                                disabled={facebookPostMutation.isPending}
+                                data-testid={`button-facebook-${article.id}`}
+                                title="Post to Facebook"
+                              >
+                                <Facebook className="w-4 h-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="icon"
