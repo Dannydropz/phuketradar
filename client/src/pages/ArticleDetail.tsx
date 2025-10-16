@@ -18,7 +18,7 @@ export default function ArticleDetail() {
   const slugOrId = params?.slugOrId || "";
 
   const { data: article, isLoading } = useQuery<Article>({
-    queryKey: [`/api/articles/${slugOrId}`],
+    queryKey: ["/api/articles", slugOrId],
     enabled: !!slugOrId,
   });
 
