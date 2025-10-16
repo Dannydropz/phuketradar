@@ -1,7 +1,7 @@
 import type { Article } from "@shared/schema";
 
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
-const FB_PAGE_ID = "465112903371369"; // Phuket Radar page ID (extracted from facebook.com/phuketradar/)
+const FB_PAGE_ID = "786684811203574"; // Phuket Radar page ID
 
 interface FacebookPostResponse {
   id: string;
