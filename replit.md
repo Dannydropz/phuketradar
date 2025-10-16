@@ -10,6 +10,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**October 16, 2025 - Cron Scheduler Re-enabled & Duplicate Detection Improved**
+- ✅ **Re-added embedded cron scheduler** to web server after Replit removed separate Scheduled Deployment feature
+- ✅ Scheduler runs every 4 hours with database lock protection to prevent duplicate runs from multiple instances
+- ✅ **Lowered semantic duplicate threshold from 85% to 80%** for more aggressive near-duplicate detection
+- ✅ Now catches stories about same event from different Facebook sources with slightly different wording
+- ✅ Tested and confirmed: scheduler initializes properly with log message on startup
+- ✅ Both manual and automated scraping use 80% threshold consistently
+
 **October 15, 2025 - CRITICAL FIX: Schema Sync for Production Deployment**
 - ✅ **Root Cause**: Production database had `scheduler_locks` and `session` tables that weren't in Drizzle schema
 - ✅ **Problem**: Replit deployment wanted to DROP these tables, which would break the scheduler and sessions
@@ -136,7 +144,7 @@ Preferred communication style: Simple, everyday language.
 - **TranslatorService**: OpenAI GPT-4-mini integration for Thai→English translation with intelligent news filtering (distinguishes actual news from promotional content)
 - Translation includes content rewriting in professional news style, automatic excerpt generation, and category classification (Breaking, Tourism, Business, Events, Other)
 - **Embedding generation**: Uses OpenAI text-embedding-3-small to generate 1536-dimension vectors from Thai titles for semantic duplicate detection
-- **Semantic similarity**: Cosine similarity checker with 90% threshold detects near-identical stories even when wording differs
+- **Semantic similarity**: Cosine similarity checker with 80% threshold detects near-identical stories even when wording differs
 
 **API Endpoints**
 - `GET /api/articles` - Fetch all published articles
@@ -181,7 +189,7 @@ Preferred communication style: Simple, everyday language.
 **Data Flow**
 - Unidirectional data flow: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend
 - Duplicate prevention: Before translating, checks if article with same `sourceUrl` already exists (saves API costs)
-- Semantic duplicate detection: Generates embedding from Thai title, compares with existing embeddings using cosine similarity (90% threshold)
+- Semantic duplicate detection: Generates embedding from Thai title, compares with existing embeddings using cosine similarity (80% threshold)
 - Articles from scheduler auto-published; articles from admin scrape stored in "pending" state for quality control
 - Published articles cached in TanStack Query with stale-while-revalidate pattern
 
