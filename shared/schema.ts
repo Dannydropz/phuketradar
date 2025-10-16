@@ -24,6 +24,8 @@ export const articles = pgTable("articles", {
   originalLanguage: text("original_language").default("th"),
   translatedBy: text("translated_by").default("openai"),
   embedding: real("embedding").array(),
+  facebookPostId: text("facebook_post_id"),
+  facebookPostUrl: text("facebook_post_url"),
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts
