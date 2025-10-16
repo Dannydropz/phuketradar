@@ -5,13 +5,13 @@ import { EmailSignup } from "@/components/EmailSignup";
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
-import type { Article } from "@shared/schema";
+import type { ArticleListItem } from "@shared/schema";
 
 export default function Home() {
   const [, params] = useRoute("/category/:category");
   const category = params?.category;
   
-  const { data: articles = [], isLoading } = useQuery<Article[]>({
+  const { data: articles = [], isLoading } = useQuery<ArticleListItem[]>({
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
 

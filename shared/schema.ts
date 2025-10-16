@@ -59,3 +59,6 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertArticle = z.infer<typeof insertArticleSchema>;
 export type Article = typeof articles.$inferSelect;
+
+// Optimized article type for list views (excludes heavy fields)
+export type ArticleListItem = Omit<Article, 'content' | 'embedding'>;

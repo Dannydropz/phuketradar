@@ -9,7 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ArticleCard } from "@/components/ArticleCard";
 import { EmailSignup } from "@/components/EmailSignup";
 import { useQuery } from "@tanstack/react-query";
-import type { Article } from "@shared/schema";
+import type { Article, ArticleListItem } from "@shared/schema";
 import logoImage from "@assets/PhuketRadar_1759933943849.png";
 import { SEO } from "@/components/SEO";
 
@@ -22,7 +22,7 @@ export default function ArticleDetail() {
     enabled: !!slugOrId,
   });
 
-  const { data: allArticles = [] } = useQuery<Article[]>({
+  const { data: allArticles = [] } = useQuery<ArticleListItem[]>({
     queryKey: ["/api/articles"],
   });
 
@@ -173,7 +173,7 @@ export default function ArticleDetail() {
         image={article.imageUrl || undefined}
         url={canonicalUrl}
         type="article"
-        publishedTime={article.publishedAt}
+        publishedTime={article.publishedAt.toString()}
         author={article.author}
       />
       

@@ -430,13 +430,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors: [] as string[],
       };
 
-      for (const article of articlesToPost) {
+      for (const articleListItem of articlesToPost) {
         try {
-          console.log(`📘 Posting: ${article.title.substring(0, 60)}...`);
-          const fbResult = await postArticleToFacebook(article);
+          console.log(`📘 Posting: ${articleListItem.title.substring(0, 60)}...`);
+          
+          // Fetch full article with content for Facebook posting
+          const fullArticle = await storage.getArticleById(articleListItem.id);
+          if (!fullArticle) {
+            results.failed++;
+            results.errors.push(`${articleListItem.title}: Article not found`);
+            continue;
+          }
+          
+          const fbResult = await postArticleToFacebook(fullArticle);
           
           if (fbResult) {
-            await storage.updateArticle(article.id, {
+            await storage.updateArticle(fullArticle.id, {
               facebookPostId: fbResult.postId,
               facebookPostUrl: fbResult.postUrl,
             });
@@ -444,14 +453,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`✅ Posted successfully: ${fbResult.postUrl}`);
           } else {
             results.failed++;
-            results.errors.push(`${article.title}: Failed to post (no result)`);
-            console.log(`❌ Failed to post: ${article.title.substring(0, 60)}...`);
+            results.errors.push(`${fullArticle.title}: Failed to post (no result)`);
+            console.log(`❌ Failed to post: ${fullArticle.title.substring(0, 60)}...`);
           }
         } catch (error) {
           results.failed++;
           const errorMsg = error instanceof Error ? error.message : "Unknown error";
-          results.errors.push(`${article.title}: ${errorMsg}`);
-          console.error(`❌ Error posting ${article.title}:`, error);
+          results.errors.push(`${articleListItem.title}: ${errorMsg}`);
+          console.error(`❌ Error posting ${articleListItem.title}:`, error);
         }
       }
 
