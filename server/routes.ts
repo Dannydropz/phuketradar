@@ -193,13 +193,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             console.log(`[Job ${job.id}] Processing post: ${post.title.substring(0, 50)}`);
             
+            // STEP 0: Check for image URL duplicate (same image = same story)
+            if (post.imageUrl) {
+              const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
+              if (existingImageArticle) {
+                skippedSemanticDuplicates++;
+                console.log(`[Job ${job.id}] 🖼️ Image duplicate detected - same image already exists`);
+                console.log(`[Job ${job.id}]    New: ${post.title.substring(0, 60)}...`);
+                console.log(`[Job ${job.id}]    Existing: ${existingImageArticle.title.substring(0, 60)}...`);
+                
+                scrapeJobManager.updateProgress(job.id, {
+                  processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
+                  createdArticles,
+                  skippedNotNews,
+                });
+                continue;
+              }
+            }
+            
             // STEP 1: Generate embedding from Thai title (before translation - saves money!)
             let titleEmbedding: number[] | undefined;
             try {
               titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
               
-              // STEP 2: Check for semantic duplicates (80% threshold catches near-duplicates)
-              const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.80);
+              // STEP 2: Check for semantic duplicates (75% threshold catches near-duplicates)
+              const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.75);
               
               if (duplicateCheck.isDuplicate) {
                 skippedSemanticDuplicates++;

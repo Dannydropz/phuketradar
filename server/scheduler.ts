@@ -64,13 +64,25 @@ export async function runScheduledScrape() {
     // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
+        // STEP 0: Check for image URL duplicate (same image = same story)
+        if (post.imageUrl) {
+          const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
+          if (existingImageArticle) {
+            skippedSemanticDuplicates++;
+            console.log(`🖼️ Image duplicate detected - same image already exists`);
+            console.log(`   New: ${post.title.substring(0, 60)}...`);
+            console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
+            continue;
+          }
+        }
+        
         // STEP 1: Generate embedding from Thai title (before translation - saves money!)
         let titleEmbedding: number[] | undefined;
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 2: Check for semantic duplicates (80% threshold catches near-duplicates)
-          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.80);
+          // STEP 2: Check for semantic duplicates (75% threshold catches near-duplicates)
+          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.75);
           
           if (duplicateCheck.isDuplicate) {
             skippedSemanticDuplicates++;
