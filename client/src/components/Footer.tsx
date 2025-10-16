@@ -26,7 +26,7 @@ export function Footer() {
 
           <div className="flex items-center space-x-4">
             <a
-              href="https://www.facebook.com/PhuketTimeNews"
+              href="https://www.facebook.com/phuketradar/"
               target="_blank"
               rel="noopener noreferrer"
               className="hover-elevate rounded-lg p-2"
