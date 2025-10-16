@@ -179,6 +179,31 @@ export default function AdminDashboard() {
     },
   });
 
+  const batchFacebookPostMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/facebook/batch-post");
+      return await res.json();
+    },
+    onSuccess: (data: { total: number; successful: number; failed: number; errors: string[] }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      toast({
+        title: "Batch Facebook Posting Complete",
+        description: `Successfully posted ${data.successful} of ${data.total} articles to Facebook`,
+      });
+      if (data.failed > 0) {
+        console.error("Failed posts:", data.errors);
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Batch Facebook Post Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleScrape = () => {
     scrapeMutation.mutate();
   };
@@ -205,6 +230,10 @@ export default function AdminDashboard() {
 
   const handlePostToFacebook = (id: string) => {
     facebookPostMutation.mutate(id);
+  };
+
+  const handleBatchFacebookPost = () => {
+    batchFacebookPostMutation.mutate();
   };
 
   const handleLogout = async () => {
@@ -254,6 +283,24 @@ export default function AdminDashboard() {
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleBatchFacebookPost}
+                  disabled={batchFacebookPostMutation.isPending}
+                  data-testid="button-batch-facebook"
+                >
+                  {batchFacebookPostMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Facebook className="w-4 h-4 mr-2" />
+                      Post Missing to Facebook
+                    </>
+                  )}
                 </Button>
                 <Button
                   size="lg"

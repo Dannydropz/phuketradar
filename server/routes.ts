@@ -412,6 +412,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch post articles to Facebook - PROTECTED
+  app.post("/api/admin/facebook/batch-post", requireAdminAuth, async (req, res) => {
+    try {
+      // Find all published articles with images that haven't been posted to Facebook
+      const allArticles = await storage.getPublishedArticles();
+      const articlesToPost = allArticles.filter(
+        (article) => article.imageUrl && !article.facebookPostId
+      );
+
+      console.log(`📘 Batch posting ${articlesToPost.length} articles to Facebook`);
+
+      const results = {
+        total: articlesToPost.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+
+      for (const article of articlesToPost) {
+        try {
+          console.log(`📘 Posting: ${article.title.substring(0, 60)}...`);
+          const fbResult = await postArticleToFacebook(article);
+          
+          if (fbResult) {
+            await storage.updateArticle(article.id, {
+              facebookPostId: fbResult.postId,
+              facebookPostUrl: fbResult.postUrl,
+            });
+            results.successful++;
+            console.log(`✅ Posted successfully: ${fbResult.postUrl}`);
+          } else {
+            results.failed++;
+            results.errors.push(`${article.title}: Failed to post (no result)`);
+            console.log(`❌ Failed to post: ${article.title.substring(0, 60)}...`);
+          }
+        } catch (error) {
+          results.failed++;
+          const errorMsg = error instanceof Error ? error.message : "Unknown error";
+          results.errors.push(`${article.title}: ${errorMsg}`);
+          console.error(`❌ Error posting ${article.title}:`, error);
+        }
+      }
+
+      console.log(`📘 Batch post complete: ${results.successful} successful, ${results.failed} failed`);
+      res.json(results);
+    } catch (error) {
+      console.error("Error in batch Facebook posting:", error);
+      res.status(500).json({ error: "Failed to batch post to Facebook" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
