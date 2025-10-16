@@ -22,6 +22,7 @@ import { storage } from "./storage";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
+import { postArticleToFacebook } from "./lib/facebook-service";
 
 export async function runScheduledScrape() {
   console.log("=== Starting Multi-Source Scheduled Scrape ===");
@@ -122,6 +123,23 @@ export async function runScheduledScrape() {
           }
           
           console.log(`✅ Created and published: ${translation.translatedTitle.substring(0, 50)}...`);
+
+          // Auto-post to Facebook after publishing
+          if (article.isPublished) {
+            try {
+              const fbResult = await postArticleToFacebook(article);
+              if (fbResult) {
+                await storage.updateArticle(article.id, {
+                  facebookPostId: fbResult.postId,
+                  facebookPostUrl: fbResult.postUrl,
+                });
+                console.log(`📘 Posted to Facebook: ${fbResult.postUrl}`);
+              }
+            } catch (fbError) {
+              console.error(`Failed to post to Facebook:`, fbError);
+              // Don't fail the whole scrape if Facebook posting fails
+            }
+          }
         } else {
           skippedNotNews++;
           console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
