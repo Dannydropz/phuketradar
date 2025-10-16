@@ -2,8 +2,11 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { neon } from "@neondatabase/serverless";
+import cron from "node-cron";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { runScheduledScrape } from "./scheduler";
+import { withSchedulerLock } from "./lib/scheduler-lock";
 
 const app = express();
 
@@ -115,7 +118,19 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
   });
 
-  // NOTE: Automated scraping is handled by a separate Replit Scheduled Deployment
-  // See SCHEDULED_DEPLOYMENT_SETUP.md for configuration instructions
-  // This prevents multiple web server instances from running duplicate scrapers
+  // Automated scraping with cron scheduler
+  // Runs every 4 hours at minute 0 (12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM)
+  // Database lock prevents duplicate runs when multiple server instances exist
+  cron.schedule('0 */4 * * *', async () => {
+    log('📅 Automated scraping triggered by cron scheduler');
+    
+    await withSchedulerLock(
+      runScheduledScrape,
+      () => {
+        log('⏭️  Skipping scrape - another instance is already running');
+      }
+    );
+  });
+
+  log('📅 Automated scraping enabled: every 4 hours at minute 0 (with database lock protection)');
 })();
