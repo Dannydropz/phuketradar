@@ -139,16 +139,19 @@ export async function runScheduledScrape() {
           // Auto-post to Facebook after publishing
           if (article.isPublished) {
             try {
+              console.log(`📘 Attempting to post article to Facebook: ${article.title.substring(0, 60)}...`);
               const fbResult = await postArticleToFacebook(article);
               if (fbResult) {
                 await storage.updateArticle(article.id, {
                   facebookPostId: fbResult.postId,
                   facebookPostUrl: fbResult.postUrl,
                 });
-                console.log(`📘 Posted to Facebook: ${fbResult.postUrl}`);
+                console.log(`✅ Posted to Facebook successfully: ${fbResult.postUrl}`);
+              } else {
+                console.error(`❌ Failed to post to Facebook: postArticleToFacebook returned null for ${article.title.substring(0, 60)}...`);
               }
             } catch (fbError) {
-              console.error(`Failed to post to Facebook:`, fbError);
+              console.error(`❌ Error posting to Facebook:`, fbError);
               // Don't fail the whole scrape if Facebook posting fails
             }
           }
