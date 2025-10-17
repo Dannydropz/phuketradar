@@ -17,9 +17,18 @@ export default function ArticleDetail() {
   const [, params] = useRoute("/article/:slugOrId");
   const slugOrId = params?.slugOrId || "";
 
-  const { data: article, isLoading } = useQuery<Article>({
+  const { data: article, isLoading, error, isError } = useQuery<Article>({
     queryKey: ["/api/articles", slugOrId],
     enabled: !!slugOrId,
+  });
+
+  // Debug logging
+  console.log("ArticleDetail Debug:", { 
+    slugOrId, 
+    isLoading, 
+    isError, 
+    hasArticle: !!article,
+    error: error?.message 
   });
 
   const { data: allArticles = [] } = useQuery<ArticleListItem[]>({
@@ -34,6 +43,26 @@ export default function ArticleDetail() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading article...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md px-4">
+            <h2 className="text-2xl font-bold mb-4">Error Loading Article</h2>
+            <p className="text-muted-foreground mb-4">
+              {error?.message || "An error occurred while loading the article."}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Tried to load: {slugOrId}
+            </p>
           </div>
         </main>
         <Footer />
