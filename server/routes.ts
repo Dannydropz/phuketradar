@@ -249,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // STEP 4: Only create article if it's actual news
             if (translation.isActualNews) {
-              await storage.createArticle({
+              const article = await storage.createArticle({
                 title: translation.translatedTitle,
                 content: translation.translatedContent,
                 excerpt: translation.excerpt,
@@ -257,13 +257,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 category: translation.category,
                 sourceUrl: post.sourceUrl,
                 author: translation.author,
-                isPublished: false,
+                isPublished: true, // Auto-publish from admin scrape too
                 originalLanguage: "th",
                 translatedBy: "openai",
                 embedding: translation.embedding,
               });
 
               createdArticles++;
+              
+              // Auto-post to Facebook after publishing (only if not already posted)
+              if (article.isPublished && !article.facebookPostId && article.imageUrl) {
+                try {
+                  console.log(`[Job ${job.id}] 📘 Attempting to post article to Facebook: ${article.title.substring(0, 60)}...`);
+                  const fbResult = await postArticleToFacebook(article);
+                  if (fbResult) {
+                    await storage.updateArticle(article.id, {
+                      facebookPostId: fbResult.postId,
+                      facebookPostUrl: fbResult.postUrl,
+                    });
+                    console.log(`[Job ${job.id}] ✅ Posted to Facebook successfully: ${fbResult.postUrl}`);
+                  } else {
+                    console.error(`[Job ${job.id}] ❌ Failed to post to Facebook: postArticleToFacebook returned null for ${article.title.substring(0, 60)}...`);
+                  }
+                } catch (fbError) {
+                  console.error(`[Job ${job.id}] ❌ Error posting to Facebook:`, fbError);
+                  // Don't fail the whole scrape if Facebook posting fails
+                }
+              } else if (article.isPublished && article.facebookPostId) {
+                console.log(`[Job ${job.id}] ⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
+              } else if (article.isPublished && !article.imageUrl) {
+                console.log(`[Job ${job.id}] ⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
+              }
               
               // Add to existing embeddings so we can catch duplicates within this batch
               if (translation.embedding) {
