@@ -1,4 +1,3 @@
-import { useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
@@ -115,84 +114,6 @@ export default function ArticleDetail() {
       console.log("Link copied to clipboard");
     }
   };
-  
-  // Schema.org NewsArticle structured data (memoized to prevent re-renders)
-  const newsArticleSchema = useMemo(() => ({
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    "headline": article.title,
-    "description": article.excerpt,
-    "image": article.imageUrl || `${baseUrl}/og-default.jpg`,
-    "datePublished": article.publishedAt,
-    "dateModified": article.publishedAt,
-    "author": {
-      "@type": "Person",
-      "name": article.author
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": "Phuket Radar",
-      "logo": {
-        "@type": "ImageObject",
-        "url": logoImage
-      }
-    },
-    "articleSection": article.category,
-    "url": canonicalUrl
-  }), [article.title, article.excerpt, article.imageUrl, article.publishedAt, article.author, article.category, baseUrl, canonicalUrl]);
-  
-  // Schema.org BreadcrumbList structured data (memoized to prevent re-renders)
-  const breadcrumbSchema = useMemo(() => ({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": baseUrl
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": article.category,
-        "item": `${baseUrl}/category/${article.category.toLowerCase()}`
-      },
-      {
-        "@type": "ListItem",
-        "position": 3,
-        "name": article.title,
-        "item": canonicalUrl
-      }
-    ]
-  }), [baseUrl, article.category, article.title, canonicalUrl]);
-
-  // Add structured data scripts to head with cleanup
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    
-    // Create and append NewsArticle script
-    const newsScript = document.createElement('script');
-    newsScript.type = 'application/ld+json';
-    newsScript.text = JSON.stringify(newsArticleSchema);
-    newsScript.id = 'news-article-schema';
-    document.head.appendChild(newsScript);
-    
-    // Create and append BreadcrumbList script
-    const breadcrumbScript = document.createElement('script');
-    breadcrumbScript.type = 'application/ld+json';
-    breadcrumbScript.text = JSON.stringify(breadcrumbSchema);
-    breadcrumbScript.id = 'breadcrumb-schema';
-    document.head.appendChild(breadcrumbScript);
-    
-    // Cleanup on unmount or when article changes
-    return () => {
-      const oldNewsScript = document.getElementById('news-article-schema');
-      const oldBreadcrumbScript = document.getElementById('breadcrumb-schema');
-      if (oldNewsScript) oldNewsScript.remove();
-      if (oldBreadcrumbScript) oldBreadcrumbScript.remove();
-    };
-  }, [newsArticleSchema, breadcrumbSchema]);
 
   return (
     <div className="min-h-screen flex flex-col">
