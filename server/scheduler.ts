@@ -136,8 +136,8 @@ export async function runScheduledScrape() {
           
           console.log(`✅ Created and published: ${translation.translatedTitle.substring(0, 50)}...`);
 
-          // Auto-post to Facebook after publishing
-          if (article.isPublished) {
+          // Auto-post to Facebook after publishing (only if not already posted)
+          if (article.isPublished && !article.facebookPostId && article.imageUrl) {
             try {
               console.log(`📘 Attempting to post article to Facebook: ${article.title.substring(0, 60)}...`);
               const fbResult = await postArticleToFacebook(article);
@@ -154,6 +154,10 @@ export async function runScheduledScrape() {
               console.error(`❌ Error posting to Facebook:`, fbError);
               // Don't fail the whole scrape if Facebook posting fails
             }
+          } else if (article.isPublished && article.facebookPostId) {
+            console.log(`⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
+          } else if (article.isPublished && !article.imageUrl) {
+            console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
           }
         } else {
           skippedNotNews++;
