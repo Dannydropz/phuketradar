@@ -76,8 +76,17 @@ export async function postArticleToFacebook(article: Article): Promise<{ postId:
     console.log(`📘 Facebook API response status: ${photoResponse.status}`);
 
     if (!photoResponse.ok) {
-      const error = await photoResponse.text();
-      console.error("❌ Facebook photo post failed:", error);
+      const errorText = await photoResponse.text();
+      let errorDetails = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = JSON.stringify(errorJson, null, 2);
+      } catch {
+        // Error is not JSON, use text as-is
+      }
+      console.error("❌ Facebook photo post failed:");
+      console.error(`   Status: ${photoResponse.status} ${photoResponse.statusText}`);
+      console.error(`   Response: ${errorDetails}`);
       return null;
     }
 
@@ -102,7 +111,8 @@ export async function postArticleToFacebook(article: Article): Promise<{ postId:
       const commentData = await commentResponse.json() as FacebookCommentResponse;
       console.log(`✅ Added comment to post: ${commentData.id}`);
     } else {
-      console.warn("Failed to add comment to Facebook post");
+      const commentError = await commentResponse.text();
+      console.warn(`⚠️  Failed to add comment to Facebook post (status ${commentResponse.status}): ${commentError}`);
     }
 
     // Generate Facebook post URL
