@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
@@ -116,8 +116,8 @@ export default function ArticleDetail() {
     }
   };
   
-  // Schema.org NewsArticle structured data
-  const newsArticleSchema = {
+  // Schema.org NewsArticle structured data (memoized to prevent re-renders)
+  const newsArticleSchema = useMemo(() => ({
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     "headline": article.title,
@@ -139,10 +139,10 @@ export default function ArticleDetail() {
     },
     "articleSection": article.category,
     "url": canonicalUrl
-  };
+  }), [article.title, article.excerpt, article.imageUrl, article.publishedAt, article.author, article.category, baseUrl, canonicalUrl]);
   
-  // Schema.org BreadcrumbList structured data
-  const breadcrumbSchema = {
+  // Schema.org BreadcrumbList structured data (memoized to prevent re-renders)
+  const breadcrumbSchema = useMemo(() => ({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
@@ -165,7 +165,7 @@ export default function ArticleDetail() {
         "item": canonicalUrl
       }
     ]
-  };
+  }), [baseUrl, article.category, article.title, canonicalUrl]);
 
   // Add structured data scripts to head with cleanup
   useEffect(() => {
