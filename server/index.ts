@@ -119,18 +119,25 @@ app.use((req, res, next) => {
   });
 
   // Automated scraping with cron scheduler
+  // ONLY runs in production to prevent excessive API usage during development
   // Runs every 4 hours at minute 0 (12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM)
   // Database lock prevents duplicate runs when multiple server instances exist
-  cron.schedule('0 */4 * * *', async () => {
-    log('📅 Automated scraping triggered by cron scheduler');
+  if (process.env.NODE_ENV === 'production') {
+    const instanceId = Math.random().toString(36).substring(7);
     
-    await withSchedulerLock(
-      runScheduledScrape,
-      () => {
-        log('⏭️  Skipping scrape - another instance is already running');
-      }
-    );
-  });
+    cron.schedule('0 */4 * * *', async () => {
+      log(`📅 [Instance ${instanceId}] Automated scraping triggered by cron scheduler`);
+      
+      await withSchedulerLock(
+        runScheduledScrape,
+        () => {
+          log(`⏭️  [Instance ${instanceId}] Skipping scrape - another instance is already running`);
+        }
+      );
+    });
 
-  log('📅 Automated scraping enabled: every 4 hours at minute 0 (with database lock protection)');
+    log(`📅 Automated scraping ENABLED in production: every 4 hours at minute 0 (Instance ${instanceId})`);
+  } else {
+    log('📅 Automated scraping DISABLED in development mode (use admin dashboard to manually trigger scraping)');
+  }
 })();
