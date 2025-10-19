@@ -25,8 +25,13 @@ import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 
 export async function runScheduledScrape() {
-  console.log("=== Starting Multi-Source Scheduled Scrape ===");
-  console.log(`Time: ${new Date().toISOString()}`);
+  const timestamp = new Date().toISOString();
+  console.log("\n".repeat(3) + "=".repeat(80));
+  console.log("🚨 SCRAPE TRIGGERED 🚨");
+  console.log(`Time: ${timestamp}`);
+  console.log(`Trigger: AUTOMATED CRON SCHEDULE (every 4 hours)`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log("=".repeat(80) + "\n");
   
   try {
     const sources = getEnabledSources();

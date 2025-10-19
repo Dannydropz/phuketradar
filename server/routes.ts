@@ -138,7 +138,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Scrape and process articles - PROTECTED (async with job tracking)
   app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
-    console.log("=== SCRAPE REQUEST RECEIVED ===");
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🚨 SCRAPE TRIGGERED 🚨");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: MANUAL (Admin Dashboard)`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log("=".repeat(80) + "\n");
     
     // Create job and respond immediately
     const job = scrapeJobManager.createJob();
