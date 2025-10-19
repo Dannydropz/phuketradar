@@ -63,18 +63,22 @@ Before relying on the automated cron:
 
 1. In cron-job.org, find your newly created job
 2. Click "Execute now" to test it manually
-3. Check the execution log in cron-job.org - it should show HTTP 200 (success)
+3. Check the execution log in cron-job.org - it should show HTTP 200 (success) within 1-2 seconds
 4. Check your Replit deployment logs - you should see:
    ```
    🚨 SCRAPE TRIGGERED 🚨
    Trigger: EXTERNAL CRON SERVICE (cron-job.org)
    ```
-5. Check your admin dashboard - new articles should appear
+5. Wait 1-2 minutes for the background scraping to complete
+6. Check your admin dashboard - new articles should appear
+
+**Note**: The endpoint responds immediately (preventing timeouts) while the actual scraping runs in the background for 1-2 minutes.
 
 If you see errors:
 - **401 Unauthorized**: Check that your API key matches exactly (including the "Bearer " prefix)
 - **500 Server Error**: Check Replit logs for details
 - **Connection Error**: Verify your Replit URL is correct and the app is running
+- **Timeout**: This shouldn't happen anymore as the endpoint responds immediately
 
 ## Current Status
 
