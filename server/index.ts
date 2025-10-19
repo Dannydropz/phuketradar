@@ -124,10 +124,32 @@ app.use((req, res, next) => {
   // Database lock prevents duplicate runs when multiple server instances exist
   if (process.env.NODE_ENV === 'production') {
     const instanceId = Math.random().toString(36).substring(7);
+    const serverStartTime = Date.now();
+    const startupDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
+    
+    log(`🚀 SERVER STARTUP - Instance ${instanceId} at ${new Date().toISOString()}`);
+    log(`📅 Cron scheduler will be active in 5 minutes to prevent startup conflicts`);
     
     // node-cron uses 6-field format: second minute hour day month dayOfWeek
     // '0 0 */4 * * *' = At second 0, minute 0, every 4 hours
     cron.schedule('0 0 */4 * * *', async () => {
+      const now = Date.now();
+      const uptimeMinutes = Math.floor((now - serverStartTime) / 1000 / 60);
+      const currentTime = new Date().toISOString();
+      
+      log(`\n${'='.repeat(80)}`);
+      log(`⏰ CRON JOB FIRED - Instance ${instanceId}`);
+      log(`   Current time: ${currentTime}`);
+      log(`   Server uptime: ${uptimeMinutes} minutes`);
+      log(`${'='.repeat(80)}\n`);
+      
+      // Guard: Don't run scrapes within first 5 minutes of server startup
+      if (now - serverStartTime < startupDelay) {
+        const remainingMinutes = Math.ceil((startupDelay - (now - serverStartTime)) / 1000 / 60);
+        log(`⏭️  Skipping scrape - server started ${uptimeMinutes} minutes ago (waiting ${remainingMinutes} more minutes)`);
+        return;
+      }
+      
       log(`📅 [Instance ${instanceId}] Automated scraping triggered by cron scheduler`);
       
       await withSchedulerLock(
@@ -136,9 +158,14 @@ app.use((req, res, next) => {
           log(`⏭️  [Instance ${instanceId}] Skipping scrape - another instance is already running`);
         }
       );
+    }, {
+      timezone: "Asia/Bangkok" // Thailand timezone
     });
 
-    log(`📅 Automated scraping ENABLED in production: every 4 hours at minute 0 (Instance ${instanceId})`);
+    log(`📅 Automated scraping ENABLED in production (Instance ${instanceId})`);
+    log(`   Cron expression: '0 0 */4 * * *' (every 4 hours at minute 0)`);
+    log(`   Timezone: Asia/Bangkok`);
+    log(`   Expected schedule: 0:00, 4:00, 8:00, 12:00, 16:00, 20:00`);
   } else {
     log('📅 Automated scraping DISABLED in development mode (use admin dashboard to manually trigger scraping)');
   }
