@@ -11,8 +11,8 @@ export function Footer() {
     <footer className="border-t bg-card mt-20">
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col items-center md:items-start">
-            <div className="mb-4">
+          <div className="flex flex-col items-center md:items-start gap-3">
+            <div>
               <img 
                 src={theme === "light" ? logoDark : logoLight} 
                 alt="Phuket Radar" 
@@ -22,6 +22,9 @@ export function Footer() {
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Phuket Radar. All rights reserved.
             </p>
+            <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy">
+              Privacy Policy
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4">

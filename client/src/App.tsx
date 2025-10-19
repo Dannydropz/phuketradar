@@ -10,6 +10,7 @@ import Home from "@/pages/Home";
 import ArticleDetail from "@/pages/ArticleDetail";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminLogin from "@/pages/AdminLogin";
+import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/article/:slugOrId" component={ArticleDetail} />
       <Route path="/category/:category" component={Home} />
+      <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin">
         <ProtectedRoute>
