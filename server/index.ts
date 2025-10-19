@@ -125,7 +125,9 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production') {
     const instanceId = Math.random().toString(36).substring(7);
     
-    cron.schedule('0 */4 * * *', async () => {
+    // node-cron uses 6-field format: second minute hour day month dayOfWeek
+    // '0 0 */4 * * *' = At second 0, minute 0, every 4 hours
+    cron.schedule('0 0 */4 * * *', async () => {
       log(`📅 [Instance ${instanceId}] Automated scraping triggered by cron scheduler`);
       
       await withSchedulerLock(
