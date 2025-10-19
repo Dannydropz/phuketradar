@@ -116,39 +116,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Environment: ${process.env.NODE_ENV}`);
     console.log("=".repeat(80) + "\n");
 
-    // Respond immediately to prevent timeout
-    res.json({
-      success: true,
-      message: "Scrape started - running in background",
-      timestamp: timestamp,
-    });
-
-    // Run scraping in background using setImmediate to decouple from request lifecycle
-    setImmediate(async () => {
-      try {
-        console.log("🔄 Starting background scrape process...");
-        // Import and run the scheduled scrape function directly
-        const { runScheduledScrape } = await import("./scheduler");
-        const { withSchedulerLock } = await import("./lib/scheduler-lock");
-        
-        // Use database lock to prevent duplicate runs
-        const result = await withSchedulerLock(
-          runScheduledScrape,
-          () => {
-            console.log(`⏭️  Skipping scrape - another scrape is already running`);
-          }
-        );
-
-        if (result) {
-          console.log("✅ Background scrape completed successfully");
-          console.log("Result:", JSON.stringify(result, null, 2));
-        } else {
-          console.log("⏭️  Background scrape skipped - another scrape was already running");
+    try {
+      console.log("🔄 Starting scrape process...");
+      // Import and run the scheduled scrape function directly
+      const { runScheduledScrape } = await import("./scheduler");
+      const { withSchedulerLock } = await import("./lib/scheduler-lock");
+      
+      // Use database lock to prevent duplicate runs
+      const result = await withSchedulerLock(
+        runScheduledScrape,
+        () => {
+          console.log(`⏭️  Skipping scrape - another scrape is already running`);
         }
-      } catch (error) {
-        console.error("❌ Error during background cron scrape:", error);
+      );
+
+      if (result) {
+        console.log("✅ Scrape completed successfully");
+        console.log("Result:", JSON.stringify(result, null, 2));
+        res.json({
+          success: true,
+          message: "Scrape completed successfully",
+          timestamp: timestamp,
+          result: result,
+        });
+      } else {
+        console.log("⏭️  Scrape skipped - another scrape was already running");
+        res.json({
+          success: true,
+          message: "Scrape skipped - another instance already running",
+          timestamp: timestamp,
+        });
       }
-    });
+    } catch (error) {
+      console.error("❌ Error during cron scrape:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({
+        success: false,
+        message: "Scrape failed",
+        error: errorMessage,
+        timestamp: timestamp,
+      });
+    }
   });
 
   // Admin routes
