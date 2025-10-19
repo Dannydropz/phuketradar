@@ -2,11 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { neon } from "@neondatabase/serverless";
-import cron from "node-cron";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runScheduledScrape } from "./scheduler";
-import { withSchedulerLock } from "./lib/scheduler-lock";
 
 const app = express();
 
@@ -118,55 +115,14 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
   });
 
-  // Automated scraping with cron scheduler
-  // ONLY runs in production to prevent excessive API usage during development
-  // Runs every 4 hours at minute 0 (12:00 AM, 4:00 AM, 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM)
-  // Database lock prevents duplicate runs when multiple server instances exist
-  if (process.env.NODE_ENV === 'production') {
-    const instanceId = Math.random().toString(36).substring(7);
-    const serverStartTime = Date.now();
-    const startupDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
-    
-    log(`🚀 SERVER STARTUP - Instance ${instanceId} at ${new Date().toISOString()}`);
-    log(`📅 Cron scheduler will be active in 5 minutes to prevent startup conflicts`);
-    
-    // node-cron uses 6-field format: second minute hour day month dayOfWeek
-    // '0 0 */4 * * *' = At second 0, minute 0, every 4 hours
-    cron.schedule('0 0 */4 * * *', async () => {
-      const now = Date.now();
-      const uptimeMinutes = Math.floor((now - serverStartTime) / 1000 / 60);
-      const currentTime = new Date().toISOString();
-      
-      log(`\n${'='.repeat(80)}`);
-      log(`⏰ CRON JOB FIRED - Instance ${instanceId}`);
-      log(`   Current time: ${currentTime}`);
-      log(`   Server uptime: ${uptimeMinutes} minutes`);
-      log(`${'='.repeat(80)}\n`);
-      
-      // Guard: Don't run scrapes within first 5 minutes of server startup
-      if (now - serverStartTime < startupDelay) {
-        const remainingMinutes = Math.ceil((startupDelay - (now - serverStartTime)) / 1000 / 60);
-        log(`⏭️  Skipping scrape - server started ${uptimeMinutes} minutes ago (waiting ${remainingMinutes} more minutes)`);
-        return;
-      }
-      
-      log(`📅 [Instance ${instanceId}] Automated scraping triggered by cron scheduler`);
-      
-      await withSchedulerLock(
-        runScheduledScrape,
-        () => {
-          log(`⏭️  [Instance ${instanceId}] Skipping scrape - another instance is already running`);
-        }
-      );
-    }, {
-      timezone: "Asia/Bangkok" // Thailand timezone
-    });
-
-    log(`📅 Automated scraping ENABLED in production (Instance ${instanceId})`);
-    log(`   Cron expression: '0 0 */4 * * *' (every 4 hours at minute 0)`);
-    log(`   Timezone: Asia/Bangkok`);
-    log(`   Expected schedule: 0:00, 4:00, 8:00, 12:00, 16:00, 20:00`);
-  } else {
-    log('📅 Automated scraping DISABLED in development mode (use admin dashboard to manually trigger scraping)');
-  }
+  // Automated scraping DISABLED - Use external cron service instead
+  // Internal cron scheduling had issues with unpredictable firing times
+  // Use cron-job.org or similar service to trigger scraping via API endpoint
+  // API endpoint: POST https://your-replit-url.replit.app/api/cron/scrape
+  // Authentication: Add header "Authorization: Bearer YOUR_CRON_API_KEY"
+  // Recommended schedule: Every 4 hours (0:00, 4:00, 8:00, 12:00, 16:00, 20:00 Bangkok time)
+  // See EXTERNAL_CRON_SETUP.md for complete setup instructions
+  log('📅 Automated internal scraping DISABLED');
+  log('📅 External cron endpoint: POST /api/cron/scrape (requires CRON_API_KEY)');
+  log('📅 Manual scraping available at: /api/admin/scrape (requires admin session)');
 })();

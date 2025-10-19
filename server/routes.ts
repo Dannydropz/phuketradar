@@ -18,7 +18,7 @@ declare module "express-session" {
   }
 }
 
-// Auth middleware
+// Auth middleware for admin session
 function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   console.log(`[AUTH CHECK] ${req.method} ${req.path} - Session auth: ${req.session.isAdminAuthenticated}`);
   if (req.session.isAdminAuthenticated) {
@@ -27,6 +27,32 @@ function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   }
   console.log(`[AUTH CHECK] Unauthorized - blocking request`);
   return res.status(401).json({ error: "Unauthorized" });
+}
+
+// Auth middleware for external cron services (API key)
+function requireCronAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const cronApiKey = process.env.CRON_API_KEY;
+
+  if (!cronApiKey) {
+    console.error(`[CRON AUTH] CRON_API_KEY not set in environment variables`);
+    return res.status(500).json({ error: "Server configuration error" });
+  }
+
+  if (!authHeader) {
+    console.log(`[CRON AUTH] No authorization header provided`);
+    return res.status(401).json({ error: "Missing authorization header" });
+  }
+
+  const providedKey = authHeader.replace(/^Bearer\s+/i, '');
+  
+  if (providedKey === cronApiKey) {
+    console.log(`[CRON AUTH] Valid API key - authorized`);
+    return next();
+  }
+
+  console.log(`[CRON AUTH] Invalid API key - unauthorized`);
+  return res.status(401).json({ error: "Invalid API key" });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -76,6 +102,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching article:", error);
       res.status(500).json({ error: "Failed to fetch article" });
+    }
+  });
+
+  // Cron service endpoint for external automated scraping
+  // Protected by API key authentication (CRON_API_KEY environment variable)
+  app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🚨 SCRAPE TRIGGERED 🚨");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: EXTERNAL CRON SERVICE (cron-job.org)`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log("=".repeat(80) + "\n");
+
+    try {
+      // Import and run the scheduled scrape function directly
+      const { runScheduledScrape } = await import("./scheduler");
+      const { withSchedulerLock } = await import("./lib/scheduler-lock");
+      
+      // Use database lock to prevent duplicate runs
+      const result = await withSchedulerLock(
+        runScheduledScrape,
+        () => {
+          console.log(`⏭️  Skipping scrape - another scrape is already running`);
+        }
+      );
+
+      if (result) {
+        res.json({
+          success: true,
+          message: "Scraping completed successfully",
+          result: result,
+        });
+      } else {
+        res.json({
+          success: true,
+          message: "Scrape skipped - another scrape was already running",
+        });
+      }
+    } catch (error) {
+      console.error("Error during cron scrape:", error);
+      res.status(500).json({ error: "Scraping failed" });
     }
   });
 
