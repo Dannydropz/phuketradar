@@ -17,7 +17,7 @@ export const articles = pgTable("articles", {
   excerpt: text("excerpt").notNull(),
   imageUrl: text("image_url"),
   category: text("category").notNull(),
-  sourceUrl: text("source_url").notNull().unique(),
+  sourceUrl: text("source_url").notNull(),
   author: text("author").notNull().default("Ploy Srisawat"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
   isPublished: boolean("is_published").notNull().default(false),
