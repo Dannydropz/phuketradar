@@ -31,15 +31,30 @@ Preferred communication style: Simple, everyday language.
 - **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY, CRON_API_KEY, FB_PAGE_ACCESS_TOKEN). Separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping
-- **Scheduled Deployments**: Uses Replit Scheduled Deployments (separate from main web deployment) to run automated scraping every 2 hours.
+- **GitHub Actions**: Uses GitHub Actions to run automated scraping every 2 hours.
 - **Script**: `scripts/scheduled-scrape.ts` - A standalone script that makes one HTTP POST request to `/api/cron/scrape` and exits cleanly.
-- **Command**: `tsx scripts/scheduled-scrape.ts`
+- **Workflow**: `.github/workflows/scheduled-scrape.yml` - GitHub Actions workflow configuration.
 - **Configuration**:
   - Schedule: `0 */2 * * *` (every 2 hours on the hour)
-  - Run command: `tsx scripts/scheduled-scrape.ts`
-  - Timeout: 120 seconds (adjustable based on scraping volume)
-  - Machine: 1 vCPU / 2 GiB RAM (Replit Scheduled Deployment default)
-- **Important**: The scheduled deployment runs the standalone script, NOT the web server. This prevents continuous scraping and excessive API usage. The script exits after making a single request to the cron endpoint on the main web deployment.
+  - Run command: `npx tsx scripts/scheduled-scrape.ts`
+  - Timeout: 10 minutes (configurable in workflow file)
+  - Manual trigger: Available via GitHub Actions UI using `workflow_dispatch`
+
+**Setup Instructions:**
+1. **Push code to GitHub**: Ensure `.github/workflows/scheduled-scrape.yml` and `scripts/scheduled-scrape.ts` are in your repository
+2. **Add GitHub Secret**:
+   - Go to your GitHub repository → Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `CRON_API_KEY`
+   - Value: Your CRON_API_KEY value (same as in Replit Secrets)
+   - Click "Add secret"
+3. **Verify workflow**:
+   - Go to Actions tab in your GitHub repository
+   - You should see "Scheduled Scraping" workflow
+   - Click "Run workflow" to test manually
+   - Check the logs to ensure it completes successfully
+
+**Important**: The GitHub Action runs the standalone script, NOT the web server. This prevents continuous scraping and excessive API usage. The script exits after making a single request to the cron endpoint on the published Replit app (phuketradar.com).
 
 ## External Dependencies
 
