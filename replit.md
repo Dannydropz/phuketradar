@@ -27,7 +27,19 @@ Preferred communication style: Simple, everyday language.
 - **Scraping**: JINA AI for Facebook scraping, avoids Graph API complexity. Scrapes multiple sources (Phuket Time News, Phuket Info Center, Newshawk Phuket), configurable via `server/config/news-sources.ts`. Limits processing to 10 recent posts per source to manage API costs.
 - **Translation**: GPT-4-mini for cost-effective, quality translation with news filtering via prompt engineering.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend. Features pre-translation duplicate and semantic similarity checks to optimize API costs.
-- **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY). Separate client (Vite) and server (esbuild) builds.
+- **Duplicate Detection**: Two-layer system: (1) Exact image URL match, (2) 70% semantic similarity threshold on Thai title embeddings. Within-batch duplicate detection ensures articles created in the same scrape run are compared against each other.
+- **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY, CRON_API_KEY, FB_PAGE_ACCESS_TOKEN). Separate client (Vite) and server (esbuild) builds.
+
+### Automated Scraping
+- **Scheduled Deployments**: Uses Replit Scheduled Deployments (separate from main web deployment) to run automated scraping every 2 hours.
+- **Script**: `scripts/scheduled-scrape.ts` - A standalone script that makes one HTTP POST request to `/api/cron/scrape` and exits cleanly.
+- **Command**: `tsx scripts/scheduled-scrape.ts`
+- **Configuration**:
+  - Schedule: `0 */2 * * *` (every 2 hours on the hour)
+  - Run command: `tsx scripts/scheduled-scrape.ts`
+  - Timeout: 120 seconds (adjustable based on scraping volume)
+  - Machine: 1 vCPU / 2 GiB RAM (Replit Scheduled Deployment default)
+- **Important**: The scheduled deployment runs the standalone script, NOT the web server. This prevents continuous scraping and excessive API usage. The script exits after making a single request to the cron endpoint on the main web deployment.
 
 ## External Dependencies
 
