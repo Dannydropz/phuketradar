@@ -279,6 +279,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             console.log(`[Job ${job.id}] Processing post: ${post.title.substring(0, 50)}`);
             
+            // STEP -1: Check if this source URL already exists in database (fast check before expensive API calls)
+            const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
+            if (existingBySourceUrl) {
+              skippedSemanticDuplicates++;
+              console.log(`[Job ${job.id}] 🔗 Source URL already exists in database - skipping`);
+              console.log(`[Job ${job.id}]    URL: ${post.sourceUrl}`);
+              console.log(`[Job ${job.id}]    Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
+              
+              scrapeJobManager.updateProgress(job.id, {
+                processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles,
+                skippedNotNews,
+              });
+              continue;
+            }
+            
             // STEP 0: Check for image URL duplicate (same image = same story)
             if (post.imageUrl) {
               const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);

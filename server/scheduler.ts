@@ -69,6 +69,16 @@ export async function runScheduledScrape() {
     // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
+        // STEP -1: Check if this source URL already exists in database (fast check before expensive API calls)
+        const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
+        if (existingBySourceUrl) {
+          skippedSemanticDuplicates++;
+          console.log(`🔗 Source URL already exists in database - skipping`);
+          console.log(`   URL: ${post.sourceUrl}`);
+          console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
+          continue;
+        }
+        
         // STEP 0: Check for image URL duplicate (same image = same story)
         if (post.imageUrl) {
           const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
