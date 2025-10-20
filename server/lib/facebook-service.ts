@@ -28,7 +28,8 @@ function generateHashtags(category: string): string {
 }
 
 function getArticleUrl(article: Article): string {
-  const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+  // Always use custom domain in production, only use dev domain if explicitly in development
+  const baseUrl = process.env.NODE_ENV === "development" && process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : "https://phuketradar.com";
   
