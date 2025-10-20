@@ -128,6 +128,7 @@ export class ScraperService {
 
   private parseScrapeCreatorsResponse(posts: ScrapeCreatorsPost[], sourceUrl: string): ScrapedPost[] {
     const scrapedPosts: ScrapedPost[] = [];
+    const seenUrls = new Set<string>(); // Track URLs within this batch to prevent duplicates
 
     for (const post of posts) {
       try {
@@ -136,6 +137,17 @@ export class ScraperService {
           console.log(`Skipping post ${post.id} - insufficient text content`);
           continue;
         }
+
+        // Normalize the source URL early to check for duplicates
+        const rawSourceUrl = post.permalink || post.url || sourceUrl;
+        const normalizedSourceUrl = this.normalizeFacebookUrl(rawSourceUrl);
+
+        // Skip if we've already seen this URL in this batch
+        if (seenUrls.has(normalizedSourceUrl)) {
+          console.log(`⏭️  Skipping duplicate URL in batch: ${normalizedSourceUrl}`);
+          continue;
+        }
+        seenUrls.add(normalizedSourceUrl);
 
         // Extract the first line as title (or use first 100 chars)
         const lines = post.text.split('\n').filter(line => line.trim());
@@ -180,10 +192,6 @@ export class ScraperService {
 
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
-
-        // Normalize the source URL to catch duplicates across different URL formats
-        const rawSourceUrl = post.permalink || post.url || sourceUrl;
-        const normalizedSourceUrl = this.normalizeFacebookUrl(rawSourceUrl);
 
         scrapedPosts.push({
           title: title.trim(),
