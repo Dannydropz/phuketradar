@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Add to existing embeddings so we can catch duplicates within this batch
               if (translation.embedding) {
                 existingEmbeddings.push({
-                  id: 'temp',
+                  id: article.id,
                   title: translation.translatedTitle,
                   embedding: translation.embedding,
                 });
