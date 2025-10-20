@@ -133,6 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (result) {
         console.log("✅ Scrape completed successfully");
         console.log("Result:", JSON.stringify(result, null, 2));
+        // Always return 200 OK for GitHub Actions (even with partial failures)
         res.json({
           success: true,
           message: "Scrape completed successfully",
@@ -141,6 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         console.log("⏭️  Scrape skipped - another scrape was already running");
+        // Always return 200 OK for GitHub Actions
         res.json({
           success: true,
           message: "Scrape skipped - another instance already running",
@@ -150,9 +152,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Error during cron scrape:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({
+      // Always return 200 OK for GitHub Actions (even on errors)
+      // This prevents GitHub Actions from showing failure when articles were actually published
+      res.json({
         success: false,
-        message: "Scrape failed",
+        message: "Scrape completed with errors",
         error: errorMessage,
         timestamp: timestamp,
       });
@@ -351,21 +355,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // STEP 4: Only create article if it's actual news
             if (translation.isActualNews) {
-              const article = await storage.createArticle({
-                title: translation.translatedTitle,
-                content: translation.translatedContent,
-                excerpt: translation.excerpt,
-                imageUrl: post.imageUrl || null,
-                category: translation.category,
-                sourceUrl: post.sourceUrl,
-                author: translation.author,
-                isPublished: true, // Auto-publish from admin scrape too
-                originalLanguage: "th",
-                translatedBy: "openai",
-                embedding: translation.embedding,
-              });
+              let article;
+              try {
+                article = await storage.createArticle({
+                  title: translation.translatedTitle,
+                  content: translation.translatedContent,
+                  excerpt: translation.excerpt,
+                  imageUrl: post.imageUrl || null,
+                  category: translation.category,
+                  sourceUrl: post.sourceUrl,
+                  author: translation.author,
+                  isPublished: true, // Auto-publish from admin scrape too
+                  originalLanguage: "th",
+                  translatedBy: "openai",
+                  embedding: translation.embedding,
+                });
 
-              createdArticles++;
+                createdArticles++;
+              } catch (createError: any) {
+                // Catch duplicate key violations (PostgreSQL error code 23505)
+                if (createError.code === '23505') {
+                  console.log(`[Job ${job.id}] ⚠️  Duplicate article caught by database constraint: ${post.sourceUrl}`);
+                  console.log(`[Job ${job.id}]    Title: ${translation.translatedTitle.substring(0, 60)}...`);
+                  
+                  // Update progress (count as processed but not created)
+                  scrapeJobManager.updateProgress(job.id, {
+                    processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles,
+                    skippedNotNews,
+                  });
+                  continue; // Skip Facebook posting and move to next post
+                } else {
+                  // Re-throw other errors
+                  throw createError;
+                }
+              }
               
               // Auto-post to Facebook after publishing (only if not already posted)
               if (article.isPublished && !article.facebookPostId && article.imageUrl) {

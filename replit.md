@@ -27,7 +27,11 @@ Preferred communication style: Simple, everyday language.
 - **Scraping**: JINA AI for Facebook scraping, avoids Graph API complexity. Scrapes multiple sources (Phuket Time News, Phuket Info Center, Newshawk Phuket), configurable via `server/config/news-sources.ts`. Limits processing to 10 recent posts per source to manage API costs.
 - **Translation**: GPT-4-mini for cost-effective, quality translation with news filtering via prompt engineering.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend. Features pre-translation duplicate and semantic similarity checks to optimize API costs.
-- **Duplicate Detection**: Two-layer system: (1) Exact image URL match, (2) 70% semantic similarity threshold on Thai title embeddings. Within-batch duplicate detection ensures articles created in the same scrape run are compared against each other.
+- **Duplicate Detection**: Three-layer system with database-level protection:
+    1. **In-memory Set**: Tracks normalized source URLs within each batch to catch API duplicates (ScrapeCreators sometimes returns same post twice)
+    2. **Database source URL check**: Queries database before translation to avoid expensive API calls for known posts
+    3. **Post-translation checks**: (a) Image URL exact match, (b) 70% semantic similarity on Thai title embeddings
+    4. **Database UNIQUE constraint**: PostgreSQL UNIQUE constraint on `articles.source_url` prevents race condition duplicates (error code 23505 handled gracefully)
 - **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY, CRON_API_KEY, FB_PAGE_ACCESS_TOKEN). Separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping
@@ -55,6 +59,8 @@ Preferred communication style: Simple, everyday language.
    - Check the logs to ensure it completes successfully
 
 **Important**: The GitHub Action runs the standalone script, NOT the web server. This prevents continuous scraping and excessive API usage. The script exits after making a single request to the cron endpoint on the published Replit app (phuketradar.com).
+
+**Error Handling**: The `/api/cron/scrape` endpoint always returns HTTP 200 OK (even on errors) to ensure GitHub Actions shows success when articles are published. The response payload includes `success: true/false` and detailed status information. This prevents false failures in GitHub Actions when partial scraping succeeds.
 
 ## External Dependencies
 

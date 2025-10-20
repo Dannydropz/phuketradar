@@ -120,24 +120,37 @@ export async function runScheduledScrape() {
 
         // STEP 4: Only create article if it's actual news
         if (translation.isActualNews) {
-          // Create article - auto-publish for scheduled runs
-          const article = await storage.createArticle({
-            title: translation.translatedTitle,
-            content: translation.translatedContent,
-            excerpt: translation.excerpt,
-            imageUrl: post.imageUrl || null,
-            category: translation.category,
-            sourceUrl: post.sourceUrl,
-            author: translation.author,
-            isPublished: true, // Auto-publish on scheduled runs
-            originalLanguage: "th",
-            translatedBy: "openai",
-            embedding: translation.embedding,
-          });
+          let article;
+          try {
+            // Create article - auto-publish for scheduled runs
+            article = await storage.createArticle({
+              title: translation.translatedTitle,
+              content: translation.translatedContent,
+              excerpt: translation.excerpt,
+              imageUrl: post.imageUrl || null,
+              category: translation.category,
+              sourceUrl: post.sourceUrl,
+              author: translation.author,
+              isPublished: true, // Auto-publish on scheduled runs
+              originalLanguage: "th",
+              translatedBy: "openai",
+              embedding: translation.embedding,
+            });
 
-          createdCount++;
-          if (article.isPublished) {
-            publishedCount++;
+            createdCount++;
+            if (article.isPublished) {
+              publishedCount++;
+            }
+          } catch (createError: any) {
+            // Catch duplicate key violations (PostgreSQL error code 23505)
+            if (createError.code === '23505') {
+              console.log(`⚠️  Duplicate article caught by database constraint: ${post.sourceUrl}`);
+              console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
+              continue; // Skip Facebook posting and move to next post
+            } else {
+              // Re-throw other errors
+              throw createError;
+            }
           }
           
           // Add to existing embeddings so we can catch duplicates within this batch
