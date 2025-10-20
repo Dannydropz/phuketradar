@@ -32,6 +32,13 @@ Preferred communication style: Simple, everyday language.
     2. **Database source URL check**: Queries database before translation to avoid expensive API calls for known posts
     3. **Post-translation checks**: (a) Image URL exact match, (b) 70% semantic similarity on Thai title embeddings
     4. **Database UNIQUE constraint**: PostgreSQL UNIQUE constraint on `articles.source_url` prevents race condition duplicates (error code 23505 handled gracefully)
+    
+    **Production Setup**: After publishing, add the UNIQUE constraint to production database:
+    1. Open Replit Database UI → Navigate to production database
+    2. Go to Database tab → Select `articles` table
+    3. First check for duplicates: `SELECT source_url, COUNT(*) FROM articles GROUP BY source_url HAVING COUNT(*) > 1;`
+    4. Clean duplicates if found (delete duplicate rows keeping only the earliest one)
+    5. Run SQL: `ALTER TABLE articles ADD CONSTRAINT articles_source_url_unique UNIQUE (source_url);`
 - **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY, CRON_API_KEY, FB_PAGE_ACCESS_TOKEN). Separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping
