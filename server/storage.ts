@@ -21,6 +21,9 @@ export interface IStorage {
   getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null }[]>;
   createArticle(article: InsertArticle): Promise<Article>;
   updateArticle(id: string, article: Partial<Article>): Promise<Article | undefined>;
+  claimArticleForFacebookPosting(id: string, lockToken: string): Promise<boolean>;
+  finalizeArticleFacebookPost(id: string, lockToken: string, facebookPostId: string, facebookPostUrl: string): Promise<boolean>;
+  releaseFacebookPostLock(id: string, lockToken: string): Promise<void>;
   deleteArticle(id: string): Promise<boolean>;
 }
 
@@ -185,6 +188,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(articles.id, id))
       .returning();
     return article || undefined;
+  }
+
+  async claimArticleForFacebookPosting(id: string, lockToken: string): Promise<boolean> {
+    const lockValue = `LOCK:${lockToken}`;
+    const result = await db
+      .update(articles)
+      .set({
+        facebookPostId: lockValue,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} IS NULL`)
+      .returning();
+    return result.length > 0;
+  }
+
+  async finalizeArticleFacebookPost(
+    id: string,
+    lockToken: string,
+    facebookPostId: string,
+    facebookPostUrl: string
+  ): Promise<boolean> {
+    const lockValue = `LOCK:${lockToken}`;
+    const result = await db
+      .update(articles)
+      .set({
+        facebookPostId,
+        facebookPostUrl,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} = ${lockValue}`)
+      .returning();
+    return result.length > 0;
+  }
+
+  async releaseFacebookPostLock(id: string, lockToken: string): Promise<void> {
+    const lockValue = `LOCK:${lockToken}`;
+    await db
+      .update(articles)
+      .set({
+        facebookPostId: null,
+        facebookPostUrl: null,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} = ${lockValue}`);
   }
 
   async deleteArticle(id: string): Promise<boolean> {

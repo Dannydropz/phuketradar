@@ -394,16 +394,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Auto-post to Facebook after publishing (only if not already posted)
               if (article.isPublished && !article.facebookPostId && article.imageUrl) {
                 try {
-                  console.log(`[Job ${job.id}] 📘 Attempting to post article to Facebook: ${article.title.substring(0, 60)}...`);
-                  const fbResult = await postArticleToFacebook(article);
+                  const fbResult = await postArticleToFacebook(article, storage);
                   if (fbResult) {
-                    await storage.updateArticle(article.id, {
-                      facebookPostId: fbResult.postId,
-                      facebookPostUrl: fbResult.postUrl,
-                    });
-                    console.log(`[Job ${job.id}] ✅ Posted to Facebook successfully: ${fbResult.postUrl}`);
+                    if (fbResult.status === 'posted') {
+                      console.log(`[Job ${job.id}] ✅ Posted to Facebook: ${fbResult.postUrl}`);
+                    } else {
+                      console.log(`[Job ${job.id}] ℹ️  Article already posted to Facebook: ${fbResult.postUrl}`);
+                    }
                   } else {
-                    console.error(`[Job ${job.id}] ❌ Failed to post to Facebook: postArticleToFacebook returned null for ${article.title.substring(0, 60)}...`);
+                    console.error(`[Job ${job.id}] ❌ Failed to post to Facebook for ${article.title.substring(0, 60)}...`);
                   }
                 } catch (fbError) {
                   console.error(`[Job ${job.id}] ❌ Error posting to Facebook:`, fbError);
@@ -544,18 +543,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Article already posted to Facebook" });
       }
 
-      const fbResult = await postArticleToFacebook(article);
+      const fbResult = await postArticleToFacebook(article, storage);
       
       if (!fbResult) {
         return res.status(500).json({ error: "Failed to post to Facebook" });
       }
 
-      const updatedArticle = await storage.updateArticle(id, {
-        facebookPostId: fbResult.postId,
-        facebookPostUrl: fbResult.postUrl,
-      });
+      // Reload article to get updated state (service handles DB update)
+      const updatedArticle = await storage.getArticleById(id);
 
-      res.json(updatedArticle);
+      res.json({
+        ...updatedArticle,
+        status: fbResult.status,
+      });
     } catch (error) {
       console.error("Error posting to Facebook:", error);
       res.status(500).json({ error: "Failed to post to Facebook" });
@@ -592,15 +592,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          const fbResult = await postArticleToFacebook(fullArticle);
+          const fbResult = await postArticleToFacebook(fullArticle, storage);
           
           if (fbResult) {
-            await storage.updateArticle(fullArticle.id, {
-              facebookPostId: fbResult.postId,
-              facebookPostUrl: fbResult.postUrl,
-            });
             results.successful++;
-            console.log(`✅ Posted successfully: ${fbResult.postUrl}`);
+            if (fbResult.status === 'posted') {
+              console.log(`✅ Posted successfully: ${fbResult.postUrl}`);
+            } else {
+              console.log(`ℹ️  Already posted: ${fbResult.postUrl}`);
+            }
           } else {
             results.failed++;
             results.errors.push(`${fullArticle.title}: Failed to post (no result)`);

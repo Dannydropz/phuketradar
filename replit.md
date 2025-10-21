@@ -39,6 +39,18 @@ Preferred communication style: Simple, everyday language.
     3. First check for duplicates: `SELECT source_url, COUNT(*) FROM articles GROUP BY source_url HAVING COUNT(*) > 1;`
     4. Clean duplicates if found (delete duplicate rows keeping only the earliest one)
     5. Run SQL: `ALTER TABLE articles ADD CONSTRAINT articles_source_url_unique UNIQUE (source_url);`
+    
+- **Facebook Posting**:
+    - **Auto-posting**: Articles are automatically posted to Facebook after creation and publication
+    - **Format**: Title → Excerpt → "Want the full story? Click the link in the first comment below..." → Category-specific hashtags
+    - **Comment with Link**: Posts a pinned comment with the article URL (pinning uses Graph API query parameters: `is_pinned=true&access_token={token}`)
+    - **Atomic Double-Post Prevention**: Uses a claim-before-post pattern with database-level locking:
+        1. **CLAIM**: Atomically acquires exclusive lock by setting `facebookPostId = 'LOCK:{token}'` (WHERE facebookPostId IS NULL)
+        2. **POST**: Makes Facebook API call only if claim succeeded
+        3. **FINALIZE**: Atomically updates with real post ID (WHERE facebookPostId = lock token)
+        4. **CLEANUP**: Releases lock on any error to allow retry
+    - **Lock Safety**: Locks are released on all error paths (API failures, exceptions) to prevent stuck articles
+    - **Enhanced Logging**: All Facebook operations use `[FB-POST]` prefix for easy log filtering and debugging
 - **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY, CRON_API_KEY, FB_PAGE_ACCESS_TOKEN). Separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping
