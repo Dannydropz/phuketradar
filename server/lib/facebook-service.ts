@@ -17,7 +17,7 @@ function generateHashtags(category: string): string {
   const baseHashtag = "#Phuket";
   
   const categoryHashtags: Record<string, string[]> = {
-    "Breaking": ["#PhuketBreaking", "#ThailandNews", "#BreakingNews"],
+    "Breaking": ["#PhuketNews", "#ThailandNews", "#BreakingNews"],
     "Tourism": ["#PhuketTourism", "#ThailandTravel", "#VisitPhuket"],
     "Business": ["#PhuketBusiness", "#ThailandBusiness", "#PhuketEconomy"],
     "Events": ["#PhuketEvents", "#ThingsToDoInPhuket", "#PhuketLife"],
