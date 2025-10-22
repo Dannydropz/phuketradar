@@ -35,7 +35,7 @@ export interface SemanticDuplicateChecker {
 export function checkSemanticDuplicate(
   embedding: number[],
   existingEmbeddings: { id: string; title: string; embedding: number[] | null }[],
-  threshold: number = 0.9
+  threshold: number = 0.7
 ): SemanticDuplicateChecker {
   let maxSimilarity = 0;
   let matchedArticle: { id: string; title: string } | null = null;
