@@ -199,6 +199,11 @@ export class ScraperService {
         
         // Set the first image as primary imageUrl for backward compatibility
         imageUrl = imageUrls[0];
+        
+        // Log multi-image posts for debugging
+        if (imageUrls.length > 1) {
+          console.log(`📸 Found ${imageUrls.length} images in post "${title.substring(0, 50)}..."`);
+        }
 
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
