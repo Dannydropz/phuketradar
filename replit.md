@@ -42,7 +42,13 @@ Preferred communication style: Simple, everyday language.
     
 - **Facebook Posting**:
     - **Auto-posting**: Articles are automatically posted to Facebook after creation and publication
+    - **Multi-Image Support**: Articles with multiple images (imageUrls array) create grid posts on Facebook:
+        1. **Upload Phase**: Each image uploaded individually with `published=false` to get photo IDs
+        2. **Grid Creation**: Feed post created with `attached_media` parameter containing all photo IDs
+        3. **Smart Fallback**: Tracks successfully uploaded images; if multi-image fails, falls back to single-image post using first successful image
+        4. **Edge Case Handling**: Handles scenarios like primary image failing but secondary images succeeding
     - **Format**: Title → Excerpt → "Want the full story? Click the link in the first comment below..." → Category-specific hashtags
+    - **Hashtags**: Breaking category uses #PhuketNews (changed from #PhuketBreaking for better search visibility)
     - **Comment with Link**: Posts a pinned comment with the article URL (pinning uses Graph API query parameters: `is_pinned=true&access_token={token}`)
     - **Atomic Double-Post Prevention**: Uses a claim-before-post pattern with database-level locking:
         1. **CLAIM**: Atomically acquires exclusive lock by setting `facebookPostId = 'LOCK:{token}'` (WHERE facebookPostId IS NULL)
