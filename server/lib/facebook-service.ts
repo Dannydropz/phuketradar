@@ -98,46 +98,189 @@ export async function postArticleToFacebook(
 
     console.log(`📘 [FB-POST] Posting to Facebook API...`);
     console.log(`📘 [FB-POST] Page ID: ${FB_PAGE_ID}`);
-    console.log(`📘 [FB-POST] Image URL: ${primaryImageUrl}`);
     console.log(`📘 [FB-POST] Token length: ${FB_PAGE_ACCESS_TOKEN.length} characters`);
 
-    // Post photo to Facebook
-    const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: primaryImageUrl,
-        message: postMessage,
-        access_token: FB_PAGE_ACCESS_TOKEN,
-      }),
-    });
+    let postId: string;
 
-    console.log(`📘 [FB-POST] Facebook API response status: ${photoResponse.status}`);
+    // Check if article has multiple images
+    const imageUrls = article.imageUrls && article.imageUrls.length > 0 
+      ? article.imageUrls 
+      : (article.imageUrl ? [article.imageUrl] : []);
+    
+    if (imageUrls.length > 1) {
+      // MULTI-IMAGE POST: Upload photos unpublished, then create grid post
+      console.log(`📘 [FB-POST] Creating multi-image grid post with ${imageUrls.length} images...`);
+      
+      const photoIds: string[] = [];
+      const successfulImageUrls: string[] = []; // Track which image URLs uploaded successfully
+      
+      // Step 2a: Upload each photo with published=false
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUrl = imageUrls[i];
+        console.log(`📘 [FB-POST] Uploading image ${i + 1}/${imageUrls.length}: ${imageUrl}`);
+        
+        const uploadResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: imageUrl,
+            published: false,
+            access_token: FB_PAGE_ACCESS_TOKEN,
+          }),
+        });
 
-    if (!photoResponse.ok) {
-      const errorText = await photoResponse.text();
-      let errorDetails = errorText;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorDetails = JSON.stringify(errorJson, null, 2);
-      } catch {
-        // Error is not JSON, use text as-is
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error(`❌ [FB-POST] Failed to upload image ${i + 1}:`, errorText);
+          // Continue with other images rather than failing completely
+          continue;
+        }
+
+        const uploadData = await uploadResponse.json() as { id: string };
+        photoIds.push(uploadData.id);
+        successfulImageUrls.push(imageUrl); // Track this successful upload
+        console.log(`✅ [FB-POST] Uploaded image ${i + 1}, photo ID: ${uploadData.id}`);
       }
-      console.error("❌ [FB-POST] Facebook photo post failed:");
-      console.error(`❌ [FB-POST] Status: ${photoResponse.status} ${photoResponse.statusText}`);
-      console.error(`❌ [FB-POST] Response: ${errorDetails}`);
-      
-      // CRITICAL: Release lock on failure
-      console.log(`🔓 [FB-POST] Releasing lock due to Facebook API failure...`);
-      await storage.releaseFacebookPostLock(article.id, lockToken);
-      
-      return null;
-    }
 
-    const photoData = await photoResponse.json() as FacebookPostResponse;
-    const postId = photoData.post_id || photoData.id;
+      // Determine best fallback image URL: use a successfully uploaded image if available
+      const fallbackImageUrl = successfulImageUrls.length > 0 
+        ? successfulImageUrls[0]  // Use first successfully uploaded image
+        : primaryImageUrl;         // Fallback to primary if all uploads failed
+
+      // Fallback: If only 1 photo was successfully uploaded, or if upload failed completely,
+      // fall back to single-image posting
+      if (photoIds.length === 0) {
+        console.warn("⚠️  [FB-POST] Multi-image upload failed completely, falling back to single-image post");
+      } else if (photoIds.length === 1) {
+        console.warn("⚠️  [FB-POST] Only 1 image uploaded successfully, falling back to single-image post");
+      }
+      
+      if (photoIds.length <= 1) {
+        // FALLBACK: Use single-image posting with a known-good image URL
+        console.log(`📘 [FB-POST] Falling back to single-image post: ${fallbackImageUrl}`);
+        
+        const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: fallbackImageUrl,
+            message: postMessage,
+            access_token: FB_PAGE_ACCESS_TOKEN,
+          }),
+        });
+
+        if (!photoResponse.ok) {
+          const errorText = await photoResponse.text();
+          console.error("❌ [FB-POST] Fallback single-image post also failed:");
+          console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
+          console.error(`❌ [FB-POST] Response: ${errorText}`);
+          
+          await storage.releaseFacebookPostLock(article.id, lockToken);
+          return null;
+        }
+
+        const photoData = await photoResponse.json() as FacebookPostResponse;
+        postId = photoData.post_id || photoData.id;
+        console.log(`✅ [FB-POST] Fallback single-image post succeeded, ID: ${postId}`);
+        
+      } else {
+        // MULTI-IMAGE: Create feed post with attached_media
+        console.log(`✅ [FB-POST] Successfully uploaded ${photoIds.length} photos, creating grid post...`);
+
+        const feedParams = new URLSearchParams({
+          message: postMessage,
+          access_token: FB_PAGE_ACCESS_TOKEN,
+        });
+
+        // Add attached_media parameters
+        photoIds.forEach((photoId, index) => {
+          feedParams.append(`attached_media[${index}]`, JSON.stringify({ media_fbid: photoId }));
+        });
+
+        const feedResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/feed`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: feedParams.toString(),
+        });
+
+        if (!feedResponse.ok) {
+          const errorText = await feedResponse.text();
+          console.error("❌ [FB-POST] Multi-image feed post failed, falling back to single-image:");
+          console.error(`❌ [FB-POST] Status: ${feedResponse.status}`);
+          console.error(`❌ [FB-POST] Response: ${errorText}`);
+          
+          // FALLBACK: Try single-image posting with a known-good image URL
+          console.log(`📘 [FB-POST] Attempting fallback to single-image post with: ${fallbackImageUrl}`);
+          
+          const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              url: fallbackImageUrl,
+              message: postMessage,
+              access_token: FB_PAGE_ACCESS_TOKEN,
+            }),
+          });
+
+          if (!photoResponse.ok) {
+            const fallbackErrorText = await photoResponse.text();
+            console.error("❌ [FB-POST] Fallback single-image post also failed:");
+            console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
+            console.error(`❌ [FB-POST] Response: ${fallbackErrorText}`);
+            
+            await storage.releaseFacebookPostLock(article.id, lockToken);
+            return null;
+          }
+
+          const photoData = await photoResponse.json() as FacebookPostResponse;
+          postId = photoData.post_id || photoData.id;
+          console.log(`✅ [FB-POST] Fallback single-image post succeeded, ID: ${postId}`);
+          
+        } else {
+          const feedData = await feedResponse.json() as FacebookPostResponse;
+          postId = feedData.id;
+          console.log(`✅ [FB-POST] Created multi-image grid post, ID: ${postId}`);
+        }
+      }
+      
+    } else {
+      // SINGLE IMAGE POST: Use simple photo upload
+      console.log(`📘 [FB-POST] Creating single-image post: ${primaryImageUrl}`);
+      
+      const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: primaryImageUrl,
+          message: postMessage,
+          access_token: FB_PAGE_ACCESS_TOKEN,
+        }),
+      });
+
+      if (!photoResponse.ok) {
+        const errorText = await photoResponse.text();
+        console.error("❌ [FB-POST] Facebook photo post failed:");
+        console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
+        console.error(`❌ [FB-POST] Response: ${errorText}`);
+        
+        await storage.releaseFacebookPostLock(article.id, lockToken);
+        return null;
+      }
+
+      const photoData = await photoResponse.json() as FacebookPostResponse;
+      postId = photoData.post_id || photoData.id;
+      console.log(`✅ [FB-POST] Created single-image photo post, ID: ${postId}`);
+    }
     
     console.log(`✅ [FB-POST] Posted to Facebook successfully!`);
     console.log(`✅ [FB-POST] Post ID: ${postId}`);
