@@ -3,6 +3,7 @@ export interface ScrapedPost {
   title: string;
   content: string;
   imageUrl?: string;
+  imageUrls?: string[];
   sourceUrl: string;
   publishedAt: Date;
 }
@@ -154,41 +155,50 @@ export class ScraperService {
         const title = lines[0]?.substring(0, 200) || post.text.substring(0, 100);
         const content = post.text;
 
-        // Extract image URL - try multiple possible locations
+        // Extract ALL image URLs from the post
+        const imageUrls: string[] = [];
         let imageUrl: string | undefined;
         
         // Try direct image field first (ScrapeCreators API uses this)
         if (post.image) {
-          imageUrl = post.image;
+          imageUrls.push(post.image);
         }
+        
         // Try full_picture (alternative field)
-        else if (post.full_picture) {
-          imageUrl = post.full_picture;
+        if (post.full_picture && post.full_picture !== post.image) {
+          imageUrls.push(post.full_picture);
         }
-        // Try video thumbnail
-        else if (post.videoDetails?.thumbnail) {
-          imageUrl = post.videoDetails.thumbnail;
-        }
-        // Try attachments
-        else if (post.attachments?.data) {
+        
+        // Try attachments for additional images
+        if (post.attachments?.data) {
           for (const attachment of post.attachments.data) {
             // Try direct media image
-            if (attachment.media?.image?.src) {
-              imageUrl = attachment.media.image.src;
-              break;
+            if (attachment.media?.image?.src && !imageUrls.includes(attachment.media.image.src)) {
+              imageUrls.push(attachment.media.image.src);
             }
             // Try attachment URL
-            else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo')) {
-              imageUrl = attachment.url;
-              break;
+            else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo') && !imageUrls.includes(attachment.url)) {
+              imageUrls.push(attachment.url);
             }
-            // Try subattachments (for multi-image posts)
-            else if (attachment.subattachments?.data?.[0]?.media?.image?.src) {
-              imageUrl = attachment.subattachments.data[0].media.image.src;
-              break;
+            
+            // Try ALL subattachments (for multi-image posts)
+            if (attachment.subattachments?.data) {
+              for (const subattachment of attachment.subattachments.data) {
+                if (subattachment.media?.image?.src && !imageUrls.includes(subattachment.media.image.src)) {
+                  imageUrls.push(subattachment.media.image.src);
+                }
+              }
             }
           }
         }
+        
+        // Try video thumbnail if no images found
+        if (imageUrls.length === 0 && post.videoDetails?.thumbnail) {
+          imageUrls.push(post.videoDetails.thumbnail);
+        }
+        
+        // Set the first image as primary imageUrl for backward compatibility
+        imageUrl = imageUrls[0];
 
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
@@ -197,6 +207,7 @@ export class ScraperService {
           title: title.trim(),
           content: content.trim(),
           imageUrl,
+          imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           sourceUrl: normalizedSourceUrl,
           publishedAt,
         });

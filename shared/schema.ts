@@ -16,6 +16,7 @@ export const articles = pgTable("articles", {
   content: text("content").notNull(),
   excerpt: text("excerpt").notNull(),
   imageUrl: text("image_url"),
+  imageUrls: text("image_urls").array(),
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull().unique(),
   author: text("author").notNull().default("Ploy Srisawat"),

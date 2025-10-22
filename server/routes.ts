@@ -362,6 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   content: translation.translatedContent,
                   excerpt: translation.excerpt,
                   imageUrl: post.imageUrl || null,
+                  imageUrls: post.imageUrls || null,
                   category: translation.category,
                   sourceUrl: post.sourceUrl,
                   author: translation.author,
@@ -392,7 +393,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               // Auto-post to Facebook after publishing (only if not already posted)
-              if (article.isPublished && !article.facebookPostId && article.imageUrl) {
+              const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
+              if (article.isPublished && !article.facebookPostId && hasImage) {
                 try {
                   const fbResult = await postArticleToFacebook(article, storage);
                   if (fbResult) {
@@ -410,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
               } else if (article.isPublished && article.facebookPostId) {
                 console.log(`[Job ${job.id}] ⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
-              } else if (article.isPublished && !article.imageUrl) {
+              } else if (article.isPublished && !hasImage) {
                 console.log(`[Job ${job.id}] ⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
               }
               
@@ -568,7 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find all published articles with images that haven't been posted to Facebook
       const allArticles = await storage.getPublishedArticles();
       const articlesToPost = allArticles.filter(
-        (article) => article.imageUrl && !article.facebookPostId
+        (article) => (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && !article.facebookPostId
       );
 
       console.log(`📘 Batch posting ${articlesToPost.length} articles to Facebook`);

@@ -49,10 +49,15 @@ export async function postArticleToFacebook(
     return null;
   }
 
-  if (!article.imageUrl) {
+  // Get the primary image URL (prefer imageUrl, fallback to first imageUrls)
+  const primaryImageUrl = article.imageUrl || (article.imageUrls && article.imageUrls[0]);
+  
+  if (!primaryImageUrl) {
     console.error(`❌ [FB-POST] Article ${article.id} has no image, skipping Facebook post`);
     return null;
   }
+  
+  console.log(`📘 [FB-POST] Using image: ${primaryImageUrl}`);
 
   // STEP 1: CLAIM - Acquire exclusive lock before making external API call
   // Generate unique lock token for this posting attempt
@@ -93,7 +98,7 @@ export async function postArticleToFacebook(
 
     console.log(`📘 [FB-POST] Posting to Facebook API...`);
     console.log(`📘 [FB-POST] Page ID: ${FB_PAGE_ID}`);
-    console.log(`📘 [FB-POST] Image URL: ${article.imageUrl}`);
+    console.log(`📘 [FB-POST] Image URL: ${primaryImageUrl}`);
     console.log(`📘 [FB-POST] Token length: ${FB_PAGE_ACCESS_TOKEN.length} characters`);
 
     // Post photo to Facebook
@@ -103,7 +108,7 @@ export async function postArticleToFacebook(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        url: article.imageUrl,
+        url: primaryImageUrl,
         message: postMessage,
         access_token: FB_PAGE_ACCESS_TOKEN,
       }),

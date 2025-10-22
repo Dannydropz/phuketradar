@@ -2,6 +2,13 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { Clock, Share2 } from "lucide-react";
 import { useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -120,7 +127,7 @@ export default function ArticleDetail() {
       <SEO 
         title={article.title}
         description={article.excerpt}
-        image={article.imageUrl || undefined}
+        image={article.imageUrl || (article.imageUrls && article.imageUrls[0]) || undefined}
         url={canonicalUrl}
         type="article"
         publishedTime={article.publishedAt.toString()}
@@ -181,9 +188,33 @@ export default function ArticleDetail() {
           </div>
 
           <div className="mb-8 rounded-lg overflow-hidden bg-muted">
-            {article.imageUrl ? (
+            {article.imageUrls && article.imageUrls.length > 1 ? (
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {article.imageUrls.map((imageUrl, index) => (
+                    <CarouselItem key={index}>
+                      <div className="relative w-full">
+                        <img
+                          src={imageUrl}
+                          alt={`${article.title} - Image ${index + 1}`}
+                          className="w-full h-auto object-cover"
+                          data-testid={`img-article-${index}`}
+                        />
+                        {article.imageUrls && article.imageUrls.length > 1 && (
+                          <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+                            {index + 1} / {article.imageUrls.length}
+                          </div>
+                        )}
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-4" />
+                <CarouselNext className="right-4" />
+              </Carousel>
+            ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
               <img
-                src={article.imageUrl}
+                src={article.imageUrl || (article.imageUrls ? article.imageUrls[0] : '')}
                 alt={article.title}
                 className="w-full h-auto object-cover"
                 data-testid="img-article-main"
