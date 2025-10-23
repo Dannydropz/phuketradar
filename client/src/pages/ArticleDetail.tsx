@@ -229,19 +229,24 @@ export default function ArticleDetail() {
                   </div>
                 </Carousel>
                 
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-1">
                   {article.imageUrls.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => api?.scrollTo(index)}
-                      className={`h-2 rounded-full transition-all ${
-                        index === current 
-                          ? 'w-8 bg-primary' 
-                          : 'w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                      }`}
+                      className="flex items-center justify-center min-w-11 min-h-11 hover-elevate active-elevate-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                       aria-label={`Go to image ${index + 1}`}
+                      aria-current={index === current ? "true" : "false"}
                       data-testid={`dot-carousel-${index}`}
-                    />
+                    >
+                      <div 
+                        className={`h-2 rounded-full transition-all ${
+                          index === current 
+                            ? 'w-8 bg-primary' 
+                            : 'w-2 bg-muted-foreground/30'
+                        }`}
+                      />
+                    </button>
                   ))}
                 </div>
               </div>
