@@ -83,7 +83,9 @@ export class DatabaseStorage implements IStorage {
     const [article] = await db
       .select()
       .from(articles)
-      .where(eq(articles.imageUrl, imageUrl));
+      .where(
+        sql`${articles.imageUrl} = ${imageUrl} OR ${imageUrl} = ANY(${articles.imageUrls})`
+      );
     return article || undefined;
   }
 
