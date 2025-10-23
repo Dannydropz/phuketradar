@@ -276,6 +276,19 @@ export class ScraperService {
 
         const data: ScrapeCreatorsResponse = await response.json();
 
+        // Log first post structure on first page to understand the API response
+        if (pageCount === 0 && data.posts && data.posts.length > 0) {
+          console.log("\n📋 FIRST POST STRUCTURE FROM API:");
+          console.log(JSON.stringify(data.posts[0], null, 2));
+          
+          // Log attachment structure if it exists
+          if (data.posts[0].attachments?.data) {
+            console.log("\n📎 ATTACHMENTS STRUCTURE:");
+            console.log(JSON.stringify(data.posts[0].attachments, null, 2));
+          }
+          console.log("\n");
+        }
+
         if (!data.success || !data.posts || data.posts.length === 0) {
           console.log(`No more posts available at page ${pageCount + 1}`);
           break;
