@@ -16,7 +16,7 @@
  * will be permanently saved and appear in the main application.
  */
 
-import { scraperService } from "./services/scraper";
+import { getScraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
 import { storage } from "./storage";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
@@ -52,6 +52,9 @@ export async function runScheduledScrape() {
     let publishedCount = 0;
     let skippedNotNews = 0;
     let skippedSemanticDuplicates = 0;
+
+    // Get the appropriate scraper based on SCRAPER_PROVIDER env var
+    const scraperService = getScraperService();
 
     // Loop through each news source
     for (const source of sources) {

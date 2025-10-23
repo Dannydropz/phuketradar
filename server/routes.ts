@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { scraperService } from "./services/scraper";
+import { getScraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { insertArticleSchema } from "@shared/schema";
@@ -268,6 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[Job ${job.id}] Scraping source: ${source.name}`);
           
           // Scrape with smart pagination that stops when hitting known posts
+          const scraperService = getScraperService();
           const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
             source.url, 
             1, // max pages to fetch (reduced from 3 to minimize API costs)

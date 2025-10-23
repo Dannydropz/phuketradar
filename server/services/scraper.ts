@@ -331,4 +331,19 @@ export class ScraperService {
   }
 }
 
+// Provider-agnostic scraper interface
+export function getScraperService() {
+  const provider = process.env.SCRAPER_PROVIDER || 'scrapecreators';
+  
+  if (provider === 'apify') {
+    console.log('🔄 Using Apify scraper (multi-image support enabled)');
+    // Dynamic import to avoid loading Apify unless needed
+    const { apifyScraperService } = require('./apify-scraper');
+    return apifyScraperService;
+  }
+  
+  console.log('🔄 Using ScrapeCreators scraper (single image only)');
+  return scraperService;
+}
+
 export const scraperService = new ScraperService();
