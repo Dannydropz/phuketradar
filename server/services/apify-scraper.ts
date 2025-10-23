@@ -87,6 +87,10 @@ export class ApifyScraperService {
           body: JSON.stringify({
             startUrls: [{ url: pageUrl }],
             maxPosts: 50, // Limit posts to control costs
+            scrapePosts: true, // Explicitly enable post scraping
+            scrapeAbout: false, // Don't scrape about section
+            scrapeReviews: false, // Don't scrape reviews
+            maxPostDate: "7 days", // Only get posts from last 7 days
             proxyConfiguration: {
               useApifyProxy: true,
             },
@@ -146,10 +150,18 @@ export class ApifyScraperService {
       const posts: ApifyDatasetItem[] = await datasetResponse.json();
       console.log(`[APIFY] Retrieved ${posts.length} posts from dataset`);
 
-      // Log first post structure
+      // Log first 3 post structures for debugging
       if (posts.length > 0) {
-        console.log("\n📋 FIRST POST STRUCTURE FROM APIFY:");
-        console.log(JSON.stringify(posts[0], null, 2));
+        console.log("\n📋 APIFY RESPONSE - FIRST 3 POSTS:");
+        posts.slice(0, 3).forEach((post, idx) => {
+          console.log(`\n--- POST ${idx + 1} ---`);
+          console.log("Text preview:", post.text?.substring(0, 100));
+          console.log("Images field:", post.images);
+          console.log("postUrl:", post.postUrl);
+          console.log("url:", post.url);
+          console.log("topLevelUrl:", post.topLevelUrl);
+          console.log("All keys:", Object.keys(post));
+        });
         console.log("\n");
       }
 
