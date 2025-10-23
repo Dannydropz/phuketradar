@@ -209,6 +209,13 @@ export class ApifyScraperService {
           }
         }
 
+        // Skip video-only posts (posts without images)
+        if (imageUrls.length === 0) {
+          console.log(`[APIFY] 🎥 Skipping video-only post (no images)`);
+          console.log(`[APIFY]    Title: ${title.substring(0, 80)}...`);
+          continue;
+        }
+
         // Set the first image as primary imageUrl for backward compatibility
         const imageUrl = imageUrls[0];
 
