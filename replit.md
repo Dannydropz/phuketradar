@@ -27,11 +27,12 @@ Preferred communication style: Simple, everyday language.
 - **Scraping**: JINA AI for Facebook scraping, avoids Graph API complexity. Scrapes multiple sources (Phuket Time News, Phuket Info Center, Newshawk Phuket), configurable via `server/config/news-sources.ts`. Limits processing to 10 recent posts per source to manage API costs.
 - **Translation**: GPT-4-mini for cost-effective, quality translation with news filtering via prompt engineering.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend. Features pre-translation duplicate and semantic similarity checks to optimize API costs.
-- **Duplicate Detection**: Three-layer system with database-level protection:
+- **Duplicate Detection**: Four-layer system with database-level protection:
     1. **In-memory Set**: Tracks normalized source URLs within each batch to catch API duplicates (ScrapeCreators sometimes returns same post twice)
     2. **Database source URL check**: Queries database before translation to avoid expensive API calls for known posts
-    3. **Post-translation checks**: (a) Image URL exact match, (b) 70% semantic similarity on Thai title embeddings
-    4. **Database UNIQUE constraint**: PostgreSQL UNIQUE constraint on `articles.source_url` prevents race condition duplicates (error code 23505 handled gracefully)
+    3. **Multi-image duplicate detection**: Checks ALL images in imageUrls array against existing articles. If any image matches an existing article, the post is skipped. This catches same stories from different Facebook sources that share images (even if they use different primary images or post order).
+    4. **Semantic similarity check**: 70% threshold on Thai title embeddings to catch near-duplicate stories with different wording
+    5. **Database UNIQUE constraint**: PostgreSQL UNIQUE constraint on `articles.source_url` prevents race condition duplicates (error code 23505 handled gracefully)
     
     **Production Setup**: After publishing, add the UNIQUE constraint to production database:
     1. Open Replit Database UI → Navigate to production database
