@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import { Clock, Share2 } from "lucide-react";
 import { useRoute } from "wouter";
@@ -22,6 +24,8 @@ import { SEO } from "@/components/SEO";
 export default function ArticleDetail() {
   const [, params] = useRoute("/article/:slugOrId");
   const slugOrId = params?.slugOrId || "";
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
 
   const { data: article, isLoading, error, isError } = useQuery<Article>({
     queryKey: ["/api/articles", slugOrId],
@@ -40,6 +44,19 @@ export default function ArticleDetail() {
   const { data: allArticles = [] } = useQuery<ArticleListItem[]>({
     queryKey: ["/api/articles"],
   });
+
+  // Track carousel current slide for dots
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+
+    setCurrent(api.selectedScrollSnap());
+
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
 
   if (isLoading) {
     return (
@@ -187,38 +204,56 @@ export default function ArticleDetail() {
             </div>
           </div>
 
-          <div className="mb-8 rounded-lg overflow-hidden bg-muted">
+          <div className="mb-8">
             {article.imageUrls && article.imageUrls.length > 1 ? (
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {article.imageUrls.map((imageUrl, index) => (
-                    <CarouselItem key={index}>
-                      <div className="relative w-full">
-                        <img
-                          src={imageUrl}
-                          alt={`${article.title} - Image ${index + 1}`}
-                          className="w-full h-auto object-cover"
-                          data-testid={`img-article-${index}`}
-                        />
-                        {article.imageUrls && article.imageUrls.length > 1 && (
+              <div className="space-y-4">
+                <Carousel className="w-full rounded-lg overflow-hidden bg-muted" setApi={setApi}>
+                  <CarouselContent>
+                    {article.imageUrls.map((imageUrl, index) => (
+                      <CarouselItem key={index}>
+                        <div className="relative w-full flex items-center justify-center bg-muted">
+                          <img
+                            src={imageUrl}
+                            alt={`${article.title} - Image ${index + 1}`}
+                            className="w-full max-h-[400px] md:max-h-[600px] object-contain"
+                            data-testid={`img-article-${index}`}
+                          />
                           <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-                            {index + 1} / {article.imageUrls.length}
+                            {index + 1} / {article.imageUrls?.length ?? 0}
                           </div>
-                        )}
-                      </div>
-                    </CarouselItem>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="left-4" />
+                  <CarouselNext className="right-4" />
+                </Carousel>
+                
+                <div className="flex items-center justify-center gap-2">
+                  {article.imageUrls.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => api?.scrollTo(index)}
+                      className={`h-2 rounded-full transition-all ${
+                        index === current 
+                          ? 'w-8 bg-primary' 
+                          : 'w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                      }`}
+                      aria-label={`Go to image ${index + 1}`}
+                      data-testid={`dot-carousel-${index}`}
+                    />
                   ))}
-                </CarouselContent>
-                <CarouselPrevious className="left-4" />
-                <CarouselNext className="right-4" />
-              </Carousel>
+                </div>
+              </div>
             ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
-              <img
-                src={article.imageUrl || (article.imageUrls ? article.imageUrls[0] : '')}
-                alt={article.title}
-                className="w-full h-auto object-cover"
-                data-testid="img-article-main"
-              />
+              <div className="rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                <img
+                  src={article.imageUrl || (article.imageUrls ? article.imageUrls[0] : '')}
+                  alt={article.title}
+                  className="w-full max-h-[400px] md:max-h-[600px] object-contain"
+                  data-testid="img-article-main"
+                />
+              </div>
             ) : (
               <div className="w-full h-[400px] flex items-center justify-center">
                 <img
