@@ -109,7 +109,15 @@ export class ScraperService {
       
       // Log first post structure to understand the API response
       if (data.posts && data.posts.length > 0) {
-        console.log("First post structure:", JSON.stringify(data.posts[0], null, 2));
+        console.log("\n📋 FIRST POST STRUCTURE FROM API:");
+        console.log(JSON.stringify(data.posts[0], null, 2));
+        
+        // Log attachment structure if it exists
+        if (data.posts[0].attachments?.data) {
+          console.log("\n📎 ATTACHMENTS STRUCTURE:");
+          console.log(JSON.stringify(data.posts[0].attachments, null, 2));
+        }
+        console.log("\n");
       }
       
       if (!data.success || !data.posts || data.posts.length === 0) {
@@ -202,7 +210,14 @@ export class ScraperService {
         
         // Log multi-image posts for debugging
         if (imageUrls.length > 1) {
-          console.log(`📸 Found ${imageUrls.length} images in post "${title.substring(0, 50)}..."`);
+          console.log(`\n📸 MULTI-IMAGE POST DETECTED!`);
+          console.log(`   Title: ${title.substring(0, 60)}...`);
+          console.log(`   Image count: ${imageUrls.length}`);
+          console.log(`   Images:`);
+          imageUrls.forEach((url, idx) => {
+            console.log(`     ${idx + 1}. ${url.substring(0, 100)}${url.length > 100 ? '...' : ''}`);
+          });
+          console.log('');
         }
 
         // Parse timestamp if available

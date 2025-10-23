@@ -80,11 +80,30 @@ export async function runScheduledScrape() {
         }
         
         // STEP 0: Check for image URL duplicate (same image = same story)
-        if (post.imageUrl) {
+        // Check ALL images in the array, not just the primary one
+        if (post.imageUrls && post.imageUrls.length > 0) {
+          let foundDuplicate = false;
+          for (const imageUrl of post.imageUrls) {
+            const existingImageArticle = await storage.getArticleByImageUrl(imageUrl);
+            if (existingImageArticle) {
+              skippedSemanticDuplicates++;
+              console.log(`🖼️  Image duplicate detected - story uses same image as existing article`);
+              console.log(`   New: ${post.title.substring(0, 60)}...`);
+              console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
+              console.log(`   Matching image: ${imageUrl.substring(0, 80)}...`);
+              foundDuplicate = true;
+              break;
+            }
+          }
+          if (foundDuplicate) {
+            continue;
+          }
+        } else if (post.imageUrl) {
+          // Fallback for posts without imageUrls array
           const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
           if (existingImageArticle) {
             skippedSemanticDuplicates++;
-            console.log(`🖼️ Image duplicate detected - same image already exists`);
+            console.log(`🖼️  Image duplicate detected - same image already exists`);
             console.log(`   New: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
             continue;
@@ -128,6 +147,7 @@ export async function runScheduledScrape() {
               content: translation.translatedContent,
               excerpt: translation.excerpt,
               imageUrl: post.imageUrl || null,
+              imageUrls: post.imageUrls || null,
               category: translation.category,
               sourceUrl: post.sourceUrl,
               author: translation.author,
