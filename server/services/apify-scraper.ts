@@ -25,7 +25,8 @@ interface ApifyPost {
 }
 
 interface ApifyDatasetItem {
-  postUrl: string;
+  postUrl?: string;
+  url?: string; // Fallback URL field
   text?: string;
   images?: ApifyImage[];
   likes?: number;
@@ -174,8 +175,15 @@ export class ApifyScraperService {
           continue;
         }
 
-        // Normalize the source URL
-        const rawSourceUrl = post.postUrl;
+        // Get source URL with fallback chain: postUrl -> url -> topLevelUrl
+        const rawSourceUrl = post.postUrl || post.url || post.topLevelUrl;
+        
+        if (!rawSourceUrl) {
+          console.log(`[APIFY] ⚠️ Skipping post - no URL found in postUrl, url, or topLevelUrl fields`);
+          console.log(`[APIFY] Post data keys:`, Object.keys(post));
+          continue;
+        }
+
         const normalizedSourceUrl = this.normalizeFacebookUrl(rawSourceUrl);
 
         // Skip if we've already seen this URL in this batch
