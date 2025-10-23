@@ -207,7 +207,7 @@ export default function ArticleDetail() {
           <div className="mb-8">
             {article.imageUrls && article.imageUrls.length > 1 ? (
               <div className="space-y-4">
-                <Carousel className="w-full rounded-lg overflow-hidden bg-muted" setApi={setApi}>
+                <Carousel className="w-full rounded-lg overflow-hidden bg-muted relative" setApi={setApi}>
                   <CarouselContent>
                     {article.imageUrls.map((imageUrl, index) => (
                       <CarouselItem key={index}>
@@ -218,15 +218,15 @@ export default function ArticleDetail() {
                             className="w-full max-h-[400px] md:max-h-[600px] object-contain"
                             data-testid={`img-article-${index}`}
                           />
-                          <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-                            {index + 1} / {article.imageUrls?.length ?? 0}
-                          </div>
                         </div>
                       </CarouselItem>
                     ))}
                   </CarouselContent>
                   <CarouselPrevious className="left-4" />
                   <CarouselNext className="right-4" />
+                  <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm z-10">
+                    {current + 1} / {article.imageUrls?.length ?? 0}
+                  </div>
                 </Carousel>
                 
                 <div className="flex items-center justify-center gap-2">
