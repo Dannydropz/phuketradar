@@ -244,19 +244,20 @@ export class ApifyScraperService {
           if (Array.isArray(post.media)) {
             // Media is an array of media items
             for (const mediaItem of post.media) {
-              // Try thumbnail first (common for videos/images)
-              if (mediaItem.thumbnail && !imageUrls.includes(mediaItem.thumbnail)) {
-                imageUrls.push(mediaItem.thumbnail);
-              }
+              // Prioritize image.uri over thumbnail (they're often the same photo with different URLs)
+              // Only use thumbnail as fallback if image doesn't exist
+              let imgUrl: string | undefined;
               
-              // Try image field (can be string or object with uri)
               if (mediaItem.image) {
-                const imgUrl = typeof mediaItem.image === 'string' 
+                imgUrl = typeof mediaItem.image === 'string' 
                   ? mediaItem.image 
                   : mediaItem.image.uri;
-                if (imgUrl && !imageUrls.includes(imgUrl)) {
-                  imageUrls.push(imgUrl);
-                }
+              } else if (mediaItem.thumbnail) {
+                imgUrl = mediaItem.thumbnail;
+              }
+              
+              if (imgUrl && !imageUrls.includes(imgUrl)) {
+                imageUrls.push(imgUrl);
               }
             }
           } else {
@@ -280,8 +281,9 @@ export class ApifyScraperService {
         if (imageUrls.length === 0) {
           console.log(`[APIFY] 🎥 Skipping video-only post (no images)`);
           console.log(`[APIFY]    Title: ${title.substring(0, 80)}...`);
-          console.log(`[APIFY]    Has video: ${!!post.media?.video}`);
-          console.log(`[APIFY]    Has video thumbnail: ${!!post.media?.video_thumbnail}`);
+          const mediaObj = !Array.isArray(post.media) ? post.media : undefined;
+          console.log(`[APIFY]    Has video: ${!!mediaObj?.video}`);
+          console.log(`[APIFY]    Has video thumbnail: ${!!mediaObj?.video_thumbnail}`);
           continue;
         }
 
