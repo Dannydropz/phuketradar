@@ -54,7 +54,7 @@ export async function runScheduledScrape() {
     let skippedSemanticDuplicates = 0;
 
     // Get the appropriate scraper based on SCRAPER_PROVIDER env var
-    const scraperService = getScraperService();
+    const scraperService = await getScraperService();
 
     // Loop through each news source
     for (const source of sources) {
