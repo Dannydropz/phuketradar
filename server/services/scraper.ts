@@ -332,12 +332,18 @@ export class ScraperService {
 }
 
 // Provider-agnostic scraper interface
-export function getScraperService() {
-  const provider = process.env.SCRAPER_PROVIDER || 'scrapecreators';
+export function getScraperService(): {
+  scrapeFacebookPage: (pageUrl: string) => Promise<ScrapedPost[]>;
+  scrapeFacebookPageWithPagination: (
+    pageUrl: string,
+    maxPages?: number,
+    checkForDuplicate?: (sourceUrl: string) => Promise<boolean>
+  ) => Promise<ScrapedPost[]>;
+} {
+  const provider = process.env.SCRAPER_PROVIDER || (process.env.APIFY_API_KEY ? 'apify' : 'scrapecreators');
   
-  if (provider === 'apify') {
+  if (provider === 'apify' && process.env.APIFY_API_KEY) {
     console.log('🔄 Using Apify scraper (multi-image support enabled)');
-    // Dynamic import to avoid loading Apify unless needed
     const { apifyScraperService } = require('./apify-scraper');
     return apifyScraperService;
   }

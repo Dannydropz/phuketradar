@@ -76,9 +76,11 @@ export async function runScheduledScrape() {
         const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
         if (existingBySourceUrl) {
           skippedSemanticDuplicates++;
-          console.log(`🔗 Source URL already exists in database - skipping`);
+          console.log(`\n🚫 DUPLICATE DETECTED - Method: SOURCE URL CHECK`);
           console.log(`   URL: ${post.sourceUrl}`);
+          console.log(`   New title: ${post.title.substring(0, 60)}...`);
           console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
+          console.log(`   ✅ Skipped before translation (saved API credits)\n`);
           continue;
         }
         
@@ -90,10 +92,11 @@ export async function runScheduledScrape() {
             const existingImageArticle = await storage.getArticleByImageUrl(imageUrl);
             if (existingImageArticle) {
               skippedSemanticDuplicates++;
-              console.log(`🖼️  Image duplicate detected - story uses same image as existing article`);
-              console.log(`   New: ${post.title.substring(0, 60)}...`);
+              console.log(`\n🚫 DUPLICATE DETECTED - Method: IMAGE URL CHECK (${post.imageUrls?.length || 1} images checked)`);
+              console.log(`   New title: ${post.title.substring(0, 60)}...`);
               console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
               console.log(`   Matching image: ${imageUrl.substring(0, 80)}...`);
+              console.log(`   ✅ Skipped before translation (saved API credits)\n`);
               foundDuplicate = true;
               break;
             }
@@ -106,9 +109,10 @@ export async function runScheduledScrape() {
           const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
           if (existingImageArticle) {
             skippedSemanticDuplicates++;
-            console.log(`🖼️  Image duplicate detected - same image already exists`);
-            console.log(`   New: ${post.title.substring(0, 60)}...`);
+            console.log(`\n🚫 DUPLICATE DETECTED - Method: IMAGE URL CHECK (single image)`);
+            console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
+            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
             continue;
           }
         }
@@ -123,9 +127,10 @@ export async function runScheduledScrape() {
           
           if (duplicateCheck.isDuplicate) {
             skippedSemanticDuplicates++;
-            console.log(`🔄 Semantic duplicate detected (${(duplicateCheck.similarity * 100).toFixed(1)}% similar)`);
-            console.log(`   New: ${post.title.substring(0, 60)}...`);
+            console.log(`\n🚫 DUPLICATE DETECTED - Method: SEMANTIC SIMILARITY (${(duplicateCheck.similarity * 100).toFixed(1)}% match)`);
+            console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
+            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
             continue;
           }
         } catch (embeddingError) {
