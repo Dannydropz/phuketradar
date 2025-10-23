@@ -39,6 +39,11 @@ export class ApifyScraperService {
   private apiKey = process.env.APIFY_API_KEY;
   private actorId = 'apify/facebook-posts-scraper';
 
+  // Convert actor ID to URL-safe format (replace / with ~)
+  private getUrlSafeActorId(): string {
+    return this.actorId.replace('/', '~');
+  }
+
   // Normalize Facebook post URL to handle different formats
   private normalizeFacebookUrl(url: string): string {
     try {
@@ -70,8 +75,9 @@ export class ApifyScraperService {
       console.log(`[APIFY] Scraping Facebook page: ${pageUrl}`);
 
       // Start the Apify actor
+      const urlSafeActorId = this.getUrlSafeActorId();
       const runResponse = await fetch(
-        `https://api.apify.com/v2/acts/${this.actorId}/runs?token=${this.apiKey}`,
+        `https://api.apify.com/v2/acts/${urlSafeActorId}/runs?token=${this.apiKey}`,
         {
           method: 'POST',
           headers: {
@@ -109,7 +115,7 @@ export class ApifyScraperService {
         await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
         
         const statusResponse = await fetch(
-          `https://api.apify.com/v2/acts/${this.actorId}/runs/${runId}?token=${this.apiKey}`
+          `https://api.apify.com/v2/acts/${urlSafeActorId}/runs/${runId}?token=${this.apiKey}`
         );
         
         if (statusResponse.ok) {
