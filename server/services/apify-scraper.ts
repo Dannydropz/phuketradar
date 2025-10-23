@@ -13,10 +13,25 @@ interface ApifyImage {
   link: string;
 }
 
+interface ApifyMediaItem {
+  thumbnail?: string; // Thumbnail URL for videos/images
+  image?: string | { uri: string; height?: number; width?: number }; // Direct image URL or object with URI
+  __typename?: string; // Type indicator (Video, Photo, etc.)
+}
+
+interface ApifyMedia {
+  image?: string; // Single image URL
+  video?: string; // Video URL
+  video_thumbnail?: string; // Video thumbnail
+  album_preview?: any[]; // Preview images for albums
+  external_url?: string; // External link
+}
+
 interface ApifyPost {
   postUrl: string;
   text?: string;
-  images?: ApifyImage[]; // Array of all images in carousel posts
+  images?: ApifyImage[]; // Array of all images in carousel posts (older format)
+  media?: ApifyMedia; // Media object (newer format)
   likes?: number;
   shares?: number;
   comments?: number;
@@ -28,7 +43,8 @@ interface ApifyDatasetItem {
   postUrl?: string;
   url?: string; // Fallback URL field
   text?: string;
-  images?: ApifyImage[];
+  images?: ApifyImage[]; // Older format
+  media?: ApifyMediaItem[] | ApifyMedia; // Can be array of media items or single object
   likes?: number;
   shares?: number;
   comments?: number;
@@ -157,6 +173,7 @@ export class ApifyScraperService {
           console.log(`\n--- POST ${idx + 1} ---`);
           console.log("Text preview:", post.text?.substring(0, 100));
           console.log("Images field:", post.images);
+          console.log("Media field:", JSON.stringify(post.media, null, 2));
           console.log("postUrl:", post.postUrl);
           console.log("url:", post.url);
           console.log("topLevelUrl:", post.topLevelUrl);
@@ -213,6 +230,7 @@ export class ApifyScraperService {
         // Extract ALL image URLs from the post
         const imageUrls: string[] = [];
         
+        // Try older format: images array
         if (post.images && post.images.length > 0) {
           for (const img of post.images) {
             if (img.link && !imageUrls.includes(img.link)) {
@@ -220,11 +238,50 @@ export class ApifyScraperService {
             }
           }
         }
+        
+        // Try newer format: media field (can be array or object)
+        if (post.media) {
+          if (Array.isArray(post.media)) {
+            // Media is an array of media items
+            for (const mediaItem of post.media) {
+              // Try thumbnail first (common for videos/images)
+              if (mediaItem.thumbnail && !imageUrls.includes(mediaItem.thumbnail)) {
+                imageUrls.push(mediaItem.thumbnail);
+              }
+              
+              // Try image field (can be string or object with uri)
+              if (mediaItem.image) {
+                const imgUrl = typeof mediaItem.image === 'string' 
+                  ? mediaItem.image 
+                  : mediaItem.image.uri;
+                if (imgUrl && !imageUrls.includes(imgUrl)) {
+                  imageUrls.push(imgUrl);
+                }
+              }
+            }
+          } else {
+            // Media is an object (older format)
+            if (post.media.image && !imageUrls.includes(post.media.image)) {
+              imageUrls.push(post.media.image);
+            }
+            if (post.media.album_preview && Array.isArray(post.media.album_preview)) {
+              for (const albumImg of post.media.album_preview) {
+                const imgUrl = typeof albumImg === 'string' ? albumImg : albumImg?.url || albumImg?.link;
+                if (imgUrl && !imageUrls.includes(imgUrl)) {
+                  imageUrls.push(imgUrl);
+                }
+              }
+            }
+          }
+        }
 
         // Skip video-only posts (posts without images)
+        // But keep posts with video thumbnails as they may have useful imagery
         if (imageUrls.length === 0) {
           console.log(`[APIFY] 🎥 Skipping video-only post (no images)`);
           console.log(`[APIFY]    Title: ${title.substring(0, 80)}...`);
+          console.log(`[APIFY]    Has video: ${!!post.media?.video}`);
+          console.log(`[APIFY]    Has video thumbnail: ${!!post.media?.video_thumbnail}`);
           continue;
         }
 
