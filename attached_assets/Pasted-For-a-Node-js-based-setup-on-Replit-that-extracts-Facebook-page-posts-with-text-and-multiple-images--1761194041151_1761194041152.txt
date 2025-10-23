@@ -1,0 +1,63 @@
+For a Node.js-based setup on Replit that extracts Facebook page posts with text and multiple images, while keeping cost low, these are the best current options:
+
+1. Apify Facebook Posts Scraper (Node.js Compatible, Free Tier)
+Apify’s Facebook Posts Scraper is the most complete low-cost solution.​
+
+Features: Extracts page post text, timestamps, engagement metrics, and all associated image URLs.
+
+Integration: Works with the apify-client NPM library for Node.js.
+
+Hosting: Can run on Replit through API calls.
+
+Cost: Free for up to 10 compute units per month (sufficient for a few pages). After that, starts around $5 per actor-run.
+
+Bonus: You can chain with Apify’s Photos Scraper to ensure all attached images are captured.
+
+2. ScraperAPI + Puppeteer (Custom Setup)
+Using ScraperAPI with Puppeteer gives you full control of the Facebook DOM and can handle multi-image carousels.​
+
+How it works:
+
+Run headless Chrome via Puppeteer to load Facebook pages.
+
+Route requests through ScraperAPI for IP rotation and to bypass CAPTCHAs.
+
+Use Cheerio or DOM selectors to extract all <img> tags within each post.
+
+Free tier: 1,000 API credits/month (enough for a few page runs).
+
+Example pseudocode:
+
+javascript
+import puppeteer from 'puppeteer';
+import cheerio from 'cheerio';
+const SCRAPERAPI_KEY = process.env.SCRAPERAPI_KEY;
+const targetUrl = `https://api.scraperapi.com/?api_key=${SCRAPERAPI_KEY}&url=https://www.facebook.com/MyPage`;
+
+const browser = await puppeteer.launch({ headless: true });
+const page = await browser.newPage();
+await page.goto(targetUrl, { waitUntil: 'networkidle2' });
+const html = await page.content();
+const $ = cheerio.load(html);
+const posts = [];
+$('.userContentWrapper').each((_, el) => {
+  const text = $(el).text();
+  const images = $(el).find('img').map((_, i) => $(i).attr('src')).get();
+  posts.push({ text, images });
+});
+await browser.close();
+console.log(posts);
+This setup runs well on Replit.
+
+3. Free Headless Scraper (DIY)
+If you want zero-cost and full customization, use Puppeteer alone (without ScraperAPI) as demonstrated by ScrapingDog’s Node.js guide.​
+It’s capable of scraping both post text and all image URLs, but you’ll need to manually manage timeouts and login cookies to avoid content gating.
+
+Best Pick for You (Replit-friendly)
+Given your environment:
+
+If you want a plug-and-play API → Apify Posts Scraper is ideal.
+
+If you want free control and full gallery capture, and don’t mind coding → Puppeteer + Cheerio (optionally routed through ScraperAPI for anti-block protection).
+
+Apify’s small free tier plus Node.js SDK makes it the best hybrid choice for text + multiple-image extraction workflows hosted on Replit.
