@@ -24,7 +24,10 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: CRUD operations for articles and an admin endpoint to trigger scraping.
 
 ### Architectural Decisions
-- **Scraping**: JINA AI for Facebook scraping, avoids Graph API complexity. Scrapes multiple sources (Phuket Time News, Phuket Info Center, Newshawk Phuket), configurable via `server/config/news-sources.ts`. Limits processing to 10 recent posts per source to manage API costs.
+- **Scraping**: Uses ScrapeCreators API (via SCRAPECREATORS_API_KEY) for Facebook scraping. Scrapes multiple sources (Phuket Time News, Phuket Info Center, Newshawk Phuket), configurable via `server/config/news-sources.ts`. Limits processing to 10 recent posts per source to manage API costs.
+    - **Multi-Image Limitation**: Current ScrapeCreators API only returns single `image` field per post, not multiple images from carousel posts. Multi-image extraction code is implemented in codebase but inactive until a better API is used.
+    - **Free Alternative Tested**: Python `facebook-scraper` library tested (Oct 2025) - returns zero posts due to Facebook HTML changes since library's last update (Oct 2023). Not viable for production.
+    - **Future Enhancement**: Consider paid scraping solutions (Apify Facebook Scraper ~$39/month) to enable full multi-image extraction for better content quality.
 - **Translation**: GPT-4-mini for cost-effective, quality translation with news filtering via prompt engineering.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend. Features pre-translation duplicate and semantic similarity checks to optimize API costs.
 - **Duplicate Detection**: Four-layer system with database-level protection:
