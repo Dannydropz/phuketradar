@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Backend Architecture
 - **Server**: Express.js with TypeScript for RESTful API development.
-- **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for persistent storage. Schema includes `users` and `articles` with an embedding vector for semantic duplicate detection.
+- **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for persistent storage. Schema includes `users`, `articles` with embedding vectors, and `subscribers` for newsletter management.
 - **Business Logic**:
     - **ScraperService**: Uses JINA AI Reader API to scrape Facebook posts and extract markdown.
     - **TranslatorService**: Integrates OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, and category classification (Breaking, Tourism, Business, Events, Other).
@@ -91,6 +91,24 @@ Preferred communication style: Simple, everyday language.
 **Important**: The GitHub Action runs the standalone script, NOT the web server. This prevents continuous scraping and excessive API usage. The script exits after making a single request to the cron endpoint on the published Replit app (phuketradar.com).
 
 **Error Handling**: The `/api/cron/scrape` endpoint always returns HTTP 200 OK (even on errors) to ensure GitHub Actions shows success when articles are published. The response payload includes `success: true/false` and detailed status information. This prevents false failures in GitHub Actions when partial scraping succeeds.
+
+### Email Newsletter System
+- **Database**: `subscribers` table with email, subscribedAt, isActive, and unsubscribeToken fields
+- **Integration**: Resend email service via Replit connector with automatic API key rotation
+- **Email Template**: Morning Brew-style responsive HTML design with:
+  - Gradient blue header with site branding
+  - Category-specific color badges (Breaking: red, Tourism: blue, Business: green, Events: orange, Other: gray)
+  - Article cards with images, excerpts, and "Read more" links
+  - Professional footer with unsubscribe link
+- **Content**: Sends last 24 hours of published articles (max 10 per newsletter)
+- **Scheduling**: GitHub Actions workflow runs daily at 8 AM Thailand time (1 AM UTC)
+- **Rate Limiting**: 100ms delay between sends to respect Resend API limits
+- **API Endpoints**:
+  - `POST /api/subscribe` - Newsletter subscription with duplicate detection and reactivation support
+  - `GET /api/unsubscribe/:token` - One-click unsubscribe with HTML confirmation
+  - `POST /api/cron/newsletter` - Automated daily newsletter sending (protected by CRON_API_KEY)
+- **Workflow**: `.github/workflows/scheduled-newsletter.yml` - Daily newsletter automation
+- **Setup**: Same CRON_API_KEY GitHub secret used for both scraping and newsletter workflows
 
 ## External Dependencies
 
