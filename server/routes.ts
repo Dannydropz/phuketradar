@@ -4,12 +4,14 @@ import { storage } from "./storage";
 import { getScraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
-import { insertArticleSchema } from "@shared/schema";
+import { insertArticleSchema, insertSubscriberSchema } from "@shared/schema";
 import { z } from "zod";
 import { scrapeJobManager } from "./scrape-jobs";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
+import { sendBulkNewsletter } from "./services/newsletter";
+import { subHours } from "date-fns";
 
 // Extend session type
 declare module "express-session" {
@@ -622,6 +624,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in batch Facebook posting:", error);
       res.status(500).json({ error: "Failed to batch post to Facebook" });
+    }
+  });
+
+  // Cron endpoint for daily newsletter
+  app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("📧 NEWSLETTER TRIGGERED 📧");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: EXTERNAL CRON SERVICE`);
+    console.log("=".repeat(80) + "\n");
+
+    try {
+      // Get active subscribers
+      const subscribers = await storage.getAllActiveSubscribers();
+      
+      if (subscribers.length === 0) {
+        console.log("ℹ️  No active subscribers - skipping newsletter");
+        return res.json({
+          success: true,
+          message: "No active subscribers",
+          sent: 0,
+          failed: 0,
+        });
+      }
+
+      // Get articles from the last 24 hours, published only
+      const allArticles = await storage.getPublishedArticles();
+      const cutoff = subHours(new Date(), 24);
+      
+      const recentArticles = allArticles
+        .filter(article => new Date(article.publishedAt) >= cutoff)
+        .slice(0, 10); // Limit to 10 most recent articles
+      
+      console.log(`📊 Filtered articles: ${recentArticles.length} from last 24 hours (cutoff: ${cutoff.toISOString()})`);
+
+      if (recentArticles.length === 0) {
+        console.log("ℹ️  No articles from the last 24 hours - skipping newsletter");
+        return res.json({
+          success: true,
+          message: "No recent articles to send",
+          sent: 0,
+          failed: 0,
+        });
+      }
+
+      console.log(`📧 Sending newsletter with ${recentArticles.length} articles to ${subscribers.length} subscribers`);
+
+      // Send newsletter to all subscribers
+      const result = await sendBulkNewsletter(
+        subscribers.map(s => ({ email: s.email, unsubscribeToken: s.unsubscribeToken })),
+        recentArticles
+      );
+
+      console.log(`✅ Newsletter campaign complete: ${result.sent} sent, ${result.failed} failed`);
+
+      res.json({
+        success: true,
+        message: "Newsletter sent successfully",
+        timestamp,
+        ...result,
+        articles: recentArticles.length,
+        subscribers: subscribers.length,
+      });
+    } catch (error) {
+      console.error("❌ Error sending newsletter:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      res.json({
+        success: false,
+        message: "Newsletter sending failed",
+        error: errorMessage,
+        timestamp,
+      });
+    }
+  });
+
+  // Newsletter subscription routes
+  
+  // Subscribe to newsletter
+  app.post("/api/subscribe", async (req, res) => {
+    try {
+      const result = insertSubscriberSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+
+      // Check if already subscribed
+      const existing = await storage.getSubscriberByEmail(result.data.email);
+      if (existing) {
+        if (existing.isActive) {
+          return res.status(200).json({ 
+            message: "You're already subscribed to Phuket Radar!",
+            alreadySubscribed: true 
+          });
+        } else {
+          // Reactivate subscription
+          await storage.unsubscribeByToken(existing.unsubscribeToken);
+          const reactivated = await storage.createSubscriber(result.data);
+          return res.status(200).json({ 
+            message: "Welcome back! Your subscription has been reactivated.",
+            subscriber: { email: reactivated.email }
+          });
+        }
+      }
+
+      const subscriber = await storage.createSubscriber(result.data);
+      res.status(201).json({ 
+        message: "Successfully subscribed to Phuket Radar!",
+        subscriber: { email: subscriber.email }
+      });
+    } catch (error) {
+      console.error("Error subscribing:", error);
+      res.status(500).json({ error: "Failed to subscribe" });
+    }
+  });
+
+  // Unsubscribe from newsletter
+  app.get("/api/unsubscribe/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const success = await storage.unsubscribeByToken(token);
+      
+      if (!success) {
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>Unsubscribe - Phuket Radar</title></head>
+            <body style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 100px auto; text-align: center; padding: 20px;">
+              <h1 style="color: #ef4444;">Invalid Link</h1>
+              <p>This unsubscribe link is invalid or has already been used.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Unsubscribed - Phuket Radar</title></head>
+          <body style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 100px auto; text-align: center; padding: 20px;">
+            <h1 style="color: #10b981;">Successfully Unsubscribed</h1>
+            <p>You've been unsubscribed from Phuket Radar newsletters.</p>
+            <p style="color: #6b7280; margin-top: 40px;">We're sorry to see you go!</p>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Error unsubscribing:", error);
+      res.status(500).send("Failed to unsubscribe");
     }
   });
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 export function EmailSignup() {
   const [email, setEmail] = useState("");
@@ -22,15 +23,27 @@ export function EmailSignup() {
 
     setIsSubmitting(true);
     
-    // Simulate API call (you can replace this with actual backend endpoint)
-    setTimeout(() => {
+    try {
+      const response = await apiRequest("POST", "/api/subscribe", { email });
+      const data = await response.json();
+
       toast({
-        title: "Success!",
-        description: "Thanks for subscribing to Phuket Radar",
+        title: data.alreadySubscribed ? "Already subscribed!" : "Success!",
+        description: data.message,
       });
-      setEmail("");
+      
+      if (!data.alreadySubscribed) {
+        setEmail("");
+      }
+    } catch (error) {
+      toast({
+        title: "Subscription failed",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return (

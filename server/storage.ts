@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, users, articles } from "@shared/schema";
+import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, users, articles, subscribers } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
@@ -25,6 +25,12 @@ export interface IStorage {
   finalizeArticleFacebookPost(id: string, lockToken: string, facebookPostId: string, facebookPostUrl: string): Promise<boolean>;
   releaseFacebookPostLock(id: string, lockToken: string): Promise<void>;
   deleteArticle(id: string): Promise<boolean>;
+  
+  // Subscriber methods
+  createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
+  getSubscriberByEmail(email: string): Promise<Subscriber | undefined>;
+  getAllActiveSubscribers(): Promise<Subscriber[]>;
+  unsubscribeByToken(token: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -240,6 +246,40 @@ export class DatabaseStorage implements IStorage {
       .delete(articles)
       .where(eq(articles.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Subscriber methods
+  async createSubscriber(insertSubscriber: InsertSubscriber): Promise<Subscriber> {
+    const [subscriber] = await db
+      .insert(subscribers)
+      .values(insertSubscriber)
+      .returning();
+    return subscriber;
+  }
+
+  async getSubscriberByEmail(email: string): Promise<Subscriber | undefined> {
+    const [subscriber] = await db
+      .select()
+      .from(subscribers)
+      .where(eq(subscribers.email, email));
+    return subscriber || undefined;
+  }
+
+  async getAllActiveSubscribers(): Promise<Subscriber[]> {
+    return await db
+      .select()
+      .from(subscribers)
+      .where(eq(subscribers.isActive, true))
+      .orderBy(desc(subscribers.subscribedAt));
+  }
+
+  async unsubscribeByToken(token: string): Promise<boolean> {
+    const result = await db
+      .update(subscribers)
+      .set({ isActive: false })
+      .where(eq(subscribers.unsubscribeToken, token))
+      .returning();
+    return result.length > 0;
   }
 }
 

@@ -1,0 +1,21 @@
+name: Scheduled Newsletter
+
+on:
+  schedule:
+    # Run at 1 AM UTC = 8 AM Thailand time (UTC+7)
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-newsletter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Trigger newsletter endpoint
+        run: |
+          echo "Sending daily newsletter..."
+          curl -X POST https://phuketradar.com/api/cron/newsletter \
+            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -v

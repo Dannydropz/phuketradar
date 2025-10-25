@@ -46,6 +46,14 @@ export const session = pgTable("session", {
   expireIdx: index("IDX_session_expire").on(table.expire),
 }));
 
+export const subscribers = pgTable("subscribers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+  unsubscribeToken: varchar("unsubscribe_token").notNull().unique().default(sql`gen_random_uuid()`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -56,10 +64,16 @@ export const insertArticleSchema = createInsertSchema(articles).omit({
   publishedAt: true,
 });
 
+export const insertSubscriberSchema = createInsertSchema(subscribers).pick({
+  email: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertArticle = z.infer<typeof insertArticleSchema>;
 export type Article = typeof articles.$inferSelect;
+export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
+export type Subscriber = typeof subscribers.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
 export type ArticleListItem = Omit<Article, 'content' | 'embedding'>;
