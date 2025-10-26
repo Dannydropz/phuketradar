@@ -25,9 +25,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Architectural Decisions
 - **Scraping**: Pluggable scraper architecture supporting multiple providers via SCRAPER_PROVIDER environment variable. Scrapes multiple sources (Phuket Time News, Phuket Info Center, Newshawk Phuket), configurable via `server/config/news-sources.ts`.
-    - **Apify (Recommended)**: Full multi-image carousel support via `apify/facebook-posts-scraper` actor. Returns all images from album posts. Free tier: 500 pages/month, paid: $39/month for 3,900 pages. Set `SCRAPER_PROVIDER=apify` and add `APIFY_API_KEY`.
-    - **ScrapeCreators (Fallback)**: Single-image only - API returns one `image` field per post, no carousel support. Set `SCRAPER_PROVIDER=scrapecreators` and use `SCRAPECREATORS_API_KEY`.
-    - **Provider Switching**: Change `SCRAPER_PROVIDER` anytime to switch between providers without code changes. Default: `apify` if APIFY_API_KEY is set.
+    - **ScrapeCreators (Active)**: Currently active provider. Single-image only - API returns one `image` field per post, no carousel support. Set `SCRAPER_PROVIDER=scrapecreators` and use `SCRAPECREATORS_API_KEY`. Switched from Apify on Oct 26, 2025 due to free tier exhaustion ($3.70 of $5.00 used in 3 days at $1.23/day burn rate).
+    - **Apify (Optional)**: Full multi-image carousel support via `apify/facebook-posts-scraper` actor. Returns all images from album posts. Free tier: 500 pages/month (exhausted), paid: $39/month for 3,900 pages. Set `SCRAPER_PROVIDER=apify` and add `APIFY_API_KEY`.
+    - **Provider Switching**: Change `SCRAPER_PROVIDER` anytime to switch between providers without code changes.
     - **Free Alternative Tested**: Python `facebook-scraper` library tested (Oct 2025) - returns zero posts due to Facebook HTML changes since library's last update (Oct 2023). Not viable for production.
 - **Translation**: GPT-4-mini for cost-effective, quality translation with news filtering via prompt engineering.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend. Features pre-translation duplicate and semantic similarity checks to optimize API costs.
