@@ -144,6 +144,14 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
 
   async isRealPhoto(imageUrl: string): Promise<boolean> {
     try {
+      // Decode HTML entities (&amp; -> &) for Facebook URLs
+      const decodedUrl = imageUrl
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'");
+      
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -168,7 +176,7 @@ Return only a JSON object with format: {"isRealPhoto": true/false, "reason": "br
               {
                 type: "image_url",
                 image_url: {
-                  url: imageUrl,
+                  url: decodedUrl,
                   detail: "low" // Use low detail to save costs
                 }
               }
