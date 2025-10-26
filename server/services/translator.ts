@@ -141,6 +141,56 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
     // Generate embedding from the title for semantic duplicate detection
     return this.generateEmbedding(title);
   }
+
+  async isRealPhoto(imageUrl: string): Promise<boolean> {
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Is this image a real photograph/photo of actual people, places, events, or objects? 
+                
+Answer "yes" ONLY if it's a genuine photograph.
+Answer "no" if it's:
+- Text graphics (announcements with just text on colored backgrounds)
+- Logos or branding images
+- Illustrations or drawings
+- Infographics
+- Promotional graphics
+- Memes or edited images with overlaid text
+
+Return only a JSON object with format: {"isRealPhoto": true/false, "reason": "brief explanation"}`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageUrl,
+                  detail: "low" // Use low detail to save costs
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.3,
+        response_format: { type: "json_object" }
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || "{}");
+      console.log(`🖼️  Image classification: ${result.isRealPhoto ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
+      console.log(`   Reason: ${result.reason}`);
+      
+      return result.isRealPhoto || false;
+    } catch (error) {
+      console.error("Error classifying image:", error);
+      // On error, assume it's a real photo to avoid skipping valid content
+      return true;
+    }
+  }
 }
 
 export const translatorService = new TranslatorService();
