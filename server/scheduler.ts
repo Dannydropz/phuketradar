@@ -117,12 +117,25 @@ export async function runScheduledScrape() {
           }
         }
         
-        // STEP 1: Generate embedding from Thai title (before translation - saves money!)
+        // STEP 1: Check if image is a real photo (not a text graphic)
+        if (post.imageUrl) {
+          const isRealPhoto = await translatorService.isRealPhoto(post.imageUrl);
+          if (!isRealPhoto) {
+            skippedNotNews++;
+            console.log(`\n⏭️  SKIPPED - TEXT GRAPHIC (not a real photo)`);
+            console.log(`   Title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Image: ${post.imageUrl.substring(0, 80)}...`);
+            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            continue;
+          }
+        }
+        
+        // STEP 2: Generate embedding from Thai title (before translation - saves money!)
         let titleEmbedding: number[] | undefined;
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 2: Check for semantic duplicates (70% threshold catches near-duplicates)
+          // STEP 3: Check for semantic duplicates (70% threshold catches near-duplicates)
           const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.70);
           
           if (duplicateCheck.isDuplicate) {
@@ -138,14 +151,14 @@ export async function runScheduledScrape() {
           // Continue without semantic duplicate check if embedding fails
         }
 
-        // STEP 3: Translate and rewrite (pass precomputed Thai embedding)
+        // STEP 4: Translate and rewrite (pass precomputed Thai embedding)
         const translation = await translatorService.translateAndRewrite(
           post.title,
           post.content,
           titleEmbedding // Pass precomputed Thai embedding to be stored
         );
 
-        // STEP 4: Only create article if it's actual news
+        // STEP 5: Only create article if it's actual news
         if (translation.isActualNews) {
           let article;
           try {
