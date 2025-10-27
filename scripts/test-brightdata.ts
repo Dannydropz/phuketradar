@@ -202,6 +202,11 @@ async function testBrightData() {
                 key.toLowerCase().includes('attachment')
               );
               
+              // Special check for 'attachments' array (BrightData's format)
+              if (firstPost.attachments && Array.isArray(firstPost.attachments)) {
+                imageFields.push('attachments');
+              }
+              
               if (imageFields.length > 0) {
                 imageFields.forEach(field => {
                   const value = firstPost[field];
@@ -235,13 +240,37 @@ async function testBrightData() {
               console.log("🎯 MULTI-IMAGE SUPPORT VERDICT:");
               console.log("=" .repeat(60));
               
-              const hasArrayImages = imageFields.some(field => 
-                Array.isArray(firstPost[field]) && firstPost[field].length > 1
-              );
+              const hasArrayImages = imageFields.some(field => {
+                const value = firstPost[field];
+                return Array.isArray(value) && value.length > 1;
+              });
+              
+              // Detailed multi-image analysis
+              const attachments = firstPost.attachments;
+              let multiImagePosts = 0;
+              if (Array.isArray(attachments)) {
+                data.forEach(post => {
+                  if (post.attachments && Array.isArray(post.attachments) && post.attachments.length > 1) {
+                    multiImagePosts++;
+                  }
+                });
+              }
               
               if (hasArrayImages) {
                 console.log("✅ BrightData SUPPORTS multi-image carousel posts!");
-                console.log("   All images from carousel posts are captured.");
+                console.log("   All images from carousel posts are captured in 'attachments' array.");
+                console.log(`   Found ${multiImagePosts}/${data.length} posts with multiple images.`);
+                
+                // Show example of multi-image post
+                const multiImagePost = data.find(p => p.attachments && p.attachments.length > 1);
+                if (multiImagePost) {
+                  console.log(`\n   Example: Post has ${multiImagePost.attachments.length} images:`);
+                  multiImagePost.attachments.forEach((att, idx) => {
+                    if (att.type === 'Photo') {
+                      console.log(`     ${idx + 1}. ${att.url.substring(0, 60)}...`);
+                    }
+                  });
+                }
               } else {
                 console.log("❌ BrightData appears to return single images only.");
                 console.log("   Similar limitation to ScrapeCreators.");
