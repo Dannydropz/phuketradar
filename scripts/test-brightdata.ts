@@ -7,9 +7,6 @@
  * 3. Comparison with ScrapeCreators
  */
 
-import dotenv from 'dotenv';
-dotenv.config();
-
 const BRIGHTDATA_API_KEY = process.env.BRIGHTDATA_API_KEY;
 const TEST_PAGE_URL = "https://www.facebook.com/PhuketTimeNews";
 
@@ -147,10 +144,132 @@ async function testBrightData() {
     } else if (result.snapshot_id) {
       console.log("⏳ Job submitted successfully!");
       console.log(`Snapshot ID: ${result.snapshot_id}`);
-      console.log("\nNote: BrightData uses async processing.");
-      console.log("You may need to poll for results using the snapshot_id.");
-      console.log("\nCheck their documentation for the polling endpoint:");
-      console.log("https://docs.brightdata.com/scraping-automation/web-scraper-api/overview");
+      console.log("\nPolling for results...\n");
+      
+      // Poll for results
+      const snapshotUrl = `https://api.brightdata.com/datasets/v3/snapshot/${result.snapshot_id}?format=json`;
+      let attempts = 0;
+      const maxAttempts = 30; // 5 minutes max (30 * 10 seconds)
+      
+      while (attempts < maxAttempts) {
+        attempts++;
+        console.log(`  Attempt ${attempts}/${maxAttempts}...`);
+        
+        const snapshotResponse = await fetch(snapshotUrl, {
+          headers: {
+            'Authorization': `Bearer ${BRIGHTDATA_API_KEY}`
+          }
+        });
+        
+        if (snapshotResponse.status === 200) {
+          // Data ready!
+          const data = await snapshotResponse.json();
+          console.log("\n✅ Data Retrieved Successfully!\n");
+          
+          // Analyze the data
+          console.log("=" .repeat(60));
+          console.log("FULL API RESPONSE:");
+          console.log("=" .repeat(60));
+          console.log(JSON.stringify(data, null, 2));
+          console.log("\n" + "=" .repeat(60));
+          
+          // Analyze the response structure
+          console.log("\n📊 RESPONSE ANALYSIS:\n");
+          
+          if (Array.isArray(data)) {
+            console.log(`✓ Received ${data.length} posts\n`);
+            
+            if (data.length > 0) {
+              const firstPost = data[0];
+              console.log("📋 Available Fields in Response:");
+              console.log("-" .repeat(60));
+              Object.keys(firstPost).forEach(key => {
+                const value = firstPost[key];
+                const type = Array.isArray(value) ? 'array' : typeof value;
+                console.log(`  • ${key}: ${type}`);
+              });
+              console.log();
+              
+              // Check for image-related fields
+              console.log("🖼️  IMAGE FIELD ANALYSIS:");
+              console.log("-" .repeat(60));
+              
+              const imageFields = Object.keys(firstPost).filter(key => 
+                key.toLowerCase().includes('image') || 
+                key.toLowerCase().includes('photo') ||
+                key.toLowerCase().includes('media') ||
+                key.toLowerCase().includes('picture') ||
+                key.toLowerCase().includes('attachment')
+              );
+              
+              if (imageFields.length > 0) {
+                imageFields.forEach(field => {
+                  const value = firstPost[field];
+                  console.log(`  • ${field}:`);
+                  console.log(`    Type: ${Array.isArray(value) ? 'array' : typeof value}`);
+                  if (Array.isArray(value)) {
+                    console.log(`    ✅ ARRAY DETECTED - Supports multiple images!`);
+                    console.log(`    Count: ${value.length} items`);
+                    if (value.length > 0) {
+                      console.log(`    Sample: ${JSON.stringify(value[0]).substring(0, 100)}...`);
+                    }
+                  } else if (value) {
+                    console.log(`    ⚠️  Single value only`);
+                    console.log(`    Sample: ${String(value).substring(0, 100)}...`);
+                  }
+                  console.log();
+                });
+              } else {
+                console.log("  ⚠️  No obvious image-related fields found");
+                console.log("  All fields:", Object.keys(firstPost).join(', '));
+              }
+              
+              // Show first post example
+              console.log("\n📄 FIRST POST EXAMPLE:");
+              console.log("-" .repeat(60));
+              console.log(JSON.stringify(data[0], null, 2));
+              console.log();
+              
+              // Multi-image verdict
+              console.log("\n" + "=" .repeat(60));
+              console.log("🎯 MULTI-IMAGE SUPPORT VERDICT:");
+              console.log("=" .repeat(60));
+              
+              const hasArrayImages = imageFields.some(field => 
+                Array.isArray(firstPost[field]) && firstPost[field].length > 1
+              );
+              
+              if (hasArrayImages) {
+                console.log("✅ BrightData SUPPORTS multi-image carousel posts!");
+                console.log("   All images from carousel posts are captured.");
+              } else {
+                console.log("❌ BrightData appears to return single images only.");
+                console.log("   Similar limitation to ScrapeCreators.");
+              }
+              console.log("=" .repeat(60));
+            }
+          }
+          
+          break; // Exit polling loop
+          
+        } else if (snapshotResponse.status === 202) {
+          // Still processing
+          console.log("    Status: Processing... waiting 10 seconds\n");
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          
+        } else {
+          const errorText = await snapshotResponse.text();
+          console.error(`\n❌ Error polling snapshot: ${snapshotResponse.status}`);
+          console.error("Response:", errorText);
+          break;
+        }
+      }
+      
+      if (attempts >= maxAttempts) {
+        console.log("\n⏱️  Timeout: Job took too long to complete");
+        console.log("You can manually check the results later using:");
+        console.log(`curl -H "Authorization: Bearer YOUR_API_KEY" "${snapshotUrl}"`);
+      }
     }
     
   } catch (error) {
