@@ -72,6 +72,20 @@ export async function runScheduledScrape() {
     // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
+        // STEP -2: Check if this Facebook post ID already exists in database (fastest and most reliable check)
+        if (post.facebookPostId) {
+          const existingByPostId = await storage.getArticleByFacebookPostId(post.facebookPostId);
+          if (existingByPostId) {
+            skippedSemanticDuplicates++;
+            console.log(`\n🚫 DUPLICATE DETECTED - Method: FACEBOOK POST ID CHECK`);
+            console.log(`   Post ID: ${post.facebookPostId}`);
+            console.log(`   New title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Existing: ${existingByPostId.title.substring(0, 60)}...`);
+            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            continue;
+          }
+        }
+        
         // STEP -1: Check if this source URL already exists in database (fast check before expensive API calls)
         const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
         if (existingBySourceUrl) {
@@ -171,6 +185,7 @@ export async function runScheduledScrape() {
               imageUrls: post.imageUrls || null,
               category: translation.category,
               sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId || null,
               author: translation.author,
               isPublished: true, // Auto-publish on scheduled runs
               originalLanguage: "th",

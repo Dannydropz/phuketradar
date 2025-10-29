@@ -5,6 +5,7 @@ export interface ScrapedPost {
   imageUrl?: string;
   imageUrls?: string[];
   sourceUrl: string;
+  facebookPostId?: string; // Canonical Facebook post ID for deduplication
   publishedAt: Date;
 }
 
@@ -58,6 +59,51 @@ interface ScrapeCreatorsResponse {
 export class ScraperService {
   private scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
   private apiKey = process.env.SCRAPECREATORS_API_KEY;
+
+  // Extract canonical Facebook post ID - ALWAYS returns numeric ID when available
+  // This is critical for deduplication: Facebook has multiple URL/ID formats for the same post,
+  // and we must normalize to a SINGLE canonical ID (numeric preferred) to prevent duplicates
+  // 
+  // Examples of the SAME post with different IDs:
+  //   - URL: /posts/1146339707616870  → Returns: "1146339707616870"
+  //   - URL: /posts/pfbid0wGs...      → Returns: "1146339707616870" (if apiId is numeric)
+  //   - URL: /posts/pfbid0wGs...      → Returns: "pfbid0wGs..." (if no numeric ID available)
+  private extractFacebookPostId(url: string, apiId?: string): string | null {
+    try {
+      // Step 1: Look for numeric ID in API's id field (most reliable source)
+      if (apiId && /^\d+$/.test(apiId)) {
+        return apiId;
+      }
+      
+      // Step 2: Look for numeric ID in URL
+      const numericMatch = url.match(/\/posts\/(\d+)/);
+      if (numericMatch) {
+        return numericMatch[1];
+      }
+      
+      // Step 3: If API id is pfbid, use it (we couldn't find numeric)
+      if (apiId && apiId.startsWith('pfbid')) {
+        return apiId;
+      }
+      
+      // Step 4: Extract pfbid from URL as last resort
+      const pfbidMatch = url.match(/\/posts\/(pfbid[\w]+)/);
+      if (pfbidMatch) {
+        return pfbidMatch[1];
+      }
+      
+      // Step 5: Use any apiId we have
+      if (apiId) {
+        return apiId;
+      }
+      
+      // No ID found
+      return null;
+    } catch (error) {
+      console.error("Error extracting Facebook post ID:", error);
+      return null;
+    }
+  }
 
   // Normalize Facebook post URL using the API's post ID
   // This handles the case where Facebook has multiple URL formats for the same post:
@@ -151,17 +197,22 @@ export class ScraperService {
           continue;
         }
 
-        // Normalize the source URL using the post ID from the API
-        // This ensures both pfbid and numeric URL formats map to the same canonical URL
+        // Extract canonical Facebook post ID for deduplication
         const rawSourceUrl = post.permalink || post.url || sourceUrl;
-        const normalizedSourceUrl = this.normalizeFacebookUrl(post.id, rawSourceUrl);
-
-        // Skip if we've already seen this URL in this batch
-        if (seenUrls.has(normalizedSourceUrl)) {
-          console.log(`⏭️  Skipping duplicate URL in batch: ${normalizedSourceUrl}`);
+        const facebookPostId = this.extractFacebookPostId(rawSourceUrl, post.id);
+        
+        // Skip if we've already seen this post ID in this batch
+        if (facebookPostId && seenUrls.has(facebookPostId)) {
+          console.log(`⏭️  Skipping duplicate post ID in batch: ${facebookPostId}`);
           continue;
         }
-        seenUrls.add(normalizedSourceUrl);
+        if (facebookPostId) {
+          seenUrls.add(facebookPostId);
+        }
+
+        // Normalize the source URL using the post ID from the API
+        // This ensures both pfbid and numeric URL formats map to the same canonical URL
+        const normalizedSourceUrl = this.normalizeFacebookUrl(post.id, rawSourceUrl);
 
         // Extract the first line as title (or use first 100 chars)
         const lines = post.text.split('\n').filter(line => line.trim());
@@ -242,6 +293,7 @@ export class ScraperService {
           imageUrl,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           sourceUrl: normalizedSourceUrl,
+          facebookPostId: facebookPostId || undefined,
           publishedAt,
         });
       } catch (error) {
