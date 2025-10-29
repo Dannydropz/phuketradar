@@ -1,0 +1,134 @@
+Plan: Upgrade Translation Pipeline (Hybrid Thai → English for PhuketRadar.com)
+
+Goal:
+Improve translation quality and preserve nuance using a hybrid system:
+
+Short/simple Thai text → translated + rewritten directly with GPT-4o-mini.
+
+Long/complex Thai text → first translated via Google Translate (free), then polished with GPT-4o-mini.
+
+Add local Phuket context automatically for richer output.
+
+Keep cost extremely low (~$3/month).
+
+✅ Steps
+
+Install dependency (only one new package)
+
+npm install @vitalets/google-translate-api
+
+
+Create a new file
+
+utils/translator.js
+
+
+Paste this code:
+
+import OpenAI from "openai";
+import translate from "@vitalets/google-translate-api";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Common Phuket context map for richer rewritten content
+const contextMap = {
+  "Patong": "a major tourist beach area on Phuket’s west coast",
+  "Kata": "a family-friendly beach known for surfing",
+  "Rawai": "a local seafood area in southern Phuket",
+  "Kamala": "a quiet beach community north of Patong",
+  "Phuket Town": "the island’s cultural and administrative center",
+  "Chalong": "a district known for the Big Buddha and pier area"
+};
+
+// Determine if text needs translation first
+function isComplex(thaiText) {
+  return thaiText.length > 400 || thaiText.includes("แถลง") || thaiText.includes("เจ้าหน้าที่");
+}
+
+// Add known Phuket place context
+function enrichThaiText(thaiText) {
+  let enriched = thaiText;
+  for (const [key, value] of Object.entries(contextMap)) {
+    if (enriched.includes(key)) {
+      enriched = enriched.replace(key, `${key} (${value})`);
+    }
+  }
+  return enriched;
+}
+
+export async function hybridTranslate(thaiText) {
+  const enrichedText = enrichThaiText(thaiText);
+  let englishSource;
+
+  try {
+    if (isComplex(thaiText)) {
+      const result = await translate(enrichedText, { to: "en" });
+      englishSource = result.text;
+      console.log("🟢 Used Google Translate → GPT-4o-mini");
+    } else {
+      englishSource = enrichedText;
+      console.log("🟢 Used GPT-4o-mini direct translation");
+    }
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are an English news editor for Phuket Radar.
+          Step 1: If text is Thai, translate accurately to English.
+          Step 2: Rewrite clearly, factually, and concisely.
+          Preserve all names, times, places, and factual details.
+          Add one short contextual line if helpful (e.g., “Patong is a popular tourist area”).
+          Keep tone neutral and professional.`
+        },
+        { role: "user", content: englishSource }
+      ],
+      temperature: 0.3,
+    });
+
+    const rewritten = response.choices[0].message.content.trim();
+    return rewritten;
+  } catch (err) {
+    console.error("Translation pipeline failed:", err);
+    return null;
+  }
+}
+
+
+Test it
+
+import { hybridTranslate } from "./utils/translator.js";
+
+const thaiText = "เกิดเหตุไฟไหม้ที่ตลาดป่าตอง เมื่อช่วงเช้าวันนี้";
+const result = await hybridTranslate(thaiText);
+console.log(result);
+
+
+✅ Expected output:
+
+“A fire broke out at Patong Market this morning. Patong is a major tourist area on Phuket’s west coast.”
+
+Integrate
+Replace your current GPT translation/rewrite call with:
+
+const englishStory = await hybridTranslate(thaiSourceText);
+
+
+It will automatically:
+
+Choose whether to use Google Translate first,
+
+Add local Phuket context,
+
+Rewrite cleanly via GPT-4o-mini.
+
+🏁 Result
+
+Richer, more accurate English rewrites
+
+Maintains Thai nuance and local context
+
+Near-zero additional cost
+
+100% compatible with your current Replit + Supabase workflow
