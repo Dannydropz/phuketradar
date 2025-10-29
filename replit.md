@@ -29,7 +29,14 @@ Preferred communication style: Simple, everyday language.
     - **Apify (Optional)**: Full multi-image carousel support via `apify/facebook-posts-scraper` actor. Returns all images from album posts. Free tier: 500 pages/month (exhausted), paid: $39/month for 3,900 pages. Set `SCRAPER_PROVIDER=apify` and add `APIFY_API_KEY`.
     - **Provider Switching**: Change `SCRAPER_PROVIDER` anytime to switch between providers without code changes.
     - **Free Alternative Tested**: Python `facebook-scraper` library tested (Oct 2025) - returns zero posts due to Facebook HTML changes since library's last update (Oct 2023). Not viable for production.
-- **Translation**: GPT-4-mini for cost-effective, quality translation with news filtering via prompt engineering.
+- **Translation**: Hybrid translation pipeline for improved quality and Phuket context:
+    - **Complexity Detection**: Automatically detects if Thai text is complex (>400 chars or contains formal keywords like แถลง, เจ้าหน้าที่)
+    - **Google Translate Pre-processing**: Complex text is first translated via Google Translate (free) to preserve nuance
+    - **GPT-4-mini Polishing**: All text (pre-translated or original) is polished/rewritten by GPT-4-mini for quality and style
+    - **Phuket Context Enrichment**: Automatically adds location descriptions (e.g., "Patong, a major tourist area on Phuket's west coast") to improve readability for international readers
+    - **Context Map**: Includes Thai and English names for major Phuket locations (Patong, Kata, Rawai, Kamala, Phuket Town, Chalong, Karon, Bang Tao, Surin)
+    - **Cost Efficiency**: ~$3/month using free Google Translate for heavy lifting and GPT-4-mini for final polish
+    - **Quality Improvements**: Better grammar, AP Style headlines, proper company suffixes (Co., Ltd.), active voice, specific details
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Semantic Similarity Check → Translator → Database → API → Frontend. Features pre-translation duplicate and semantic similarity checks to optimize API costs.
 - **Duplicate Detection**: Four-layer system with database-level protection:
     1. **In-memory Set**: Tracks normalized source URLs within each batch to catch API duplicates (ScrapeCreators sometimes returns same post twice)
