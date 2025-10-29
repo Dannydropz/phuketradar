@@ -18,7 +18,8 @@ interface ScrapeCreatorsPost {
     id: string;
   };
   created_time?: string;
-  image?: string; // Direct image URL field from ScrapeCreators API
+  image?: string; // Direct image URL field (single image)
+  images?: string[]; // NEW: Array of all images for multi-image carousel posts
   attachments?: {
     data?: Array<{
       media?: {
@@ -167,42 +168,50 @@ export class ScraperService {
         const imageUrls: string[] = [];
         let imageUrl: string | undefined;
         
-        // Try direct image field first (ScrapeCreators API uses this)
-        if (post.image) {
-          imageUrls.push(post.image);
+        // PRIORITY 1: Use the new 'images' array field (multi-image carousel support)
+        if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+          // ScrapeCreators now provides ALL images in the 'images' array
+          imageUrls.push(...post.images);
         }
-        
-        // Try full_picture (alternative field)
-        if (post.full_picture && post.full_picture !== post.image) {
-          imageUrls.push(post.full_picture);
-        }
-        
-        // Try attachments for additional images
-        if (post.attachments?.data) {
-          for (const attachment of post.attachments.data) {
-            // Try direct media image
-            if (attachment.media?.image?.src && !imageUrls.includes(attachment.media.image.src)) {
-              imageUrls.push(attachment.media.image.src);
-            }
-            // Try attachment URL
-            else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo') && !imageUrls.includes(attachment.url)) {
-              imageUrls.push(attachment.url);
-            }
-            
-            // Try ALL subattachments (for multi-image posts)
-            if (attachment.subattachments?.data) {
-              for (const subattachment of attachment.subattachments.data) {
-                if (subattachment.media?.image?.src && !imageUrls.includes(subattachment.media.image.src)) {
-                  imageUrls.push(subattachment.media.image.src);
+        // FALLBACK: Use old methods if 'images' array not available
+        else {
+          // Try direct image field first (single image)
+          if (post.image) {
+            imageUrls.push(post.image);
+          }
+          
+          // Try full_picture (alternative field)
+          if (post.full_picture && post.full_picture !== post.image) {
+            imageUrls.push(post.full_picture);
+          }
+          
+          // Try attachments for additional images (old method)
+          if (post.attachments?.data) {
+            for (const attachment of post.attachments.data) {
+              // Try direct media image
+              if (attachment.media?.image?.src && !imageUrls.includes(attachment.media.image.src)) {
+                imageUrls.push(attachment.media.image.src);
+              }
+              // Try attachment URL
+              else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo') && !imageUrls.includes(attachment.url)) {
+                imageUrls.push(attachment.url);
+              }
+              
+              // Try ALL subattachments (for multi-image posts)
+              if (attachment.subattachments?.data) {
+                for (const subattachment of attachment.subattachments.data) {
+                  if (subattachment.media?.image?.src && !imageUrls.includes(subattachment.media.image.src)) {
+                    imageUrls.push(subattachment.media.image.src);
+                  }
                 }
               }
             }
           }
-        }
-        
-        // Try video thumbnail if no images found
-        if (imageUrls.length === 0 && post.videoDetails?.thumbnail) {
-          imageUrls.push(post.videoDetails.thumbnail);
+          
+          // Try video thumbnail if no images found
+          if (imageUrls.length === 0 && post.videoDetails?.thumbnail) {
+            imageUrls.push(post.videoDetails.thumbnail);
+          }
         }
         
         // Set the first image as primary imageUrl for backward compatibility
