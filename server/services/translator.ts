@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { translate } from "@vitalets/google-translate-api";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,6 +15,28 @@ export interface TranslationResult {
   embedding?: number[];
 }
 
+// Phuket location context map for richer rewrites
+const PHUKET_CONTEXT_MAP: Record<string, string> = {
+  "ป่าตอง": "Patong, a major tourist beach area on Phuket's west coast",
+  "Patong": "Patong, a major tourist beach area on Phuket's west coast",
+  "กะตะ": "Kata, a family-friendly beach known for surfing",
+  "Kata": "Kata, a family-friendly beach known for surfing",
+  "ราวัย": "Rawai, a local seafood area in southern Phuket",
+  "Rawai": "Rawai, a local seafood area in southern Phuket",
+  "กมลา": "Kamala, a quiet beach community north of Patong",
+  "Kamala": "Kamala, a quiet beach community north of Patong",
+  "เมืองภูเก็ต": "Phuket Town, the island's cultural and administrative center",
+  "Phuket Town": "Phuket Town, the island's cultural and administrative center",
+  "ฉลอง": "Chalong, a district known for the Big Buddha and pier area",
+  "Chalong": "Chalong, a district known for the Big Buddha and pier area",
+  "กะรน": "Karon, a long beach popular with families and tourists",
+  "Karon": "Karon, a long beach popular with families and tourists",
+  "บางเทา": "Bang Tao, home to luxury resorts and Laguna Phuket",
+  "Bang Tao": "Bang Tao, home to luxury resorts and Laguna Phuket",
+  "สุรินทร์": "Surin, an upscale beach area with fine dining",
+  "Surin": "Surin, an upscale beach area with fine dining",
+};
+
 const THAI_FEMALE_AUTHORS = [
   "Ploy Srisawat",
   "Natcha Petcharat",
@@ -28,6 +51,37 @@ function getRandomAuthor(): string {
   return THAI_FEMALE_AUTHORS[Math.floor(Math.random() * THAI_FEMALE_AUTHORS.length)];
 }
 
+// Detect if Thai text is complex and needs Google Translate first
+function isComplexThaiText(thaiText: string): boolean {
+  // Complex if:
+  // - Longer than 400 characters
+  // - Contains formal/government keywords
+  const complexKeywords = ["แถลง", "เจ้าหน้าที่", "ประกาศ", "กระทรวง", "นายกรัฐมนตรี", "ผู้ว่าราชการ"];
+  
+  return (
+    thaiText.length > 400 ||
+    complexKeywords.some(keyword => thaiText.includes(keyword))
+  );
+}
+
+// Enrich Thai text with Phuket location context
+function enrichWithPhuketContext(text: string): string {
+  let enrichedText = text;
+  
+  // Add context notes for known Phuket locations
+  for (const [location, context] of Object.entries(PHUKET_CONTEXT_MAP)) {
+    if (enrichedText.includes(location)) {
+      // Add context as a note that the translator can use
+      enrichedText = enrichedText.replace(
+        new RegExp(location, 'g'),
+        `${location} (${context})`
+      );
+    }
+  }
+  
+  return enrichedText;
+}
+
 export class TranslatorService {
   async translateAndRewrite(
     title: string,
@@ -35,6 +89,29 @@ export class TranslatorService {
     precomputedEmbedding?: number[]
   ): Promise<TranslationResult> {
     try {
+      // STEP 1: Enrich Thai text with Phuket context
+      const enrichedTitle = enrichWithPhuketContext(title);
+      const enrichedContent = enrichWithPhuketContext(content);
+      
+      // STEP 2: Determine translation strategy
+      const isComplex = isComplexThaiText(enrichedContent);
+      let sourceTextForGPT = `${enrichedTitle}\n\n${enrichedContent}`;
+      
+      // STEP 3: Pre-translate with Google Translate if complex
+      if (isComplex) {
+        try {
+          console.log(`🌍 Complex text detected (${enrichedContent.length} chars) - using Google Translate → GPT-4o-mini pipeline`);
+          const googleResult = await translate(sourceTextForGPT, { to: "en" });
+          sourceTextForGPT = googleResult.text;
+        } catch (googleError) {
+          console.warn("⚠️  Google Translate failed, falling back to direct GPT-4o-mini:", googleError);
+          // Fall back to direct translation if Google Translate fails
+        }
+      } else {
+        console.log(`⚡ Simple text (${enrichedContent.length} chars) - using direct GPT-4o-mini translation`);
+      }
+
+      // STEP 4: Polish/rewrite with GPT-4o-mini
       const prompt = `You are a professional news editor for an English-language news site covering Phuket, Thailand. 
 
 Your task:
@@ -42,15 +119,21 @@ Your task:
 2. REJECT and mark as NOT news if the content is about:
    - The Thai royal family, monarchy, or king (sensitive political content)
    - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
-3. If it's acceptable news, translate from Thai to English and rewrite it in a clear, professional news style
+3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style
+
+CONTEXT PRESERVATION:
+- If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally
+- Add brief contextual details about Phuket locations when relevant to help international readers
+- Maintain all factual details, names, times, and numbers exactly as provided
 
 GRAMMAR & STYLE REQUIREMENTS:
 - Follow AP Style for headlines: capitalize main words, use title case
 - ALWAYS include company suffixes: Co., Ltd., Inc., Corp., Plc., etc.
 - Use proper articles (a, an, the) - never skip them
-- Ensure subject-verb agreement
+- Ensure subject-verb agreement and perfect grammar
 - Write in active voice when possible
 - Use specific numbers and dates, not vague terms
+- Keep paragraphs concise and readable
 
 HEADLINE EXAMPLES (Good):
 ✓ "Thai Seaplane Co. Hosts Community Meeting in Phuket to Discuss Proposed Water Airport Project"
@@ -65,15 +148,13 @@ HEADLINE EXAMPLES (Bad):
 4. Extract a concise excerpt (2-3 sentences) with perfect grammar
 5. Categorize the article (Breaking, Tourism, Business, Events, or Other)
 
-Original Title: ${title}
-
-Original Content: ${content}
+${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
 Respond in JSON format:
 {
   "isActualNews": true/false,
-  "translatedTitle": "clear, compelling English headline following AP Style with proper company names",
-  "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar",
+  "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
+  "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar, natural Phuket context",
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
   "category": "Breaking|Tourism|Business|Events|Other"
 }
@@ -85,14 +166,14 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         messages: [
           {
             role: "system",
-            content: "You are a professional news editor and translator specializing in Thai to English translation for a Phuket news publication.",
+            content: "You are a professional news editor and translator specializing in Thai to English translation for Phuket Radar, a news publication serving Phuket's international community.",
           },
           {
             role: "user",
             content: prompt,
           },
         ],
-        temperature: 0.5,
+        temperature: 0.3, // Lower temperature for more consistent, factual output
         response_format: { type: "json_object" },
       });
 
