@@ -59,27 +59,30 @@ export class ScraperService {
   private scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
   private apiKey = process.env.SCRAPECREATORS_API_KEY;
 
-  // Normalize Facebook post URL to handle different formats
-  private normalizeFacebookUrl(url: string): string {
+  // Normalize Facebook post URL using the API's post ID
+  // This handles the case where Facebook has multiple URL formats for the same post:
+  // - pfbid format: /posts/pfbid028JJH...
+  // - numeric format: /posts/896507726043641
+  // Both are valid URLs for the SAME post, so we use the API's id field as canonical
+  private normalizeFacebookUrl(postId: string, fallbackUrl: string): string {
     try {
-      // Extract the post ID from various Facebook URL formats
-      // Format 1: /posts/pfbid... -> extract pfbid
-      // Format 2: /posts/12345... -> extract numeric ID
-      // We'll normalize to always use the permalink format if available
-      
-      const postIdMatch = url.match(/\/posts\/([^/?]+)/);
-      if (postIdMatch) {
-        const postId = postIdMatch[1];
-        // Return a normalized format using just the post ID
-        // This ensures both pfbid and numeric IDs are treated uniquely
+      // Use the post ID from the API as the canonical identifier
+      // This ensures both pfbid and numeric URL formats map to the same sourceUrl
+      if (postId) {
         return `https://www.facebook.com/posts/${postId}`;
       }
       
-      // If no match, return original URL
-      return url;
+      // Fallback: try to extract from URL if no ID provided
+      const postIdMatch = fallbackUrl.match(/\/posts\/([^/?]+)/);
+      if (postIdMatch) {
+        return `https://www.facebook.com/posts/${postIdMatch[1]}`;
+      }
+      
+      // Last resort: return original URL
+      return fallbackUrl;
     } catch (error) {
       console.error("Error normalizing Facebook URL:", error);
-      return url;
+      return fallbackUrl;
     }
   }
 
@@ -148,9 +151,10 @@ export class ScraperService {
           continue;
         }
 
-        // Normalize the source URL early to check for duplicates
+        // Normalize the source URL using the post ID from the API
+        // This ensures both pfbid and numeric URL formats map to the same canonical URL
         const rawSourceUrl = post.permalink || post.url || sourceUrl;
-        const normalizedSourceUrl = this.normalizeFacebookUrl(rawSourceUrl);
+        const normalizedSourceUrl = this.normalizeFacebookUrl(post.id, rawSourceUrl);
 
         // Skip if we've already seen this URL in this batch
         if (seenUrls.has(normalizedSourceUrl)) {
