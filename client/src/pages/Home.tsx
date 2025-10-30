@@ -7,8 +7,28 @@ import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter } from "lucide-react";
+import { Filter, AlertTriangle } from "lucide-react";
 import type { ArticleListItem } from "@shared/schema";
+
+// Helper function to get severity ranking for sorting
+function getSeverityRank(severity?: string | null): number {
+  if (!severity) return 999;
+  
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return 1;
+    case "high":
+      return 2;
+    case "medium":
+      return 3;
+    case "low":
+      return 4;
+    case "info":
+      return 5;
+    default:
+      return 999;
+  }
+}
 
 export default function Home() {
   const [, params] = useRoute("/category/:category");
@@ -20,14 +40,31 @@ export default function Home() {
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
 
+  // Sort articles by severity (Critical first), then by date
+  const sortedArticles = useMemo(() => {
+    return [...allArticles].sort((a, b) => {
+      const severityDiff = getSeverityRank(a.severity) - getSeverityRank(b.severity);
+      if (severityDiff !== 0) return severityDiff;
+      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    });
+  }, [allArticles]);
+
   // Filter articles based on selected filters
   const articles = useMemo(() => {
-    return allArticles.filter(article => {
+    return sortedArticles.filter(article => {
       const matchesEventType = eventTypeFilter === "all" || article.eventType === eventTypeFilter;
       const matchesSeverity = severityFilter === "all" || article.severity === severityFilter;
       return matchesEventType && matchesSeverity;
     });
-  }, [allArticles, eventTypeFilter, severityFilter]);
+  }, [sortedArticles, eventTypeFilter, severityFilter]);
+
+  // Get urgent news (Critical and High severity)
+  const urgentNews = useMemo(() => {
+    return articles.filter(article => 
+      article.severity && 
+      (article.severity.toLowerCase() === "critical" || article.severity.toLowerCase() === "high")
+    ).slice(0, 3); // Limit to 3 urgent stories
+  }, [articles]);
 
   // Get unique event types and severities for filter dropdowns
   const eventTypes = useMemo(() => {
@@ -115,6 +152,32 @@ export default function Home() {
               isBreaking: article.category.toLowerCase() === "breaking",
             }))}
           />
+
+          {urgentNews.length > 0 && (
+            <section className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+                <h2 className="text-3xl font-bold">Urgent News</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {urgentNews.map((article) => (
+                  <ArticleCard
+                    key={article.id}
+                    id={article.id}
+                    slug={article.slug}
+                    title={article.title}
+                    excerpt={article.excerpt}
+                    imageUrl={article.imageUrl || undefined}
+                    category={article.category}
+                    publishedAt={new Date(article.publishedAt)}
+                    isBreaking={article.category.toLowerCase() === "breaking"}
+                    eventType={article.eventType}
+                    severity={article.severity}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           <EmailSignup />
 
