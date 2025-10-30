@@ -11,7 +11,8 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import { Clock, Share2 } from "lucide-react";
+import { Clock, Share2, AlertTriangle, AlertCircle, Info, Car, Shield, Cloud, Heart, Users, Palmtree, Building2, Landmark, Leaf } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleCard } from "@/components/ArticleCard";
@@ -20,6 +21,68 @@ import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem } from "@shared/schema";
 import { ArticleImage } from "@/components/ArticleImage";
 import { SEO } from "@/components/SEO";
+
+// Helper functions for event icons and severity styling
+function getEventIcon(eventType?: string | null): LucideIcon | null {
+  if (!eventType) return null;
+  
+  switch (eventType.toLowerCase()) {
+    case "accident":
+      return Car;
+    case "crime":
+      return Shield;
+    case "weather":
+      return Cloud;
+    case "health":
+      return Heart;
+    case "public order":
+      return Users;
+    case "tourism":
+      return Palmtree;
+    case "infrastructure":
+      return Building2;
+    case "government":
+      return Landmark;
+    case "environment":
+      return Leaf;
+    default:
+      return null;
+  }
+}
+
+function getSeverityStyle(severity?: string | null): { variant: "default" | "destructive" | "secondary" | "outline", className: string } {
+  if (!severity) return { variant: "secondary", className: "" };
+  
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return { variant: "destructive", className: "bg-red-600 hover:bg-red-700 text-white font-semibold" };
+    case "high":
+      return { variant: "default", className: "bg-orange-500 hover:bg-orange-600 text-white font-semibold" };
+    case "medium":
+      return { variant: "default", className: "bg-yellow-600 hover:bg-yellow-700 text-white" };
+    case "low":
+      return { variant: "secondary", className: "bg-blue-500 hover:bg-blue-600 text-white" };
+    case "info":
+    default:
+      return { variant: "secondary", className: "" };
+  }
+}
+
+function getSeverityIcon(severity?: string | null): LucideIcon | null {
+  if (!severity) return null;
+  
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return AlertTriangle;
+    case "high":
+      return AlertCircle;
+    case "medium":
+    case "low":
+    case "info":
+    default:
+      return Info;
+  }
+}
 
 export default function ArticleDetail() {
   const [, params] = useRoute("/article/:slugOrId");
@@ -157,7 +220,7 @@ export default function ArticleDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <article className="lg:col-span-2">
           <div className="mb-6">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
               {(() => {
                 const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
                 const isBreaking = article.category.toLowerCase() === "breaking";
@@ -170,6 +233,32 @@ export default function ArticleDetail() {
                     data-testid="badge-article-category"
                   >
                     {isBreaking ? (showRed ? "BREAKING" : "Breaking") : article.category}
+                  </Badge>
+                );
+              })()}
+              {article.severity && (() => {
+                const severityStyle = getSeverityStyle(article.severity);
+                const SeverityIcon = getSeverityIcon(article.severity);
+                return (
+                  <Badge 
+                    variant={severityStyle.variant}
+                    className={severityStyle.className}
+                    data-testid="badge-article-severity"
+                  >
+                    {SeverityIcon && <SeverityIcon className="w-3 h-3 mr-1" />}
+                    {article.severity}
+                  </Badge>
+                );
+              })()}
+              {article.eventType && (() => {
+                const EventIcon = getEventIcon(article.eventType);
+                return (
+                  <Badge 
+                    variant="outline"
+                    data-testid="badge-article-event-type"
+                  >
+                    {EventIcon && <EventIcon className="w-3 h-3 mr-1" />}
+                    {article.eventType}
                   </Badge>
                 );
               })()}
