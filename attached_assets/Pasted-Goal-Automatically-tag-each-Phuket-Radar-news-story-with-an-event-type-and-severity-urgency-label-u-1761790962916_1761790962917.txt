@@ -1,0 +1,58 @@
+Goal:
+Automatically tag each Phuket Radar news story with an event type and severity/urgency label using the OpenAI GPT-5 nano API for minimal cost.
+
+1. Update Article Schema
+Add these fields to your articles table/model:
+
+event_type (string/text, e.g. Accident, Crime, Weather, Health, Public Order, Tourism, Other)
+
+severity (string/text, e.g. High Alert, Developing, Minor, Info Only)
+
+2. Integrate Classification in Pipeline
+After collecting/translating each new story (and before publishing), call the OpenAI API with the GPT-5 nano model:
+
+javascript
+const prompt = `
+Classify this Phuket news story for event type and severity.
+
+STORY:
+"${storyText}"
+
+Return in JSON: {"event_type": "...", "severity": "..."}
+
+Categories: Accident, Crime, Weather, Health, Public Order, Tourism, Other.
+Severity: High Alert, Developing, Minor, Info Only.
+`;
+
+const response = await openai.chat.completions.create({
+  model: 'gpt-5-nano',       // Use GPT-5 nano for lowest cost
+  messages: [{ role: "user", content: prompt }]
+});
+
+const tags = JSON.parse(response.choices[0].message.content);
+
+article.event_type = tags.event_type;
+article.severity = tags.severity;
+Save these values to the database record for the story.
+
+3. Display in UI and Use for Filtering
+Show event_type and severity as badges, filters, or highlights wherever you list/push news stories.
+
+Optionally, use these for push notifications or special “Breaking” banners.
+
+4. Cost Optimization
+Use GPT-5 nano only for classification tagging. It’s much cheaper than GPT-4o mini (as little as $0.05–$0.25 per 1M tokens).
+
+Only classify new/unique stories, not drafts or duplicates.
+
+If possible, keep story text short (headline and main bullet only) for the prompt—the shorter, the cheaper.
+
+Summary:
+
+Update schema: add event_type and severity.
+
+For every new story, call OpenAI GPT-5 nano with a classification prompt.
+
+Store and display the tags.
+
+This setup gives you advanced news tagging and smart filtering for almost zero added monthly cost!
