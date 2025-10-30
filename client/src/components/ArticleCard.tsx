@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ArrowRight } from "lucide-react";
+import { Clock, ArrowRight, AlertTriangle, AlertCircle, Info, Car, Shield, Cloud, Heart, Users, Palmtree, Building2, Landmark, Leaf } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
+import type { LucideIcon } from "lucide-react";
 
 interface ArticleCardProps {
   id: string;
@@ -18,20 +19,67 @@ interface ArticleCardProps {
   severity?: string | null;
 }
 
-// Helper function to get severity badge color
-function getSeverityVariant(severity?: string | null): "default" | "destructive" | "secondary" | "outline" {
-  if (!severity) return "secondary";
+// Helper function to get event type icon
+function getEventIcon(eventType?: string | null): LucideIcon | null {
+  if (!eventType) return null;
+  
+  switch (eventType.toLowerCase()) {
+    case "accident":
+      return Car;
+    case "crime":
+      return Shield;
+    case "weather":
+      return Cloud;
+    case "health":
+      return Heart;
+    case "public order":
+      return Users;
+    case "tourism":
+      return Palmtree;
+    case "infrastructure":
+      return Building2;
+    case "government":
+      return Landmark;
+    case "environment":
+      return Leaf;
+    default:
+      return null;
+  }
+}
+
+// Helper function to get severity badge styling
+function getSeverityStyle(severity?: string | null): { variant: "default" | "destructive" | "secondary" | "outline", className: string } {
+  if (!severity) return { variant: "secondary", className: "" };
   
   switch (severity.toLowerCase()) {
     case "critical":
-      return "destructive";
+      return { variant: "destructive", className: "bg-red-600 hover:bg-red-700 text-white font-semibold" };
     case "high":
-      return "default";
+      return { variant: "default", className: "bg-orange-500 hover:bg-orange-600 text-white font-semibold" };
+    case "medium":
+      return { variant: "default", className: "bg-yellow-600 hover:bg-yellow-700 text-white" };
+    case "low":
+      return { variant: "secondary", className: "bg-blue-500 hover:bg-blue-600 text-white" };
+    case "info":
+    default:
+      return { variant: "secondary", className: "" };
+  }
+}
+
+// Helper function to get severity icon
+function getSeverityIcon(severity?: string | null): LucideIcon | null {
+  if (!severity) return null;
+  
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return AlertTriangle;
+    case "high":
+      return AlertCircle;
     case "medium":
     case "low":
     case "info":
     default:
-      return "secondary";
+      return Info;
   }
 }
 
@@ -76,22 +124,32 @@ export function ArticleCard({
             >
               {isBreakingCategory ? (showRedBadge ? "BREAKING" : "Breaking") : category}
             </Badge>
-            {severity && (
-              <Badge 
-                variant={getSeverityVariant(severity)}
-                data-testid={`badge-severity-${id}`}
-              >
-                {severity}
-              </Badge>
-            )}
-            {eventType && (
-              <Badge 
-                variant="outline"
-                data-testid={`badge-event-type-${id}`}
-              >
-                {eventType}
-              </Badge>
-            )}
+            {severity && (() => {
+              const severityStyle = getSeverityStyle(severity);
+              const SeverityIcon = getSeverityIcon(severity);
+              return (
+                <Badge 
+                  variant={severityStyle.variant}
+                  className={severityStyle.className}
+                  data-testid={`badge-severity-${id}`}
+                >
+                  {SeverityIcon && <SeverityIcon className="w-3 h-3 mr-1" />}
+                  {severity}
+                </Badge>
+              );
+            })()}
+            {eventType && (() => {
+              const EventIcon = getEventIcon(eventType);
+              return (
+                <Badge 
+                  variant="outline"
+                  data-testid={`badge-event-type-${id}`}
+                >
+                  {EventIcon && <EventIcon className="w-3 h-3 mr-1" />}
+                  {eventType}
+                </Badge>
+              );
+            })()}
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
               <span data-testid={`text-time-${id}`}>{formatDistanceToNow(publishedAt, { addSuffix: true })}</span>
