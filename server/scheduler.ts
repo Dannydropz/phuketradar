@@ -132,16 +132,38 @@ export async function runScheduledScrape() {
           }
         }
         
-        // STEP 1: Check if image is a real photo (not a text graphic)
-        if (post.imageUrl) {
-          const isRealPhoto = await translatorService.isRealPhoto(post.imageUrl);
-          if (!isRealPhoto) {
+        // STEP 1: Check if ANY image is a real photo (not a text graphic)
+        // For multi-image posts, we check ALL images and accept if ANY is a real photo
+        const imagesToCheck = post.imageUrls && post.imageUrls.length > 0 ? post.imageUrls : (post.imageUrl ? [post.imageUrl] : []);
+        
+        if (imagesToCheck.length > 0) {
+          let hasRealPhoto = false;
+          let checkedCount = 0;
+          let realPhotoUrl = '';
+          
+          for (const imageUrl of imagesToCheck) {
+            checkedCount++;
+            const isRealPhoto = await translatorService.isRealPhoto(imageUrl);
+            if (isRealPhoto) {
+              hasRealPhoto = true;
+              realPhotoUrl = imageUrl;
+              console.log(`   ✅ Image ${checkedCount}/${imagesToCheck.length} is a REAL PHOTO - accepting post`);
+              break; // Found a real photo, no need to check remaining images
+            } else {
+              console.log(`   ❌ Image ${checkedCount}/${imagesToCheck.length} is a text graphic - checking next...`);
+            }
+          }
+          
+          if (!hasRealPhoto) {
             skippedNotNews++;
-            console.log(`\n⏭️  SKIPPED - TEXT GRAPHIC (not a real photo)`);
+            console.log(`\n⏭️  SKIPPED - ALL IMAGES ARE TEXT GRAPHICS (${checkedCount} images checked)`);
             console.log(`   Title: ${post.title.substring(0, 60)}...`);
-            console.log(`   Image: ${post.imageUrl.substring(0, 80)}...`);
             console.log(`   ✅ Skipped before translation (saved API credits)\n`);
             continue;
+          } else {
+            console.log(`\n📸 POST ACCEPTED - Found real photo (checked ${checkedCount}/${imagesToCheck.length} images)`);
+            console.log(`   Title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Real photo: ${realPhotoUrl.substring(0, 80)}...\n`);
           }
         }
         
