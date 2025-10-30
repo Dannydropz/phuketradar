@@ -18,7 +18,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { EmailSignup } from "@/components/EmailSignup";
 import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem } from "@shared/schema";
-import logoImage from "@assets/PhuketRadar_1759933943849.png";
+import { ArticleImage } from "@/components/ArticleImage";
 import { SEO } from "@/components/SEO";
 
 export default function ArticleDetail() {
@@ -207,16 +207,17 @@ export default function ArticleDetail() {
           <div className="mb-8">
             {article.imageUrls && article.imageUrls.length > 1 ? (
               <div className="space-y-4">
-                <Carousel className="w-full rounded-lg overflow-hidden bg-muted relative" setApi={setApi}>
+                <Carousel className="w-full rounded-lg overflow-hidden relative" setApi={setApi}>
                   <CarouselContent>
                     {article.imageUrls.map((imageUrl, index) => (
                       <CarouselItem key={index}>
-                        <div className="relative w-full flex items-center justify-center bg-muted">
-                          <img
+                        <div className="relative w-full flex items-center justify-center">
+                          <ArticleImage
                             src={imageUrl}
                             alt={`${article.title} - Image ${index + 1}`}
+                            category={article.category}
                             className="w-full max-h-[400px] md:max-h-[600px] object-contain"
-                            data-testid={`img-article-${index}`}
+                            testId={`img-article-${index}`}
                           />
                         </div>
                       </CarouselItem>
@@ -251,21 +252,23 @@ export default function ArticleDetail() {
                 </div>
               </div>
             ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
-              <div className="rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                <img
+              <div className="rounded-lg overflow-hidden flex items-center justify-center">
+                <ArticleImage
                   src={article.imageUrl || (article.imageUrls ? article.imageUrls[0] : '')}
                   alt={article.title}
+                  category={article.category}
                   className="w-full max-h-[400px] md:max-h-[600px] object-contain"
-                  data-testid="img-article-main"
+                  testId="img-article-main"
                 />
               </div>
             ) : (
-              <div className="w-full h-[400px] flex items-center justify-center">
-                <img
-                  src={logoImage}
-                  alt="Phuket Radar"
-                  className="w-1/3 h-auto opacity-30"
-                  data-testid="img-article-main"
+              <div className="rounded-lg overflow-hidden">
+                <ArticleImage
+                  src={undefined}
+                  alt={article.title}
+                  category={article.category}
+                  className="w-full h-[400px]"
+                  testId="img-article-main"
                 />
               </div>
             )}
