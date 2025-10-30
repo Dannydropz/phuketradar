@@ -192,7 +192,7 @@ export async function runScheduledScrape() {
               imageUrls: post.imageUrls || null,
               category: translation.category,
               sourceUrl: post.sourceUrl,
-              facebookPostId: post.facebookPostId || null,
+              facebookPostId: null, // Will be set after posting to Phuket Radar Facebook page
               author: translation.author,
               isPublished: true, // Auto-publish on scheduled runs
               originalLanguage: "th",
