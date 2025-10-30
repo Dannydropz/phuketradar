@@ -302,22 +302,13 @@ export default function ArticleDetail() {
                       <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
                     </div>
                   </div>
-                  <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
-                    {latestArticle.imageUrl ? (
-                      <img
-                        src={latestArticle.imageUrl}
-                        alt={latestArticle.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <img
-                          src={logoImage}
-                          alt="Phuket Radar"
-                          className="w-3/4 h-auto opacity-30"
-                        />
-                      </div>
-                    )}
+                  <div className="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden">
+                    <ArticleImage
+                      src={latestArticle.imageUrl || undefined}
+                      alt={latestArticle.title}
+                      category={latestArticle.category}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </a>
                 );
