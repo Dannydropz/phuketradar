@@ -150,8 +150,8 @@ export async function runScheduledScrape() {
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 3: Check for semantic duplicates (70% threshold catches near-duplicates)
-          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.70);
+          // STEP 3: Check for semantic duplicates (65% threshold catches near-duplicates with slightly different wording)
+          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.65);
           
           if (duplicateCheck.isDuplicate) {
             skippedSemanticDuplicates++;
