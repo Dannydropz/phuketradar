@@ -89,8 +89,8 @@ Return ONLY valid JSON: {"eventType": "...", "severity": "..."}`;
           },
         ],
         response_format: { type: "json_object" }, // Force JSON output
-        temperature: 0.3, // Lower temperature for more consistent classification
-        max_tokens: 50, // We only need tiny JSON response
+        // Note: GPT-5 nano only supports default temperature (1)
+        max_completion_tokens: 50, // GPT-5 models use max_completion_tokens instead of max_tokens
       });
 
       const content = response.choices[0].message.content;
