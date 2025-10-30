@@ -27,6 +27,8 @@ export const articles = pgTable("articles", {
   embedding: real("embedding").array(),
   facebookPostId: text("facebook_post_id").unique(),
   facebookPostUrl: text("facebook_post_url"),
+  eventType: text("event_type"),
+  severity: text("severity"),
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts
