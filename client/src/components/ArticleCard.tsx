@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
-import logoImage from "@assets/PhuketRadar_1759933943849.png";
+import { ArticleImage } from "./ArticleImage";
 
 interface ArticleCardProps {
   id: string;
@@ -58,24 +58,14 @@ export function ArticleCard({
   return (
     <Link href={articleUrl}>
       <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
-        <div className="relative w-full aspect-video overflow-hidden bg-muted">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={title}
-              className="w-full h-full object-cover"
-              data-testid={`img-article-${id}`}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <img
-                src={logoImage}
-                alt="Phuket Radar"
-                className="w-1/2 h-auto opacity-30"
-                data-testid={`img-article-${id}`}
-              />
-            </div>
-          )}
+        <div className="relative w-full aspect-video overflow-hidden">
+          <ArticleImage
+            src={imageUrl}
+            alt={title}
+            category={category}
+            className="w-full h-full object-cover"
+            testId={`img-article-${id}`}
+          />
         </div>
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
