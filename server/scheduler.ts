@@ -18,6 +18,7 @@
 
 import { getScraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
+import { classificationService } from "./services/classifier";
 import { storage } from "./storage";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
@@ -172,6 +173,12 @@ export async function runScheduledScrape() {
           titleEmbedding // Pass precomputed Thai embedding to be stored
         );
 
+        // STEP 4.5: Classify event type and severity using GPT-5 nano (ultra-cheap!)
+        const classification = await classificationService.classifyArticle(
+          translation.translatedTitle,
+          translation.excerpt
+        );
+
         // STEP 5: Only create article if it's actual news
         if (translation.isActualNews) {
           let article;
@@ -191,6 +198,8 @@ export async function runScheduledScrape() {
               originalLanguage: "th",
               translatedBy: "openai",
               embedding: translation.embedding,
+              eventType: classification.eventType,
+              severity: classification.severity,
             });
 
             createdCount++;
