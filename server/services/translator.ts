@@ -241,18 +241,43 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
             content: [
               {
                 type: "text",
-                text: `Is this image a real photograph/photo of actual people, places, events, or objects? 
-                
-Answer "yes" ONLY if it's a genuine photograph.
-Answer "no" if it's:
-- Text graphics (announcements with just text on colored backgrounds)
-- Logos or branding images
-- Illustrations or drawings
-- Infographics
-- Promotional graphics
-- Memes or edited images with overlaid text
+                text: `You are a strict image classifier for a news website. Analyze this image and determine if it's a REAL PHOTOGRAPH of actual people, places, events, or objects.
 
-Return only a JSON object with format: {"isRealPhoto": true/false, "reason": "brief explanation"}`
+CRITICAL: Be VERY STRICT. Answer "yes" ONLY if this is an authentic, unedited photograph showing:
+- Real people in real situations
+- Actual locations or buildings
+- Genuine news events
+- Physical objects in real-world settings
+
+Answer "no" (REJECT) if the image is ANY of these:
+
+❌ FACEBOOK TEXT POSTS/ANNOUNCEMENTS:
+- Text on solid colored backgrounds (black, blue, red, any color)
+- News headlines displayed as graphics
+- Announcement-style posts with just words
+- Quote graphics or text overlays
+- Even if the text describes a real news event
+
+❌ OTHER NON-PHOTOS:
+- Logos, branding, or icons
+- Illustrations, cartoons, or drawings
+- Infographics or charts
+- Promotional graphics or ads
+- Memes or heavily edited images
+- Screenshots of websites or apps
+
+EXAMPLES OF WHAT TO REJECT:
+- "Phuket raids a major gambling website..." (white text on black background) → REJECT
+- Police announcement with text on blue background → REJECT  
+- Breaking news headline as a graphic → REJECT
+- Any image where text is the main element → REJECT
+
+CONFIDENCE REQUIREMENT:
+- Only return isRealPhoto: true if you are HIGHLY CONFIDENT (90%+) it's a genuine photograph
+- When in doubt, REJECT (return false)
+- If the image quality is poor and you can't tell, REJECT
+
+Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "reason": "brief explanation"}`
               },
               {
                 type: "image_url",
@@ -264,20 +289,29 @@ Return only a JSON object with format: {"isRealPhoto": true/false, "reason": "br
             ]
           }
         ],
-        max_tokens: 100,
-        temperature: 0.3,
+        max_tokens: 150,
+        temperature: 0.1, // Lower temperature for more consistent classification
         response_format: { type: "json_object" }
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{}");
-      console.log(`🖼️  Image classification: ${result.isRealPhoto ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
+      const isRealPhoto = result.isRealPhoto || false;
+      const confidence = result.confidence || 0;
+      
+      // Require high confidence (>80) to accept as real photo
+      const accepted = isRealPhoto && confidence > 80;
+      
+      console.log(`🖼️  Image classification: ${accepted ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
+      console.log(`   Confidence: ${confidence}%`);
       console.log(`   Reason: ${result.reason}`);
       
-      return result.isRealPhoto || false;
+      return accepted;
     } catch (error) {
       console.error("Error classifying image:", error);
-      // On error, assume it's a real photo to avoid skipping valid content
-      return true;
+      // CHANGED: On error, REJECT to avoid publishing suspicious images
+      // This is fail-safe: better to skip a valid photo than publish text graphics
+      console.log("   ⚠️  Classification failed - defaulting to REJECT for safety");
+      return false;
     }
   }
 }
