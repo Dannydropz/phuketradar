@@ -78,6 +78,7 @@ Preferred communication style: Simple, everyday language.
         4. **CLEANUP**: Releases lock on any error to allow retry
     - **Lock Safety**: Locks are released on all error paths (API failures, exceptions) to prevent stuck articles
     - **Enhanced Logging**: All Facebook operations use `[FB-POST]` prefix for easy log filtering and debugging
+    - **Critical Bug Fix (Oct 30, 2025)**: Fixed scheduler.ts line 195 which was incorrectly initializing articles with `facebookPostId: post.facebookPostId || null` (the source post's ID). Changed to `facebookPostId: null` so articles are created without a Facebook post ID. The ID gets set AFTER successful posting to Phuket Radar's page. This prevents the system from skipping posting because it thinks articles are already posted. Created `scripts/post-missing-articles.ts` to recover and post the 4 articles affected by this bug.
 - **Deployment**: Utilizes environment variables (DATABASE_URL, OPENAI_API_KEY, CRON_API_KEY, FB_PAGE_ACCESS_TOKEN). Separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping
