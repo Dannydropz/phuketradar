@@ -14,6 +14,25 @@ interface ArticleCardProps {
   category: string;
   publishedAt: Date;
   isBreaking?: boolean;
+  eventType?: string | null;
+  severity?: string | null;
+}
+
+// Helper function to get severity badge color
+function getSeverityVariant(severity?: string | null): "default" | "destructive" | "secondary" | "outline" {
+  if (!severity) return "secondary";
+  
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return "destructive";
+    case "high":
+      return "default";
+    case "medium":
+    case "low":
+    case "info":
+    default:
+      return "secondary";
+  }
 }
 
 export function ArticleCard({
@@ -25,6 +44,8 @@ export function ArticleCard({
   category,
   publishedAt,
   isBreaking,
+  eventType,
+  severity,
 }: ArticleCardProps) {
   // Check if article is fresh (< 8 hours old) for time-based badge styling
   const isFresh = (Date.now() - new Date(publishedAt).getTime()) < (8 * 60 * 60 * 1000);
@@ -57,7 +78,7 @@ export function ArticleCard({
           )}
         </div>
         <div className="p-6 flex flex-col flex-1">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <Badge 
               variant={showRedBadge ? "destructive" : "secondary"} 
               className={showRedBadge ? "font-bold" : ""}
@@ -65,6 +86,22 @@ export function ArticleCard({
             >
               {isBreakingCategory ? (showRedBadge ? "BREAKING" : "Breaking") : category}
             </Badge>
+            {severity && (
+              <Badge 
+                variant={getSeverityVariant(severity)}
+                data-testid={`badge-severity-${id}`}
+              >
+                {severity}
+              </Badge>
+            )}
+            {eventType && (
+              <Badge 
+                variant="outline"
+                data-testid={`badge-event-type-${id}`}
+              >
+                {eventType}
+              </Badge>
+            )}
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
               <span data-testid={`text-time-${id}`}>{formatDistanceToNow(publishedAt, { addSuffix: true })}</span>

@@ -5,15 +5,40 @@ import { EmailSignup } from "@/components/EmailSignup";
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
+import { useState, useMemo } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Filter } from "lucide-react";
 import type { ArticleListItem } from "@shared/schema";
 
 export default function Home() {
   const [, params] = useRoute("/category/:category");
   const category = params?.category;
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
   
-  const { data: articles = [], isLoading } = useQuery<ArticleListItem[]>({
+  const { data: allArticles = [], isLoading } = useQuery<ArticleListItem[]>({
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
+
+  // Filter articles based on selected filters
+  const articles = useMemo(() => {
+    return allArticles.filter(article => {
+      const matchesEventType = eventTypeFilter === "all" || article.eventType === eventTypeFilter;
+      const matchesSeverity = severityFilter === "all" || article.severity === severityFilter;
+      return matchesEventType && matchesSeverity;
+    });
+  }, [allArticles, eventTypeFilter, severityFilter]);
+
+  // Get unique event types and severities for filter dropdowns
+  const eventTypes = useMemo(() => {
+    const types = new Set(allArticles.map(a => a.eventType).filter(Boolean));
+    return Array.from(types).sort();
+  }, [allArticles]);
+
+  const severities = useMemo(() => {
+    const sevs = new Set(allArticles.map(a => a.severity).filter(Boolean));
+    return Array.from(sevs).sort();
+  }, [allArticles]);
 
   if (isLoading) {
     return (
@@ -95,7 +120,45 @@ export default function Home() {
 
           {latestArticles.length > 0 && (
             <section>
-              <h2 className="text-3xl font-bold mb-6">{category ? "More Stories" : "Latest News"}</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h2 className="text-3xl font-bold">{category ? "More Stories" : "Latest News"}</h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Filter:</span>
+                  </div>
+                  {eventTypes.length > 0 && (
+                    <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                      <SelectTrigger className="w-[150px]" data-testid="select-event-type-filter">
+                        <SelectValue placeholder="Event Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        {eventTypes.map((type) => (
+                          <SelectItem key={type} value={type!}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {severities.length > 0 && (
+                    <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                      <SelectTrigger className="w-[150px]" data-testid="select-severity-filter">
+                        <SelectValue placeholder="Severity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Severities</SelectItem>
+                        {severities.map((sev) => (
+                          <SelectItem key={sev} value={sev!}>
+                            {sev}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {latestArticles.map((article) => (
                   <ArticleCard
@@ -108,6 +171,8 @@ export default function Home() {
                     category={article.category}
                     publishedAt={new Date(article.publishedAt)}
                     isBreaking={article.category.toLowerCase() === "breaking"}
+                    eventType={article.eventType}
+                    severity={article.severity}
                   />
                 ))}
               </div>
