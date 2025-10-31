@@ -13,23 +13,65 @@ interface NewsletterArticle {
   imageUrl: string | null;
   slug: string | null;
   id: string;
+  articleType?: 'breaking' | 'insight';
 }
 
 export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date): string {
   const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
   
-  const articlesHTML = articles.map(article => {
+  // Separate Insights from breaking news
+  const insights = articles.filter(a => a.articleType === 'insight');
+  const breakingNews = articles.filter(a => a.articleType !== 'insight');
+  
+  const categoryColors: Record<string, string> = {
+    'Breaking': '#ef4444',
+    'Tourism': '#3b82f6',
+    'Business': '#10b981',
+    'Events': '#f59e0b',
+    'Other': '#6b7280',
+  };
+  
+  // Featured Insight section (if any)
+  const insightsHTML = insights.map(article => {
     const articleUrl = article.slug 
       ? `${SITE_URL}/article/${article.slug}`
       : `${SITE_URL}/article/${article.id}`;
     
-    const categoryColors: Record<string, string> = {
-      'Breaking': '#ef4444',
-      'Tourism': '#3b82f6',
-      'Business': '#10b981',
-      'Events': '#f59e0b',
-      'Other': '#6b7280',
-    };
+    return `
+      <tr>
+        <td style="padding: 24px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; margin: 0 24px 24px 24px;">
+          <div style="display: inline-block; background-color: #78350f; color: #fef3c7; padding: 6px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px;">
+            ✨ FEATURED INSIGHT
+          </div>
+          ${article.imageUrl ? `
+            <a href="${articleUrl}" style="display: block; margin-bottom: 16px;">
+              <img src="${article.imageUrl}" alt="${article.title}" style="width: 100%; max-width: 552px; height: auto; border-radius: 8px; border: 2px solid #f59e0b;" />
+            </a>
+          ` : ''}
+          <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 800; color: #78350f; line-height: 1.3;">
+            <a href="${articleUrl}" style="color: #78350f; text-decoration: none;">
+              ${article.title}
+            </a>
+          </h2>
+          <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.7; color: #92400e;">
+            ${article.excerpt}
+          </p>
+          <a href="${articleUrl}" style="display: inline-block; background-color: #78350f; color: #fef3c7; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px;">
+            Read Full Analysis →
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="height: 24px;"></td>
+      </tr>
+    `;
+  }).join('');
+  
+  // Regular breaking news articles
+  const articlesHTML = breakingNews.map(article => {
+    const articleUrl = article.slug 
+      ? `${SITE_URL}/article/${article.slug}`
+      : `${SITE_URL}/article/${article.id}`;
     
     const categoryColor = categoryColors[article.category] || categoryColors['Other'];
     
@@ -94,7 +136,30 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
                 </td>
               </tr>
               
+              <!-- Featured Insights -->
+              ${insights.length > 0 ? `
+              <tr>
+                <td style="padding: 0 24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    ${insightsHTML}
+                  </table>
+                </td>
+              </tr>
+              ` : ''}
+              
+              <!-- Breaking News Section Header -->
+              ${insights.length > 0 && breakingNews.length > 0 ? `
+              <tr>
+                <td style="padding: 0 24px;">
+                  <h3 style="margin: 24px 0 16px 0; font-size: 18px; font-weight: 700; color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">
+                    Latest Breaking News
+                  </h3>
+                </td>
+              </tr>
+              ` : ''}
+              
               <!-- Articles -->
+              ${breakingNews.length > 0 ? `
               <tr>
                 <td style="padding: 0 24px;">
                   <table width="100%" cellpadding="0" cellspacing="0">
@@ -102,6 +167,7 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
                   </table>
                 </td>
               </tr>
+              ` : ''}
               
               <!-- Footer -->
               <tr>

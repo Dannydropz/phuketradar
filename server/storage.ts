@@ -122,6 +122,10 @@ export class DatabaseStorage implements IStorage {
         translatedBy: articles.translatedBy,
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
+        eventType: articles.eventType,
+        severity: articles.severity,
+        articleType: articles.articleType,
+        relatedArticleIds: articles.relatedArticleIds,
       })
       .from(articles)
       .where(sql`LOWER(${articles.category}) = LOWER(${category}) AND ${articles.isPublished} = true`)
@@ -146,6 +150,10 @@ export class DatabaseStorage implements IStorage {
         translatedBy: articles.translatedBy,
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
+        eventType: articles.eventType,
+        severity: articles.severity,
+        articleType: articles.articleType,
+        relatedArticleIds: articles.relatedArticleIds,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
