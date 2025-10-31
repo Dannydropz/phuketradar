@@ -1,0 +1,59 @@
+Depth Update Workflow
+1. Update Article Pipeline Design
+Requirement: Detect when additional details for an existing breaking news article become available.
+
+Action: Instead of publishing a new article, update the body of the existing story.
+
+Fetch latest details from designated news sources.
+
+Add a visible timestamp or "Updated" line at the top.
+
+Optionally append update logs at the end of the article for transparency.
+
+2. Multi-source Aggregation
+Task: Expand the source base by integrating these English-language Phuket news sites:
+
+The Phuket News [https://www.thephuketnews.com/news-phuket.php](https://www.thephuketnews.com/news-phuket.php)
+
+The Phuket Express [https://thephuketexpress.com/](https://thephuketexpress.com/)
+
+The Thaiger [https://thethaiger.com/news/phuket](https://thethaiger.com/news/phuket)
+
+Action: Treat each of these as "official" sources for details extraction and fact-checking.
+
+Continue using Thai sources as before.
+
+Flag articles as "English" or "Thai" sourced for easy tracking and multilingual cross-referencing.
+
+3. Automated Depth Enhancement Steps
+For each breaking news post:
+
+On a fixed schedule (e.g., hourly), scan the English/Thai sources for keywords or story matches.
+
+If new details or facts are found:
+
+Extract and summarize in plain English.
+
+Update the existing post’s body with a new section, prefaced with "Update: [timestamp]".
+
+Optionally, highlight official statements, police info, or new eyewitness reports.
+
+Log which source provided the update in the article metadata for transparency and traceability.
+
+4. Editorial Customization
+Allow manual editor intervention on each update:
+
+Editors can review source extracts, rewrite for clarity/plain English, and select which details to publish.
+
+Editors can trigger a manual “Insight” analysis as a separate short-form feature for major stories.
+
+Implementation Tips:
+
+Use scraping pipelines and NLP for cross-linking story topics across English and Thai feeds.
+
+Add source URLs and update timestamps in the CMS database for visibility.
+
+Provide a simple dashboard alert when new updates are available for any existing story.
+
+Summary for the agent & dev team:
+"Continuously monitor listed English and Thai news sources for incremental updates on Phuket stories. Automatically or manually refresh existing articles in-place, marking updates visibly, and log sources and times for transparency. New longform or insight pieces can be published as needed for big stories or analyses."
