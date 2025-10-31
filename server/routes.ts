@@ -242,216 +242,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: "Scraping started in background",
     });
     
-    // Process in background (no await)
+    // Process in background (no await) - use the same runScheduledScrape function as automated scraping
     (async () => {
       try {
         scrapeJobManager.updateJob(job.id, { status: 'processing' });
         
-        const sources = getEnabledSources();
-        console.log(`[Job ${job.id}] Starting multi-source scrape of ${sources.length} Facebook pages`);
+        console.log(`[Job ${job.id}] Starting scrape using runScheduledScrape() with job tracking`);
         
-        // Create duplicate checker function that stops pagination early
-        const checkForDuplicate = async (sourceUrl: string) => {
-          const existing = await storage.getArticleBySourceUrl(sourceUrl);
-          return !!existing;
-        };
+        // Import and run the scheduled scrape function with progress callbacks
+        const { runScheduledScrape } = await import("./scheduler");
         
-        // Get all existing article embeddings for semantic duplicate detection
-        const existingEmbeddings = await storage.getArticlesWithEmbeddings();
-        console.log(`[Job ${job.id}] Loaded ${existingEmbeddings.length} existing article embeddings`);
-        
-        let totalPosts = 0;
-        let createdArticles = 0;
-        let skippedNotNews = 0;
-        let skippedSemanticDuplicates = 0;
-
-        // Loop through each news source
-        for (const source of sources) {
-          console.log(`[Job ${job.id}] Scraping source: ${source.name}`);
-          
-          // Scrape with smart pagination that stops when hitting known posts
-          const scraperService = await getScraperService();
-          const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
-            source.url, 
-            1, // max pages to fetch (reduced from 3 to minimize API costs)
-            checkForDuplicate // stop early if we hit known posts
-          );
-          
-          console.log(`[Job ${job.id}] ${source.name}: Found ${scrapedPosts.length} NEW posts`);
-          totalPosts += scrapedPosts.length;
-          scrapeJobManager.updateProgress(job.id, { totalPosts });
-
-        // Process each scraped post from this source
-        for (const post of scrapedPosts) {
-          try {
-            console.log(`[Job ${job.id}] Processing post: ${post.title.substring(0, 50)}`);
-            
-            // STEP -1: Check if this source URL already exists in database (fast check before expensive API calls)
-            const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
-            if (existingBySourceUrl) {
-              skippedSemanticDuplicates++;
-              console.log(`[Job ${job.id}] 🔗 Source URL already exists in database - skipping`);
-              console.log(`[Job ${job.id}]    URL: ${post.sourceUrl}`);
-              console.log(`[Job ${job.id}]    Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
-              
-              scrapeJobManager.updateProgress(job.id, {
-                processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
-                createdArticles,
-                skippedNotNews,
-              });
-              continue;
-            }
-            
-            // STEP 0: Check for image URL duplicate (same image = same story)
-            if (post.imageUrl) {
-              const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
-              if (existingImageArticle) {
-                skippedSemanticDuplicates++;
-                console.log(`[Job ${job.id}] 🖼️ Image duplicate detected - same image already exists`);
-                console.log(`[Job ${job.id}]    New: ${post.title.substring(0, 60)}...`);
-                console.log(`[Job ${job.id}]    Existing: ${existingImageArticle.title.substring(0, 60)}...`);
-                
-                scrapeJobManager.updateProgress(job.id, {
-                  processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
-                  createdArticles,
-                  skippedNotNews,
-                });
-                continue;
-              }
-            }
-            
-            // STEP 1: Generate embedding from Thai title (before translation - saves money!)
-            let titleEmbedding: number[] | undefined;
-            try {
-              titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
-              
-              // STEP 2: Check for semantic duplicates (70% threshold catches near-duplicates)
-              const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.70);
-              
-              if (duplicateCheck.isDuplicate) {
-                skippedSemanticDuplicates++;
-                console.log(`[Job ${job.id}] 🔄 Semantic duplicate detected (${(duplicateCheck.similarity * 100).toFixed(1)}% similar)`);
-                console.log(`[Job ${job.id}]    New: ${post.title.substring(0, 60)}...`);
-                console.log(`[Job ${job.id}]    Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
-                
-                // Update progress and skip translation
-                scrapeJobManager.updateProgress(job.id, {
-                  processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
-                  createdArticles,
-                  skippedNotNews,
-                });
-                continue;
-              }
-            } catch (embeddingError) {
-              console.error(`[Job ${job.id}] Error generating embedding, proceeding without semantic check:`, embeddingError);
-              // Continue without semantic duplicate check if embedding fails
-            }
-            
-            // STEP 3: Translate and rewrite the content (pass precomputed Thai embedding)
-            const translation = await translatorService.translateAndRewrite(
-              post.title,
-              post.content,
-              titleEmbedding // Pass precomputed Thai embedding to be stored
-            );
-
-            console.log(`[Job ${job.id}] Is actual news: ${translation.isActualNews}`);
-            
-            // STEP 4: Only create article if it's actual news
-            if (translation.isActualNews) {
-              let article;
-              try {
-                article = await storage.createArticle({
-                  title: translation.translatedTitle,
-                  content: translation.translatedContent,
-                  excerpt: translation.excerpt,
-                  imageUrl: post.imageUrl || null,
-                  imageUrls: post.imageUrls || null,
-                  category: translation.category,
-                  sourceUrl: post.sourceUrl,
-                  author: translation.author,
-                  isPublished: true, // Auto-publish from admin scrape too
-                  originalLanguage: "th",
-                  translatedBy: "openai",
-                  embedding: translation.embedding,
-                });
-
-                createdArticles++;
-              } catch (createError: any) {
-                // Catch duplicate key violations (PostgreSQL error code 23505)
-                if (createError.code === '23505') {
-                  console.log(`[Job ${job.id}] ⚠️  Duplicate article caught by database constraint: ${post.sourceUrl}`);
-                  console.log(`[Job ${job.id}]    Title: ${translation.translatedTitle.substring(0, 60)}...`);
-                  
-                  // Update progress (count as processed but not created)
-                  scrapeJobManager.updateProgress(job.id, {
-                    processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles,
-                    skippedNotNews,
-                  });
-                  continue; // Skip Facebook posting and move to next post
-                } else {
-                  // Re-throw other errors
-                  throw createError;
-                }
-              }
-              
-              // Auto-post to Facebook after publishing (only if not already posted)
-              const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
-              if (article.isPublished && !article.facebookPostId && hasImage) {
-                try {
-                  const fbResult = await postArticleToFacebook(article, storage);
-                  if (fbResult) {
-                    if (fbResult.status === 'posted') {
-                      console.log(`[Job ${job.id}] ✅ Posted to Facebook: ${fbResult.postUrl}`);
-                    } else {
-                      console.log(`[Job ${job.id}] ℹ️  Article already posted to Facebook: ${fbResult.postUrl}`);
-                    }
-                  } else {
-                    console.error(`[Job ${job.id}] ❌ Failed to post to Facebook for ${article.title.substring(0, 60)}...`);
-                  }
-                } catch (fbError) {
-                  console.error(`[Job ${job.id}] ❌ Error posting to Facebook:`, fbError);
-                  // Don't fail the whole scrape if Facebook posting fails
-                }
-              } else if (article.isPublished && article.facebookPostId) {
-                console.log(`[Job ${job.id}] ⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
-              } else if (article.isPublished && !hasImage) {
-                console.log(`[Job ${job.id}] ⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
-              }
-              
-              // Add to existing embeddings so we can catch duplicates within this batch
-              if (translation.embedding) {
-                existingEmbeddings.push({
-                  id: article.id,
-                  title: translation.translatedTitle,
-                  embedding: translation.embedding,
-                });
-              }
-            } else {
-              skippedNotNews++;
-              console.log(`[Job ${job.id}] Skipped non-news: ${post.title.substring(0, 50)}...`);
-            }
-            
-            // Update progress
+        const result = await runScheduledScrape({
+          onProgress: (stats) => {
             scrapeJobManager.updateProgress(job.id, {
-              processedPosts: createdArticles + skippedNotNews + skippedSemanticDuplicates,
-              createdArticles,
-              skippedNotNews,
+              totalPosts: stats.totalPosts,
+              processedPosts: stats.processedPosts,
+              createdArticles: stats.createdArticles,
+              skippedNotNews: stats.skippedNotNews,
             });
-          } catch (error) {
-            console.log(`[Job ${job.id}] Error processing post:`, error);
-            // Continue with next post
-          }
-        } // End of posts loop
-        } // End of sources loop
-
-        console.log(`[Job ${job.id}] Multi-Source Scrape Complete`);
-        console.log(`[Job ${job.id}] Total posts fetched: ${totalPosts}`);
-        console.log(`[Job ${job.id}] Skipped (semantic duplicates): ${skippedSemanticDuplicates}`);
-        console.log(`[Job ${job.id}] Skipped (not news): ${skippedNotNews}`);
-        console.log(`[Job ${job.id}] Articles created: ${createdArticles}`);
+          },
+        });
         
-        scrapeJobManager.markCompleted(job.id);
+        if (result) {
+          console.log(`[Job ${job.id}] Scrape completed successfully`);
+          console.log(`[Job ${job.id}] Total posts: ${result.totalPosts}`);
+          console.log(`[Job ${job.id}] Articles created: ${result.articlesCreated}`);
+          console.log(`[Job ${job.id}] Skipped (duplicates): ${result.skippedSemanticDuplicates}`);
+          console.log(`[Job ${job.id}] Skipped (not news/text graphics): ${result.skippedNotNews}`);
+          
+          scrapeJobManager.markCompleted(job.id);
+        } else {
+          console.error(`[Job ${job.id}] Scrape returned null result`);
+          scrapeJobManager.markFailed(job.id, "Scrape returned no result");
+        }
       } catch (error) {
         console.error(`[Job ${job.id}] SCRAPING ERROR:`, error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";

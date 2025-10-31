@@ -25,7 +25,17 @@ import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 
-export async function runScheduledScrape() {
+// Optional callback for progress updates (used by admin UI)
+export interface ScrapeProgressCallback {
+  onProgress?: (stats: {
+    totalPosts: number;
+    processedPosts: number;
+    createdArticles: number;
+    skippedNotNews: number;
+  }) => void;
+}
+
+export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   const timestamp = new Date().toISOString();
   console.log("\n".repeat(3) + "=".repeat(80));
   console.log("🚨 SCRAPE TRIGGERED 🚨");
@@ -276,6 +286,16 @@ export async function runScheduledScrape() {
         } else {
           skippedNotNews++;
           console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
+        }
+        
+        // Update progress after each post
+        if (callbacks?.onProgress) {
+          callbacks.onProgress({
+            totalPosts,
+            processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+            createdArticles: createdCount,
+            skippedNotNews,
+          });
         }
       } catch (error) {
         console.error("Error processing post:", error);
