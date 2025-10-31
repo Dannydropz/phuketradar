@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/Home";
 import ArticleDetail from "@/pages/ArticleDetail";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminInsights from "@/pages/AdminInsights";
 import AdminLogin from "@/pages/AdminLogin";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
@@ -24,6 +25,11 @@ function Router() {
       <Route path="/admin">
         <ProtectedRoute>
           <AdminDashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/insights">
+        <ProtectedRoute>
+          <AdminInsights />
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />

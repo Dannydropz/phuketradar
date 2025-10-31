@@ -3,7 +3,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -276,6 +276,14 @@ export default function AdminDashboard() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/admin/insights")}
+                  data-testid="button-insights"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Insight
+                </Button>
                 <Button
                   variant="outline"
                   onClick={handleLogout}

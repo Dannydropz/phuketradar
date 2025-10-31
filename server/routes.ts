@@ -12,6 +12,7 @@ import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { sendBulkNewsletter } from "./services/newsletter";
 import { subHours } from "date-fns";
+import { insightService } from "./services/insight-service";
 
 // Extend session type
 declare module "express-session" {
@@ -598,6 +599,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error unsubscribing:", error);
       res.status(500).send("Failed to unsubscribe");
+    }
+  });
+
+  // Insight Generation routes - PROTECTED
+  
+  // Generate Insight from breaking news articles
+  app.post("/api/admin/insights/generate", requireAdminAuth, async (req, res) => {
+    try {
+      const { topic, sourceArticleIds, eventType } = req.body;
+      
+      if (!topic || !sourceArticleIds || sourceArticleIds.length === 0) {
+        return res.status(400).json({ error: "Topic and source articles are required" });
+      }
+
+      console.log(`\n=== INSIGHT GENERATION REQUESTED ===`);
+      console.log(`Topic: ${topic}`);
+      console.log(`Source articles: ${sourceArticleIds.length}`);
+
+      // Fetch source articles
+      const sourceArticles = await Promise.all(
+        sourceArticleIds.map((id: string) => storage.getArticle(id))
+      );
+      
+      const validArticles = sourceArticles.filter(a => a !== null);
+      
+      if (validArticles.length === 0) {
+        return res.status(404).json({ error: "No valid source articles found" });
+      }
+
+      // Generate the Insight
+      const insight = await insightService.generateInsight({
+        sourceArticles: validArticles,
+        topic,
+        eventType,
+      });
+
+      console.log(`✅ Insight generated: ${insight.title}`);
+
+      res.json({
+        success: true,
+        insight,
+      });
+    } catch (error) {
+      console.error("Error generating Insight:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to generate Insight", message: errorMessage });
+    }
+  });
+
+  // Publish an Insight article
+  app.post("/api/admin/insights/publish", requireAdminAuth, async (req, res) => {
+    try {
+      const { title, content, excerpt, relatedArticleIds, sources } = req.body;
+      
+      if (!title || !content || !excerpt) {
+        return res.status(400).json({ error: "Title, content, and excerpt are required" });
+      }
+
+      // Create the Insight article
+      const article = await storage.createArticle({
+        title,
+        content,
+        excerpt,
+        category: "Insight",
+        sourceUrl: `https://phuketradar.com/insight-${Date.now()}`,
+        author: "Phuket Radar Editorial Team",
+        isPublished: true,
+        originalLanguage: "en",
+        translatedBy: "gpt-4",
+        imageUrl: null,
+        articleType: "insight",
+        relatedArticleIds: relatedArticleIds || [],
+      });
+
+      console.log(`✅ Published Insight: ${article.title}`);
+
+      res.json({
+        success: true,
+        article,
+      });
+    } catch (error) {
+      console.error("Error publishing Insight:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to publish Insight", message: errorMessage });
     }
   });
 
