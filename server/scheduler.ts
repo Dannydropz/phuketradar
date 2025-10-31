@@ -202,57 +202,12 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         }
         
-        // STEP 1: Check if ANY image is a real photo (not a text graphic)
-        // For multi-image posts, we check ALL images and accept if ANY is a real photo
-        const imagesToCheck = post.imageUrls && post.imageUrls.length > 0 ? post.imageUrls : (post.imageUrl ? [post.imageUrl] : []);
-        
-        if (imagesToCheck.length > 0) {
-          let hasRealPhoto = false;
-          let checkedCount = 0;
-          let realPhotoUrl = '';
-          
-          for (const imageUrl of imagesToCheck) {
-            checkedCount++;
-            const isRealPhoto = await translatorService.isRealPhoto(imageUrl);
-            if (isRealPhoto) {
-              hasRealPhoto = true;
-              realPhotoUrl = imageUrl;
-              console.log(`   ✅ Image ${checkedCount}/${imagesToCheck.length} is a REAL PHOTO - accepting post`);
-              break; // Found a real photo, no need to check remaining images
-            } else {
-              console.log(`   ❌ Image ${checkedCount}/${imagesToCheck.length} is a text graphic - checking next...`);
-            }
-          }
-          
-          if (!hasRealPhoto) {
-            skippedNotNews++;
-            console.log(`\n⏭️  SKIPPED - ALL IMAGES ARE TEXT GRAPHICS (${checkedCount} images checked)`);
-            console.log(`   Title: ${post.title.substring(0, 60)}...`);
-            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
-            
-            // Update progress
-            if (callbacks?.onProgress) {
-              callbacks.onProgress({
-                totalPosts,
-                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                createdArticles: createdCount,
-                skippedNotNews,
-              });
-            }
-            continue;
-          } else {
-            console.log(`\n📸 POST ACCEPTED - Found real photo (checked ${checkedCount}/${imagesToCheck.length} images)`);
-            console.log(`   Title: ${post.title.substring(0, 60)}...`);
-            console.log(`   Real photo: ${realPhotoUrl.substring(0, 80)}...\n`);
-          }
-        }
-        
-        // STEP 2: Generate embedding from Thai title (before translation - saves money!)
+        // STEP 1: Generate embedding from Thai title (before translation - saves money!)
         let titleEmbedding: number[] | undefined;
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 3: Check for semantic duplicates (65% threshold catches near-duplicates with slightly different wording)
+          // STEP 2: Check for semantic duplicates (65% threshold catches near-duplicates with slightly different wording)
           const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.65);
           
           if (duplicateCheck.isDuplicate) {
@@ -278,14 +233,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Continue without semantic duplicate check if embedding fails
         }
 
-        // STEP 4: Translate and rewrite (pass precomputed Thai embedding)
+        // STEP 3: Translate and rewrite (pass precomputed Thai embedding)
         const translation = await translatorService.translateAndRewrite(
           post.title,
           post.content,
           titleEmbedding // Pass precomputed Thai embedding to be stored
         );
 
-        // STEP 4.5: Classify event type and severity using GPT-5 nano (ultra-cheap!)
+        // STEP 4: Classify event type and severity using GPT-5 nano (ultra-cheap!)
         const classification = await classificationService.classifyArticle(
           translation.translatedTitle,
           translation.excerpt
