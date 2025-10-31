@@ -93,6 +93,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${existingByPostId.title.substring(0, 60)}...`);
             console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
             continue;
           }
         }
@@ -106,6 +116,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           console.log(`   New title: ${post.title.substring(0, 60)}...`);
           console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
           console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+          
+          // Update progress
+          if (callbacks?.onProgress) {
+            callbacks.onProgress({
+              totalPosts,
+              processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+              createdArticles: createdCount,
+              skippedNotNews,
+            });
+          }
           continue;
         }
         
@@ -127,6 +147,15 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             }
           }
           if (foundDuplicate) {
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
             continue;
           }
         } else if (post.imageUrl) {
@@ -138,6 +167,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
             console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
             continue;
           }
         }
@@ -169,6 +208,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`\n⏭️  SKIPPED - ALL IMAGES ARE TEXT GRAPHICS (${checkedCount} images checked)`);
             console.log(`   Title: ${post.title.substring(0, 60)}...`);
             console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
             continue;
           } else {
             console.log(`\n📸 POST ACCEPTED - Found real photo (checked ${checkedCount}/${imagesToCheck.length} images)`);
@@ -191,6 +240,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
             console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
             continue;
           }
         } catch (embeddingError) {
