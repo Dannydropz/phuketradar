@@ -7,6 +7,7 @@ export interface ScrapedPost {
   sourceUrl: string;
   facebookPostId?: string; // Canonical Facebook post ID for deduplication
   publishedAt: Date;
+  textFormatPresetId?: string; // Facebook's colored background text post indicator
 }
 
 interface ScrapeCreatorsPost {
@@ -21,6 +22,7 @@ interface ScrapeCreatorsPost {
   created_time?: string;
   image?: string; // Direct image URL field (single image)
   images?: string[]; // NEW: Array of all images for multi-image carousel posts
+  text_format_preset_id?: string; // Facebook's colored background text post indicator
   attachments?: {
     data?: Array<{
       media?: {
@@ -295,6 +297,7 @@ export class ScraperService {
           sourceUrl: normalizedSourceUrl,
           facebookPostId: facebookPostId || undefined,
           publishedAt,
+          textFormatPresetId: post.text_format_preset_id,
         });
       } catch (error) {
         console.error(`Error parsing post ${post.id}:`, error);
