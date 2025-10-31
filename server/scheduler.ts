@@ -83,6 +83,27 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
+        // STEP -3: Skip Facebook "colored background text posts" (reliable filtering via API field)
+        // These posts have text_format_preset_id set when using Facebook's colored backgrounds
+        if (post.textFormatPresetId) {
+          skippedNotNews++;
+          console.log(`\n⏭️  SKIPPED - COLORED BACKGROUND TEXT POST (Facebook text format preset)`);
+          console.log(`   Preset ID: ${post.textFormatPresetId}`);
+          console.log(`   Title: ${post.title.substring(0, 60)}...`);
+          console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+          
+          // Update progress
+          if (callbacks?.onProgress) {
+            callbacks.onProgress({
+              totalPosts,
+              processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+              createdArticles: createdCount,
+              skippedNotNews,
+            });
+          }
+          continue;
+        }
+        
         // STEP -2: Check if this Facebook post ID already exists in database (fastest and most reliable check)
         if (post.facebookPostId) {
           const existingByPostId = await storage.getArticleByFacebookPostId(post.facebookPostId);
