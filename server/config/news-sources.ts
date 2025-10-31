@@ -28,6 +28,11 @@ export const NEWS_SOURCES: NewsSource[] = [
     url: "https://www.facebook.com/NewshawkPhuket",
     enabled: true,
   },
+  {
+    name: "Phuket Hot News",
+    url: "https://www.facebook.com/phukethotnews",
+    enabled: true,
+  },
 ];
 
 // Get all enabled sources
