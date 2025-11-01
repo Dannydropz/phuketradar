@@ -35,9 +35,16 @@ export default function AdminDashboard() {
   const { logout } = useAdminAuth();
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
 
-  const { data: articles = [], isLoading } = useQuery<Article[]>({
+  const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
   });
+
+  // Log query errors for debugging
+  useEffect(() => {
+    if (error) {
+      console.error("Admin articles query error:", error);
+    }
+  }, [error]);
 
   // Poll for job status when there's an active job
   useEffect(() => {
@@ -238,6 +245,8 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await logout();
+    // Clear all admin queries to prevent stale data
+    queryClient.removeQueries({ queryKey: ["/api/admin"] });
     setLocation("/admin/login");
   };
 
