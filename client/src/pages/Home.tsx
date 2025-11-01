@@ -54,9 +54,9 @@ export default function Home() {
 
   // Separate featured article and sidebar articles
   const featured = articles[0];
-  const sidebar = articles.slice(1, 7); // Show 6 trending stories
-  const latestArticles = articles.slice(7, 7 + displayCount); // Start after hero+sidebar (7 articles)
-  const hasMore = articles.length > 7 + displayCount;
+  const sidebar = articles.slice(1, 6); // Show 5 trending stories
+  const latestArticles = articles.slice(6, 6 + displayCount); // Start after hero+sidebar (6 articles)
+  const hasMore = articles.length > 6 + displayCount;
 
   if (!featured) {
     return (
