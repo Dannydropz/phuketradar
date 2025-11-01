@@ -6,76 +6,36 @@ import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useState, useMemo } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { ArticleListItem } from "@shared/schema";
-
-// Helper function to get severity ranking for sorting
-function getSeverityRank(severity?: string | null): number {
-  if (!severity) return 999;
-  
-  switch (severity.toLowerCase()) {
-    case "critical":
-      return 1;
-    case "high":
-      return 2;
-    case "medium":
-      return 3;
-    case "low":
-      return 4;
-    case "info":
-      return 5;
-    default:
-      return 999;
-  }
-}
 
 export default function Home() {
   const [, params] = useRoute("/category/:category");
   const category = params?.category;
-  const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
-  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [displayCount, setDisplayCount] = useState(12);
   
   const { data: allArticles = [], isLoading } = useQuery<ArticleListItem[]>({
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
 
-  // Sort articles by severity (Critical first), then by date
-  const sortedArticles = useMemo(() => {
+  // Sort articles by date (newest first)
+  const articles = useMemo(() => {
     return [...allArticles].sort((a, b) => {
-      const severityDiff = getSeverityRank(a.severity) - getSeverityRank(b.severity);
-      if (severityDiff !== 0) return severityDiff;
       return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     });
   }, [allArticles]);
 
-  // Filter articles based on selected filters
-  const articles = useMemo(() => {
-    return sortedArticles.filter(article => {
-      const matchesEventType = eventTypeFilter === "all" || article.eventType === eventTypeFilter;
-      const matchesSeverity = severityFilter === "all" || article.severity === severityFilter;
-      return matchesEventType && matchesSeverity;
-    });
-  }, [sortedArticles, eventTypeFilter, severityFilter]);
-
-  // Get urgent news (Critical and High severity)
+  // Get urgent news (Breaking + Fresh, < 4 hours old)
   const urgentNews = useMemo(() => {
-    return articles.filter(article => 
-      article.severity && 
-      (article.severity.toLowerCase() === "critical" || article.severity.toLowerCase() === "high")
-    ).slice(0, 3); // Limit to 3 urgent stories
+    const now = Date.now();
+    const fourHoursAgo = now - (4 * 60 * 60 * 1000);
+    
+    return articles.filter(article => {
+      const isFresh = new Date(article.publishedAt).getTime() > fourHoursAgo;
+      const isBreaking = article.category.toLowerCase() === "breaking";
+      return isBreaking && isFresh;
+    }).slice(0, 3); // Limit to 3 urgent stories
   }, [articles]);
-
-  // Get unique event types and severities for filter dropdowns
-  const eventTypes = useMemo(() => {
-    const types = new Set(allArticles.map(a => a.eventType).filter(Boolean));
-    return Array.from(types).sort();
-  }, [allArticles]);
-
-  const severities = useMemo(() => {
-    const sevs = new Set(allArticles.map(a => a.severity).filter(Boolean));
-    return Array.from(sevs).sort();
-  }, [allArticles]);
 
   if (isLoading) {
     return (
@@ -94,8 +54,9 @@ export default function Home() {
 
   // Separate featured article and sidebar articles
   const featured = articles[0];
-  const sidebar = articles.slice(1, 4);
-  const latestArticles = articles.slice(4, 10);
+  const sidebar = articles.slice(1, 7); // Show 6 trending stories
+  const latestArticles = articles.slice(7, 7 + displayCount); // Start after hero+sidebar (7 articles)
+  const hasMore = articles.length > 7 + displayCount;
 
   if (!featured) {
     return (
@@ -171,58 +132,22 @@ export default function Home() {
                     category={article.category}
                     publishedAt={new Date(article.publishedAt)}
                     isBreaking={article.category.toLowerCase() === "breaking"}
-                    eventType={article.eventType}
-                    severity={article.severity}
                   />
                 ))}
               </div>
             </section>
           )}
+        </div>
 
-          <EmailSignup />
+        <EmailSignup />
 
+        <div className="container mx-auto px-4 py-8">
           {latestArticles.length > 0 && (
-            <section>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <section className="mt-16">
+              <div className="mb-8">
                 <h2 className="text-3xl font-bold">{category ? "More Stories" : "Latest News"}</h2>
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Filter:</span>
-                  </div>
-                  {eventTypes.length > 0 && (
-                    <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
-                      <SelectTrigger className="w-[150px]" data-testid="select-event-type-filter">
-                        <SelectValue placeholder="Event Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        {eventTypes.map((type) => (
-                          <SelectItem key={type} value={type!}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {severities.length > 0 && (
-                    <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                      <SelectTrigger className="w-[150px]" data-testid="select-severity-filter">
-                        <SelectValue placeholder="Severity" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Severities</SelectItem>
-                        {severities.map((sev) => (
-                          <SelectItem key={sev} value={sev!}>
-                            {sev}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                 {latestArticles.map((article) => (
                   <ArticleCard
                     key={article.id}
@@ -234,11 +159,20 @@ export default function Home() {
                     category={article.category}
                     publishedAt={new Date(article.publishedAt)}
                     isBreaking={article.category.toLowerCase() === "breaking"}
-                    eventType={article.eventType}
-                    severity={article.severity}
                   />
                 ))}
               </div>
+              {hasMore && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setDisplayCount(prev => prev + 12)}
+                    className="px-8 py-3 bg-primary text-primary-foreground rounded-md font-semibold hover-elevate active-elevate-2 transition-colors"
+                    data-testid="button-load-more"
+                  >
+                    Load More Stories
+                  </button>
+                </div>
+              )}
             </section>
           )}
         </div>

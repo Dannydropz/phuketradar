@@ -1,9 +1,10 @@
-import { Moon, Sun, Menu } from "lucide-react";
+import { Moon, Sun, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import logoDark from "@assets/PhuketRadar_1759933943849.png";
+import { SearchDialog } from "./SearchDialog";
 
 const categories = [
   { name: "All News", path: "/" },
@@ -17,6 +18,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-header backdrop-blur-lg">
@@ -45,6 +47,15 @@ export function Header() {
           </nav>
 
           <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchOpen(true)}
+              className="text-header-foreground hover:text-header-foreground"
+              data-testid="button-search"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -83,6 +94,7 @@ export function Header() {
           </nav>
         )}
       </div>
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }
