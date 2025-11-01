@@ -63,7 +63,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
         </div>
       </Link>
 
-      <div className="lg:col-span-2 space-y-8">
+      <div className="lg:col-span-2 flex flex-col gap-6">
         {sidebar.slice(0, 5).map((article) => {
           const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
           const isBreaking = article.category.toLowerCase() === "breaking";
