@@ -31,6 +31,7 @@ export const articles = pgTable("articles", {
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),
   relatedArticleIds: text("related_article_ids").array(),
+  entities: json("entities"),
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts

@@ -24,6 +24,7 @@ import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
+import { entityExtractionService, type ExtractedEntities } from "./services/entity-extraction";
 
 // Optional callback for progress updates (used by admin UI)
 export interface ScrapeProgressCallback {
@@ -202,17 +203,74 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         }
         
-        // STEP 1: Generate embedding from Thai title (before translation - saves money!)
+        // STEP 1: Extract entities from Thai title (before translation - saves money!)
+        let extractedEntities: ExtractedEntities | undefined;
+        try {
+          extractedEntities = await entityExtractionService.extractEntities(post.title);
+          
+          // STEP 1.5: Check for entity-based duplicates (catches same story from different sources)
+          // This is MUCH better at catching rewrites of the same event than semantic similarity alone
+          const allArticles = await storage.getArticlesWithEmbeddings();
+          
+          for (const existing of allArticles) {
+            // Skip if no entities stored
+            if (!existing.embedding) continue;
+            
+            // Get stored entities (may be null for old articles)
+            const existingEntities = (existing as any).entities as ExtractedEntities | null;
+            if (!existingEntities) continue;
+            
+            // Compare entities
+            const entityMatch = entityExtractionService.compareEntities(extractedEntities, existingEntities);
+            
+            // If entity match score >= 50, it's likely the same story
+            // This catches: same crime + same location + same organization
+            if (entityMatch.score >= 50) {
+              skippedSemanticDuplicates++;
+              console.log(`\n🚫 DUPLICATE DETECTED - Method: ENTITY MATCHING (${entityMatch.score}% match)`);
+              console.log(`   New title: ${post.title.substring(0, 60)}...`);
+              console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
+              console.log(`   📊 Entity matches:`);
+              console.log(`      - Locations: ${entityMatch.matchedLocations}`);
+              console.log(`      - Crime types: ${entityMatch.matchedCrimeTypes}`);
+              console.log(`      - Organizations: ${entityMatch.matchedOrganizations}`);
+              console.log(`      - People: ${entityMatch.matchedPeople}`);
+              console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+              
+              // Update progress
+              if (callbacks?.onProgress) {
+                callbacks.onProgress({
+                  totalPosts,
+                  processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                  createdArticles: createdCount,
+                  skippedNotNews,
+                });
+              }
+              continue;
+            }
+          }
+        } catch (entityError) {
+          console.error(`Error extracting entities, proceeding without entity check:`, entityError);
+          // Continue without entity check if extraction fails
+        }
+        
+        // STEP 2: Generate embedding from Thai title (before translation - saves money!)
         let titleEmbedding: number[] | undefined;
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 2: Check for semantic duplicates (65% threshold catches near-duplicates with slightly different wording)
-          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, 0.65);
+          // STEP 2.5: Check for semantic duplicates (45% threshold for entity-matched articles, 65% for others)
+          // If we have strong entity matches, we can use a lower semantic threshold
+          const semanticThreshold = extractedEntities && 
+            (extractedEntities.crimeTypes.length > 0 || extractedEntities.locations.length > 0) 
+            ? 0.45  // Lower threshold when we have entity context
+            : 0.65; // Higher threshold when no entities extracted
+          
+          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, semanticThreshold);
           
           if (duplicateCheck.isDuplicate) {
             skippedSemanticDuplicates++;
-            console.log(`\n🚫 DUPLICATE DETECTED - Method: SEMANTIC SIMILARITY (${(duplicateCheck.similarity * 100).toFixed(1)}% match)`);
+            console.log(`\n🚫 DUPLICATE DETECTED - Method: SEMANTIC SIMILARITY (${(duplicateCheck.similarity * 100).toFixed(1)}% match, threshold: ${(semanticThreshold * 100)}%)`);
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
             console.log(`   ✅ Skipped before translation (saved API credits)\n`);
@@ -267,6 +325,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               embedding: translation.embedding,
               eventType: classification.eventType,
               severity: classification.severity,
+              entities: extractedEntities as any, // Store extracted entities for future duplicate detection
             });
 
             createdCount++;
