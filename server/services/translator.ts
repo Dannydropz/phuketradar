@@ -308,10 +308,9 @@ Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "reason": "brief e
       return accepted;
     } catch (error) {
       console.error("Error classifying image:", error);
-      // CHANGED: On error, REJECT to avoid publishing suspicious images
-      // This is fail-safe: better to skip a valid photo than publish text graphics
-      console.log("   ⚠️  Classification failed - defaulting to REJECT for safety");
-      return false;
+      // Re-throw the error so the caller can decide how to handle it
+      // The scheduler will catch this and default to accepting the image (err on side of inclusion)
+      throw error;
     }
   }
 }

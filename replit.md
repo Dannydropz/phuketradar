@@ -24,9 +24,12 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
 
 ### Architectural Decisions
-- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts`. Includes a multi-image smart filtering for text graphics using GPT-4o-mini vision.
+- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts`.
 - **Translation**: Hybrid pipeline using Google Translate for complex Thai text and GPT-4-mini for polishing and style. Enriches content with Phuket-specific context and location descriptions.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
+- **Text Graphic Filtering**: Two-layer system to prevent text-only announcement posts from being published:
+    - Layer 1: Fast, free check for Facebook native colored background text posts via `text_format_preset_id` API field
+    - Layer 2: GPT-4o-mini vision analysis of all images in multi-image posts - only skips if ALL images are text graphics (at least one real photo = approved)
 - **Duplicate Detection**: A six-layer system including URL normalization, in-memory checks, Facebook Post ID and source URL database checks, multi-image comparison, semantic similarity on titles, and database UNIQUE constraints for `source_url` and `facebook_post_id`.
 - **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.

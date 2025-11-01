@@ -203,6 +203,71 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         }
         
+        // STEP 0.5: Vision-based text graphic filtering (GPT-4o-mini vision API)
+        // Check all images to ensure at least one is a real photo (not a text graphic)
+        const imagesToCheck = post.imageUrls || (post.imageUrl ? [post.imageUrl] : []);
+        
+        if (imagesToCheck.length > 0) {
+          console.log(`\n📸 VISION CHECK: Analyzing ${imagesToCheck.length} image(s) for text graphics...`);
+          
+          let realPhotoCount = 0;
+          let textGraphicCount = 0;
+          const visionResults: Array<{url: string; isReal: boolean; reason?: string}> = [];
+          
+          // Check each image with GPT-4o-mini vision
+          for (const imageUrl of imagesToCheck) {
+            try {
+              const isReal = await translatorService.isRealPhoto(imageUrl);
+              visionResults.push({ url: imageUrl, isReal });
+              
+              if (isReal) {
+                realPhotoCount++;
+              } else {
+                textGraphicCount++;
+              }
+            } catch (visionError) {
+              console.warn(`   ⚠️  Vision check failed for image, assuming real photo:`, visionError);
+              realPhotoCount++; // Err on the side of inclusion if vision fails
+              visionResults.push({ url: imageUrl, isReal: true, reason: 'vision API error' });
+            }
+          }
+          
+          // Only skip if ALL images are text graphics (no real photos)
+          if (realPhotoCount === 0 && textGraphicCount > 0) {
+            skippedNotNews++;
+            console.log(`\n⏭️  SKIPPED - TEXT GRAPHIC POST (GPT-4o-mini vision)`);
+            console.log(`   Title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Images checked: ${imagesToCheck.length}`);
+            console.log(`   Real photos: ${realPhotoCount} | Text graphics: ${textGraphicCount}`);
+            console.log(`   🎯 Result: ALL images are text graphics → REJECTED`);
+            visionResults.forEach((result, idx) => {
+              console.log(`      Image ${idx + 1}: ${result.isReal ? '✅ Real photo' : '❌ Text graphic'}${result.reason ? ` (${result.reason})` : ''}`);
+            });
+            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
+            continue;
+          } else if (imagesToCheck.length > 1) {
+            // Multi-image post with at least one real photo - log acceptance
+            console.log(`   ✅ ACCEPTED: ${realPhotoCount} real photo(s) found`);
+            visionResults.forEach((result, idx) => {
+              console.log(`      Image ${idx + 1}: ${result.isReal ? '✅ Real photo' : '❌ Text graphic'}`);
+            });
+            console.log('');
+          } else {
+            // Single image, it's a real photo
+            console.log(`   ✅ ACCEPTED: Real photo detected\n`);
+          }
+        }
+        
         // STEP 1: Extract entities from Thai title (before translation - saves money!)
         let extractedEntities: ExtractedEntities | undefined;
         let foundEntityDuplicate = false;
