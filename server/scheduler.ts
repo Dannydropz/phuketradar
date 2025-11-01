@@ -205,20 +205,20 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         
         // STEP 1: Extract entities from Thai title (before translation - saves money!)
         let extractedEntities: ExtractedEntities | undefined;
+        let foundEntityDuplicate = false;
+        
         try {
           extractedEntities = await entityExtractionService.extractEntities(post.title);
           
           // STEP 1.5: Check for entity-based duplicates (catches same story from different sources)
           // This is MUCH better at catching rewrites of the same event than semantic similarity alone
-          const allArticles = await storage.getArticlesWithEmbeddings();
+          // Only check against recent articles (last 100) to avoid O(N²) performance issues
+          const recentArticles = existingEmbeddings.slice(0, 100);
           
-          for (const existing of allArticles) {
-            // Skip if no entities stored
-            if (!existing.embedding) continue;
-            
-            // Get stored entities (may be null for old articles)
+          for (const existing of recentArticles) {
+            // Get stored entities (may be null for old articles without entities)
             const existingEntities = (existing as any).entities as ExtractedEntities | null;
-            if (!existingEntities) continue;
+            if (!existingEntities) continue; // Skip old articles without entities
             
             // Compare entities
             const entityMatch = entityExtractionService.compareEntities(extractedEntities, existingEntities);
@@ -227,6 +227,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             // This catches: same crime + same location + same organization
             if (entityMatch.score >= 50) {
               skippedSemanticDuplicates++;
+              foundEntityDuplicate = true;
               console.log(`\n🚫 DUPLICATE DETECTED - Method: ENTITY MATCHING (${entityMatch.score}% match)`);
               console.log(`   New title: ${post.title.substring(0, 60)}...`);
               console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
@@ -246,8 +247,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   skippedNotNews,
                 });
               }
-              continue;
+              break; // Found duplicate, no need to check more
             }
+          }
+          
+          // If we found entity duplicate, skip this post
+          if (foundEntityDuplicate) {
+            continue;
           }
         } catch (entityError) {
           console.error(`Error extracting entities, proceeding without entity check:`, entityError);
