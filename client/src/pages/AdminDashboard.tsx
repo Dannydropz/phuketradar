@@ -32,11 +32,13 @@ interface ScrapeJob {
 export default function AdminDashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { logout } = useAdminAuth();
+  const { logout, isAuthenticated } = useAdminAuth();
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
+    enabled: isAuthenticated, // Only run query when authenticated
+    retry: 1, // Retry once if it fails
   });
 
   // Log query errors for debugging
