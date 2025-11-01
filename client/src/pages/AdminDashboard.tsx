@@ -45,8 +45,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (error) {
       console.error("Admin articles query error:", error);
+      toast({
+        title: "Failed to Load Articles",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
     }
-  }, [error]);
+  }, [error, toast]);
 
   // Poll for job status when there's an active job
   useEffect(() => {
