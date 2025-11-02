@@ -29,11 +29,14 @@ interface ScrapeJob {
   error?: string;
 }
 
+type FilterType = 'all' | 'pending' | 'published';
+
 export default function AdminDashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { logout, isAuthenticated } = useAdminAuth();
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
@@ -263,6 +266,13 @@ export default function AdminDashboard() {
     total: articles.length,
   };
 
+  // Filter articles based on active filter
+  const filteredArticles = articles.filter((article) => {
+    if (activeFilter === 'pending') return !article.isPublished;
+    if (activeFilter === 'published') return article.isPublished;
+    return true; // 'all'
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -361,7 +371,13 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="p-6">
+            <Card 
+              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
+                activeFilter === 'pending' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
+              onClick={() => setActiveFilter('pending')}
+              data-testid="filter-pending"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Pending Review</p>
@@ -373,7 +389,13 @@ export default function AdminDashboard() {
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card 
+              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
+                activeFilter === 'published' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
+              onClick={() => setActiveFilter('published')}
+              data-testid="filter-published"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Published</p>
@@ -385,7 +407,13 @@ export default function AdminDashboard() {
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card 
+              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
+                activeFilter === 'all' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
+              onClick={() => setActiveFilter('all')}
+              data-testid="filter-all"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Total Articles</p>
@@ -400,14 +428,25 @@ export default function AdminDashboard() {
 
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">Articles</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Articles</h2>
+                {activeFilter !== 'all' && (
+                  <p className="text-sm text-muted-foreground">
+                    Showing {filteredArticles.length} {activeFilter} article{filteredArticles.length !== 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
               {articles.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground mb-4">No articles yet. Click "Scrape New Articles" to get started.</p>
                 </div>
+              ) : filteredArticles.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">No {activeFilter} articles found.</p>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  {articles.map((article) => (
+                  {filteredArticles.map((article) => (
                     <div
                       key={article.id}
                       className="flex items-start gap-4 p-4 border border-border rounded-lg hover-elevate"
