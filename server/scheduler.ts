@@ -377,9 +377,20 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
         // STEP 5: Only create article if it's actual news
         if (translation.isActualNews) {
+          // STEP 5.5: Check interest score for auto-publish decision
+          // Only auto-publish stories with interest score >= 4 (important/urgent news)
+          // Lower-scored stories are saved as drafts for review
+          const shouldAutoPublish = translation.interestScore >= 4;
+          
+          if (!shouldAutoPublish) {
+            console.log(`   📋 Low interest score (${translation.interestScore}/5) - saving as DRAFT for review`);
+          } else {
+            console.log(`   ✅ High interest score (${translation.interestScore}/5) - AUTO-PUBLISHING`);
+          }
+          
           let article;
           try {
-            // Create article - auto-publish for scheduled runs
+            // Create article - auto-publish only if interest score >= 4
             article = await storage.createArticle({
               title: translation.translatedTitle,
               content: translation.translatedContent,
@@ -390,12 +401,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               sourceUrl: post.sourceUrl,
               facebookPostId: null, // Will be set after posting to Phuket Radar Facebook page
               author: translation.author,
-              isPublished: true, // Auto-publish on scheduled runs
+              isPublished: shouldAutoPublish, // Only auto-publish high-interest stories (score >= 4)
               originalLanguage: "th",
               translatedBy: "openai",
               embedding: translation.embedding,
               eventType: classification.eventType,
               severity: classification.severity,
+              interestScore: translation.interestScore,
               entities: extractedEntities as any, // Store extracted entities for future duplicate detection
             });
 

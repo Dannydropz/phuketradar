@@ -11,9 +11,41 @@ export interface TranslationResult {
   excerpt: string;
   category: string;
   isActualNews: boolean;
+  interestScore: number;
   author: string;
   embedding?: number[];
 }
+
+// High-priority keywords that boost interest scores (urgent/dramatic news)
+const HOT_KEYWORDS = [
+  "อุบัติเหตุ", // accident
+  "ไฟไหม้", // fire
+  "จมน้ำ", // drowning
+  "จับกุม", // arrest
+  "พายุ", // storm
+  "ฝนตกหนัก", // heavy rain
+  "โจร", // thief/robber
+  "เสียชีวิต", // death/died
+  "บาดเจ็บ", // injured
+  "ชนกัน", // collision
+  "ตาย", // dead
+  "ฆ่า", // kill
+  "ยิง", // shoot
+  "แทง", // stab
+];
+
+// Low-priority keywords that lower interest scores (routine/boring news)
+const COLD_KEYWORDS = [
+  "ประชุม", // meeting
+  "มอบหมาย", // assign/delegate
+  "สัมมนา", // seminar
+  "แถลงข่าว", // press conference
+  "โครงการ", // project/program
+  "อบรม", // training
+  "มอบของ", // giving/donation ceremony
+  "พิธี", // ceremony
+  "การประชุม", // conference
+];
 
 // Phuket location context map for richer rewrites
 const PHUKET_CONTEXT_MAP: Record<string, string> = {
@@ -147,6 +179,14 @@ HEADLINE EXAMPLES (Bad):
 
 4. Extract a concise excerpt (2-3 sentences) with perfect grammar
 5. Categorize the article (Breaking, Tourism, Business, Events, or Other)
+6. Rate reader interest (1-5 scale)
+
+INTEREST SCORE GUIDE (1-5):
+- 5 = URGENT/DRAMATIC: Deaths, drownings, major accidents, violent crime, natural disasters, severe weather alerts
+- 4 = IMPORTANT: Non-fatal accidents, arrests, significant disruptions (road closures, power outages), rescue operations
+- 3 = MODERATE: Tourism developments, business openings, community events, policy changes
+- 2 = MUNDANE: Government meetings, routine announcements, administrative updates, planning sessions
+- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, routine inspections
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
@@ -156,7 +196,8 @@ Respond in JSON format:
   "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
   "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar, natural Phuket context",
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
-  "category": "Breaking|Tourism|Business|Events|Other"
+  "category": "Breaking|Tourism|Business|Events|Other",
+  "interestScore": 1-5 (integer)
 }
 
 If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
@@ -179,6 +220,33 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
 
       const result = JSON.parse(completion.choices[0].message.content || "{}");
 
+      // STEP 5: Apply keyword boosting to interest score
+      // Start with GPT's base score
+      let finalInterestScore = result.interestScore || 3;
+      
+      // Boost for hot keywords (urgent news like drownings, crime, accidents)
+      const hasHotKeyword = HOT_KEYWORDS.some(keyword => 
+        title.includes(keyword) || content.includes(keyword)
+      );
+      if (hasHotKeyword) {
+        finalInterestScore = Math.min(5, finalInterestScore + 1);
+        console.log(`   🔥 HOT KEYWORD BOOST: ${finalInterestScore - 1} → ${finalInterestScore}`);
+      }
+      
+      // Reduce for cold keywords (boring news like meetings, ceremonies)
+      const hasColdKeyword = COLD_KEYWORDS.some(keyword => 
+        title.includes(keyword) || content.includes(keyword)
+      );
+      if (hasColdKeyword) {
+        finalInterestScore = Math.max(1, finalInterestScore - 1);
+        console.log(`   ❄️  COLD KEYWORD PENALTY: ${finalInterestScore + 1} → ${finalInterestScore}`);
+      }
+      
+      // Ensure score stays within 1-5 range
+      finalInterestScore = Math.max(1, Math.min(5, finalInterestScore));
+      
+      console.log(`   📊 Final Interest Score: ${finalInterestScore}/5`);
+
       // Use precomputed embedding (from Thai title) if provided
       // This ensures we always compare embeddings in the same language (Thai)
       const embedding = precomputedEmbedding;
@@ -189,6 +257,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         excerpt: result.excerpt || "",
         category: result.category || "Other",
         isActualNews: result.isActualNews || false,
+        interestScore: finalInterestScore,
         author: getRandomAuthor(),
         embedding,
       };

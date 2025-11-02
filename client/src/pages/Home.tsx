@@ -6,7 +6,6 @@ import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useState, useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
 import type { ArticleListItem } from "@shared/schema";
 
 export default function Home() {
@@ -117,8 +116,11 @@ export default function Home() {
           {urgentNews.length > 0 && (
             <section className="mb-12">
               <div className="flex items-center gap-3 mb-6">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-                <h2 className="text-3xl font-bold">Urgent News</h2>
+                <div className="relative flex items-center justify-center">
+                  <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+                  <div className="absolute w-3 h-3 bg-red-600 rounded-full animate-ping opacity-75"></div>
+                </div>
+                <h2 className="text-3xl font-bold">Breaking News</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {urgentNews.map((article) => (

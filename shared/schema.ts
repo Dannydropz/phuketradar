@@ -30,6 +30,7 @@ export const articles = pgTable("articles", {
   eventType: text("event_type"),
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),
+  interestScore: real("interest_score"),
   relatedArticleIds: text("related_article_ids").array(),
   entities: json("entities"),
 });
