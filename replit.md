@@ -18,7 +18,9 @@ Preferred communication style: Simple, everyday language.
 - **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for `users`, `articles` (with embedding vectors), and `subscribers`.
 - **Business Logic**:
     - **ScraperService**: Uses JINA AI Reader API for Facebook post scraping.
-    - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, and category classification (Breaking, Tourism, Business, Events, Other).
+    - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, category classification (Breaking, Tourism, Business, Events, Other), and interest scoring (1-5 scale).
+    - **Interest Scoring**: GPT-4-mini rates articles 1-5 (5=urgent/dramatic, 4=important, 3=moderate, 2=mundane, 1=trivial). Thai keyword boosting (+1 for hot keywords like drownings/crime/accidents, -1 for cold keywords like meetings/ceremonies) adjusts final scores.
+    - **Auto-Publish Logic**: Only stories with interest_score >= 4 are auto-published. Lower-scored stories (1-3) saved as drafts for manual review.
     - **Embedding Generation**: OpenAI text-embedding-3-small for semantic analysis from Thai titles.
     - **Semantic Similarity**: Cosine similarity for duplicate detection.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
