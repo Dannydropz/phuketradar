@@ -28,10 +28,12 @@ Preferred communication style: Simple, everyday language.
 ### Architectural Decisions
 - **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source to ensure fast-posting sources like Newshawk are fully captured.
 - **Translation**: Hybrid pipeline using Google Translate for complex Thai text and GPT-4-mini for polishing and style. Enriches content with Phuket-specific context and location descriptions.
-- **Data Flow**: Unidirectional: Scraper → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
-- **Text Graphic Filtering**: Two-layer system to prevent text-only announcement posts from being published:
+- **Data Flow**: Unidirectional: Scraper → Image Check → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
+- **Image Requirement**: Posts with 0 images are automatically skipped - only posts with 1+ photos are published.
+- **Text Graphic Filtering**: Three-layer system to prevent text-only announcement posts from being published:
     - Layer 1: Fast, free check for Facebook native colored background text posts via `text_format_preset_id` API field
-    - Layer 2: GPT-4o-mini vision analysis of all images in multi-image posts - only skips if ALL images are text graphics (at least one real photo = approved)
+    - Layer 2: GPT-4o-mini vision OCR to count words visible on each image - images with ≥15 words are flagged as text graphics
+    - Layer 3: Multi-image analysis - only skips if ALL images are text graphics (at least one real photo = approved)
 - **Duplicate Detection**: A six-layer system including URL normalization, in-memory checks, Facebook Post ID and source URL database checks, multi-image comparison, semantic similarity on titles, and database UNIQUE constraints for `source_url` and `facebook_post_id`.
 - **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.
