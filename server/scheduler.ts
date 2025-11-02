@@ -436,7 +436,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             });
           }
           
-          console.log(`✅ Created and published: ${translation.translatedTitle.substring(0, 50)}...`);
+          console.log(`✅ ${article.isPublished ? 'Created and published' : 'Created as draft'}: ${translation.translatedTitle.substring(0, 50)}...`);
 
           // Auto-post to Facebook after publishing (only if not already posted)
           if (article.isPublished && !article.facebookPostId && article.imageUrl) {
