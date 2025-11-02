@@ -84,6 +84,26 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
+        // STEP -4: Skip posts with no images (only publish posts with 1+ photos)
+        const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl;
+        if (!hasImages) {
+          skippedNotNews++;
+          console.log(`\n⏭️  SKIPPED - NO IMAGES (only posts with photos are published)`);
+          console.log(`   Title: ${post.title.substring(0, 60)}...`);
+          console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+          
+          // Update progress
+          if (callbacks?.onProgress) {
+            callbacks.onProgress({
+              totalPosts,
+              processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+              createdArticles: createdCount,
+              skippedNotNews,
+            });
+          }
+          continue;
+        }
+        
         // STEP -3: Skip Facebook "colored background text posts" (reliable filtering via API field)
         // These posts have text_format_preset_id set when using Facebook's colored backgrounds
         if (post.textFormatPresetId) {
