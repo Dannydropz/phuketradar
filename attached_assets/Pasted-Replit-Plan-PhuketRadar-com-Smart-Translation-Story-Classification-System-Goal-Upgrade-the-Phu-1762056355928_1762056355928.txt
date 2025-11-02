@@ -1,0 +1,207 @@
+Replit Plan: PhuketRadar.com – Smart Translation + Story Classification System
+Goal
+
+Upgrade the PhuketRadar.com backend so it automatically:
+
+Translates and rewrites Thai-language stories into English accurately and naturally.
+
+Detects which stories are newsworthy (accidents, crime, weather, etc.) and prioritizes them for publication.
+
+Filters out slow or boring stories (politics, meetings, ceremonies) from auto-publishing.
+
+Keeps costs low using GPT-4o-mini and free Google Translate API.
+
+Overview
+
+The system should:
+
+Use GPT-4o-mini (already configured) for translation and rewriting.
+
+Add a hybrid logic:
+
+Simple/short Thai → handled directly by GPT-4o-mini.
+
+Complex/long Thai → translated first with free Google Translate → then rewritten by GPT-4o-mini.
+
+Add a classification layer that scores each story (1–5) for “reader interest” and tags the category.
+
+Only auto-publish stories with interest_score ≥ 4.
+
+Queue the rest for review or daily digest.
+
+1️⃣ Create a Hybrid Translator
+
+Create a file at:
+
+utils/translator.js
+
+
+Paste this code:
+
+import OpenAI from "openai";
+import translate from "@vitalets/google-translate-api";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const contextMap = {
+  "Patong": "a major tourist beach area on Phuket’s west coast",
+  "Kata": "a family-friendly beach known for surfing",
+  "Rawai": "a local seafood area in southern Phuket",
+  "Kamala": "a quiet beach community north of Patong",
+  "Phuket Town": "the island’s cultural and administrative center",
+  "Chalong": "a district known for the Big Buddha and pier area"
+};
+
+function isComplex(thaiText) {
+  return thaiText.length > 400 || thaiText.includes("แถลง") || thaiText.includes("เจ้าหน้าที่");
+}
+
+function enrichThaiText(thaiText) {
+  let enriched = thaiText;
+  for (const [key, value] of Object.entries(contextMap)) {
+    if (enriched.includes(key)) {
+      enriched = enriched.replace(key, `${key} (${value})`);
+    }
+  }
+  return enriched;
+}
+
+export async function hybridTranslate(thaiText) {
+  const enrichedText = enrichThaiText(thaiText);
+  let englishSource;
+
+  try {
+    if (isComplex(thaiText)) {
+      const result = await translate(enrichedText, { to: "en" });
+      englishSource = result.text;
+      console.log("🟢 Used Google Translate → GPT-4o-mini");
+    } else {
+      englishSource = enrichedText;
+      console.log("🟢 Used GPT-4o-mini direct translation");
+    }
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are an English news editor for Phuket Radar.
+          Step 1: If text is Thai, translate accurately to English.
+          Step 2: Rewrite for clarity and readability.
+          Keep all names, times, places, and factual details.
+          Add one short contextual line if useful (e.g., “Patong is a popular tourist area”).
+          Keep tone neutral and concise.`
+        },
+        { role: "user", content: englishSource }
+      ],
+      temperature: 0.3,
+    });
+
+    const rewritten = response.choices[0].message.content.trim();
+    return rewritten;
+  } catch (err) {
+    console.error("Translation pipeline failed:", err);
+    return null;
+  }
+}
+
+2️⃣ Create the News Classifier
+
+Create a file at:
+
+utils/classifier.js
+
+
+Paste this code:
+
+import OpenAI from "openai";
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const hotKeywords = ["อุบัติเหตุ","ไฟไหม้","จมน้ำ","จับกุม","พายุ","ฝนตกหนัก","โจร","เสียชีวิต"];
+const coldKeywords = ["ประชุม","มอบหมาย","สัมมนา","แถลงข่าว","โครงการ","อบรม","มอบของ"];
+
+export async function classifyStory(englishText, thaiOriginal) {
+  let keywordBoost = 0;
+  if (hotKeywords.some(word => thaiOriginal.includes(word))) keywordBoost += 1;
+  if (coldKeywords.some(word => thaiOriginal.includes(word))) keywordBoost -= 1;
+
+  try {
+    const prompt = `
+    Classify this Phuket news story by topic and reader appeal.
+    Return only JSON:
+    {
+      "category": one of ["Crime","Accident","Weather","Emergency","Tourism","Politics","Community","Event","Other"],
+      "interest_score": integer 1-5,
+      "headline_tone": one of ["Breaking","Developing","Routine"]
+    }
+
+    Scoring guide:
+    - 5 = urgent or dramatic (crime, accident, drowning, storm, major closure)
+    - 4 = important local info (traffic disruption, rescues, heavy rain alerts)
+    - 3 = moderate (festivals, tourism, minor policy)
+    - 2 = mundane (official meetings, community updates)
+    - 1 = trivial (ceremonies, small events)
+
+    Text:
+    ${englishText}
+    `;
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+    });
+
+    const raw = response.choices[0].message.content.trim();
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}");
+    const cleanJson = raw.slice(jsonStart, jsonEnd + 1);
+
+    let data = JSON.parse(cleanJson);
+    data.interest_score = Math.max(1, Math.min(5, data.interest_score + keywordBoost));
+    data.publishNow = data.interest_score >= 4;
+    return data;
+  } catch (err) {
+    console.error("Classification failed:", err);
+    return { category: "Unknown", interest_score: 3, headline_tone: "Routine", publishNow: false };
+  }
+}
+
+3️⃣ Integrate into Main Pipeline
+
+In your main story-processing script, add:
+
+import { hybridTranslate } from "./utils/translator.js";
+import { classifyStory } from "./utils/classifier.js";
+
+async function processStory(thaiText) {
+  const englishText = await hybridTranslate(thaiText);
+  const meta = await classifyStory(englishText, thaiText);
+
+  console.log("✅ Classified story:", meta);
+
+  if (meta.publishNow) {
+    await publishToSite(englishText, meta.category, meta.interest_score);
+  } else {
+    await queueForReview(englishText, meta.category);
+  }
+}
+
+4️⃣ Behavior Summary
+
+✅ High-interest stories (score ≥ 4) → auto-publish instantly.
+✅ Mid-level stories (score 3) → held for manual review.
+✅ Low-interest (score ≤ 2) → archived silently.
+✅ Built-in keyword booster ensures “ไฟไหม้”, “จับกุม”, “ฝนตกหนัก”, etc. get priority.
+
+5️⃣ Optional Add-Ons (Future Phases)
+
+Add a “headline generator” that uses the same classification metadata.
+
+Store interest_score and category in Supabase for analytics dashboards.
+
+Weekly fine-tuning: Feed GPT examples of what Phuket Radar did or didn’t post to refine tone.
+
+✅ Expected Outcome
+
+PhuketRadar.com automatically filters and publishes only the fast, dramatic, and relevant stories that matter — crime, weather, rescues, and local incidents — keeping the brand sharp, engaging, and truly “Phuket’s Fastest English Breaking News.”
