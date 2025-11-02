@@ -312,6 +312,13 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
                 type: "text",
                 text: `You are a strict image classifier for a news website. Analyze this image and determine if it's a REAL PHOTOGRAPH of actual people, places, events, or objects.
 
+TASK 1: COUNT WORDS ON THE IMAGE
+- Use OCR to extract ALL visible text on the image
+- Count the total number of words (not characters, not sentences - WORDS)
+- Include text of any size, color, or location on the image
+- Return the exact word count
+
+TASK 2: CLASSIFY IMAGE TYPE
 CRITICAL: Be VERY STRICT. Answer "yes" ONLY if this is an authentic, unedited photograph showing:
 - Real people in real situations
 - Actual locations or buildings
@@ -335,18 +342,27 @@ Answer "no" (REJECT) if the image is ANY of these:
 - Memes or heavily edited images
 - Screenshots of websites or apps
 
+WORD COUNT THRESHOLD:
+- If the image has 15 OR MORE words on it → AUTOMATICALLY REJECT (these are text graphics)
+- Even if it looks like a photo with text overlay, 15+ words = text graphic
+
 EXAMPLES OF WHAT TO REJECT:
-- "Phuket raids a major gambling website..." (white text on black background) → REJECT
-- Police announcement with text on blue background → REJECT  
-- Breaking news headline as a graphic → REJECT
-- Any image where text is the main element → REJECT
+- "Phuket raids a major gambling website..." (white text on black background, 50+ words) → REJECT
+- Police announcement with text on blue background (30+ words) → REJECT  
+- Breaking news headline as a graphic (20+ words) → REJECT
+- Any image where text is the main element (15+ words) → REJECT
+
+EXAMPLES OF WHAT TO ACCEPT:
+- Accident photo with caption "Car crash on Patong Hill" (5 words) → ACCEPT if photo is real
+- Tourism photo with watermark "Phuket Times" (2 words) → ACCEPT if photo is real
+- Event photo with date/time stamp (3-5 words) → ACCEPT if photo is real
 
 CONFIDENCE REQUIREMENT:
 - Only return isRealPhoto: true if you are HIGHLY CONFIDENT (90%+) it's a genuine photograph
 - When in doubt, REJECT (return false)
 - If the image quality is poor and you can't tell, REJECT
 
-Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "reason": "brief explanation"}`
+Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "wordCount": number, "reason": "brief explanation including word count"}`
               },
               {
                 type: "image_url",
@@ -366,11 +382,16 @@ Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "reason": "brief e
       const result = JSON.parse(response.choices[0].message.content || "{}");
       const isRealPhoto = result.isRealPhoto || false;
       const confidence = result.confidence || 0;
+      const wordCount = result.wordCount || 0;
       
-      // Require high confidence (>80) to accept as real photo
-      const accepted = isRealPhoto && confidence > 80;
+      // Apply word count threshold: 15+ words = text graphic
+      const hasTooManyWords = wordCount >= 15;
+      
+      // Require high confidence (>80) AND word count below threshold to accept
+      const accepted = isRealPhoto && confidence > 80 && !hasTooManyWords;
       
       console.log(`🖼️  Image classification: ${accepted ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
+      console.log(`   Word count on image: ${wordCount} words ${hasTooManyWords ? "(≥15 = TEXT GRAPHIC)" : "(< 15 = OK)"}`);
       console.log(`   Confidence: ${confidence}%`);
       console.log(`   Reason: ${result.reason}`);
       
