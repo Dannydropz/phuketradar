@@ -75,8 +75,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
       // Smart scrape: stops when hitting known posts to minimize API usage
       const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
         source.url, 
-        1, // max pages (reduced from 3 to minimize API costs)
-        checkForDuplicate // stop early on duplicates
+        3, // max pages - ensures we catch all recent stories from fast-posting sources like Newshawk
+        checkForDuplicate // stop early on duplicates (prevents unnecessary API calls)
       );
       console.log(`${source.name}: Found ${scrapedPosts.length} NEW posts`);
       totalPosts += scrapedPosts.length;

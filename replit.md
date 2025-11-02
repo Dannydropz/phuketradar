@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
 
 ### Architectural Decisions
-- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts`.
+- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source to ensure fast-posting sources like Newshawk are fully captured.
 - **Translation**: Hybrid pipeline using Google Translate for complex Thai text and GPT-4-mini for polishing and style. Enriches content with Phuket-specific context and location descriptions.
 - **Data Flow**: Unidirectional: Scraper → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
 - **Text Graphic Filtering**: Two-layer system to prevent text-only announcement posts from being published:
