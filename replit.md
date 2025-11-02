@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
     - Layer 2: GPT-4o-mini vision OCR to count words visible on each image - images with ≥15 words are flagged as text graphics
     - Layer 3: Multi-image analysis - only skips if ALL images are text graphics (at least one real photo = approved)
 - **Duplicate Detection**: A six-layer system including URL normalization, in-memory checks, Facebook Post ID and source URL database checks, multi-image comparison, semantic similarity on titles, and database UNIQUE constraints for `source_url` and `facebook_post_id`.
-- **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags.
+- **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags. Auto-posting occurs both during automated scraping (for high-interest articles) and when manually publishing draft articles via the admin dashboard.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping

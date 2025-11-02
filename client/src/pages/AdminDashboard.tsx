@@ -135,12 +135,13 @@ export default function AdminDashboard() {
       const res = await apiRequest("POST", `/api/admin/articles/${id}/publish`);
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (article) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      const postedToFacebook = article.facebookPostId ? " and posted to Facebook" : "";
       toast({
         title: "Article Published",
-        description: "The article is now live on the site",
+        description: `The article is now live on the site${postedToFacebook}`,
       });
     },
   });
