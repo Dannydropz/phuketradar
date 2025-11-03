@@ -242,7 +242,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             for (const existing of existingImageHashes) {
               if (!existing.imageHash) continue;
               
-              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 10);
+              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 15);
               if (areSimilar) {
                 skippedSemanticDuplicates++;
                 console.log(`\n🚫 DUPLICATE DETECTED - Method: PERCEPTUAL IMAGE HASH`);
@@ -362,9 +362,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             // Compare entities
             const entityMatch = entityExtractionService.compareEntities(extractedEntities, existingEntities);
             
-            // If entity match score >= 50, it's likely the same story
+            // If entity match score >= 60, it's likely the same story
             // This catches: same crime + same location + same organization
-            if (entityMatch.score >= 50) {
+            if (entityMatch.score >= 60) {
               skippedSemanticDuplicates++;
               foundEntityDuplicate = true;
               console.log(`\n🚫 DUPLICATE DETECTED - Method: ENTITY MATCHING (${entityMatch.score}% match)`);
@@ -404,12 +404,12 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 2.5: Check for semantic duplicates (45% threshold for entity-matched articles, 65% for others)
+          // STEP 2.5: Check for semantic duplicates (55% threshold for entity-matched articles, 75% for others)
           // If we have strong entity matches, we can use a lower semantic threshold
           const semanticThreshold = extractedEntities && 
             (extractedEntities.crimeTypes.length > 0 || extractedEntities.locations.length > 0) 
-            ? 0.45  // Lower threshold when we have entity context
-            : 0.65; // Higher threshold when no entities extracted
+            ? 0.55  // Lower threshold when we have entity context
+            : 0.75; // Higher threshold when no entities extracted
           
           const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, semanticThreshold);
           
