@@ -16,6 +16,7 @@ export interface IStorage {
   getArticleBySourceUrl(sourceUrl: string): Promise<Article | undefined>;
   getArticleByFacebookPostId(facebookPostId: string): Promise<Article | undefined>;
   getArticleByImageUrl(imageUrl: string): Promise<Article | undefined>;
+  getArticlesWithImageHashes(): Promise<{ id: string; title: string; imageHash: string | null }[]>;
   getArticlesByCategory(category: string): Promise<ArticleListItem[]>;
   getPublishedArticles(): Promise<ArticleListItem[]>;
   getPendingArticles(): Promise<Article[]>;
@@ -176,6 +177,18 @@ export class DatabaseStorage implements IStorage {
         embedding: articles.embedding,
       })
       .from(articles);
+    return result;
+  }
+
+  async getArticlesWithImageHashes(): Promise<{ id: string; title: string; imageHash: string | null }[]> {
+    const result = await db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        imageHash: articles.imageHash,
+      })
+      .from(articles)
+      .orderBy(desc(articles.publishedAt));
     return result;
   }
 
