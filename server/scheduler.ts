@@ -296,7 +296,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             for (const existing of existingImageHashes) {
               if (!existing.imageHash) continue;
               
-              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 20);
+              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 5);
               if (areSimilar) {
                 skippedSemanticDuplicates++;
                 skipReasons.push({
@@ -304,7 +304,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   postTitle: post.title.substring(0, 60),
                   sourceUrl: post.sourceUrl,
                   facebookPostId: post.facebookPostId,
-                  details: `Hash match detected, threshold: 20`
+                  details: `Hash match detected, threshold: 5`
                 });
                 console.log(`\n🚫 DUPLICATE DETECTED - Method: PERCEPTUAL IMAGE HASH`);
                 console.log(`   New title: ${post.title.substring(0, 60)}...`);
