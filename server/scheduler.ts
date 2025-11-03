@@ -26,6 +26,7 @@ import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { entityExtractionService, type ExtractedEntities } from "./services/entity-extraction";
 import { imageHashService } from "./services/image-hash";
+import { imageAnalysisService } from "./services/image-analysis";
 
 // Optional callback for progress updates (used by admin UI)
 export interface ScrapeProgressCallback {
@@ -338,9 +339,77 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         }
         
+        // STEP 0.3: Solid-color background detection (Facebook colored text posts)
+        // This is faster and cheaper than vision API, catches posts like "Breaking News" on solid black/red backgrounds
+        const imagesToCheck = post.imageUrls || (post.imageUrl ? [post.imageUrl] : []);
+        
+        if (imagesToCheck.length > 0) {
+          console.log(`\n🎨 COLOR ANALYSIS: Checking ${imagesToCheck.length} image(s) for solid backgrounds...`);
+          
+          let solidBackgroundCount = 0;
+          let realImageCount = 0;
+          const colorResults: Array<{url: string; isSolid: boolean; stdDev: number}> = [];
+          
+          // Check each image for solid color background
+          // Using threshold of 50 after aggressive downsampling (8x8 + blur)
+          // Real photos retain high variance (>60) even at tiny resolution
+          // Solid backgrounds have low variance (<50) after blur removes text
+          for (const imageUrl of imagesToCheck) {
+            try {
+              const analysis = await imageAnalysisService.isSolidColorBackground(imageUrl, 50);
+              colorResults.push({ url: imageUrl, isSolid: analysis.isSolid, stdDev: analysis.avgStdDev });
+              
+              if (analysis.isSolid) {
+                solidBackgroundCount++;
+                console.log(`   Image ${colorResults.length}: ❌ Solid background detected (stddev: ${analysis.avgStdDev})`);
+                console.log(`      Reason: ${analysis.reason}`);
+              } else {
+                realImageCount++;
+                console.log(`   Image ${colorResults.length}: ✅ Varied content (stddev: ${analysis.avgStdDev})`);
+              }
+            } catch (colorError) {
+              console.warn(`   ⚠️  Color analysis failed for image, assuming real image:`, colorError);
+              realImageCount++; // If analysis fails, assume it's a real image
+              colorResults.push({ url: imageUrl, isSolid: false, stdDev: 999 });
+            }
+          }
+          
+          // Skip if ALL images are solid color backgrounds
+          if (solidBackgroundCount > 0 && realImageCount === 0) {
+            skippedNotNews++;
+            skipReasons.push({
+              reason: "Solid color background",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `All ${solidBackgroundCount} image(s) are solid color backgrounds (text overlays)`
+            });
+            console.log(`\n⏭️  SKIPPED - SOLID COLOR BACKGROUND (Facebook text post)`);
+            console.log(`   Title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Images checked: ${imagesToCheck.length}`);
+            console.log(`   Solid backgrounds: ${solidBackgroundCount} | Real images: ${realImageCount}`);
+            console.log(`   🎯 Result: ALL images are solid backgrounds → REJECTED`);
+            console.log(`   ✅ Skipped before vision API (saved API credits)\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
+            continue;
+          } else if (solidBackgroundCount > 0) {
+            console.log(`   ⚠️  Mixed content: ${solidBackgroundCount} solid, ${realImageCount} real → Proceeding to vision check\n`);
+          } else {
+            console.log(`   ✅ All images have varied content → Proceeding to vision check\n`);
+          }
+        }
+        
         // STEP 0.5: Vision-based text graphic filtering (GPT-4o-mini vision API)
         // Check all images to ensure at least one is a real photo (not a text graphic)
-        const imagesToCheck = post.imageUrls || (post.imageUrl ? [post.imageUrl] : []);
         
         if (imagesToCheck.length > 0) {
           console.log(`\n📸 VISION CHECK: Analyzing ${imagesToCheck.length} image(s) for text graphics...`);
