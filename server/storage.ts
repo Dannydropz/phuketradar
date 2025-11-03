@@ -114,6 +114,7 @@ export class DatabaseStorage implements IStorage {
         excerpt: articles.excerpt,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
+        imageHash: articles.imageHash,
         category: articles.category,
         author: articles.author,
         sourceUrl: articles.sourceUrl,
@@ -126,7 +127,9 @@ export class DatabaseStorage implements IStorage {
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
+        interestScore: articles.interestScore,
         relatedArticleIds: articles.relatedArticleIds,
+        entities: articles.entities,
       })
       .from(articles)
       .where(sql`LOWER(${articles.category}) = LOWER(${category}) AND ${articles.isPublished} = true`)
@@ -142,6 +145,7 @@ export class DatabaseStorage implements IStorage {
         excerpt: articles.excerpt,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
+        imageHash: articles.imageHash,
         category: articles.category,
         author: articles.author,
         sourceUrl: articles.sourceUrl,
@@ -154,7 +158,9 @@ export class DatabaseStorage implements IStorage {
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
+        interestScore: articles.interestScore,
         relatedArticleIds: articles.relatedArticleIds,
+        entities: articles.entities,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))

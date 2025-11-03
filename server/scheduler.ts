@@ -25,6 +25,7 @@ import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { entityExtractionService, type ExtractedEntities } from "./services/entity-extraction";
+import { imageHashService } from "./services/image-hash";
 
 // Optional callback for progress updates (used by admin UI)
 export interface ScrapeProgressCallback {
@@ -58,6 +59,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     // Get all existing article embeddings for semantic duplicate detection
     const existingEmbeddings = await storage.getArticlesWithEmbeddings();
     console.log(`Loaded ${existingEmbeddings.length} existing article embeddings`);
+    
+    // Get all existing article image hashes for visual duplicate detection
+    const existingImageHashes = await storage.getArticlesWithImageHashes();
+    console.log(`Loaded ${existingImageHashes.length} existing article image hashes`);
     
     let totalPosts = 0;
     let createdCount = 0;
@@ -220,6 +225,55 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               });
             }
             continue;
+          }
+        }
+        
+        // STEP 0.25: Perceptual image hash duplicate detection
+        // Catches visually similar images even with different URLs (different emojis, CDN params, etc.)
+        const primaryImageUrl = post.imageUrl || (post.imageUrls && post.imageUrls[0]);
+        let imageHash: string | undefined;
+        
+        if (primaryImageUrl) {
+          try {
+            console.log(`\n🔍 IMAGE HASH CHECK: Generating perceptual hash...`);
+            imageHash = await imageHashService.generatePerceptualHash(primaryImageUrl);
+            
+            // Check if any existing article has a similar image hash
+            for (const existing of existingImageHashes) {
+              if (!existing.imageHash) continue;
+              
+              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 10);
+              if (areSimilar) {
+                skippedSemanticDuplicates++;
+                console.log(`\n🚫 DUPLICATE DETECTED - Method: PERCEPTUAL IMAGE HASH`);
+                console.log(`   New title: ${post.title.substring(0, 60)}...`);
+                console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
+                console.log(`   Image hash match: ${imageHash.substring(0, 16)}... ≈ ${existing.imageHash.substring(0, 16)}...`);
+                console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+                
+                // Update progress
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews,
+                  });
+                }
+                
+                // Break to outer loop - mark as duplicate found
+                imageHash = undefined; // Signal to continue outer loop
+                break;
+              }
+            }
+            
+            // If imageHash is undefined, we found a duplicate - skip to next post
+            if (!imageHash) {
+              continue;
+            }
+          } catch (hashError) {
+            console.warn(`   ⚠️  Image hashing failed, proceeding without hash check:`, hashError);
+            // Continue without hash check if it fails
           }
         }
         
@@ -417,6 +471,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               excerpt: translation.excerpt,
               imageUrl: post.imageUrl || null,
               imageUrls: post.imageUrls || null,
+              imageHash: imageHash || null, // Store perceptual hash for duplicate detection
               category: translation.category,
               sourceUrl: post.sourceUrl,
               facebookPostId: null, // Will be set after posting to Phuket Radar Facebook page
