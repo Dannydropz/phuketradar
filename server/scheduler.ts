@@ -361,9 +361,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 textGraphicCount++;
               }
             } catch (visionError) {
-              console.warn(`   ⚠️  Vision check failed for image, assuming real photo:`, visionError);
-              realPhotoCount++; // Err on the side of inclusion if vision fails
-              visionResults.push({ url: imageUrl, isReal: true, reason: 'vision API error' });
+              // Vision API failed - this often means broken/blank/invalid images
+              // Be conservative: reject instead of accepting by default
+              console.warn(`   ⚠️  Vision check failed for image, treating as text graphic:`, visionError);
+              textGraphicCount++; // Reject when vision fails (blank/broken images)
+              visionResults.push({ url: imageUrl, isReal: false, reason: 'vision API error - likely broken/blank image' });
             }
           }
           

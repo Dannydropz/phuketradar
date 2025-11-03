@@ -387,11 +387,15 @@ Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "wordCount": numbe
       // Apply word count threshold: 15+ words = text graphic
       const hasTooManyWords = wordCount >= 15;
       
+      // Explicit blank image detection: 0 words + very low confidence = blank/broken image
+      const isProbablyBlank = wordCount === 0 && confidence < 50;
+      
       // Require high confidence (>80) AND word count below threshold to accept
-      const accepted = isRealPhoto && confidence > 80 && !hasTooManyWords;
+      // Also reject if it's probably a blank image
+      const accepted = isRealPhoto && confidence > 80 && !hasTooManyWords && !isProbablyBlank;
       
       console.log(`🖼️  Image classification: ${accepted ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
-      console.log(`   Word count on image: ${wordCount} words ${hasTooManyWords ? "(≥15 = TEXT GRAPHIC)" : "(< 15 = OK)"}`);
+      console.log(`   Word count on image: ${wordCount} words ${hasTooManyWords ? "(≥15 = TEXT GRAPHIC)" : isProbablyBlank ? "(0 words + low conf = BLANK)" : "(< 15 = OK)"}`);
       console.log(`   Confidence: ${confidence}%`);
       console.log(`   Reason: ${result.reason}`);
       
@@ -399,7 +403,7 @@ Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "wordCount": numbe
     } catch (error) {
       console.error("Error classifying image:", error);
       // Re-throw the error so the caller can decide how to handle it
-      // The scheduler will catch this and default to accepting the image (err on side of inclusion)
+      // The scheduler will catch this and reject the image (conservative approach for broken/blank images)
       throw error;
     }
   }
