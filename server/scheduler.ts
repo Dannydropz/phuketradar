@@ -242,7 +242,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             for (const existing of existingImageHashes) {
               if (!existing.imageHash) continue;
               
-              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 15);
+              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 20);
               if (areSimilar) {
                 skippedSemanticDuplicates++;
                 console.log(`\n🚫 DUPLICATE DETECTED - Method: PERCEPTUAL IMAGE HASH`);
