@@ -193,9 +193,9 @@ export class ScraperService {
 
     for (const post of posts) {
       try {
-        // Skip posts without text content
-        if (!post.text || post.text.trim().length < 20) {
-          console.log(`Skipping post ${post.id} - insufficient text content`);
+        // Skip posts without ANY text content (allow short captions for breaking news)
+        if (!post.text || post.text.trim().length === 0) {
+          console.log(`Skipping post ${post.id} - no text content`);
           continue;
         }
 
