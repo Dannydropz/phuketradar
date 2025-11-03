@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 ### Automated Scraping
 - **Mechanism**: GitHub Actions runs `scripts/scheduled-scrape.ts` every 2 hours, making an HTTP POST request to `/api/cron/scrape`.
 - **Error Handling**: Cron endpoint always returns HTTP 200 OK with success status in payload.
+- **Debugging System**: Comprehensive skip-reason tracking logs every rejected post with detailed metrics (OCR word counts, similarity scores, hash distances, interest scores, etc.). After each scrape, outputs a summary table showing rejection breakdown by filter type and a detailed log of all skipped posts.
 
 ### Email Newsletter System
 - **Database**: `subscribers` table.
