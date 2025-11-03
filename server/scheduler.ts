@@ -511,6 +511,15 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             });
           }
           
+          // Add to existing image hashes so we can catch duplicates within this batch
+          if (imageHash) {
+            existingImageHashes.push({
+              id: article.id,
+              title: translation.translatedTitle,
+              imageHash: imageHash,
+            });
+          }
+          
           console.log(`✅ ${article.isPublished ? 'Created and published' : 'Created as draft'}: ${translation.translatedTitle.substring(0, 50)}...`);
 
           // Auto-post to Facebook after publishing (only if not already posted)
