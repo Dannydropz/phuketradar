@@ -87,7 +87,7 @@ export default function AdminDashboard() {
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(pollInterval);
-  }, [currentJob, toast]);
+  }, [currentJob?.id, currentJob?.status, toast]);
 
   const scrapeMutation = useMutation({
     mutationFn: async () => {
