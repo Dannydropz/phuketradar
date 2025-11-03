@@ -37,6 +37,15 @@ export interface ScrapeProgressCallback {
   }) => void;
 }
 
+// Skip reason tracking for detailed debugging
+interface SkipReason {
+  reason: string;
+  postTitle: string;
+  sourceUrl: string;
+  facebookPostId?: string;
+  details?: string;
+}
+
 export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   const timestamp = new Date().toISOString();
   console.log("\n".repeat(3) + "=".repeat(80));
@@ -69,6 +78,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     let publishedCount = 0;
     let skippedNotNews = 0;
     let skippedSemanticDuplicates = 0;
+    
+    // Detailed skip reason tracking for debugging
+    const skipReasons: SkipReason[] = [];
 
     // Get the appropriate scraper based on SCRAPER_PROVIDER env var
     const scraperService = await getScraperService();
@@ -93,6 +105,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl;
         if (!hasImages) {
           skippedNotNews++;
+          skipReasons.push({
+            reason: "No images",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: "Posts must have at least 1 image"
+          });
           console.log(`\n⏭️  SKIPPED - NO IMAGES (only posts with photos are published)`);
           console.log(`   Title: ${post.title.substring(0, 60)}...`);
           console.log(`   ✅ Skipped before translation (saved API credits)\n`);
@@ -113,6 +132,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         // These posts have text_format_preset_id set when using Facebook's colored backgrounds
         if (post.textFormatPresetId) {
           skippedNotNews++;
+          skipReasons.push({
+            reason: "Colored background text",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: `Preset ID: ${post.textFormatPresetId}`
+          });
           console.log(`\n⏭️  SKIPPED - COLORED BACKGROUND TEXT POST (Facebook text format preset)`);
           console.log(`   Preset ID: ${post.textFormatPresetId}`);
           console.log(`   Title: ${post.title.substring(0, 60)}...`);
@@ -135,6 +161,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           const existingByPostId = await storage.getArticleByFacebookPostId(post.facebookPostId);
           if (existingByPostId) {
             skippedSemanticDuplicates++;
+            skipReasons.push({
+              reason: "Duplicate: Facebook Post ID",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `Post ID: ${post.facebookPostId}`
+            });
             console.log(`\n🚫 DUPLICATE DETECTED - Method: FACEBOOK POST ID CHECK`);
             console.log(`   Post ID: ${post.facebookPostId}`);
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
@@ -158,6 +191,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
         if (existingBySourceUrl) {
           skippedSemanticDuplicates++;
+          skipReasons.push({
+            reason: "Duplicate: Source URL",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: `URL: ${post.sourceUrl}`
+          });
           console.log(`\n🚫 DUPLICATE DETECTED - Method: SOURCE URL CHECK`);
           console.log(`   URL: ${post.sourceUrl}`);
           console.log(`   New title: ${post.title.substring(0, 60)}...`);
@@ -184,6 +224,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             const existingImageArticle = await storage.getArticleByImageUrl(imageUrl);
             if (existingImageArticle) {
               skippedSemanticDuplicates++;
+              skipReasons.push({
+                reason: "Duplicate: Image URL",
+                postTitle: post.title.substring(0, 60),
+                sourceUrl: post.sourceUrl,
+                facebookPostId: post.facebookPostId,
+                details: `Matching image: ${imageUrl.substring(0, 80)}`
+              });
               console.log(`\n🚫 DUPLICATE DETECTED - Method: IMAGE URL CHECK (${post.imageUrls?.length || 1} images checked)`);
               console.log(`   New title: ${post.title.substring(0, 60)}...`);
               console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
@@ -210,6 +257,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           const existingImageArticle = await storage.getArticleByImageUrl(post.imageUrl);
           if (existingImageArticle) {
             skippedSemanticDuplicates++;
+            skipReasons.push({
+              reason: "Duplicate: Image URL",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `Matching image: ${post.imageUrl}`
+            });
             console.log(`\n🚫 DUPLICATE DETECTED - Method: IMAGE URL CHECK (single image)`);
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${existingImageArticle.title.substring(0, 60)}...`);
@@ -245,6 +299,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 20);
               if (areSimilar) {
                 skippedSemanticDuplicates++;
+                skipReasons.push({
+                  reason: "Duplicate: Perceptual hash",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `Hash match detected, threshold: 20`
+                });
                 console.log(`\n🚫 DUPLICATE DETECTED - Method: PERCEPTUAL IMAGE HASH`);
                 console.log(`   New title: ${post.title.substring(0, 60)}...`);
                 console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
@@ -309,6 +370,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Only skip if ALL images are text graphics (no real photos)
           if (realPhotoCount === 0 && textGraphicCount > 0) {
             skippedNotNews++;
+            skipReasons.push({
+              reason: "Text graphic (vision)",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `Real photos: ${realPhotoCount}, Text graphics: ${textGraphicCount}`
+            });
             console.log(`\n⏭️  SKIPPED - TEXT GRAPHIC POST (GPT-4o-mini vision)`);
             console.log(`   Title: ${post.title.substring(0, 60)}...`);
             console.log(`   Images checked: ${imagesToCheck.length}`);
@@ -367,6 +435,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             if (entityMatch.score >= 60) {
               skippedSemanticDuplicates++;
               foundEntityDuplicate = true;
+              skipReasons.push({
+                reason: "Duplicate: Entity match",
+                postTitle: post.title.substring(0, 60),
+                sourceUrl: post.sourceUrl,
+                facebookPostId: post.facebookPostId,
+                details: `Score: ${entityMatch.score}%`
+              });
               console.log(`\n🚫 DUPLICATE DETECTED - Method: ENTITY MATCHING (${entityMatch.score}% match)`);
               console.log(`   New title: ${post.title.substring(0, 60)}...`);
               console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
@@ -415,6 +490,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           
           if (duplicateCheck.isDuplicate) {
             skippedSemanticDuplicates++;
+            skipReasons.push({
+              reason: "Duplicate: Semantic similarity",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `Similarity: ${(duplicateCheck.similarity * 100).toFixed(1)}%`
+            });
             console.log(`\n🚫 DUPLICATE DETECTED - Method: SEMANTIC SIMILARITY (${(duplicateCheck.similarity * 100).toFixed(1)}% match, threshold: ${(semanticThreshold * 100)}%)`);
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
@@ -457,6 +539,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           const shouldAutoPublish = translation.interestScore >= 4;
           
           if (!shouldAutoPublish) {
+            skipReasons.push({
+              reason: "Low interest (draft)",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `Score: ${translation.interestScore}/5`
+            });
             console.log(`   📋 Low interest score (${translation.interestScore}/5) - saving as DRAFT for review`);
           } else {
             console.log(`   ✅ High interest score (${translation.interestScore}/5) - AUTO-PUBLISHING`);
@@ -546,6 +635,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         } else {
           skippedNotNews++;
+          skipReasons.push({
+            reason: "Not news (AI classified)",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: `AI classified as non-news (isActualNews: ${translation.isActualNews})`
+          });
           console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
         }
         
@@ -564,12 +660,53 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     } // End of posts loop
     } // End of sources loop
 
-    console.log(`\n=== Multi-Source Scrape Complete ===`);
-    console.log(`Total posts fetched: ${totalPosts}`);
-    console.log(`Skipped (semantic duplicates): ${skippedSemanticDuplicates}`);
-    console.log(`Skipped (not news): ${skippedNotNews}`);
-    console.log(`Articles created: ${createdCount}`);
-    console.log(`Articles published: ${publishedCount}`);
+    // Print detailed summary with skip reason breakdown
+    console.log("\n" + "━".repeat(80));
+    console.log("📊 SCRAPE SUMMARY");
+    console.log("━".repeat(80));
+    console.log(`Total posts checked: ${totalPosts}`);
+    console.log(`Articles created: ${createdCount} (${publishedCount} published, ${createdCount - publishedCount} drafts)`);
+    console.log(`Posts skipped: ${skipReasons.length}`);
+    
+    if (skipReasons.length > 0) {
+      // Group skip reasons by type and count them
+      const reasonCounts = skipReasons.reduce((acc, skip) => {
+        acc[skip.reason] = (acc[skip.reason] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      console.log("\n" + "─".repeat(80));
+      console.log("🚫 REJECTION BREAKDOWN:");
+      console.log("─".repeat(80));
+      
+      // Sort by count (most common first)
+      Object.entries(reasonCounts)
+        .sort(([, a], [, b]) => b - a)
+        .forEach(([reason, count]) => {
+          console.log(`  • ${reason}: ${count} post${count > 1 ? 's' : ''}`);
+        });
+      
+      // Print detailed list of each rejection
+      console.log("\n" + "─".repeat(80));
+      console.log("📋 DETAILED REJECTION LOG:");
+      console.log("─".repeat(80));
+      
+      skipReasons.forEach((skip, idx) => {
+        console.log(`\n${idx + 1}. ${skip.reason}`);
+        console.log(`   Title: ${skip.postTitle}...`);
+        if (skip.facebookPostId) {
+          console.log(`   FB Post ID: ${skip.facebookPostId}`);
+        }
+        console.log(`   Source: ${skip.sourceUrl}`);
+        if (skip.details) {
+          console.log(`   Details: ${skip.details}`);
+        }
+      });
+    }
+    
+    console.log("\n" + "━".repeat(80));
+    console.log("✅ SCRAPE COMPLETE");
+    console.log("━".repeat(80) + "\n");
     
     return {
       success: true,
