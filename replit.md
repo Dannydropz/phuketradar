@@ -30,10 +30,12 @@ Preferred communication style: Simple, everyday language.
 - **Translation**: Hybrid pipeline using Google Translate for complex Thai text and GPT-4-mini for polishing and style. Enriches content with Phuket-specific context and location descriptions.
 - **Data Flow**: Unidirectional: Scraper → Image Check → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
 - **Image Requirement**: Posts with 0 images are automatically skipped - only posts with 1+ photos are published.
-- **Text Graphic Filtering**: Three-layer system to prevent text-only announcement posts from being published:
+- **Text Graphic Filtering**: **TEMPORARILY DISABLED** - Was blocking all posts due to Facebook returning 400 errors when downloading images. The system had three layers:
     - Layer 1: Fast, free check for Facebook native colored background text posts via `text_format_preset_id` API field
-    - Layer 2: GPT-4o-mini vision OCR to count words visible on each image - images with ≥15 words are flagged as text graphics
-    - Layer 3: Multi-image analysis - only skips if ALL images are text graphics (at least one real photo = approved)
+    - Layer 2: Color analysis using Sharp library to detect solid-color backgrounds
+    - Layer 3: GPT-4o-mini vision OCR to count words visible on each image
+    - **Issue**: Both color analysis and vision API failed to download Facebook CDN URLs (CORS/permissions), treating all failures as "reject" blocked legitimate news
+    - **TODO**: Re-implement with smart error handling that distinguishes network errors (accept post) from quality issues (reject post)
 - **Duplicate Detection**: A seven-layer system including URL normalization, in-memory checks, Facebook Post ID and source URL database checks, exact image URL matching, perceptual image hashing (bmvbhash via blockhash-core with Hamming distance threshold of 5), semantic similarity on titles, and database UNIQUE constraints for `source_url` and `facebook_post_id`. The perceptual hash catches near-identical images (same photo with minor edits) while allowing different incidents with visually similar scenes to pass through.
 - **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags. Auto-posting occurs both during automated scraping (for high-interest articles) and when manually publishing draft articles via the admin dashboard.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.
