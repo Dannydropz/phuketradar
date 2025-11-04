@@ -339,15 +339,65 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         }
         
-        // STEP 0.3 & 0.5: TEMPORARILY DISABLED - Image quality checks
-        // Both color analysis and vision API are failing with 400 errors when downloading Facebook images
-        // This was blocking ALL posts from publishing. Re-enable after fixing download error handling.
-        // TODO: Fix to distinguish network errors (accept post) from quality issues (reject post)
+        // STEP 0.3: Smart image quality filtering
+        // Multi-stage: file size check → color analysis → vision API (only if ambiguous)
+        // Gracefully handles download failures - accepts posts when images can't be fetched
         
         const imagesToCheck = post.imageUrls || (post.imageUrl ? [post.imageUrl] : []);
-        console.log(`\n📸 IMAGE CHECKS: Temporarily disabled (was blocking posts due to Facebook download errors)`);
-        console.log(`   Images: ${imagesToCheck.length} → Skipping color analysis and vision checks`);
-        console.log(`   Proceeding with post (will fix image validation later)\n`);
+        
+        if (imagesToCheck.length > 0) {
+          console.log(`\n📸 IMAGE QUALITY CHECK: Analyzing ${imagesToCheck.length} image(s)...`);
+          
+          const batchResult = await imageAnalysisService.analyzeMultipleImages(imagesToCheck);
+          
+          // Log each image result
+          batchResult.results.forEach((result, idx) => {
+            const { analysis } = result;
+            const icon = analysis.status === 'solid_background' ? '❌' : 
+                        analysis.status === 'real_photo' ? '✅' : '⚠️';
+            console.log(`   Image ${idx + 1}: ${icon} ${analysis.status} (${analysis.confidence} confidence)`);
+            console.log(`      ${analysis.reason}`);
+            if (analysis.metadata?.fileSize) {
+              console.log(`      File size: ${Math.round(analysis.metadata.fileSize / 1024)}KB`);
+            }
+            if (analysis.metadata?.dominancePercentage) {
+              console.log(`      Color dominance: ${analysis.metadata.dominancePercentage.toFixed(1)}%`);
+            }
+          });
+          
+          // Reject ONLY if ALL images are confirmed text graphics with high confidence
+          if (batchResult.allTextGraphics) {
+            skippedNotNews++;
+            skipReasons.push({
+              reason: "Text graphic (multi-stage analysis)",
+              postTitle: post.title.substring(0, 60),
+              sourceUrl: post.sourceUrl,
+              facebookPostId: post.facebookPostId,
+              details: `All ${imagesToCheck.length} image(s) are text graphics (small + solid color)`
+            });
+            
+            console.log(`\n⏭️  SKIPPED - TEXT GRAPHIC POST (all images are text-on-background)`);
+            console.log(`   Title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Images analyzed: ${imagesToCheck.length}`);
+            console.log(`   🎯 Result: ALL images confirmed as text graphics → REJECTED\n`);
+            
+            // Update progress
+            if (callbacks?.onProgress) {
+              callbacks.onProgress({
+                totalPosts,
+                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                createdArticles: createdCount,
+                skippedNotNews,
+              });
+            }
+            continue;
+          } else if (batchResult.anyRealPhotos) {
+            console.log(`   ✅ ACCEPTED: At least one real photo detected\n`);
+          } else {
+            // Ambiguous case - accept by default
+            console.log(`   ⚠️  ACCEPTED: Uncertain analysis, erring on side of inclusion\n`);
+          }
+        }
         
         // STEP 1: Extract entities from Thai title (before translation - saves money!)
         let extractedEntities: ExtractedEntities | undefined;
