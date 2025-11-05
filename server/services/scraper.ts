@@ -322,14 +322,15 @@ export class ScraperService {
       let allPosts: ScrapedPost[] = [];
       let cursor: string | undefined;
       let pageCount = 0;
-      let hitKnownPost = false;
+      let consecutiveDuplicates = 0;
+      const REQUIRED_CONSECUTIVE_DUPLICATES = 5; // Need 5+ consecutive duplicates to early-stop
 
-      while (pageCount < maxPages && !hitKnownPost) {
+      while (pageCount < maxPages) {
         const url = cursor 
           ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
           : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
 
-        console.log(`Fetching page ${pageCount + 1}/${maxPages}...`);
+        console.log(`\n📄 Fetching page ${pageCount + 1}/${maxPages}...`);
 
         const response = await fetch(url, {
           headers: {
@@ -363,29 +364,53 @@ export class ScraperService {
         }
 
         const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
+        let newPostsOnThisPage = 0;
+        let duplicatesOnThisPage = 0;
         
-        // If duplicate checker is provided, check each post and stop if we hit a known one
+        // If duplicate checker is provided, track consecutive duplicates
         if (checkForDuplicate) {
           for (const post of parsed) {
             const isDuplicate = await checkForDuplicate(post.sourceUrl);
             if (isDuplicate) {
-              console.log(`✋ Hit known post "${post.title.substring(0, 50)}..." - stopping pagination to save API credits`);
-              hitKnownPost = true;
-              break;
+              consecutiveDuplicates++;
+              duplicatesOnThisPage++;
+              
+              // CRITICAL: Never early-stop on page 1 (ensures we always get latest posts)
+              // On later pages, require 5+ consecutive duplicates before stopping
+              if (pageCount > 0 && consecutiveDuplicates >= REQUIRED_CONSECUTIVE_DUPLICATES) {
+                console.log(`\n✋ EARLY STOP TRIGGERED`);
+                console.log(`   Page: ${pageCount + 1}`);
+                console.log(`   Consecutive duplicates: ${consecutiveDuplicates}`);
+                console.log(`   Last duplicate: "${post.title.substring(0, 50)}..."`);
+                console.log(`   Stopping pagination to save API credits\n`);
+                
+                // Exit both loops
+                cursor = undefined;
+                break;
+              }
+            } else {
+              // New post found - reset consecutive counter
+              consecutiveDuplicates = 0;
+              newPostsOnThisPage++;
+              allPosts.push(post);
             }
-            allPosts.push(post);
           }
         } else {
           // No duplicate checking, add all posts
           allPosts = [...allPosts, ...parsed];
+          newPostsOnThisPage = parsed.length;
         }
 
-        cursor = data.cursor;
+        console.log(`   Posts on page ${pageCount + 1}: ${parsed.length} total, ${newPostsOnThisPage} new, ${duplicatesOnThisPage} duplicates`);
+        if (pageCount === 0) {
+          console.log(`   ℹ️  Page 1 always fetched completely (ensures latest posts captured)`);
+        }
+
         pageCount++;
 
-        // Break if no cursor for next page
+        // Break if no cursor for next page OR we hit the early-stop threshold
         if (!cursor) {
-          console.log("No more pages available");
+          console.log("\nNo more pages available (no cursor)");
           break;
         }
       }
