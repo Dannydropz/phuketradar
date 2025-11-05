@@ -323,9 +323,10 @@ export class ScraperService {
       let cursor: string | undefined;
       let pageCount = 0;
       let consecutiveDuplicates = 0;
+      let shouldStop = false; // Flag to stop pagination early
       const REQUIRED_CONSECUTIVE_DUPLICATES = 5; // Need 5+ consecutive duplicates to early-stop
 
-      while (pageCount < maxPages) {
+      while (pageCount < maxPages && !shouldStop) {
         const url = cursor 
           ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
           : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
@@ -355,6 +356,20 @@ export class ScraperService {
             console.log("\n📎 ATTACHMENTS STRUCTURE:");
             console.log(JSON.stringify(data.posts[0].attachments, null, 2));
           }
+          
+          // Log timestamps to debug recent post capture
+          console.log("\n⏰ POST TIMESTAMPS ON PAGE 1:");
+          const now = new Date();
+          data.posts.slice(0, 5).forEach((post, idx) => {
+            if (post.created_time) {
+              const postTime = new Date(post.created_time);
+              const ageMinutes = Math.floor((now.getTime() - postTime.getTime()) / 1000 / 60);
+              const ageHours = (ageMinutes / 60).toFixed(1);
+              console.log(`   Post ${idx + 1}: ${ageHours}h ago (${post.created_time}) - "${post.text?.substring(0, 60)}..."`);
+            } else {
+              console.log(`   Post ${idx + 1}: No timestamp - "${post.text?.substring(0, 60)}..."`);
+            }
+          });
           console.log("\n");
         }
 
@@ -384,8 +399,8 @@ export class ScraperService {
                 console.log(`   Last duplicate: "${post.title.substring(0, 50)}..."`);
                 console.log(`   Stopping pagination to save API credits\n`);
                 
-                // Exit both loops
-                cursor = undefined;
+                // Set flag to stop pagination after this page
+                shouldStop = true;
                 break;
               }
             } else {
@@ -408,7 +423,16 @@ export class ScraperService {
 
         pageCount++;
 
-        // Break if no cursor for next page OR we hit the early-stop threshold
+        // Break immediately if early-stop was triggered
+        if (shouldStop) {
+          console.log("\n✋ Stopping pagination (early-stop threshold reached)");
+          break;
+        }
+
+        // Update cursor for next page
+        cursor = data.cursor;
+
+        // Break if no cursor for next page
         if (!cursor) {
           console.log("\nNo more pages available (no cursor)");
           break;
