@@ -26,16 +26,16 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
 
 ### Architectural Decisions
-- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source to ensure fast-posting sources like Newshawk are fully captured.
+- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source. Smart pagination logic: page 1 is always fetched completely (ensures latest posts captured), and early-stop requires 5+ consecutive duplicates on later pages (prevents missing new posts when Facebook returns posts out of chronological order).
 - **Translation**: Hybrid pipeline using Google Translate for complex Thai text and GPT-4-mini for polishing and style. Enriches content with Phuket-specific context and location descriptions.
 - **Data Flow**: Unidirectional: Scraper → Image Check → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
 - **Image Requirement**: Posts with 0 images are automatically skipped - only posts with 1+ photos are published.
-- **Text Graphic Filtering**: **TEMPORARILY DISABLED** - Was blocking all posts due to Facebook returning 400 errors when downloading images. The system had three layers:
+- **Text Graphic Filtering**: Multi-stage system to prevent text-on-background announcement posts from being published:
     - Layer 1: Fast, free check for Facebook native colored background text posts via `text_format_preset_id` API field
-    - Layer 2: Color analysis using Sharp library to detect solid-color backgrounds
-    - Layer 3: GPT-4o-mini vision OCR to count words visible on each image
-    - **Issue**: Both color analysis and vision API failed to download Facebook CDN URLs (CORS/permissions), treating all failures as "reject" blocked legitimate news
-    - **TODO**: Re-implement with smart error handling that distinguishes network errors (accept post) from quality issues (reject post)
+    - Layer 2: File size check (<80KB flags as potential text graphic) combined with color analysis using Sharp library
+    - Layer 3: Color dominance analysis - images with >75% single color + small file size are rejected as text graphics
+    - **Smart error handling**: Network/download errors (400/403) result in accepting the post (err on side of inclusion), while successful analysis that confirms text graphic (small file + solid color) results in rejection
+    - **Multi-image logic**: Rejects only when ALL images are confirmed text graphics with high confidence
 - **Duplicate Detection**: A seven-layer system including URL normalization, in-memory checks, Facebook Post ID and source URL database checks, exact image URL matching, perceptual image hashing (bmvbhash via blockhash-core with Hamming distance threshold of 5), semantic similarity on titles, and database UNIQUE constraints for `source_url` and `facebook_post_id`. The perceptual hash catches near-identical images (same photo with minor edits) while allowing different incidents with visually similar scenes to pass through.
 - **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags. Auto-posting occurs both during automated scraping (for high-interest articles) and when manually publishing draft articles via the admin dashboard.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.
