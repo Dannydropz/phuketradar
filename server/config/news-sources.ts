@@ -14,7 +14,7 @@ export interface NewsSource {
 
 export const NEWS_SOURCES: NewsSource[] = [
   {
-    name: "Phuket Time News",
+    name: "The Phuket Times",
     url: "https://www.facebook.com/PhuketTimeNews",
     enabled: true,
   },
@@ -24,13 +24,13 @@ export const NEWS_SOURCES: NewsSource[] = [
     enabled: true,
   },
   {
-    name: "Newshawk Phuket",
-    url: "https://www.facebook.com/NewshawkPhuket",
+    name: "Phuket Hot News",
+    url: "https://www.facebook.com/phukethotnews",
     enabled: true,
   },
   {
-    name: "Phuket Hot News",
-    url: "https://www.facebook.com/phukethotnews",
+    name: "Newshawk Phuket",
+    url: "https://www.facebook.com/NewshawkPhuket",
     enabled: true,
   },
 ];
