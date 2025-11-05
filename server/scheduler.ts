@@ -283,59 +283,22 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
         }
         
-        // STEP 0.25: Perceptual image hash duplicate detection
-        // Catches visually similar images even with different URLs (different emojis, CDN params, etc.)
+        // STEP 0.25: Perceptual image hash duplicate detection - DISABLED
+        // REASON: Threshold of 5 was causing too many false positives
+        // Example: Drug bust story matched to tunnel advocacy story (completely different events)
+        // The AI semantic similarity check is more accurate for detecting duplicate stories
+        // Keeping exact image URL check above, which is reliable and precise
+        
+        // Generate image hash for storage (for future use) but don't use it for filtering
         const primaryImageUrl = post.imageUrl || (post.imageUrls && post.imageUrls[0]);
         let imageHash: string | undefined;
         
         if (primaryImageUrl) {
           try {
-            console.log(`\n🔍 IMAGE HASH CHECK: Generating perceptual hash...`);
             imageHash = await imageHashService.generatePerceptualHash(primaryImageUrl);
-            
-            // Check if any existing article has a similar image hash
-            for (const existing of existingImageHashes) {
-              if (!existing.imageHash) continue;
-              
-              const areSimilar = imageHashService.areSimilar(imageHash, existing.imageHash, 5);
-              if (areSimilar) {
-                skippedSemanticDuplicates++;
-                skipReasons.push({
-                  reason: "Duplicate: Perceptual hash",
-                  postTitle: post.title.substring(0, 60),
-                  sourceUrl: post.sourceUrl,
-                  facebookPostId: post.facebookPostId,
-                  details: `Hash match detected, threshold: 5`
-                });
-                console.log(`\n🚫 DUPLICATE DETECTED - Method: PERCEPTUAL IMAGE HASH`);
-                console.log(`   New title: ${post.title.substring(0, 60)}...`);
-                console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
-                console.log(`   Image hash match: ${imageHash.substring(0, 16)}... ≈ ${existing.imageHash.substring(0, 16)}...`);
-                console.log(`   ✅ Skipped before translation (saved API credits)\n`);
-                
-                // Update progress
-                if (callbacks?.onProgress) {
-                  callbacks.onProgress({
-                    totalPosts,
-                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles: createdCount,
-                    skippedNotNews,
-                  });
-                }
-                
-                // Break to outer loop - mark as duplicate found
-                imageHash = undefined; // Signal to continue outer loop
-                break;
-              }
-            }
-            
-            // If imageHash is undefined, we found a duplicate - skip to next post
-            if (!imageHash) {
-              continue;
-            }
+            // Hash generated successfully - will be stored with article for future use
           } catch (hashError) {
-            console.warn(`   ⚠️  Image hashing failed, proceeding without hash check:`, hashError);
-            // Continue without hash check if it fails
+            // Hash generation failed - continue without it
           }
         }
         
