@@ -28,9 +28,9 @@ export function JournalistByline({
       className={`flex items-center gap-2 ${asLink ? 'hover-elevate active-elevate-2 cursor-pointer' : ''} rounded-md p-1 -m-1 transition-all ${className}`}
       data-testid={`link-journalist-${journalistId}`}
     >
-      <Avatar className={avatarSize} data-testid={`img-journalist-avatar-${journalistId}`}>
-        <AvatarImage src={headshot} alt={`${nickname} ${surname}`} />
-        <AvatarFallback className="text-xs">{nickname[0]}</AvatarFallback>
+      <Avatar className={`${avatarSize} rounded-lg`} data-testid={`img-journalist-avatar-${journalistId}`}>
+        <AvatarImage src={headshot} alt={`${nickname} ${surname}`} className="object-cover" />
+        <AvatarFallback className="text-xs rounded-lg">{nickname[0]}</AvatarFallback>
       </Avatar>
       <span className={`font-medium text-foreground ${textSize}`} data-testid={`text-journalist-name-${journalistId}`}>
         {nickname} {surname}

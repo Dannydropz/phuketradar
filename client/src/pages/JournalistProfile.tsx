@@ -74,9 +74,9 @@ export default function JournalistProfile() {
         <div className="mb-12">
           <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Large headshot */}
-            <Avatar className="w-48 h-48 border-4 border-border" data-testid="img-journalist-avatar">
-              <AvatarImage src={journalist.headshot} alt={`${journalist.nickname} ${journalist.surname}`} />
-              <AvatarFallback className="text-4xl">{journalist.nickname[0]}</AvatarFallback>
+            <Avatar className="w-48 h-48 border-4 border-border rounded-xl" data-testid="img-journalist-avatar">
+              <AvatarImage src={journalist.headshot} alt={`${journalist.nickname} ${journalist.surname}`} className="object-cover" />
+              <AvatarFallback className="text-4xl rounded-xl">{journalist.nickname[0]}</AvatarFallback>
             </Avatar>
 
             {/* Bio section */}
