@@ -4,11 +4,15 @@ import connectPgSimple from "connect-pg-simple";
 import { neon } from "@neondatabase/serverless";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import path from "path";
 
 const app = express();
 
 // Trust proxy for secure cookies behind HTTPS proxies (Replit, etc.)
 app.set('trust proxy', 1);
+
+// Serve static files from attached_assets folder at /assets route
+app.use('/assets', express.static(path.join(process.cwd(), 'attached_assets')));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
