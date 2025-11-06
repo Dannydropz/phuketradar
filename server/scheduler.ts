@@ -561,6 +561,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             });
           }
           
+          // CRITICAL FIX: Add to existingEmbeddings so semantic similarity can catch duplicates within the same scrape
+          if (titleEmbedding) {
+            existingEmbeddings.push({
+              id: article.id,
+              title: post.title, // Store original Thai title (matches what we embed)
+              embedding: titleEmbedding,
+              entities: extractedEntities || null,
+            });
+          }
+          
           console.log(`✅ ${article.isPublished ? 'Created and published' : 'Created as draft'}: ${translation.translatedTitle.substring(0, 50)}...`);
 
           // Auto-post to Facebook after publishing (only if not already posted)

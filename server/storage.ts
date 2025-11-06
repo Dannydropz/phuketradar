@@ -20,7 +20,7 @@ export interface IStorage {
   getArticlesByCategory(category: string): Promise<ArticleListItem[]>;
   getPublishedArticles(): Promise<ArticleListItem[]>;
   getPendingArticles(): Promise<Article[]>;
-  getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null }[]>;
+  getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null; entities?: any }[]>;
   createArticle(article: InsertArticle): Promise<Article>;
   updateArticle(id: string, article: Partial<Article>): Promise<Article | undefined>;
   claimArticleForFacebookPosting(id: string, lockToken: string): Promise<boolean>;
@@ -175,12 +175,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(articles.publishedAt));
   }
 
-  async getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null }[]> {
+  async getArticlesWithEmbeddings(): Promise<{ id: string; title: string; embedding: number[] | null; entities?: any }[]> {
     const result = await db
       .select({
         id: articles.id,
         title: articles.title,
         embedding: articles.embedding,
+        entities: articles.entities,
       })
       .from(articles);
     return result;
