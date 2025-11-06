@@ -13,7 +13,7 @@ interface NewsletterArticle {
   imageUrl: string | null;
   slug: string | null;
   id: string;
-  articleType?: 'breaking' | 'insight';
+  articleType?: string;
 }
 
 export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date): string {

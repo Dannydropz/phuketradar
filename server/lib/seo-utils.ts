@@ -73,7 +73,7 @@ export function generateNewsArticleSchema(article: {
   title: string;
   excerpt: string;
   content: string;
-  author: string;
+  author?: string;
   publishedAt: Date | string;
   imageUrl: string | null;
   category: string;
@@ -97,7 +97,7 @@ export function generateNewsArticleSchema(article: {
     "dateModified": publishDate,
     "author": {
       "@type": "Person",
-      "name": article.author
+      "name": article.author || "Phuket Radar Editorial Team"
     },
     "publisher": {
       "@type": "Organization",

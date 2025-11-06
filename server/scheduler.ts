@@ -528,7 +528,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               category: translation.category,
               sourceUrl: post.sourceUrl,
               facebookPostId: null, // Will be set after posting to Phuket Radar Facebook page
-              author: translation.author,
               journalistId: assignedJournalist.id, // Assign random journalist
               isPublished: shouldAutoPublish, // Only auto-publish high-interest stories (score >= 4)
               originalLanguage: "th",

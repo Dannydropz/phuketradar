@@ -217,7 +217,7 @@ export default function ArticleDetail() {
         url={canonicalUrl}
         type="article"
         publishedTime={article.publishedAt.toString()}
-        author={article.author}
+        author={journalist ? `${journalist.nickname} ${journalist.surname}` : undefined}
       />
       
       <Header />
@@ -278,7 +278,7 @@ export default function ArticleDetail() {
             <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-article-title">
               {article.title}
             </h1>
-            {journalist ? (
+            {journalist && (
               <div className="mb-6">
                 <JournalistByline
                   journalistId={journalist.id}
@@ -287,17 +287,6 @@ export default function ArticleDetail() {
                   headshot={journalist.headshot}
                   size="md"
                 />
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 mb-6">
-                <img 
-                  src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300bcd4' stroke-width='2'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'/%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'/%3E%3C/svg%3E" 
-                  alt="AI Assisted" 
-                  className="w-5 h-5"
-                />
-                <span className="text-sm text-muted-foreground">
-                  By <span className="text-foreground font-medium" data-testid="text-author">{article.author}</span>
-                </span>
               </div>
             )}
             <p className="text-xl text-muted-foreground mb-6" data-testid="text-article-excerpt">

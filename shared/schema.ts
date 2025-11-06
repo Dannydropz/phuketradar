@@ -31,7 +31,7 @@ export const articles = pgTable("articles", {
   imageHash: text("image_hash"),
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull().unique(),
-  author: text("author").notNull().default("Ploy Srisawat"),
+  author: text("author"), // Deprecated: use journalistId instead
   journalistId: varchar("journalist_id"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
   isPublished: boolean("is_published").notNull().default(false),

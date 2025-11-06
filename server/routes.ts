@@ -675,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch source articles
       const sourceArticles = await Promise.all(
-        sourceArticleIds.map((id: string) => storage.getArticle(id))
+        sourceArticleIds.map((id: string) => storage.getArticleById(id))
       );
       
       const validArticles = sourceArticles.filter(a => a !== null);
@@ -720,7 +720,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         excerpt,
         category: "Insight",
         sourceUrl: `https://phuketradar.com/insight-${Date.now()}`,
-        author: "Phuket Radar Editorial Team",
         isPublished: true,
         originalLanguage: "en",
         translatedBy: "gpt-4",

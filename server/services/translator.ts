@@ -12,7 +12,6 @@ export interface TranslationResult {
   category: string;
   isActualNews: boolean;
   interestScore: number;
-  author: string;
   embedding?: number[];
 }
 
@@ -69,19 +68,6 @@ const PHUKET_CONTEXT_MAP: Record<string, string> = {
   "Surin": "Surin, an upscale beach area with fine dining",
 };
 
-const THAI_FEMALE_AUTHORS = [
-  "Ploy Srisawat",
-  "Natcha Petcharat",
-  "Siriporn Rattana",
-  "Apinya Thongchai",
-  "Kannika Jirasakul",
-  "Ornuma Phongphan",
-  "Wassana Choosuk",
-];
-
-function getRandomAuthor(): string {
-  return THAI_FEMALE_AUTHORS[Math.floor(Math.random() * THAI_FEMALE_AUTHORS.length)];
-}
 
 // Detect if Thai text is complex and needs Google Translate first
 function isComplexThaiText(thaiText: string): boolean {
@@ -258,7 +244,6 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         category: result.category || "Other",
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
-        author: getRandomAuthor(),
         embedding,
       };
     } catch (error) {
