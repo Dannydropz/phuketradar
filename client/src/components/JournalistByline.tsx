@@ -29,7 +29,7 @@ export function JournalistByline({
       data-testid={`link-journalist-${journalistId}`}
     >
       <Avatar className={`${avatarSize} rounded-lg`} data-testid={`img-journalist-avatar-${journalistId}`}>
-        <AvatarImage src={headshot} alt={`${nickname} ${surname}`} className="object-cover" />
+        <AvatarImage src={headshot} alt={`${nickname} ${surname}`} className="object-cover object-top" />
         <AvatarFallback className="text-xs rounded-lg">{nickname[0]}</AvatarFallback>
       </Avatar>
       <span className={`font-medium text-foreground ${textSize}`} data-testid={`text-journalist-name-${journalistId}`}>
