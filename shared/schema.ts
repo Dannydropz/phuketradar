@@ -9,6 +9,17 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
 });
 
+export const journalists = pgTable("journalists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nickname: text("nickname").notNull(),
+  fullName: text("full_name").notNull(),
+  surname: text("surname").notNull(),
+  headshot: text("headshot").notNull(),
+  bio: text("bio").notNull(),
+  beat: text("beat").notNull(),
+  funFact: text("fun_fact").notNull(),
+});
+
 export const articles = pgTable("articles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   slug: text("slug").unique(),
@@ -21,6 +32,7 @@ export const articles = pgTable("articles", {
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull().unique(),
   author: text("author").notNull().default("Ploy Srisawat"),
+  journalistId: varchar("journalist_id"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
   isPublished: boolean("is_published").notNull().default(false),
   originalLanguage: text("original_language").default("th"),
@@ -66,6 +78,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
 });
 
+export const insertJournalistSchema = createInsertSchema(journalists).omit({
+  id: true,
+});
+
 export const insertArticleSchema = createInsertSchema(articles).omit({
   id: true,
   publishedAt: true,
@@ -77,6 +93,8 @@ export const insertSubscriberSchema = createInsertSchema(subscribers).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertJournalist = z.infer<typeof insertJournalistSchema>;
+export type Journalist = typeof journalists.$inferSelect;
 export type InsertArticle = z.infer<typeof insertArticleSchema>;
 export type Article = typeof articles.$inferSelect;
 export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
