@@ -3,6 +3,13 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -12,6 +19,7 @@ import type { Article } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { ArticleImage } from "@/components/ArticleImage";
 
 type ScrapeJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -37,6 +45,8 @@ export default function AdminDashboard() {
   const { logout, isAuthenticated } = useAdminAuth();
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
@@ -242,8 +252,8 @@ export default function AdminDashboard() {
     deleteMutation.mutate(id);
   };
 
-  const handlePreview = (id: string) => {
-    setLocation(`/article/${id}`);
+  const handlePreview = (article: Article) => {
+    setPreviewArticle(article);
   };
 
   const handlePostToFacebook = (id: string) => {
@@ -252,6 +262,63 @@ export default function AdminDashboard() {
 
   const handleBatchFacebookPost = () => {
     batchFacebookPostMutation.mutate();
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedArticles((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const unpublishedArticles = filteredArticles.filter((a) => !a.isPublished);
+    if (selectedArticles.size === unpublishedArticles.length && unpublishedArticles.length > 0) {
+      setSelectedArticles(new Set());
+    } else {
+      setSelectedArticles(new Set(unpublishedArticles.map((a) => a.id)));
+    }
+  };
+
+  const handleBulkHide = async () => {
+    const selectedIds = Array.from(selectedArticles);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      try {
+        await updateMutation.mutateAsync({ id, updates: { isPublished: false } });
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to hide article ${id}:`, error);
+      }
+    }
+    setSelectedArticles(new Set());
+    toast({
+      title: "Bulk Hide Complete",
+      description: `Successfully hid ${successCount} of ${selectedIds.length} articles`,
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedIds = Array.from(selectedArticles);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      try {
+        await deleteMutation.mutateAsync(id);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to delete article ${id}:`, error);
+      }
+    }
+    setSelectedArticles(new Set());
+    toast({
+      title: "Bulk Delete Complete",
+      description: `Successfully deleted ${successCount} of ${selectedIds.length} articles`,
+    });
   };
 
   const handleLogout = async () => {
@@ -430,11 +497,54 @@ export default function AdminDashboard() {
           <Card>
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold">Articles</h2>
-                {activeFilter !== 'all' && (
-                  <p className="text-sm text-muted-foreground">
-                    Showing {filteredArticles.length} {activeFilter} article{filteredArticles.length !== 1 ? 's' : ''}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-bold">Articles</h2>
+                  {activeFilter !== 'all' && (
+                    <p className="text-sm text-muted-foreground">
+                      Showing {filteredArticles.length} {activeFilter} article{filteredArticles.length !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+                {filteredArticles.some((a) => !a.isPublished) && (
+                  <div className="flex items-center gap-3">
+                    {selectedArticles.size > 0 && (
+                      <>
+                        <span className="text-sm text-muted-foreground">
+                          {selectedArticles.size} selected
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBulkHide}
+                          data-testid="button-bulk-hide"
+                        >
+                          <EyeOff className="w-4 h-4 mr-2" />
+                          Hide Selected
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBulkDelete}
+                          className="border-destructive text-destructive"
+                          data-testid="button-bulk-delete"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Selected
+                        </Button>
+                      </>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={
+                          selectedArticles.size > 0 &&
+                          selectedArticles.size === filteredArticles.filter((a) => !a.isPublished).length
+                        }
+                        onCheckedChange={handleSelectAll}
+                        data-testid="checkbox-select-all"
+                      />
+                      <label className="text-sm font-medium">Select All</label>
+                    </div>
+                  </div>
                 )}
               </div>
               {articles.length === 0 ? (
@@ -453,6 +563,15 @@ export default function AdminDashboard() {
                       className="flex items-start gap-4 p-4 border border-border rounded-lg hover-elevate"
                       data-testid={`article-row-${article.id}`}
                     >
+                      {!article.isPublished && (
+                        <div className="flex items-center pt-1">
+                          <Checkbox
+                            checked={selectedArticles.has(article.id)}
+                            onCheckedChange={() => handleToggleSelect(article.id)}
+                            data-testid={`checkbox-article-${article.id}`}
+                          />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="secondary" data-testid={`badge-category-${article.id}`}>
@@ -492,7 +611,7 @@ export default function AdminDashboard() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => handlePreview(article.id)}
+                          onClick={() => handlePreview(article)}
                           data-testid={`button-preview-${article.id}`}
                         >
                           <Eye className="w-4 h-4" />
@@ -567,6 +686,73 @@ export default function AdminDashboard() {
         </div>
       </main>
       <Footer />
+
+      <Dialog open={!!previewArticle} onOpenChange={(open) => !open && setPreviewArticle(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-preview">
+          {previewArticle && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl" data-testid="text-preview-title">
+                  {previewArticle.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" data-testid="badge-preview-category">
+                    {previewArticle.category}
+                  </Badge>
+                  <Badge 
+                    className={previewArticle.isPublished ? "bg-primary text-primary-foreground" : ""}
+                    data-testid="badge-preview-status"
+                  >
+                    {previewArticle.isPublished ? "published" : "pending"}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground" data-testid="text-preview-time">
+                    {formatDistanceToNow(new Date(previewArticle.publishedAt), { addSuffix: true })}
+                  </span>
+                </div>
+
+                {previewArticle.imageUrls && previewArticle.imageUrls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4" data-testid="container-preview-images">
+                    {previewArticle.imageUrls.map((url, idx) => (
+                      <ArticleImage
+                        key={idx}
+                        src={url}
+                        alt={`${previewArticle.title} - Image ${idx + 1}`}
+                        className="w-full rounded-lg"
+                        data-testid={`img-preview-${idx}`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <div className="prose prose-sm max-w-none dark:prose-invert" data-testid="container-preview-content">
+                  <p className="text-lg text-muted-foreground" data-testid="text-preview-excerpt">
+                    {previewArticle.excerpt}
+                  </p>
+                  <div
+                    className="mt-4"
+                    data-testid="text-preview-body"
+                    dangerouslySetInnerHTML={{ __html: previewArticle.content }}
+                  />
+                </div>
+
+                <div className="pt-4 border-t">
+                  <a
+                    href={previewArticle.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline"
+                    data-testid="link-preview-source"
+                  >
+                    View original source →
+                  </a>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
