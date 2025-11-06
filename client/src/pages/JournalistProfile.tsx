@@ -8,6 +8,7 @@ import type { Journalist } from "@shared/schema";
 import { ArticleCard } from "@/components/ArticleCard";
 import { EmailSignup } from "@/components/EmailSignup";
 import { SEO } from "@/components/SEO";
+import { Sparkles } from "lucide-react";
 
 interface JournalistWithArticles extends Journalist {
   articles: Array<{
@@ -81,8 +82,9 @@ export default function JournalistProfile() {
 
             {/* Bio section */}
             <div className="flex-1">
-              <h1 className="text-4xl font-bold mb-2" data-testid="text-journalist-name">
+              <h1 className="text-4xl font-bold mb-2 flex items-center gap-2" data-testid="text-journalist-name">
                 {journalist.nickname} {journalist.surname}
+                <Sparkles className="w-5 h-5 text-muted-foreground/60" />
               </h1>
               <Badge variant="secondary" className="mb-4" data-testid="badge-journalist-beat">
                 {journalist.beat}

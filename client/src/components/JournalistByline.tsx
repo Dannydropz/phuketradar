@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "wouter";
+import { Sparkles } from "lucide-react";
 
 interface JournalistBylineProps {
   journalistId: string;
@@ -32,8 +33,9 @@ export function JournalistByline({
         <AvatarImage src={headshot} alt={`${nickname} ${surname}`} className="object-cover object-top" />
         <AvatarFallback className="text-xs rounded-lg">{nickname[0]}</AvatarFallback>
       </Avatar>
-      <span className={`font-medium text-foreground ${textSize}`} data-testid={`text-journalist-name-${journalistId}`}>
+      <span className={`font-medium text-foreground ${textSize} flex items-center gap-1`} data-testid={`text-journalist-name-${journalistId}`}>
         {nickname} {surname}
+        <Sparkles className="w-3 h-3 text-muted-foreground/60" />
       </span>
     </div>
   );
