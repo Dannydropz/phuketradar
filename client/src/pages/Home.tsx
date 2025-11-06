@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useState, useMemo } from "react";
-import type { ArticleListItem } from "@shared/schema";
+import type { ArticleListItem, Journalist } from "@shared/schema";
 
 export default function Home() {
   const [, params] = useRoute("/category/:category");
@@ -16,6 +16,17 @@ export default function Home() {
   const { data: allArticles = [], isLoading } = useQuery<ArticleListItem[]>({
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
+
+  const { data: journalists = [] } = useQuery<Journalist[]>({
+    queryKey: ["/api/journalists"],
+  });
+
+  // Create journalist lookup map
+  const journalistMap = useMemo(() => {
+    const map = new Map<string, Journalist>();
+    journalists.forEach(j => map.set(j.id, j));
+    return map;
+  }, [journalists]);
 
   // Sort articles by date (newest first)
   const articles = useMemo(() => {
@@ -123,19 +134,30 @@ export default function Home() {
                 <h2 className="text-3xl font-bold">Breaking News</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {urgentNews.map((article) => (
-                  <ArticleCard
-                    key={article.id}
-                    id={article.id}
-                    slug={article.slug}
-                    title={article.title}
-                    excerpt={article.excerpt}
-                    imageUrl={article.imageUrl || undefined}
-                    category={article.category}
-                    publishedAt={new Date(article.publishedAt)}
-                    isBreaking={article.category.toLowerCase() === "breaking"}
-                  />
-                ))}
+                {urgentNews.map((article) => {
+                  const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
+                  return (
+                    <ArticleCard
+                      key={article.id}
+                      id={article.id}
+                      slug={article.slug}
+                      title={article.title}
+                      excerpt={article.excerpt}
+                      imageUrl={article.imageUrl || undefined}
+                      category={article.category}
+                      publishedAt={new Date(article.publishedAt)}
+                      isBreaking={article.category.toLowerCase() === "breaking"}
+                      eventType={article.eventType}
+                      severity={article.severity}
+                      journalist={journalist ? {
+                        id: journalist.id,
+                        nickname: journalist.nickname,
+                        surname: journalist.surname,
+                        headshot: journalist.headshot,
+                      } : undefined}
+                    />
+                  );
+                })}
               </div>
             </section>
           )}
@@ -150,19 +172,30 @@ export default function Home() {
                 <h2 className="text-3xl font-bold">{category ? "More Stories" : "Latest News"}</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                {latestArticles.map((article) => (
-                  <ArticleCard
-                    key={article.id}
-                    id={article.id}
-                    slug={article.slug}
-                    title={article.title}
-                    excerpt={article.excerpt}
-                    imageUrl={article.imageUrl || undefined}
-                    category={article.category}
-                    publishedAt={new Date(article.publishedAt)}
-                    isBreaking={article.category.toLowerCase() === "breaking"}
-                  />
-                ))}
+                {latestArticles.map((article) => {
+                  const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
+                  return (
+                    <ArticleCard
+                      key={article.id}
+                      id={article.id}
+                      slug={article.slug}
+                      title={article.title}
+                      excerpt={article.excerpt}
+                      imageUrl={article.imageUrl || undefined}
+                      category={article.category}
+                      publishedAt={new Date(article.publishedAt)}
+                      isBreaking={article.category.toLowerCase() === "breaking"}
+                      eventType={article.eventType}
+                      severity={article.severity}
+                      journalist={journalist ? {
+                        id: journalist.id,
+                        nickname: journalist.nickname,
+                        surname: journalist.surname,
+                        headshot: journalist.headshot,
+                      } : undefined}
+                    />
+                  );
+                })}
               </div>
               {hasMore && (
                 <div className="flex justify-center">

@@ -4,6 +4,7 @@ import { Clock, ArrowRight, AlertTriangle, AlertCircle, Info, Car, Shield, Cloud
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
+import { JournalistByline } from "./JournalistByline";
 import type { LucideIcon } from "lucide-react";
 
 interface ArticleCardProps {
@@ -17,6 +18,12 @@ interface ArticleCardProps {
   isBreaking?: boolean;
   eventType?: string | null;
   severity?: string | null;
+  journalist?: {
+    id: string;
+    nickname: string;
+    surname: string;
+    headshot: string;
+  };
 }
 
 // Helper function to get event type icon
@@ -94,6 +101,7 @@ export function ArticleCard({
   isBreaking,
   eventType,
   severity,
+  journalist,
 }: ArticleCardProps) {
   // Check if article is fresh (< 8 hours old) for time-based badge styling
   const isFresh = (Date.now() - new Date(publishedAt).getTime()) < (8 * 60 * 60 * 1000);
@@ -161,6 +169,18 @@ export function ArticleCard({
           <p className="text-muted-foreground line-clamp-3 mb-4 flex-1" data-testid={`text-excerpt-${id}`}>
             {excerpt}
           </p>
+          {journalist && (
+            <div className="mb-3">
+              <JournalistByline
+                journalistId={journalist.id}
+                nickname={journalist.nickname}
+                surname={journalist.surname}
+                headshot={journalist.headshot}
+                size="sm"
+                asLink={false}
+              />
+            </div>
+          )}
           <div className="flex items-center text-primary font-medium text-sm">
             Read more <ArrowRight className="w-4 h-4 ml-1" />
           </div>

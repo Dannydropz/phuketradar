@@ -8,6 +8,7 @@ import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/Home";
 import ArticleDetail from "@/pages/ArticleDetail";
+import JournalistProfile from "@/pages/JournalistProfile";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminInsights from "@/pages/AdminInsights";
 import AdminLogin from "@/pages/AdminLogin";
@@ -19,6 +20,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/article/:slugOrId" component={ArticleDetail} />
+      <Route path="/journalist/:id" component={JournalistProfile} />
       <Route path="/category/:category" component={Home} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />
