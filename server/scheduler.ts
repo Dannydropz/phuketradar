@@ -60,6 +60,15 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     const sources = getEnabledSources();
     console.log(`Scraping ${sources.length} Facebook news sources`);
     
+    // Fetch all journalists for random assignment
+    const journalists = await storage.getAllJournalists();
+    console.log(`Loaded ${journalists.length} journalists for article attribution`);
+    
+    // Helper function to randomly select a journalist
+    const getRandomJournalist = () => {
+      return journalists[Math.floor(Math.random() * journalists.length)];
+    };
+    
     // Create duplicate checker function that stops pagination early to save API credits
     const checkForDuplicate = async (sourceUrl: string) => {
       const existing = await storage.getArticleBySourceUrl(sourceUrl);
@@ -505,6 +514,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           
           let article;
           try {
+            // Randomly assign a journalist to this article
+            const assignedJournalist = getRandomJournalist();
+            
             // Create article - auto-publish only if interest score >= 4
             article = await storage.createArticle({
               title: translation.translatedTitle,
@@ -517,6 +529,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               sourceUrl: post.sourceUrl,
               facebookPostId: null, // Will be set after posting to Phuket Radar Facebook page
               author: translation.author,
+              journalistId: assignedJournalist.id, // Assign random journalist
               isPublished: shouldAutoPublish, // Only auto-publish high-interest stories (score >= 4)
               originalLanguage: "th",
               translatedBy: "openai",

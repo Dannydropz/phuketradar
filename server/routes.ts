@@ -108,6 +108,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Journalist routes
+  
+  // Get all journalists
+  app.get("/api/journalists", async (req, res) => {
+    try {
+      const journalists = await storage.getAllJournalists();
+      res.json(journalists);
+    } catch (error) {
+      console.error("Error fetching journalists:", error);
+      res.status(500).json({ error: "Failed to fetch journalists" });
+    }
+  });
+
+  // Get journalist by ID with their articles
+  app.get("/api/journalists/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const journalist = await storage.getJournalistById(id);
+      
+      if (!journalist) {
+        return res.status(404).json({ error: "Journalist not found" });
+      }
+      
+      const articles = await storage.getArticlesByJournalistId(id);
+      
+      res.json({
+        ...journalist,
+        articles
+      });
+    } catch (error) {
+      console.error("Error fetching journalist:", error);
+      res.status(500).json({ error: "Failed to fetch journalist" });
+    }
+  });
+
   // Cron service endpoint for external automated scraping
   // Protected by API key authentication (CRON_API_KEY environment variable)
   app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
