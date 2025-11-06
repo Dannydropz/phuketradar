@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, users, articles, subscribers } from "@shared/schema";
+import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, users, articles, subscribers, journalists } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
@@ -33,6 +33,11 @@ export interface IStorage {
   getSubscriberByEmail(email: string): Promise<Subscriber | undefined>;
   getAllActiveSubscribers(): Promise<Subscriber[]>;
   unsubscribeByToken(token: string): Promise<boolean>;
+  
+  // Journalist methods
+  getAllJournalists(): Promise<Journalist[]>;
+  getJournalistById(id: string): Promise<Journalist | undefined>;
+  getArticlesByJournalistId(journalistId: string): Promise<ArticleListItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -317,6 +322,54 @@ export class DatabaseStorage implements IStorage {
       .where(eq(subscribers.unsubscribeToken, token))
       .returning();
     return result.length > 0;
+  }
+
+  // Journalist methods
+  async getAllJournalists(): Promise<Journalist[]> {
+    return await db
+      .select()
+      .from(journalists)
+      .orderBy(journalists.nickname);
+  }
+
+  async getJournalistById(id: string): Promise<Journalist | undefined> {
+    const [journalist] = await db
+      .select()
+      .from(journalists)
+      .where(eq(journalists.id, id));
+    return journalist || undefined;
+  }
+
+  async getArticlesByJournalistId(journalistId: string): Promise<ArticleListItem[]> {
+    return await db
+      .select({
+        id: articles.id,
+        slug: articles.slug,
+        title: articles.title,
+        excerpt: articles.excerpt,
+        imageUrl: articles.imageUrl,
+        imageUrls: articles.imageUrls,
+        imageHash: articles.imageHash,
+        category: articles.category,
+        author: articles.author,
+        journalistId: articles.journalistId,
+        sourceUrl: articles.sourceUrl,
+        publishedAt: articles.publishedAt,
+        isPublished: articles.isPublished,
+        originalLanguage: articles.originalLanguage,
+        translatedBy: articles.translatedBy,
+        facebookPostId: articles.facebookPostId,
+        facebookPostUrl: articles.facebookPostUrl,
+        eventType: articles.eventType,
+        severity: articles.severity,
+        articleType: articles.articleType,
+        interestScore: articles.interestScore,
+        relatedArticleIds: articles.relatedArticleIds,
+        entities: articles.entities,
+      })
+      .from(articles)
+      .where(eq(articles.journalistId, journalistId))
+      .orderBy(desc(articles.publishedAt));
   }
 }
 
