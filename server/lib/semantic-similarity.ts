@@ -33,6 +33,13 @@ export interface SemanticDuplicateChecker {
   matchedArticleContent?: string;
 }
 
+export interface SimilarArticle {
+  id: string;
+  title: string;
+  content: string;
+  similarity: number;
+}
+
 export function checkSemanticDuplicate(
   embedding: number[],
   existingEmbeddings: { id: string; title: string; content: string; embedding: number[] | null }[],
@@ -61,4 +68,31 @@ export function checkSemanticDuplicate(
     matchedArticleTitle: matchedArticle?.title,
     matchedArticleContent: matchedArticle?.content,
   };
+}
+
+export function getTopSimilarArticles(
+  embedding: number[],
+  existingEmbeddings: { id: string; title: string; content: string; embedding: number[] | null }[],
+  topN: number = 5
+): SimilarArticle[] {
+  const similarities: SimilarArticle[] = [];
+
+  for (const existing of existingEmbeddings) {
+    if (!existing.embedding) {
+      continue;
+    }
+
+    const similarity = cosineSimilarity(embedding, existing.embedding);
+    
+    similarities.push({
+      id: existing.id,
+      title: existing.title,
+      content: existing.content,
+      similarity: similarity
+    });
+  }
+
+  return similarities
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, topN);
 }

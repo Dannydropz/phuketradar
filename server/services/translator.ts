@@ -277,6 +277,14 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
     return this.generateEmbedding(title);
   }
 
+  async generateEmbeddingFromContent(title: string, content: string): Promise<number[]> {
+    // Generate embedding from FULL CONTENT (title + body) for more accurate duplicate detection
+    // Truncate content to ~8000 chars to stay within embedding model limits (8191 tokens)
+    const truncatedContent = content.substring(0, 8000);
+    const combinedText = `${title}\n\n${truncatedContent}`;
+    return this.generateEmbedding(combinedText);
+  }
+
   async isRealPhoto(imageUrl: string): Promise<boolean> {
     try {
       // Decode HTML entities (&amp; -> &) for Facebook URLs

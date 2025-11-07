@@ -21,7 +21,7 @@ import { translatorService } from "./services/translator";
 import { classificationService } from "./services/classifier";
 import { storage } from "./storage";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
-import { checkSemanticDuplicate } from "./lib/semantic-similarity";
+import { checkSemanticDuplicate, getTopSimilarArticles } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { entityExtractionService, type ExtractedEntities } from "./services/entity-extraction";
@@ -440,17 +440,18 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Continue without entity check if extraction fails
         }
         
-        // STEP 2: Generate embedding from Thai title (before translation - saves money!)
-        let titleEmbedding: number[] | undefined;
+        // STEP 2: Generate embedding from FULL Thai content (title + body) - catches duplicates with different headlines
+        let contentEmbedding: number[] | undefined;
         try {
-          titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
+          contentEmbedding = await translatorService.generateEmbeddingFromContent(post.title, post.content);
           
-          // STEP 2.5: Two-stage semantic duplicate detection
-          // Stage 1: Fast embedding similarity check (70% threshold)
-          // Stage 2: GPT verification for borderline cases (70-85%)
-          const initialThreshold = 0.70; // Lower threshold to catch more potential duplicates
+          // STEP 2.5: Hybrid semantic duplicate detection (Option D)
+          // Stage 1: Fast embedding similarity check (50% threshold) - much lower to catch more potential duplicates
+          // Stage 2: GPT verification for ANY similarity ≥50%
+          // Stage 3: Safety net - GPT checks top 5 similar stories even if <50%
+          const initialThreshold = 0.50; // Lowered from 70% to catch duplicates with different wording
           
-          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, initialThreshold);
+          const duplicateCheck = checkSemanticDuplicate(contentEmbedding, existingEmbeddings, initialThreshold);
           
           if (duplicateCheck.isDuplicate) {
             const similarityPercent = duplicateCheck.similarity * 100;
@@ -482,13 +483,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             if (duplicateCheck.similarity >= 0.85) {
               skippedSemanticDuplicates++;
               skipReasons.push({
-                reason: "Duplicate: High semantic similarity",
+                reason: "Duplicate: High semantic similarity (full content)",
                 postTitle: post.title.substring(0, 60),
                 sourceUrl: post.sourceUrl,
                 facebookPostId: post.facebookPostId,
                 details: `Similarity: ${similarityPercent.toFixed(1)}% (obvious duplicate)`
               });
-              console.log(`\n🚫 DUPLICATE DETECTED - Method: EMBEDDING SIMILARITY (${similarityPercent.toFixed(1)}%)`);
+              console.log(`\n🚫 DUPLICATE DETECTED - Method: FULL CONTENT EMBEDDING (${similarityPercent.toFixed(1)}%)`);
               console.log(`   New title: ${post.title.substring(0, 60)}...`);
               console.log(`   Existing: ${duplicateCheck.matchedArticleTitle.substring(0, 60)}...`);
               console.log(`   ✅ Skipped before translation (saved API credits)\n`);
@@ -504,10 +505,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               continue;
             }
             
-            // If similarity is between 70-85%, use GPT to verify
-            // This helps catch duplicates with different framing while avoiding false positives
-            // NOW USES FULL CONTENT, not just titles, for accurate detection
-            console.log(`\n🤔 BORDERLINE SIMILARITY DETECTED (${similarityPercent.toFixed(1)}%) - Using GPT verification...`);
+            // If similarity is ≥50%, use GPT to verify (lowered from 70-85% to catch more duplicates)
+            // This catches duplicates with different headlines but similar content
+            console.log(`\n🤔 POTENTIAL DUPLICATE DETECTED (${similarityPercent.toFixed(1)}%) - Using GPT to analyze full content...`);
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${duplicateCheck.matchedArticleTitle.substring(0, 60)}...`);
             
@@ -562,17 +562,76 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               console.log(`   Proceeding with translation...\n`);
               // Fall through to translation
             }
+          } else {
+            // Similarity is <50% - run SAFETY NET
+            // Check top 5 most similar articles with GPT to catch edge cases
+            // where embeddings don't capture semantic similarity well
+            console.log(`\n🛡️ SAFETY NET: Similarity below 50% (${(duplicateCheck.similarity * 100).toFixed(1)}%) - Checking top 5 similar stories...`);
+            
+            const topSimilar = getTopSimilarArticles(contentEmbedding, existingEmbeddings, 5);
+            
+            if (topSimilar.length > 0) {
+              console.log(`   Found ${topSimilar.length} stories to check`);
+              
+              // Check each of the top 5 with GPT
+              let duplicateFoundInSafetyNet = false;
+              for (const similar of topSimilar) {
+                const simPercent = (similar.similarity * 100).toFixed(1);
+                console.log(`   Checking against story with ${simPercent}% similarity...`);
+                
+                const safetyVerification = await duplicateVerifier.verifyDuplicate(
+                  post.title,
+                  post.content,
+                  similar.title,
+                  similar.content,
+                  similar.similarity
+                );
+                
+                if (safetyVerification.isDuplicate) {
+                  skippedSemanticDuplicates++;
+                  skipReasons.push({
+                    reason: "Duplicate: Caught by safety net (GPT verification)",
+                    postTitle: post.title.substring(0, 60),
+                    sourceUrl: post.sourceUrl,
+                    facebookPostId: post.facebookPostId,
+                    details: `Embedding: ${simPercent}%, GPT confidence: ${(safetyVerification.confidence * 100).toFixed(0)}%`
+                  });
+                  console.log(`\n🚫 DUPLICATE CAUGHT BY SAFETY NET!`);
+                  console.log(`   GPT confidence: ${(safetyVerification.confidence * 100).toFixed(0)}%`);
+                  console.log(`   Reasoning: ${safetyVerification.reasoning}`);
+                  console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+                  
+                  if (callbacks?.onProgress) {
+                    callbacks.onProgress({
+                      totalPosts,
+                      processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                      createdArticles: createdCount,
+                      skippedNotNews,
+                    });
+                  }
+                  
+                  duplicateFoundInSafetyNet = true;
+                  break;
+                }
+              }
+              
+              if (duplicateFoundInSafetyNet) {
+                continue; // Skip this post, duplicate found by safety net
+              }
+              
+              console.log(`   ✅ Safety net passed - not a duplicate of top similar stories`);
+            }
           }
         } catch (embeddingError) {
           console.error(`Error generating embedding, proceeding without semantic check:`, embeddingError);
           // Continue without semantic duplicate check if embedding fails
         }
 
-        // STEP 3: Translate and rewrite (pass precomputed Thai embedding)
+        // STEP 3: Translate and rewrite (pass precomputed embedding from full Thai content)
         const translation = await translatorService.translateAndRewrite(
           post.title,
           post.content,
-          titleEmbedding // Pass precomputed Thai embedding to be stored
+          contentEmbedding // Pass precomputed full content embedding to be stored
         );
 
         // STEP 4: Classify event type and severity using GPT-5 nano (ultra-cheap!)
@@ -664,12 +723,12 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
           
           // CRITICAL FIX: Add to existingEmbeddings so semantic similarity can catch duplicates within the same scrape
-          if (titleEmbedding) {
+          if (contentEmbedding) {
             existingEmbeddings.push({
               id: article.id,
-              title: post.title, // Store original Thai title (matches what we embed)
-              content: post.content, // Store original content for GPT verification
-              embedding: titleEmbedding,
+              title: post.title, // Store original Thai title
+              content: post.content, // Store original full content (used for embeddings)
+              embedding: contentEmbedding,
               entities: extractedEntities || null,
             });
           }
