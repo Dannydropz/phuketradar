@@ -26,6 +26,8 @@ export const articles = pgTable("articles", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   excerpt: text("excerpt").notNull(),
+  originalTitle: text("original_title"), // Thai source title before translation
+  originalContent: text("original_content"), // Thai source content before translation
   imageUrl: text("image_url"),
   imageUrls: text("image_urls").array(),
   imageHash: text("image_hash"),
