@@ -261,7 +261,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
   async generateEmbedding(text: string): Promise<number[]> {
     try {
       const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
+        model: "text-embedding-3-large",
         input: text,
       });
 

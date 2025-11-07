@@ -27,6 +27,7 @@ import { postArticleToFacebook } from "./lib/facebook-service";
 import { entityExtractionService, type ExtractedEntities } from "./services/entity-extraction";
 import { imageHashService } from "./services/image-hash";
 import { imageAnalysisService } from "./services/image-analysis";
+import { DuplicateVerifierService } from "./services/duplicate-verifier";
 
 // Optional callback for progress updates (used by admin UI)
 export interface ScrapeProgressCallback {
@@ -82,6 +83,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     // Get all existing article image hashes for visual duplicate detection
     const existingImageHashes = await storage.getArticlesWithImageHashes();
     console.log(`Loaded ${existingImageHashes.length} existing article image hashes`);
+    
+    // Initialize GPT duplicate verifier for borderline cases
+    const duplicateVerifier = new DuplicateVerifierService();
+    console.log(`🧠 GPT duplicate verifier initialized (for 70-85% similarity cases)`);
     
     let totalPosts = 0;
     let createdCount = 0;
@@ -440,39 +445,120 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         try {
           titleEmbedding = await translatorService.generateEmbeddingFromTitle(post.title);
           
-          // STEP 2.5: Check for semantic duplicates (55% threshold for entity-matched articles, 75% for others)
-          // If we have strong entity matches, we can use a lower semantic threshold
-          const semanticThreshold = extractedEntities && 
-            (extractedEntities.crimeTypes.length > 0 || extractedEntities.locations.length > 0) 
-            ? 0.55  // Lower threshold when we have entity context
-            : 0.75; // Higher threshold when no entities extracted
+          // STEP 2.5: Two-stage semantic duplicate detection
+          // Stage 1: Fast embedding similarity check (70% threshold)
+          // Stage 2: GPT verification for borderline cases (70-85%)
+          const initialThreshold = 0.70; // Lower threshold to catch more potential duplicates
           
-          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, semanticThreshold);
+          const duplicateCheck = checkSemanticDuplicate(titleEmbedding, existingEmbeddings, initialThreshold);
           
           if (duplicateCheck.isDuplicate) {
-            skippedSemanticDuplicates++;
-            skipReasons.push({
-              reason: "Duplicate: Semantic similarity",
-              postTitle: post.title.substring(0, 60),
-              sourceUrl: post.sourceUrl,
-              facebookPostId: post.facebookPostId,
-              details: `Similarity: ${(duplicateCheck.similarity * 100).toFixed(1)}%`
-            });
-            console.log(`\n🚫 DUPLICATE DETECTED - Method: SEMANTIC SIMILARITY (${(duplicateCheck.similarity * 100).toFixed(1)}% match, threshold: ${(semanticThreshold * 100)}%)`);
-            console.log(`   New title: ${post.title.substring(0, 60)}...`);
-            console.log(`   Existing: ${duplicateCheck.matchedArticleTitle?.substring(0, 60)}...`);
-            console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+            const similarityPercent = duplicateCheck.similarity * 100;
             
-            // Update progress
-            if (callbacks?.onProgress) {
-              callbacks.onProgress({
-                totalPosts,
-                processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                createdArticles: createdCount,
-                skippedNotNews,
+            // Safety check: If matched article ID is missing, skip (shouldn't happen but be safe)
+            if (!duplicateCheck.matchedArticleId || !duplicateCheck.matchedArticleTitle) {
+              console.log(`⚠️  Warning: Embedding matched but no article ID/title - skipping for safety`);
+              skippedSemanticDuplicates++;
+              skipReasons.push({
+                reason: "Duplicate: Semantic match without article details",
+                postTitle: post.title.substring(0, 60),
+                sourceUrl: post.sourceUrl,
+                facebookPostId: post.facebookPostId,
+                details: `Similarity: ${similarityPercent.toFixed(1)}% (safety skip)`
               });
+              
+              if (callbacks?.onProgress) {
+                callbacks.onProgress({
+                  totalPosts,
+                  processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                  createdArticles: createdCount,
+                  skippedNotNews,
+                });
+              }
+              continue;
             }
-            continue;
+            
+            // If similarity is >=85%, it's an obvious duplicate - skip immediately
+            if (duplicateCheck.similarity >= 0.85) {
+              skippedSemanticDuplicates++;
+              skipReasons.push({
+                reason: "Duplicate: High semantic similarity",
+                postTitle: post.title.substring(0, 60),
+                sourceUrl: post.sourceUrl,
+                facebookPostId: post.facebookPostId,
+                details: `Similarity: ${similarityPercent.toFixed(1)}% (obvious duplicate)`
+              });
+              console.log(`\n🚫 DUPLICATE DETECTED - Method: EMBEDDING SIMILARITY (${similarityPercent.toFixed(1)}%)`);
+              console.log(`   New title: ${post.title.substring(0, 60)}...`);
+              console.log(`   Existing: ${duplicateCheck.matchedArticleTitle.substring(0, 60)}...`);
+              console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+              
+              if (callbacks?.onProgress) {
+                callbacks.onProgress({
+                  totalPosts,
+                  processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                  createdArticles: createdCount,
+                  skippedNotNews,
+                });
+              }
+              continue;
+            }
+            
+            // If similarity is between 70-85%, use GPT to verify
+            // This helps catch duplicates with different framing while avoiding false positives
+            console.log(`\n🤔 BORDERLINE SIMILARITY DETECTED (${similarityPercent.toFixed(1)}%) - Using GPT verification...`);
+            console.log(`   New title: ${post.title.substring(0, 60)}...`);
+            console.log(`   Existing: ${duplicateCheck.matchedArticleTitle.substring(0, 60)}...`);
+            
+            const gptVerification = await duplicateVerifier.verifyDuplicate(
+              post.title,
+              duplicateCheck.matchedArticleTitle,
+              duplicateCheck.similarity
+            );
+            
+            console.log(`\n🧠 GPT VERIFICATION RESULT:`);
+            console.log(`   Decision: ${gptVerification.isDuplicate ? '❌ DUPLICATE' : '✅ NOT DUPLICATE'}`);
+            console.log(`   Confidence: ${(gptVerification.confidence * 100).toFixed(0)}%`);
+            console.log(`   Reasoning: ${gptVerification.reasoning}`);
+            console.log(`\n   New Story Analysis:`);
+            console.log(`      Event: ${gptVerification.newStoryAnalysis.eventType}`);
+            console.log(`      Location: ${gptVerification.newStoryAnalysis.location.join(', ') || 'N/A'}`);
+            console.log(`      People: ${gptVerification.newStoryAnalysis.people.join(', ') || 'N/A'}`);
+            console.log(`      Timing: ${gptVerification.newStoryAnalysis.timing}`);
+            console.log(`      Facts: ${gptVerification.newStoryAnalysis.coreFacts.join('; ')}`);
+            console.log(`\n   Existing Story Analysis:`);
+            console.log(`      Event: ${gptVerification.existingStoryAnalysis.eventType}`);
+            console.log(`      Location: ${gptVerification.existingStoryAnalysis.location.join(', ') || 'N/A'}`);
+            console.log(`      People: ${gptVerification.existingStoryAnalysis.people.join(', ') || 'N/A'}`);
+            console.log(`      Timing: ${gptVerification.existingStoryAnalysis.timing}`);
+            console.log(`      Facts: ${gptVerification.existingStoryAnalysis.coreFacts.join('; ')}\n`);
+            
+            if (gptVerification.isDuplicate) {
+              skippedSemanticDuplicates++;
+              skipReasons.push({
+                reason: "Duplicate: GPT-verified same event",
+                postTitle: post.title.substring(0, 60),
+                sourceUrl: post.sourceUrl,
+                facebookPostId: post.facebookPostId,
+                details: `Embedding: ${similarityPercent.toFixed(1)}%, GPT confidence: ${(gptVerification.confidence * 100).toFixed(0)}%`
+              });
+              console.log(`🚫 CONFIRMED DUPLICATE by GPT - Same event with different framing`);
+              console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+              
+              if (callbacks?.onProgress) {
+                callbacks.onProgress({
+                  totalPosts,
+                  processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                  createdArticles: createdCount,
+                  skippedNotNews,
+                });
+              }
+              continue;
+            } else {
+              console.log(`✅ NOT A DUPLICATE - GPT determined these are different events`);
+              console.log(`   Proceeding with translation...\n`);
+              // Fall through to translation
+            }
           }
         } catch (embeddingError) {
           console.error(`Error generating embedding, proceeding without semantic check:`, embeddingError);

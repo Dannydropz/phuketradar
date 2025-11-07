@@ -36,7 +36,16 @@ Preferred communication style: Simple, everyday language.
     - Layer 3: Color dominance analysis - images with >75% single color + small file size are rejected as text graphics
     - **Smart error handling**: Network/download errors (400/403) result in accepting the post (err on side of inclusion), while successful analysis that confirms text graphic (small file + solid color) results in rejection
     - **Multi-image logic**: Rejects only when ALL images are confirmed text graphics with high confidence
-- **Duplicate Detection**: A six-layer system including URL normalization, in-memory checks, Facebook Post ID and source URL database checks, exact image URL matching, semantic similarity on titles (using AI embeddings), entity matching (locations, crime types, organizations, people), and database UNIQUE constraints for `source_url` and `facebook_post_id`. **Note**: Perceptual image hashing is disabled due to false positives - the AI semantic similarity check is more accurate for detecting duplicate stories.
+- **Duplicate Detection**: A six-layer system with two-stage semantic analysis:
+    - **Layer 1-4**: URL normalization, Facebook Post ID/source URL database checks, exact image URL matching, entity matching (locations, crime types, organizations, people)
+    - **Layer 5**: Two-stage semantic duplicate detection using text-embedding-3-large (upgraded from 3-small for better understanding):
+        - **Stage 1**: Embedding similarity check (70% threshold)
+        - If ≥85% similarity: Immediate skip (obvious duplicate)
+        - If 70-85% similarity: Trigger GPT-4o-mini verification
+        - **Stage 2**: GPT verification analyzes event type, location, people, timing, and core facts to determine if stories describe the same event despite different framing
+        - Safety: GPT errors default to "duplicate" to prevent false negatives
+    - **Layer 6**: Database UNIQUE constraints for `source_url` and `facebook_post_id`
+    - **Note**: Perceptual image hashing disabled due to false positives - GPT semantic analysis is more accurate
 - **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags. Auto-posting occurs both during automated scraping (for high-interest articles) and when manually publishing draft articles via the admin dashboard.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.
 
