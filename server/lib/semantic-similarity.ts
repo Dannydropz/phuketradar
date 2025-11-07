@@ -30,15 +30,16 @@ export interface SemanticDuplicateChecker {
   similarity: number;
   matchedArticleId?: string;
   matchedArticleTitle?: string;
+  matchedArticleContent?: string;
 }
 
 export function checkSemanticDuplicate(
   embedding: number[],
-  existingEmbeddings: { id: string; title: string; embedding: number[] | null }[],
+  existingEmbeddings: { id: string; title: string; content: string; embedding: number[] | null }[],
   threshold: number = 0.7
 ): SemanticDuplicateChecker {
   let maxSimilarity = 0;
-  let matchedArticle: { id: string; title: string } | null = null;
+  let matchedArticle: { id: string; title: string; content: string } | null = null;
 
   for (const existing of existingEmbeddings) {
     if (!existing.embedding) {
@@ -49,7 +50,7 @@ export function checkSemanticDuplicate(
 
     if (similarity > maxSimilarity) {
       maxSimilarity = similarity;
-      matchedArticle = { id: existing.id, title: existing.title };
+      matchedArticle = { id: existing.id, title: existing.title, content: existing.content };
     }
   }
 
@@ -58,5 +59,6 @@ export function checkSemanticDuplicate(
     similarity: maxSimilarity,
     matchedArticleId: matchedArticle?.id,
     matchedArticleTitle: matchedArticle?.title,
+    matchedArticleContent: matchedArticle?.content,
   };
 }

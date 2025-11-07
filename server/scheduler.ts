@@ -506,13 +506,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             
             // If similarity is between 70-85%, use GPT to verify
             // This helps catch duplicates with different framing while avoiding false positives
+            // NOW USES FULL CONTENT, not just titles, for accurate detection
             console.log(`\n🤔 BORDERLINE SIMILARITY DETECTED (${similarityPercent.toFixed(1)}%) - Using GPT verification...`);
             console.log(`   New title: ${post.title.substring(0, 60)}...`);
             console.log(`   Existing: ${duplicateCheck.matchedArticleTitle.substring(0, 60)}...`);
             
             const gptVerification = await duplicateVerifier.verifyDuplicate(
               post.title,
+              post.content, // Full scraped content
               duplicateCheck.matchedArticleTitle,
+              duplicateCheck.matchedArticleContent || "", // Full existing article content
               duplicateCheck.similarity
             );
             
@@ -646,6 +649,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             existingEmbeddings.push({
               id: article.id,
               title: translation.translatedTitle,
+              content: article.content,
               embedding: translation.embedding,
             });
           }
@@ -664,6 +668,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             existingEmbeddings.push({
               id: article.id,
               title: post.title, // Store original Thai title (matches what we embed)
+              content: post.content, // Store original content for GPT verification
               embedding: titleEmbedding,
               entities: extractedEntities || null,
             });

@@ -25,10 +25,14 @@ export class DuplicateVerifierService {
    * Use GPT-4o-mini to analyze two stories and determine if they're about the same event
    * This is used for borderline cases (70-85% embedding similarity) where we need
    * deeper semantic understanding
+   * 
+   * Now analyzes FULL CONTENT, not just titles, for accurate duplicate detection
    */
   async verifyDuplicate(
     newTitle: string,
+    newContent: string,
     existingTitle: string,
+    existingContent: string,
     similarityScore: number
   ): Promise<DuplicateVerificationResult> {
     try {
@@ -37,36 +41,42 @@ export class DuplicateVerifierService {
         messages: [
           {
             role: "system",
-            content: `You are a news editor analyzing whether two headlines describe the same news event.
+            content: `You are a news editor analyzing whether two news stories describe the same event.
 
 Your task is to:
-1. Extract key information from both headlines
-2. Determine if they're reporting on the SAME EVENT (not just similar topics)
-3. Provide clear reasoning for your decision
+1. Read the FULL CONTENT of both stories carefully
+2. Extract key information from both stories
+3. Determine if they're reporting on the SAME EVENT (not just similar topics)
+4. Provide clear reasoning for your decision
 
 Two stories are DUPLICATES if they report on the same specific incident, even if:
 - They have different framing or angles
 - Different sources posted them
 - The headlines emphasize different aspects
 - The wording is completely different
+- One focuses on the rescue, the other on the stranding
 
 Two stories are NOT DUPLICATES if they:
 - Report on different incidents (even of the same type)
-- Occurred at different times
+- Occurred at different times or dates
 - Involve different people or locations
 - Are general updates vs. specific events
+
+IMPORTANT: Read the full story content, not just the titles. Many duplicates have different titles but identical facts in the body.
 
 Return your analysis in JSON format.`
           },
           {
             role: "user",
-            content: `Analyze these two headlines and determine if they're about the same event:
+            content: `Analyze these two news stories and determine if they're about the same event:
 
 **New Story:**
-"${newTitle}"
+Title: "${newTitle}"
+Content: "${newContent.substring(0, 1500)}" ${newContent.length > 1500 ? '...(truncated)' : ''}
 
 **Existing Story:**
-"${existingTitle}"
+Title: "${existingTitle}"
+Content: "${existingContent.substring(0, 1500)}" ${existingContent.length > 1500 ? '...(truncated)' : ''}
 
 **Embedding Similarity:** ${(similarityScore * 100).toFixed(1)}%
 
