@@ -117,6 +117,8 @@ export class DatabaseStorage implements IStorage {
         slug: articles.slug,
         title: articles.title,
         excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
@@ -149,6 +151,8 @@ export class DatabaseStorage implements IStorage {
         slug: articles.slug,
         title: articles.title,
         excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
@@ -192,7 +196,13 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
       })
       .from(articles);
-    return result;
+    
+    // Filter out articles without original content (legacy articles before this fix)
+    // and cast to non-null types since we're filtering nulls
+    return result
+      .filter((a): a is { id: string; title: string; content: string; embedding: number[] | null; entities?: any } => 
+        a.title !== null && a.content !== null
+      );
   }
 
   async getArticlesWithImageHashes(): Promise<{ id: string; title: string; imageHash: string | null }[]> {
@@ -350,6 +360,8 @@ export class DatabaseStorage implements IStorage {
         slug: articles.slug,
         title: articles.title,
         excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,

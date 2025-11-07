@@ -670,6 +670,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               title: translation.translatedTitle,
               content: translation.translatedContent,
               excerpt: translation.excerpt,
+              originalTitle: post.title, // Store Thai source title for duplicate detection
+              originalContent: post.content, // Store Thai source content for duplicate detection
               imageUrl: post.imageUrl || null,
               imageUrls: post.imageUrls || null,
               imageHash: imageHash || null, // Store perceptual hash for duplicate detection
