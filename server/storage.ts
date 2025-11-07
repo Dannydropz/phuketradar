@@ -186,8 +186,8 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({
         id: articles.id,
-        title: articles.title,
-        content: articles.content,
+        title: articles.originalTitle, // Return Thai original for duplicate detection
+        content: articles.originalContent, // Return Thai original for duplicate detection
         embedding: articles.embedding,
         entities: articles.entities,
       })
