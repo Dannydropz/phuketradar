@@ -21,8 +21,8 @@ Preferred communication style: Simple, everyday language.
     - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, category classification (Breaking, Tourism, Business, Events, Other), and interest scoring (1-5 scale).
     - **Interest Scoring**: GPT-4-mini rates articles 1-5 (5=urgent/dramatic, 4=important, 3=moderate, 2=mundane, 1=trivial). Thai keyword boosting (+1 for hot keywords like drownings/crime/accidents, -1 for cold keywords like meetings/ceremonies) adjusts final scores.
     - **Auto-Publish Logic**: Only stories with interest_score >= 4 are auto-published. Lower-scored stories (1-3) saved as drafts for manual review.
-    - **Embedding Generation**: OpenAI text-embedding-3-small for semantic analysis from Thai titles.
-    - **Semantic Similarity**: Cosine similarity for duplicate detection.
+    - **Embedding Generation**: OpenAI text-embedding-3-large for semantic analysis from Thai titles (upgraded for better duplicate detection).
+    - **Duplicate Verification**: GPT-4o-mini analyzes borderline semantic matches to determine if stories describe the same event.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
 
 ### Architectural Decisions
@@ -66,7 +66,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Third-Party Services
 - **JINA AI Reader API**: `https://r.jina.ai` for converting Facebook pages to markdown.
-- **OpenAI API**: GPT-4-mini for translation/classification/rewriting, text-embedding-3-small for embeddings, GPT-4o-mini for vision.
+- **OpenAI API**: GPT-4-mini for translation/classification/rewriting, text-embedding-3-large for embeddings, GPT-4o-mini for duplicate verification and vision analysis.
 - **Neon Database**: Serverless PostgreSQL hosting.
 - **Resend**: Email delivery service.
 
