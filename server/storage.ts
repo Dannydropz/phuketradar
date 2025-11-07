@@ -198,11 +198,15 @@ export class DatabaseStorage implements IStorage {
       .from(articles);
     
     // Filter out articles without original content (legacy articles before this fix)
-    // and cast to non-null types since we're filtering nulls
     return result
-      .filter((a): a is { id: string; title: string; content: string; embedding: number[] | null; entities?: any } => 
-        a.title !== null && a.content !== null
-      );
+      .filter(a => a.title !== null && a.content !== null)
+      .map(a => ({
+        id: a.id,
+        title: a.title as string,
+        content: a.content as string,
+        embedding: a.embedding,
+        entities: a.entities,
+      }));
   }
 
   async getArticlesWithImageHashes(): Promise<{ id: string; title: string; imageHash: string | null }[]> {
