@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
     - **Interest Scoring**: GPT-4-mini rates articles 1-5 (5=urgent/dramatic, 4=important, 3=moderate, 2=mundane, 1=trivial). Thai keyword boosting (+1 for hot keywords like drownings/crime/accidents, -1 for cold keywords like meetings/ceremonies) adjusts final scores.
     - **Auto-Publish Logic**: Only stories with interest_score >= 4 are auto-published. Lower-scored stories (1-3) saved as drafts for manual review.
     - **Embedding Generation**: OpenAI text-embedding-3-large for semantic analysis from Thai titles (upgraded for better duplicate detection).
-    - **Duplicate Verification**: GPT-4o-mini analyzes borderline semantic matches to determine if stories describe the same event.
+    - **Duplicate Verification**: GPT-4o-mini reads full story content (first 1500 chars) to analyze borderline semantic matches and determine if stories describe the same event.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
 
 ### Architectural Decisions
@@ -39,10 +39,11 @@ Preferred communication style: Simple, everyday language.
 - **Duplicate Detection**: A six-layer system with two-stage semantic analysis:
     - **Layer 1-4**: URL normalization, Facebook Post ID/source URL database checks, exact image URL matching, entity matching (locations, crime types, organizations, people)
     - **Layer 5**: Two-stage semantic duplicate detection using text-embedding-3-large (upgraded from 3-small for better understanding):
-        - **Stage 1**: Embedding similarity check (70% threshold)
+        - **Stage 1**: Embedding similarity check (70% threshold on Thai titles)
         - If ≥85% similarity: Immediate skip (obvious duplicate)
-        - If 70-85% similarity: Trigger GPT-4o-mini verification
-        - **Stage 2**: GPT verification analyzes event type, location, people, timing, and core facts to determine if stories describe the same event despite different framing
+        - If 70-85% similarity: Trigger GPT-4o-mini verification with FULL CONTENT ANALYSIS
+        - **Stage 2**: GPT reads first 1500 chars of both story contents (not just titles) and analyzes event type, location, people, timing, and core facts to determine if stories describe the same event despite different headline framing
+        - Example: Stories titled "Navy rescues tourists" vs "Tourists stranded on island" are correctly identified as duplicates when both mention the same Navy rescue at Koh Maiton
         - Safety: GPT errors default to "duplicate" to prevent false negatives
     - **Layer 6**: Database UNIQUE constraints for `source_url` and `facebook_post_id`
     - **Note**: Perceptual image hashing disabled due to false positives - GPT semantic analysis is more accurate
