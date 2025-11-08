@@ -34,7 +34,7 @@ const SEVERITY_LEVELS = [
 
 export class ClassificationService {
   /**
-   * Classify a news article by event type and severity using GPT-5 nano
+   * Classify a news article by event type and severity using GPT-4o-mini
    * Optimized for cost: uses minimal input tokens and structured output
    */
   async classifyArticle(
@@ -77,7 +77,7 @@ SEVERITY:
 Return ONLY valid JSON: {"eventType": "...", "severity": "..."}`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5-nano", // Ultra-cheap model for classification ($0.05/1M input tokens)
+        model: "gpt-4o-mini", // Cost-effective model for classification
         messages: [
           {
             role: "system",
@@ -89,8 +89,8 @@ Return ONLY valid JSON: {"eventType": "...", "severity": "..."}`;
           },
         ],
         response_format: { type: "json_object" }, // Force JSON output
-        // Note: GPT-5 nano only supports default temperature (1)
-        max_completion_tokens: 50, // GPT-5 models use max_completion_tokens instead of max_tokens
+        temperature: 0.3, // Lower temperature for consistent classification
+        max_tokens: 50, // Limit response to minimize cost
       });
 
       const content = response.choices[0].message.content;
