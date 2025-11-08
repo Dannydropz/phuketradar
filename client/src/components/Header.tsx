@@ -1,17 +1,26 @@
-import { Moon, Sun, Menu, Search } from "lucide-react";
+import { Moon, Sun, Menu, Search, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import logoDark from "@assets/PhuketRadar_1759933943849.png";
 import { SearchDialog } from "./SearchDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const categories = [
+const newsCategories = [
   { name: "All News", path: "/" },
-  { name: "Breaking", path: "/category/breaking" },
+  { name: "Crime", path: "/category/crime" },
+  { name: "Local", path: "/category/local" },
   { name: "Tourism", path: "/category/tourism" },
-  { name: "Business", path: "/category/business" },
-  { name: "Events", path: "/category/events" },
+  { name: "Politics", path: "/category/politics" },
+  { name: "Economy", path: "/category/economy" },
+  { name: "Traffic", path: "/category/traffic" },
+  { name: "Weather", path: "/category/weather" },
 ];
 
 export function Header() {
@@ -33,17 +42,32 @@ export function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-1">
-            {categories.map((cat) => (
-              <Link key={cat.path} href={cat.path}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className={`text-header-foreground hover:text-header-foreground ${location === cat.path ? "bg-black/20" : ""}`}
-                  data-testid={`link-${cat.name.toLowerCase().replace(" ", "-")}`}
+                  className="text-header-foreground hover:text-header-foreground"
+                  data-testid="button-news-dropdown"
                 >
-                  {cat.name}
+                  News
+                  <ChevronDown className="ml-1 h-4 w-4" />
                 </Button>
-              </Link>
-            ))}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {newsCategories.map((cat) => (
+                  <DropdownMenuItem key={cat.path} asChild>
+                    <Link href={cat.path}>
+                      <button
+                        className={`w-full text-left ${location === cat.path ? "font-semibold" : ""}`}
+                        data-testid={`link-${cat.name.toLowerCase().replace(" ", "-")}`}
+                      >
+                        {cat.name}
+                      </button>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           <div className="flex items-center space-x-2">
@@ -79,7 +103,7 @@ export function Header() {
 
         {mobileMenuOpen && (
           <nav className="md:hidden py-4 space-y-2" data-testid="nav-mobile-menu">
-            {categories.map((cat) => (
+            {newsCategories.map((cat) => (
               <Link key={cat.path} href={cat.path}>
                 <Button
                   variant="ghost"
