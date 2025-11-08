@@ -372,28 +372,34 @@ export default function AdminDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
+                  size={undefined}
                   onClick={() => setLocation("/admin/insights")}
                   data-testid="button-insights"
-                  className="flex-1 md:flex-none"
+                  className="flex-1 md:flex-none h-11 px-4 py-2"
+                  aria-label="Generate Insight"
                 >
                   <Sparkles className="w-4 h-4 md:mr-2" />
                   <span className="hidden md:inline">Generate Insight</span>
                 </Button>
                 <Button
                   variant="outline"
+                  size={undefined}
                   onClick={handleLogout}
                   data-testid="button-logout"
-                  className="flex-1 md:flex-none"
+                  className="flex-1 md:flex-none h-11 px-4 py-2"
+                  aria-label="Logout"
                 >
                   <LogOut className="w-4 h-4 md:mr-2" />
                   <span className="hidden md:inline">Logout</span>
                 </Button>
                 <Button
                   variant="outline"
+                  size={undefined}
                   onClick={handleBatchFacebookPost}
                   disabled={batchFacebookPostMutation.isPending}
                   data-testid="button-batch-facebook"
-                  className="flex-1 md:flex-none"
+                  className="flex-1 md:flex-none h-11 px-4 py-2"
+                  aria-label="Post Missing to Facebook"
                 >
                   {batchFacebookPostMutation.isPending ? (
                     <>
@@ -408,11 +414,12 @@ export default function AdminDashboard() {
                   )}
                 </Button>
                 <Button
-                  size="lg"
+                  size={undefined}
                   onClick={handleScrape}
                   disabled={scrapeMutation.isPending || !!(currentJob && currentJob.status !== 'completed' && currentJob.status !== 'failed')}
                   data-testid="button-scrape"
-                  className="flex-1 md:flex-none"
+                  className="flex-1 md:flex-none h-11 px-8 py-2"
+                  aria-label="Scrape New Articles"
                 >
                   {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') ? (
                     <>
@@ -518,19 +525,22 @@ export default function AdminDashboard() {
                         </span>
                         <Button
                           variant="outline"
-                          size="sm"
+                          size={undefined}
                           onClick={handleBulkHide}
                           data-testid="button-bulk-hide"
+                          className="h-11 px-4 py-2"
+                          aria-label="Hide Selected"
                         >
                           <EyeOff className="w-4 h-4 md:mr-2" />
                           <span className="hidden md:inline">Hide Selected</span>
                         </Button>
                         <Button
                           variant="outline"
-                          size="sm"
+                          size={undefined}
                           onClick={handleBulkDelete}
-                          className="border-destructive text-destructive"
+                          className="border-destructive text-destructive h-11 px-4 py-2"
                           data-testid="button-bulk-delete"
+                          aria-label="Delete Selected"
                         >
                           <Trash2 className="w-4 h-4 md:mr-2" />
                           <span className="hidden md:inline">Delete Selected</span>
@@ -616,9 +626,10 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-2 justify-end md:justify-start">
                         <Button
                           variant="outline"
-                          size="icon"
                           onClick={() => handlePreview(article)}
                           data-testid={`button-preview-${article.id}`}
+                          className="h-11 w-11 p-0"
+                          aria-label="Preview article"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -626,21 +637,21 @@ export default function AdminDashboard() {
                           <>
                             <Button
                               variant="outline"
-                              size="icon"
                               onClick={() => handleApprove(article.id)}
-                              className="border-primary text-primary"
+                              className="border-primary text-primary h-11 w-11 p-0"
                               disabled={publishMutation.isPending}
                               data-testid={`button-approve-${article.id}`}
+                              aria-label="Publish article"
                             >
                               <Check className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="outline"
-                              size="icon"
                               onClick={() => handleReject(article.id)}
-                              className="border-destructive text-destructive"
+                              className="border-destructive text-destructive h-11 w-11 p-0"
                               disabled={deleteMutation.isPending}
                               data-testid={`button-reject-${article.id}`}
+                              aria-label="Reject and delete article"
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -650,33 +661,32 @@ export default function AdminDashboard() {
                             {!article.facebookPostId && (
                               <Button
                                 variant="outline"
-                                size="icon"
                                 onClick={() => handlePostToFacebook(article.id)}
-                                className="border-blue-500 text-blue-500"
+                                className="border-blue-500 text-blue-500 h-11 w-11 p-0"
                                 disabled={facebookPostMutation.isPending}
                                 data-testid={`button-facebook-${article.id}`}
-                                title="Post to Facebook"
+                                aria-label="Post to Facebook"
                               >
                                 <Facebook className="w-4 h-4" />
                               </Button>
                             )}
                             <Button
                               variant="outline"
-                              size="icon"
                               onClick={() => handleUnpublish(article.id)}
-                              className="border-orange-500 text-orange-500"
+                              className="border-orange-500 text-orange-500 h-11 w-11 p-0"
                               disabled={unpublishMutation.isPending}
                               data-testid={`button-unpublish-${article.id}`}
+                              aria-label="Unpublish article"
                             >
                               <EyeOff className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="outline"
-                              size="icon"
                               onClick={() => handleDelete(article.id)}
-                              className="border-destructive text-destructive"
+                              className="border-destructive text-destructive h-11 w-11 p-0"
                               disabled={deleteMutation.isPending}
                               data-testid={`button-delete-${article.id}`}
+                              aria-label="Delete article"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
