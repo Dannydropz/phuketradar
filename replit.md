@@ -4,7 +4,7 @@
 Phuket Radar is a news aggregation platform for Phuket's international community. It scrapes Thai Facebook news, translates it to English using AI, and delivers it in a fast, mobile-optimized, newsletter-style format. The platform focuses on providing curated, relevant news, distinguishing it from promotional content.
 
 ## Recent Changes
-- **2025-01-08**: Fixed duplicate article bug by restoring database UNIQUE constraints on `source_url` and `facebook_post_id`. Previously, facebookPostId was incorrectly stored as null, preventing the unique constraint from working. Now stores actual Facebook post ID from scraped data, providing defense-in-depth duplicate prevention.
+- **2025-01-08**: Fixed duplicate article bug by storing actual Facebook post ID from scraped data (was incorrectly null). Removed `source_url` UNIQUE constraint due to deployment timeouts on large production dataset. Duplicate prevention maintained through: (1) `facebook_post_id` UNIQUE constraint, (2) application-level checks in scheduler (lines 232-259), and (3) semantic similarity verification.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
