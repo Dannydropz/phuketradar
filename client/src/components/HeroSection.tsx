@@ -3,6 +3,7 @@ import { Clock } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
+import { getCategoryBadgeVariant } from "@/lib/utils";
 
 interface HeroArticle {
   id: string;
@@ -21,12 +22,8 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ featured, sidebar }: HeroSectionProps) {
-  // Check if featured article is fresh (< 8 hours old)
-  const featuredIsFresh = (Date.now() - new Date(featured.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
-  const featuredIsBreaking = featured.category.toLowerCase() === "breaking";
-  const featuredShowRed = featuredIsBreaking && featuredIsFresh;
-  
   const featuredUrl = featured.slug ? `/article/${featured.slug}` : `/article/${featured.id}`;
+  const featuredCategoryVariant = getCategoryBadgeVariant(featured.category);
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-12">
@@ -43,11 +40,10 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
           </div>
           <div className="flex items-center gap-3 mb-3">
             <Badge 
-              variant={featuredShowRed ? "destructive" : "secondary"} 
-              className={featuredShowRed ? "font-bold" : ""}
+              variant={featuredCategoryVariant} 
               data-testid="badge-hero-category"
             >
-              {featuredIsBreaking ? (featuredShowRed ? "BREAKING" : "Breaking") : featured.category}
+              {featured.category}
             </Badge>
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
@@ -65,9 +61,6 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
 
       <div className="lg:col-span-2 flex flex-col gap-6">
         {sidebar.slice(0, 5).map((article) => {
-          const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
-          const isBreaking = article.category.toLowerCase() === "breaking";
-          const showRed = isBreaking && isFresh;
           const articleUrl = article.slug ? `/article/${article.slug}` : `/article/${article.id}`;
           
           return (

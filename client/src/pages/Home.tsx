@@ -35,17 +35,21 @@ export default function Home() {
     });
   }, [allArticles]);
 
-  // Get urgent news (Breaking + Fresh, < 4 hours old)
+  // Get high-interest articles (score >= 4) for hero section
+  const highInterestArticles = useMemo(() => {
+    return articles.filter(article => (article.interestScore ?? 0) >= 4);
+  }, [articles]);
+  
+  // Get urgent news (High Interest + Fresh, < 4 hours old)
   const urgentNews = useMemo(() => {
     const now = Date.now();
     const fourHoursAgo = now - (4 * 60 * 60 * 1000);
     
-    return articles.filter(article => {
+    return highInterestArticles.filter(article => {
       const isFresh = new Date(article.publishedAt).getTime() > fourHoursAgo;
-      const isBreaking = article.category.toLowerCase() === "breaking";
-      return isBreaking && isFresh;
+      return isFresh;
     }).slice(0, 3); // Limit to 3 urgent stories
-  }, [articles]);
+  }, [highInterestArticles]);
 
   if (isLoading) {
     return (
@@ -62,11 +66,21 @@ export default function Home() {
     );
   }
 
-  // Separate featured article and sidebar articles
-  const featured = articles[0];
-  const sidebar = articles.slice(1, 6); // Show 5 trending stories
-  const latestArticles = articles.slice(6, 6 + displayCount); // Start after hero+sidebar (6 articles)
-  const hasMore = articles.length > 6 + displayCount;
+  // Separate featured article and sidebar articles (only show high-interest stories >= 4)
+  const featured = highInterestArticles[0];
+  const sidebar = highInterestArticles.slice(1, 6); // Show 5 trending stories
+  
+  // Get IDs of articles already shown in hero section to avoid duplicates
+  const heroArticleIds = new Set([
+    featured?.id,
+    ...sidebar.map(a => a.id)
+  ].filter(Boolean));
+  
+  // Latest articles excludes hero articles and shows ALL remaining articles
+  const latestArticles = articles
+    .filter(article => !heroArticleIds.has(article.id))
+    .slice(0, displayCount);
+  const hasMore = articles.filter(article => !heroArticleIds.has(article.id)).length > displayCount;
 
   if (!featured) {
     return (
@@ -110,7 +124,6 @@ export default function Home() {
               imageUrl: featured.imageUrl || "",
               category: featured.category,
               publishedAt: new Date(featured.publishedAt),
-              isBreaking: featured.category.toLowerCase() === "breaking",
             }}
             sidebar={sidebar.map((article) => ({
               id: article.id,
@@ -120,7 +133,6 @@ export default function Home() {
               imageUrl: article.imageUrl || "",
               category: article.category,
               publishedAt: new Date(article.publishedAt),
-              isBreaking: article.category.toLowerCase() === "breaking",
             }))}
           />
 
@@ -146,7 +158,6 @@ export default function Home() {
                       imageUrl={article.imageUrl || undefined}
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
-                      isBreaking={article.category.toLowerCase() === "breaking"}
                       eventType={article.eventType}
                       severity={article.severity}
                       journalist={journalist ? {
@@ -184,7 +195,6 @@ export default function Home() {
                       imageUrl={article.imageUrl || undefined}
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
-                      isBreaking={article.category.toLowerCase() === "breaking"}
                       eventType={article.eventType}
                       severity={article.severity}
                       journalist={journalist ? {

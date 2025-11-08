@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { JournalistByline } from "./JournalistByline";
+import { getCategoryBadgeVariant } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
 interface ArticleCardProps {
@@ -103,13 +104,11 @@ export function ArticleCard({
   severity,
   journalist,
 }: ArticleCardProps) {
-  // Check if article is fresh (< 8 hours old) for time-based badge styling
-  const isFresh = (Date.now() - new Date(publishedAt).getTime()) < (8 * 60 * 60 * 1000);
-  const isBreakingCategory = category.toLowerCase() === "breaking";
-  const showRedBadge = isBreakingCategory && isFresh;
-  
   // Use slug for URL if available, fallback to ID
   const articleUrl = slug ? `/article/${slug}` : `/article/${id}`;
+  
+  // Get category-based badge variant
+  const categoryVariant = getCategoryBadgeVariant(category);
   
   return (
     <Link href={articleUrl}>
@@ -126,11 +125,10 @@ export function ArticleCard({
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <Badge 
-              variant={showRedBadge ? "destructive" : "secondary"} 
-              className={showRedBadge ? "font-bold" : ""}
+              variant={categoryVariant} 
               data-testid={`badge-category-${id}`}
             >
-              {isBreakingCategory ? (showRedBadge ? "BREAKING" : "Breaking") : category}
+              {category}
             </Badge>
             {severity && (() => {
               const severityStyle = getSeverityStyle(severity);

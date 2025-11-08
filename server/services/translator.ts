@@ -164,8 +164,18 @@ HEADLINE EXAMPLES (Bad):
 ✗ "Beach vendors to face regulations" (passive voice)
 
 4. Extract a concise excerpt (2-3 sentences) with perfect grammar
-5. Categorize the article (Breaking, Tourism, Business, Events, or Other)
+5. Categorize the article by TOPIC (not urgency)
 6. Rate reader interest (1-5 scale)
+
+CATEGORY GUIDE (Choose the most accurate topic):
+- Crime: Arrests, theft, assault, scams, police investigations, criminal activity
+- Weather: Storms, flooding, heat waves, monsoons, weather warnings, climate events
+- Traffic: Road closures, accidents, construction, transportation disruptions
+- Tourism: Hotel openings, tourist attractions, travel advisories, tourist incidents, visitor statistics
+- Business: Company news, openings/closings, economic developments, real estate
+- Politics: Government decisions, elections, political meetings, policy changes
+- Economy: Market trends, trade, economic indicators, financial news
+- Local: Community events, local government, general local news (USE THIS if story doesn't fit other categories)
 
 INTEREST SCORE GUIDE (1-5):
 - 5 = URGENT/DRAMATIC: Deaths, drownings, major accidents, violent crime, natural disasters, severe weather alerts
@@ -173,6 +183,9 @@ INTEREST SCORE GUIDE (1-5):
 - 3 = MODERATE: Tourism developments, business openings, community events, policy changes
 - 2 = MUNDANE: Government meetings, routine announcements, administrative updates, planning sessions
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, routine inspections
+
+NOTE: Category = TOPIC of the story. Interest Score = URGENCY/IMPORTANCE. These are independent.
+Example: A drowning is Category="Crime" (topic) with interestScore=5 (urgent).
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
@@ -182,7 +195,7 @@ Respond in JSON format:
   "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
   "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar, natural Phuket context",
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
-  "category": "Breaking|Tourism|Business|Events|Other",
+  "category": "Crime|Weather|Traffic|Tourism|Business|Politics|Economy|Local",
   "interestScore": 1-5 (integer)
 }
 
@@ -241,7 +254,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         translatedTitle: result.translatedTitle || title,
         translatedContent: result.translatedContent || content,
         excerpt: result.excerpt || "",
-        category: result.category || "Other",
+        category: result.category || "Local",
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
         embedding,
