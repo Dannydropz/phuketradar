@@ -2,6 +2,7 @@ import { type User, type InsertUser, type Article, type ArticleListItem, type In
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
+import { retryDatabaseOperation } from "./lib/db-retry";
 
 export interface IStorage {
   // User methods
@@ -222,50 +223,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createArticle(insertArticle: InsertArticle): Promise<Article> {
-    try {
-      // Generate a unique slug from title if not provided
-      if (!insertArticle.slug) {
-        // Use provided ID or generate new UUID
-        const articleId = (insertArticle as any).id || crypto.randomUUID();
-        
-        // Create slug from title + first 8 chars of ID for uniqueness
-        const slug = generateUniqueSlug(insertArticle.title, articleId);
-        
-        // Insert with slug, preserving any provided ID
-        const [article] = await db
-          .insert(articles)
-          .values({
-            ...insertArticle,
-            ...(!(insertArticle as any).id && { id: articleId }), // Only set ID if not provided
-            slug,
-          })
-          .returning();
-        
-        return article;
-      }
+    let articleData: any;
+    
+    if (!insertArticle.slug) {
+      const articleId = (insertArticle as any).id || crypto.randomUUID();
+      const slug = generateUniqueSlug(insertArticle.title, articleId);
       
-      // If slug is provided, use it as-is
-      const [article] = await db
-        .insert(articles)
-        .values(insertArticle)
-        .returning();
-      
-      return article;
-    } catch (error: any) {
-      console.error(`\n❌ [STORAGE] Database insertion failed`);
-      console.error(`   Error Code: ${error.code || 'UNKNOWN'}`);
-      console.error(`   Error Message: ${error.message || 'No message'}`);
-      console.error(`   Error Name: ${error.name || 'Unknown'}`);
-      console.error(`   PostgreSQL Detail: ${error.detail || 'N/A'}`);
-      console.error(`   PostgreSQL Hint: ${error.hint || 'N/A'}`);
-      console.error(`   Constraint: ${error.constraint || 'N/A'}`);
-      console.error(`   Full Error:`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-      console.error(`   Article Title: ${insertArticle.title?.substring(0, 60) || 'MISSING'}...`);
-      console.error(`   Source URL: ${insertArticle.sourceUrl || 'MISSING'}`);
-      
-      // Re-throw the error so scheduler can handle it
-      throw error;
+      articleData = {
+        ...insertArticle,
+        ...(!(insertArticle as any).id && { id: articleId }),
+        slug,
+      };
+    } else {
+      articleData = insertArticle;
     }
+    
+    return retryDatabaseOperation(
+      async () => {
+        try {
+          const [article] = await db
+            .insert(articles)
+            .values(articleData)
+            .returning();
+          
+          return article;
+        } catch (error: any) {
+          console.error(`\n❌ [STORAGE] Database insertion failed`);
+          console.error(`   Error Code: ${error.code || 'UNKNOWN'}`);
+          console.error(`   Error Message: ${error.message || 'No message'}`);
+          console.error(`   Error Name: ${error.name || 'Unknown'}`);
+          console.error(`   PostgreSQL Detail: ${error.detail || 'N/A'}`);
+          console.error(`   PostgreSQL Hint: ${error.hint || 'N/A'}`);
+          console.error(`   Constraint: ${error.constraint || 'N/A'}`);
+          console.error(`   Full Error:`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+          console.error(`   Article Title: ${insertArticle.title?.substring(0, 60) || 'MISSING'}...`);
+          console.error(`   Source URL: ${insertArticle.sourceUrl || 'MISSING'}`);
+          
+          // Re-throw the error so scheduler can handle it
+          throw error;
+        }
+      },
+      3,
+      1000,
+      `Create article: ${insertArticle.title?.substring(0, 40)}...`
+    );
   }
 
   async updateArticle(id: string, updates: Partial<Article>): Promise<Article | undefined> {
