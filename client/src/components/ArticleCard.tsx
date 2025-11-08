@@ -1,7 +1,8 @@
+import type { MouseEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight, AlertTriangle, AlertCircle, Info, Car, Shield, Cloud, Heart, Users, Palmtree, Building2, Landmark, Leaf } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { JournalistByline } from "./JournalistByline";
@@ -104,6 +105,8 @@ export function ArticleCard({
   severity,
   journalist,
 }: ArticleCardProps) {
+  const [, setLocation] = useLocation();
+  
   // Use slug for URL if available, fallback to ID
   const articleUrl = slug ? `/article/${slug}` : `/article/${id}`;
   
@@ -115,6 +118,12 @@ export function ArticleCard({
   
   // Determine if this is breaking news based on interest score
   const isBreakingNews = (interestScore ?? 0) >= 4;
+  
+  const handleCategoryClick = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLocation(`/category/${mappedCategory.toLowerCase()}`);
+  };
   
   return (
     <Link href={articleUrl}>
@@ -139,15 +148,14 @@ export function ArticleCard({
                 Breaking News
               </Badge>
             )}
-            <Link href={`/category/${mappedCategory.toLowerCase()}`} onClick={(e) => e.stopPropagation()}>
-              <Badge 
-                variant={categoryVariant} 
-                className="cursor-pointer"
-                data-testid={`badge-category-${id}`}
-              >
-                {mappedCategory}
-              </Badge>
-            </Link>
+            <Badge 
+              variant={categoryVariant} 
+              className="cursor-pointer"
+              onClick={handleCategoryClick}
+              data-testid={`badge-category-${id}`}
+            >
+              {mappedCategory}
+            </Badge>
             {severity && (() => {
               const severityStyle = getSeverityStyle(severity);
               const SeverityIcon = getSeverityIcon(severity);

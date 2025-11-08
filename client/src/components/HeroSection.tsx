@@ -1,6 +1,7 @@
+import type { MouseEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { getCategoryBadgeVariant, mapLegacyCategory } from "@/lib/utils";
@@ -22,10 +23,17 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ featured, sidebar }: HeroSectionProps) {
+  const [, setLocation] = useLocation();
   const featuredUrl = featured.slug ? `/article/${featured.slug}` : `/article/${featured.id}`;
   const featuredMappedCategory = mapLegacyCategory(featured.category);
   const featuredCategoryVariant = getCategoryBadgeVariant(featuredMappedCategory);
   const isFeaturedBreaking = (featured.interestScore ?? 0) >= 4;
+  
+  const handleFeaturedCategoryClick = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLocation(`/category/${featuredMappedCategory.toLowerCase()}`);
+  };
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-12">
@@ -50,15 +58,14 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
                 Breaking News
               </Badge>
             )}
-            <Link href={`/category/${featuredMappedCategory.toLowerCase()}`} onClick={(e) => e.stopPropagation()}>
-              <Badge 
-                variant={featuredCategoryVariant} 
-                className="cursor-pointer"
-                data-testid="badge-hero-category"
-              >
-                {featuredMappedCategory}
-              </Badge>
-            </Link>
+            <Badge 
+              variant={featuredCategoryVariant} 
+              className="cursor-pointer"
+              onClick={handleFeaturedCategoryClick}
+              data-testid="badge-hero-category"
+            >
+              {featuredMappedCategory}
+            </Badge>
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
               <span data-testid="text-hero-time">{formatDistanceToNow(featured.publishedAt, { addSuffix: true })}</span>
@@ -102,15 +109,18 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
                       Breaking
                     </Badge>
                   )}
-                  <Link href={`/category/${mappedCategory.toLowerCase()}`} onClick={(e) => e.stopPropagation()}>
-                    <Badge 
-                      variant={categoryVariant} 
-                      className="cursor-pointer text-xs"
-                      data-testid={`badge-sidebar-category-${article.id}`}
-                    >
-                      {mappedCategory}
-                    </Badge>
-                  </Link>
+                  <Badge 
+                    variant={categoryVariant} 
+                    className="cursor-pointer text-xs"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setLocation(`/category/${mappedCategory.toLowerCase()}`);
+                    }}
+                    data-testid={`badge-sidebar-category-${article.id}`}
+                  >
+                    {mappedCategory}
+                  </Badge>
                 </div>
                 <h3 className="font-semibold text-base mb-1.5 line-clamp-2 group-hover:text-primary transition-colors" data-testid={`text-sidebar-title-${article.id}`}>
                   {article.title}
