@@ -212,9 +212,10 @@ export class ScraperService {
           seenUrls.add(facebookPostId);
         }
 
-        // Normalize the source URL using the post ID from the API
-        // This ensures both pfbid and numeric URL formats map to the same canonical URL
-        const normalizedSourceUrl = this.normalizeFacebookUrl(post.id, rawSourceUrl);
+        // Use the EXACT permalink as source URL - do NOT normalize
+        // Normalization was causing false duplicate rejections because different posts
+        // were being collapsed to the same canonical URL, triggering unique constraint violations
+        const actualSourceUrl = rawSourceUrl;
 
         // Extract the first line as title (or use first 100 chars)
         const lines = post.text.split('\n').filter(line => line.trim());
@@ -294,7 +295,7 @@ export class ScraperService {
           content: content.trim(),
           imageUrl,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-          sourceUrl: normalizedSourceUrl,
+          sourceUrl: actualSourceUrl,
           facebookPostId: facebookPostId || undefined,
           publishedAt,
           textFormatPresetId: post.text_format_preset_id,

@@ -655,11 +655,36 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         }
 
         // STEP 3: Translate and rewrite (pass precomputed embedding from full Thai content)
-        const translation = await translatorService.translateAndRewrite(
-          post.title,
-          post.content,
-          contentEmbedding // Pass precomputed full content embedding to be stored
-        );
+        // Wrap in try-catch to provide graceful fallback for Google Translate 429/503 errors
+        let translation;
+        try {
+          translation = await translatorService.translateAndRewrite(
+            post.title,
+            post.content,
+            contentEmbedding // Pass precomputed full content embedding to be stored
+          );
+        } catch (translationError) {
+          console.error(`❌ Translation failed, using original Thai text as fallback:`, translationError);
+          
+          // Fallback: Use original Thai text with minimal processing
+          translation = {
+            translatedTitle: post.title.substring(0, 200), // Use first 200 chars as title
+            translatedContent: post.content,
+            excerpt: post.content.substring(0, 300) + "...",
+            category: "Other" as const,
+            isActualNews: true, // Assume it's news if we got this far
+            interestScore: 3, // Default to medium interest (will be draft, not auto-published)
+            embedding: contentEmbedding,
+          };
+          
+          skipReasons.push({
+            reason: "Translation error (Thai fallback)",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: `Using original Thai text due to translation service error`
+          });
+        }
 
         // STEP 4: Classify event type and severity using GPT-4o-mini
         const classification = await classificationService.classifyArticle(
