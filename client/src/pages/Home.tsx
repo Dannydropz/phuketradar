@@ -142,6 +142,7 @@ export default function Home() {
               imageUrl: featured.imageUrl || "",
               category: featured.category,
               publishedAt: new Date(featured.publishedAt),
+              interestScore: featured.interestScore,
             }}
             sidebar={sidebar.map((article) => ({
               id: article.id,
@@ -151,6 +152,7 @@ export default function Home() {
               imageUrl: article.imageUrl || "",
               category: article.category,
               publishedAt: new Date(article.publishedAt),
+              interestScore: article.interestScore,
             }))}
           />
 
@@ -176,6 +178,7 @@ export default function Home() {
                       imageUrl={article.imageUrl || undefined}
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
+                      interestScore={article.interestScore}
                       eventType={article.eventType}
                       severity={article.severity}
                       journalist={journalist ? {
@@ -213,6 +216,7 @@ export default function Home() {
                       imageUrl={article.imageUrl || undefined}
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
+                      interestScore={article.interestScore}
                       eventType={article.eventType}
                       severity={article.severity}
                       journalist={journalist ? {

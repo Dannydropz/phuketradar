@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { JournalistByline } from "./JournalistByline";
-import { getCategoryBadgeVariant } from "@/lib/utils";
+import { getCategoryBadgeVariant, mapLegacyCategory } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
 interface ArticleCardProps {
@@ -16,7 +16,7 @@ interface ArticleCardProps {
   imageUrl?: string;
   category: string;
   publishedAt: Date;
-  isBreaking?: boolean;
+  interestScore?: number | null;
   eventType?: string | null;
   severity?: string | null;
   journalist?: {
@@ -99,7 +99,7 @@ export function ArticleCard({
   imageUrl,
   category,
   publishedAt,
-  isBreaking,
+  interestScore,
   eventType,
   severity,
   journalist,
@@ -107,8 +107,14 @@ export function ArticleCard({
   // Use slug for URL if available, fallback to ID
   const articleUrl = slug ? `/article/${slug}` : `/article/${id}`;
   
+  // Map legacy categories to new topics
+  const mappedCategory = mapLegacyCategory(category);
+  
   // Get category-based badge variant
-  const categoryVariant = getCategoryBadgeVariant(category);
+  const categoryVariant = getCategoryBadgeVariant(mappedCategory);
+  
+  // Determine if this is breaking news based on interest score
+  const isBreakingNews = (interestScore ?? 0) >= 4;
   
   return (
     <Link href={articleUrl}>
@@ -117,19 +123,31 @@ export function ArticleCard({
           <ArticleImage
             src={imageUrl}
             alt={title}
-            category={category}
+            category={mappedCategory}
             className="w-full h-full object-cover"
             testId={`img-article-${id}`}
           />
         </div>
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <Badge 
-              variant={categoryVariant} 
-              data-testid={`badge-category-${id}`}
-            >
-              {category}
-            </Badge>
+            {isBreakingNews && (
+              <Badge 
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse"
+                data-testid={`badge-breaking-${id}`}
+              >
+                Breaking News
+              </Badge>
+            )}
+            <Link href={`/category/${mappedCategory.toLowerCase()}`} onClick={(e) => e.stopPropagation()}>
+              <Badge 
+                variant={categoryVariant} 
+                className="cursor-pointer"
+                data-testid={`badge-category-${id}`}
+              >
+                {mappedCategory}
+              </Badge>
+            </Link>
             {severity && (() => {
               const severityStyle = getSeverityStyle(severity);
               const SeverityIcon = getSeverityIcon(severity);
