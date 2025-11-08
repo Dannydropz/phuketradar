@@ -257,6 +257,16 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         console.log(`   🏷️  Category: ${result.category} - ${result.categoryReasoning}`);
       }
 
+      // Validate category - ensure it's one of the allowed values
+      const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime"];
+      const category = result.category && validCategories.includes(result.category) 
+        ? result.category 
+        : "Local";
+      
+      if (result.category && result.category !== category) {
+        console.log(`   ⚠️  Invalid category "${result.category}" - defaulting to "Local"`);
+      }
+
       // STEP 5: Apply keyword boosting to interest score
       // Start with GPT's base score
       let finalInterestScore = result.interestScore || 3;
@@ -292,7 +302,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         translatedTitle: result.translatedTitle || title,
         translatedContent: result.translatedContent || content,
         excerpt: result.excerpt || "",
-        category: result.category || "Local",
+        category: category, // Use validated category (defaults to "Local" if invalid)
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
         embedding,
