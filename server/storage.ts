@@ -223,15 +223,6 @@ export class DatabaseStorage implements IStorage {
 
   async createArticle(insertArticle: InsertArticle): Promise<Article> {
     try {
-      console.log(`\n🔍 [STORAGE] createArticle called`);
-      console.log(`   Title: ${insertArticle.title?.substring(0, 60) || 'MISSING'}...`);
-      console.log(`   Category: ${insertArticle.category || 'MISSING'}`);
-      console.log(`   Source URL: ${insertArticle.sourceUrl || 'MISSING'}`);
-      console.log(`   Embedding: ${insertArticle.embedding ? `Array[${insertArticle.embedding.length}]` : 'NULL'}`);
-      console.log(`   Image URL: ${insertArticle.imageUrl || 'NULL'}`);
-      console.log(`   Image URLs: ${insertArticle.imageUrls ? `Array[${insertArticle.imageUrls.length}]` : 'NULL'}`);
-      console.log(`   Is Published: ${insertArticle.isPublished}`);
-      
       // Generate a unique slug from title if not provided
       if (!insertArticle.slug) {
         // Use provided ID or generate new UUID
@@ -239,9 +230,6 @@ export class DatabaseStorage implements IStorage {
         
         // Create slug from title + first 8 chars of ID for uniqueness
         const slug = generateUniqueSlug(insertArticle.title, articleId);
-        
-        console.log(`   Generated slug: ${slug}`);
-        console.log(`   Article ID: ${articleId}`);
         
         // Insert with slug, preserving any provided ID
         const [article] = await db
@@ -253,18 +241,15 @@ export class DatabaseStorage implements IStorage {
           })
           .returning();
         
-        console.log(`✅ [STORAGE] Article inserted successfully: ${article.id}`);
         return article;
       }
       
       // If slug is provided, use it as-is
-      console.log(`   Using provided slug: ${insertArticle.slug}`);
       const [article] = await db
         .insert(articles)
         .values(insertArticle)
         .returning();
       
-      console.log(`✅ [STORAGE] Article inserted successfully: ${article.id}`);
       return article;
     } catch (error: any) {
       console.error(`\n❌ [STORAGE] Database insertion failed`);
