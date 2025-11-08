@@ -164,28 +164,58 @@ HEADLINE EXAMPLES (Bad):
 ✗ "Beach vendors to face regulations" (passive voice)
 
 4. Extract a concise excerpt (2-3 sentences) with perfect grammar
-5. Categorize the article by TOPIC (not urgency)
+5. Categorize the article by TOPIC (not urgency) - READ CAREFULLY
 6. Rate reader interest (1-5 scale)
 
-CATEGORY GUIDE (Choose the most accurate topic):
-- Crime: Arrests, theft, assault, scams, police investigations, criminal activity
-- Weather: Storms, flooding, heat waves, monsoons, weather warnings, climate events
-- Traffic: Road closures, accidents, construction, transportation disruptions
-- Tourism: Hotel openings, tourist attractions, travel advisories, tourist incidents, visitor statistics
-- Business: Company news, openings/closings, economic developments, real estate
-- Politics: Government decisions, elections, political meetings, policy changes
-- Economy: Market trends, trade, economic indicators, financial news
-- Local: Community events, local government, general local news (USE THIS if story doesn't fit other categories)
+CATEGORY GUIDE - Read the FULL story, not just the headline:
+
+**Weather:** Natural disasters, typhoons, monsoons, flooding, landslides, heat waves, storms, weather warnings, climate events
+  Examples: "Typhoon approaching Phuket", "Heavy flooding in Patong", "Landslide blocks road"
+
+**Local:** Community news, missing persons, search/rescue operations (unless criminal), local government, general incidents
+  Examples: "Search for missing tourist", "Rescue operation saves swimmers", "Community meeting held"
+
+**Traffic:** Road accidents (non-criminal), road closures, construction, transportation disruptions
+  Examples: "Car crashes on bypass road", "Road closed for repairs", "Traffic jam near airport"
+
+**Weather-Related Accidents:** Boat capsizes, drownings, flood victims → Use "Weather" category
+  Examples: "Tourist drowns in rough seas", "Boat capsizes in storm", "Four rescued from flooded area"
+
+**Crime:** ONLY intentional criminal activity - arrests, theft, assault, scams, police investigations of crimes
+  Examples: "Police arrest theft suspect", "Scam targets tourists", "Assault investigation underway"
+  NOT Crime: Accidents, drownings, missing persons, natural disasters, rescues
+
+**Tourism:** Hotel openings, tourist attractions, travel advisories, visitor statistics, tourism developments
+  Examples: "New resort opens in Kata", "Tourist arrivals increase", "Travel warning issued"
+
+**Business:** Company news, openings/closings, economic developments, real estate
+  Examples: "Restaurant chain expands to Phuket", "Mall announces new tenants"
+
+**Politics:** Government decisions, elections, political meetings, policy changes
+  Examples: "Governor announces new policy", "City council votes on budget"
+
+**Economy:** Market trends, trade, economic indicators, financial news
+  Examples: "Baht strengthens against dollar", "Export figures rise"
+
+IMPORTANT DISTINCTIONS:
+- Drowning/boat accident from weather/waves → "Weather" (NOT Crime)
+- Missing person/search operation → "Local" (NOT Crime)
+- Car accident (no crime) → "Traffic" (NOT Crime)
+- Typhoon/flood/landslide → "Weather" (NOT Crime)
+- Criminal arrest/theft/assault → "Crime" (YES Crime)
 
 INTEREST SCORE GUIDE (1-5):
-- 5 = URGENT/DRAMATIC: Deaths, drownings, major accidents, violent crime, natural disasters, severe weather alerts
-- 4 = IMPORTANT: Non-fatal accidents, arrests, significant disruptions (road closures, power outages), rescue operations
+- 5 = URGENT/DRAMATIC: Deaths, major accidents, violent crime, natural disasters, severe weather
+- 4 = IMPORTANT: Non-fatal accidents, arrests, significant disruptions, rescue operations
 - 3 = MODERATE: Tourism developments, business openings, community events, policy changes
-- 2 = MUNDANE: Government meetings, routine announcements, administrative updates, planning sessions
-- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, routine inspections
+- 2 = MUNDANE: Government meetings, routine announcements, administrative updates
+- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations
 
-NOTE: Category = TOPIC of the story. Interest Score = URGENCY/IMPORTANCE. These are independent.
-Example: A drowning is Category="Crime" (topic) with interestScore=5 (urgent).
+NOTE: Category = TOPIC (what type of story). Interest Score = URGENCY (how important).
+Example 1: Typhoon warning → Category="Weather", interestScore=5 (urgent weather event)
+Example 2: Tourist drowns in rough seas → Category="Weather", interestScore=5 (weather-related death)
+Example 3: Missing person search → Category="Local", interestScore=4 (important local incident)
+Example 4: Police arrest thief → Category="Crime", interestScore=4 (actual criminal activity)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
@@ -195,7 +225,8 @@ Respond in JSON format:
   "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
   "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar, natural Phuket context",
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
-  "category": "Crime|Weather|Traffic|Tourism|Business|Politics|Economy|Local",
+  "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime",
+  "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer)
 }
 
@@ -218,6 +249,11 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
       });
 
       const result = JSON.parse(completion.choices[0].message.content || "{}");
+
+      // Log classification decision for debugging
+      if (result.category && result.categoryReasoning) {
+        console.log(`   🏷️  Category: ${result.category} - ${result.categoryReasoning}`);
+      }
 
       // STEP 5: Apply keyword boosting to interest score
       // Start with GPT's base score
