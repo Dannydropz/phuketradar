@@ -361,46 +361,49 @@ export default function AdminDashboard() {
       <Header />
       <main className="flex-1 bg-muted/30">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">Admin Dashboard</h1>
+              <p className="text-muted-foreground text-sm md:text-base">
                 Review and manage scraped articles before publishing
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col items-stretch md:items-end gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setLocation("/admin/insights")}
                   data-testid="button-insights"
+                  className="flex-1 md:flex-none"
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Insight
+                  <Sparkles className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Generate Insight</span>
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleLogout}
                   data-testid="button-logout"
+                  className="flex-1 md:flex-none"
                 >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                  <LogOut className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Logout</span>
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleBatchFacebookPost}
                   disabled={batchFacebookPostMutation.isPending}
                   data-testid="button-batch-facebook"
+                  className="flex-1 md:flex-none"
                 >
                   {batchFacebookPostMutation.isPending ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Posting...
+                      <RefreshCw className="w-4 h-4 md:mr-2 animate-spin" />
+                      <span className="hidden md:inline">Posting...</span>
                     </>
                   ) : (
                     <>
-                      <Facebook className="w-4 h-4 mr-2" />
-                      Post Missing to Facebook
+                      <Facebook className="w-4 h-4 md:mr-2" />
+                      <span className="hidden md:inline">Post Missing to Facebook</span>
                     </>
                   )}
                 </Button>
@@ -409,22 +412,23 @@ export default function AdminDashboard() {
                   onClick={handleScrape}
                   disabled={scrapeMutation.isPending || !!(currentJob && currentJob.status !== 'completed' && currentJob.status !== 'failed')}
                   data-testid="button-scrape"
+                  className="flex-1 md:flex-none"
                 >
                   {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Scraping...
+                      <RefreshCw className="w-4 h-4 md:mr-2 animate-spin" />
+                      <span className="hidden md:inline">Scraping...</span>
                     </>
                   ) : (
                     <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Scrape New Articles
+                      <Download className="w-4 h-4 md:mr-2" />
+                      <span className="hidden md:inline">Scrape New Articles</span>
                     </>
                   )}
                 </Button>
               </div>
               {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') && (
-                <div className="text-sm text-muted-foreground">
+                <div className="text-xs md:text-sm text-muted-foreground">
                   {currentJob.progress.totalPosts > 0 ? (
                     <span>
                       Processing {currentJob.progress.processedPosts}/{currentJob.progress.totalPosts} posts
@@ -496,20 +500,20 @@ export default function AdminDashboard() {
 
           <Card>
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-bold">Articles</h2>
+                  <h2 className="text-xl md:text-2xl font-bold">Articles</h2>
                   {activeFilter !== 'all' && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Showing {filteredArticles.length} {activeFilter} article{filteredArticles.length !== 1 ? 's' : ''}
                     </p>
                   )}
                 </div>
                 {filteredArticles.some((a) => !a.isPublished) && (
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     {selectedArticles.size > 0 && (
                       <>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs md:text-sm text-muted-foreground">
                           {selectedArticles.size} selected
                         </span>
                         <Button
@@ -518,8 +522,8 @@ export default function AdminDashboard() {
                           onClick={handleBulkHide}
                           data-testid="button-bulk-hide"
                         >
-                          <EyeOff className="w-4 h-4 mr-2" />
-                          Hide Selected
+                          <EyeOff className="w-4 h-4 md:mr-2" />
+                          <span className="hidden md:inline">Hide Selected</span>
                         </Button>
                         <Button
                           variant="outline"
@@ -528,8 +532,8 @@ export default function AdminDashboard() {
                           className="border-destructive text-destructive"
                           data-testid="button-bulk-delete"
                         >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete Selected
+                          <Trash2 className="w-4 h-4 md:mr-2" />
+                          <span className="hidden md:inline">Delete Selected</span>
                         </Button>
                       </>
                     )}
@@ -542,7 +546,7 @@ export default function AdminDashboard() {
                         onCheckedChange={handleSelectAll}
                         data-testid="checkbox-select-all"
                       />
-                      <label className="text-sm font-medium">Select All</label>
+                      <label className="text-xs md:text-sm font-medium whitespace-nowrap">Select All</label>
                     </div>
                   </div>
                 )}
@@ -560,54 +564,56 @@ export default function AdminDashboard() {
                   {filteredArticles.map((article) => (
                     <div
                       key={article.id}
-                      className="flex items-start gap-4 p-4 border border-border rounded-lg hover-elevate"
+                      className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border border-border rounded-lg hover-elevate"
                       data-testid={`article-row-${article.id}`}
                     >
-                      {!article.isPublished && (
-                        <div className="flex items-center pt-1">
-                          <Checkbox
-                            checked={selectedArticles.has(article.id)}
-                            onCheckedChange={() => handleToggleSelect(article.id)}
-                            data-testid={`checkbox-article-${article.id}`}
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary" data-testid={`badge-category-${article.id}`}>
-                            {article.category}
-                          </Badge>
-                          <Badge
-                            className={
-                              article.isPublished
-                                ? "bg-primary text-primary-foreground"
-                                : ""
-                            }
-                            data-testid={`badge-status-${article.id}`}
+                      <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
+                        {!article.isPublished && (
+                          <div className="flex items-center pt-1">
+                            <Checkbox
+                              checked={selectedArticles.has(article.id)}
+                              onCheckedChange={() => handleToggleSelect(article.id)}
+                              data-testid={`checkbox-article-${article.id}`}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge variant="secondary" data-testid={`badge-category-${article.id}`}>
+                              {article.category}
+                            </Badge>
+                            <Badge
+                              className={
+                                article.isPublished
+                                  ? "bg-primary text-primary-foreground"
+                                  : ""
+                              }
+                              data-testid={`badge-status-${article.id}`}
+                            >
+                              {article.isPublished ? "published" : "pending"}
+                            </Badge>
+                            <span className="text-xs md:text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <h3 className="font-semibold mb-1 text-base md:text-lg" data-testid={`text-title-${article.id}`}>
+                            {article.title}
+                          </h3>
+                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mb-2">
+                            {article.excerpt}
+                          </p>
+                          <a
+                            href={article.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline"
+                            data-testid={`link-source-${article.id}`}
                           >
-                            {article.isPublished ? "published" : "pending"}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
-                          </span>
+                            View original source
+                          </a>
                         </div>
-                        <h3 className="font-semibold mb-1 text-lg" data-testid={`text-title-${article.id}`}>
-                          {article.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                          {article.excerpt}
-                        </p>
-                        <a
-                          href={article.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline"
-                          data-testid={`link-source-${article.id}`}
-                        >
-                          View original source
-                        </a>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 justify-end md:justify-start">
                         <Button
                           variant="outline"
                           size="icon"
