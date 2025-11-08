@@ -66,22 +66,25 @@ export default function Home() {
     );
   }
 
-  // Separate featured article and sidebar articles (only show high-interest stories >= 4)
-  const featured = highInterestArticles[0];
-  const sidebar = highInterestArticles.slice(1, 6); // Show 5 trending stories
+  // Hero section: Prioritize high-interest articles (score >= 4), but fall back to recent articles if none exist
+  const heroArticles = highInterestArticles.length > 0 ? highInterestArticles : articles;
+  const featured = heroArticles[0];
+  const sidebar = heroArticles.slice(1, 6); // Show 5 trending stories
   
-  // Get IDs of articles already shown in hero section to avoid duplicates
-  const heroArticleIds = new Set([
+  // Get IDs of articles shown in hero and urgent news sections to avoid duplicates
+  const excludedArticleIds = new Set([
     featured?.id,
-    ...sidebar.map(a => a.id)
+    ...sidebar.map(a => a.id),
+    ...urgentNews.map(a => a.id)
   ].filter(Boolean));
   
-  // Latest articles excludes hero articles and shows ALL remaining articles
+  // Latest articles: Show ALL recent articles, excluding those already in hero/urgent sections
   const latestArticles = articles
-    .filter(article => !heroArticleIds.has(article.id))
+    .filter(article => !excludedArticleIds.has(article.id))
     .slice(0, displayCount);
-  const hasMore = articles.filter(article => !heroArticleIds.has(article.id)).length > displayCount;
+  const hasMore = articles.filter(article => !excludedArticleIds.has(article.id)).length > displayCount;
 
+  // If no articles at all, show empty state
   if (!featured) {
     return (
       <div className="min-h-screen flex flex-col">
