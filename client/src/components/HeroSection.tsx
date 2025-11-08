@@ -4,7 +4,7 @@ import { Clock } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
-import { getCategoryBadgeVariant, mapLegacyCategory } from "@/lib/utils";
+import { getCategoryBadgeVariant, mapLegacyCategory, getBreakingBadgeState } from "@/lib/utils";
 
 interface HeroArticle {
   id: string;
@@ -27,7 +27,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
   const featuredUrl = featured.slug ? `/article/${featured.slug}` : `/article/${featured.id}`;
   const featuredMappedCategory = mapLegacyCategory(featured.category);
   const featuredCategoryVariant = getCategoryBadgeVariant(featuredMappedCategory);
-  const isFeaturedBreaking = (featured.interestScore ?? 0) >= 4;
+  const featuredBadgeState = getBreakingBadgeState(featured.publishedAt, featured.interestScore);
   
   const handleFeaturedCategoryClick = (e: MouseEvent) => {
     e.preventDefault();
@@ -49,10 +49,19 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
             />
           </div>
           <div className="flex items-center gap-3 mb-3">
-            {isFeaturedBreaking && (
+            {featuredBadgeState === "red" && (
               <Badge 
                 variant="destructive"
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse"
+                data-testid="badge-hero-breaking"
+              >
+                Breaking News
+              </Badge>
+            )}
+            {featuredBadgeState === "grey" && (
+              <Badge 
+                variant="secondary"
+                className="bg-gray-500 dark:bg-gray-600 text-white font-semibold"
                 data-testid="badge-hero-breaking"
               >
                 Breaking News
@@ -85,7 +94,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
           const articleUrl = article.slug ? `/article/${article.slug}` : `/article/${article.id}`;
           const mappedCategory = mapLegacyCategory(article.category);
           const categoryVariant = getCategoryBadgeVariant(mappedCategory);
-          const isBreaking = (article.interestScore ?? 0) >= 4;
+          const badgeState = getBreakingBadgeState(article.publishedAt, article.interestScore);
           
           return (
           <Link key={article.id} href={articleUrl}>
@@ -100,10 +109,19 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                  {isBreaking && (
+                  {badgeState === "red" && (
                     <Badge 
                       variant="destructive"
                       className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold animate-pulse"
+                      data-testid={`badge-sidebar-breaking-${article.id}`}
+                    >
+                      Breaking
+                    </Badge>
+                  )}
+                  {badgeState === "grey" && (
+                    <Badge 
+                      variant="secondary"
+                      className="bg-gray-500 dark:bg-gray-600 text-white text-xs font-semibold"
                       data-testid={`badge-sidebar-breaking-${article.id}`}
                     >
                       Breaking
