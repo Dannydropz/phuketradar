@@ -10,7 +10,7 @@ export function mapLegacyCategory(category: string): string {
   
   // Map old categories to new topic-based categories
   const legacyMap: Record<string, string> = {
-    "breaking": "Crime",
+    "breaking": "Local",
     "info": "Local",
     "other": "Local",
     "events": "Local",
