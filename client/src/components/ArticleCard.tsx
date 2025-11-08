@@ -165,7 +165,7 @@ export function ArticleCard({
             >
               {mappedCategory}
             </Badge>
-            {severity && (() => {
+            {severity && severity.toLowerCase() !== "info" && (() => {
               const severityStyle = getSeverityStyle(severity);
               const SeverityIcon = getSeverityIcon(severity);
               return (
@@ -179,7 +179,7 @@ export function ArticleCard({
                 </Badge>
               );
             })()}
-            {eventType && (() => {
+            {eventType && eventType.toLowerCase() !== "other" && (() => {
               const EventIcon = getEventIcon(eventType);
               return (
                 <Badge 
