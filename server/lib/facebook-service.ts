@@ -41,6 +41,14 @@ export async function postArticleToFacebook(
   article: Article, 
   storage: IStorage
 ): Promise<{ status: 'posted' | 'already-posted'; postId: string; postUrl: string } | null> {
+  
+  // CRITICAL: Disable all Facebook posting in development environment
+  if (process.env.NODE_ENV === "development") {
+    console.log(`🚫 [FB-POST] Facebook posting DISABLED in development environment`);
+    console.log(`📘 [FB-POST] Article: ${article.title.substring(0, 60)}... (would post in production)`);
+    return null;
+  }
+  
   console.log(`📘 [FB-POST] Starting Facebook post attempt for article: ${article.title.substring(0, 60)}...`);
   console.log(`📘 [FB-POST] Article ID: ${article.id}`);
   
