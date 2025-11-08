@@ -6,7 +6,7 @@ import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { JournalistByline } from "./JournalistByline";
-import { getCategoryBadgeVariant, mapLegacyCategory } from "@/lib/utils";
+import { getCategoryBadgeVariant, mapLegacyCategory, getBreakingBadgeState } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
 interface ArticleCardProps {
@@ -116,8 +116,8 @@ export function ArticleCard({
   // Get category-based badge variant
   const categoryVariant = getCategoryBadgeVariant(mappedCategory);
   
-  // Determine if this is breaking news based on interest score
-  const isBreakingNews = (interestScore ?? 0) >= 4;
+  // Determine breaking news badge state based on time and interest score
+  const breakingBadgeState = getBreakingBadgeState(publishedAt, interestScore);
   
   const handleCategoryClick = (e: MouseEvent) => {
     e.preventDefault();
@@ -139,10 +139,19 @@ export function ArticleCard({
         </div>
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            {isBreakingNews && (
+            {breakingBadgeState === "red" && (
               <Badge 
                 variant="destructive"
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse"
+                data-testid={`badge-breaking-${id}`}
+              >
+                Breaking News
+              </Badge>
+            )}
+            {breakingBadgeState === "grey" && (
+              <Badge 
+                variant="secondary"
+                className="bg-gray-500 dark:bg-gray-600 text-white font-semibold"
                 data-testid={`badge-breaking-${id}`}
               >
                 Breaking News
