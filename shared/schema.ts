@@ -103,4 +103,4 @@ export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
 export type Subscriber = typeof subscribers.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
-export type ArticleListItem = Omit<Article, 'content' | 'embedding'>;
+export type ArticleListItem = Omit<Article, 'content' | 'embedding' | 'originalTitle' | 'originalContent'>;
