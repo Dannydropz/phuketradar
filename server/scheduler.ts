@@ -731,7 +731,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               imageHash: imageHash || null, // Store perceptual hash for duplicate detection
               category: translation.category,
               sourceUrl: post.sourceUrl,
-              facebookPostId: null, // Will be set after posting to Phuket Radar Facebook page
+              facebookPostId: post.facebookPostId || null, // Use scraped Facebook post ID for duplicate detection
               journalistId: assignedJournalist.id, // Assign random journalist
               isPublished: shouldAutoPublish, // Only auto-publish high-interest stories (score >= 4)
               originalLanguage: "th",
