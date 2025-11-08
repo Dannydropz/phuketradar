@@ -665,6 +665,19 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             // Randomly assign a journalist to this article
             const assignedJournalist = getRandomJournalist();
             
+            // DEBUG: Log article data before attempting to create
+            console.log(`\n🔍 DEBUG: Attempting to create article in database`);
+            console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
+            console.log(`   Category: ${translation.category}`);
+            console.log(`   Interest Score: ${translation.interestScore}`);
+            console.log(`   Is Published: ${shouldAutoPublish}`);
+            console.log(`   Embedding: ${translation.embedding ? `Array[${translation.embedding.length}]` : 'NULL'}`);
+            console.log(`   Event Type: ${classification.eventType}`);
+            console.log(`   Severity: ${classification.severity}`);
+            console.log(`   Source URL: ${post.sourceUrl}`);
+            console.log(`   Image URL: ${post.imageUrl || 'NULL'}`);
+            console.log(`   Image URLs: ${post.imageUrls ? `Array[${post.imageUrls.length}]` : 'NULL'}`);
+            
             // Create article - auto-publish only if interest score >= 4
             article = await storage.createArticle({
               title: translation.translatedTitle,
@@ -689,18 +702,31 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               entities: extractedEntities as any, // Store extracted entities for future duplicate detection
             });
 
+            console.log(`✅ SUCCESS: Article created with ID: ${article.id}`);
+            
             createdCount++;
             if (article.isPublished) {
               publishedCount++;
             }
           } catch (createError: any) {
+            // Comprehensive error logging
+            console.error(`\n❌ ERROR: Failed to create article in database`);
+            console.error(`   Error Code: ${createError.code || 'UNKNOWN'}`);
+            console.error(`   Error Message: ${createError.message || 'No message'}`);
+            console.error(`   Error Name: ${createError.name || 'Unknown'}`);
+            console.error(`   Full Error:`, JSON.stringify(createError, null, 2));
+            console.error(`   Stack Trace:`, createError.stack);
+            console.error(`   Article Title: ${translation.translatedTitle.substring(0, 60)}...`);
+            console.error(`   Source URL: ${post.sourceUrl}`);
+            
             // Catch duplicate key violations (PostgreSQL error code 23505)
             if (createError.code === '23505') {
               console.log(`⚠️  Duplicate article caught by database constraint: ${post.sourceUrl}`);
               console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
               continue; // Skip Facebook posting and move to next post
             } else {
-              // Re-throw other errors
+              // Log and re-throw other errors to prevent silent failures
+              console.error(`\n🚨 CRITICAL: Non-duplicate database error - re-throwing to stop scrape`);
               throw createError;
             }
           }
