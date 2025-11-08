@@ -48,6 +48,30 @@ interface SkipReason {
   details?: string;
 }
 
+// Timeout wrapper to prevent posts from hanging indefinitely
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+  });
+  
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
 export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   const timestamp = new Date().toISOString();
   console.log("\n".repeat(3) + "=".repeat(80));
@@ -116,7 +140,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     // Process each scraped post from this source
     for (const post of scrapedPosts) {
       try {
-        // STEP -4: Skip posts with no images (only publish posts with 1+ photos)
+        // Wrap entire post processing in timeout to prevent indefinite stalls (2 minutes max)
+        await withTimeout(
+          (async () => {
+            // STEP -4: Skip posts with no images (only publish posts with 1+ photos)
         const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl;
         if (!hasImages) {
           skippedNotNews++;
@@ -140,7 +167,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               skippedNotNews,
             });
           }
-          continue;
+          return;
         }
         
         // STEP -3: Skip Facebook "colored background text posts" (reliable filtering via API field)
@@ -168,7 +195,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               skippedNotNews,
             });
           }
-          continue;
+          return;
         }
         
         // STEP -2: Check if this Facebook post ID already exists in database (fastest and most reliable check)
@@ -198,7 +225,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 skippedNotNews,
               });
             }
-            continue;
+            return;
           }
         }
         
@@ -228,7 +255,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               skippedNotNews,
             });
           }
-          continue;
+          return;
         }
         
         // STEP 0: Check for image URL duplicate (same image = same story)
@@ -265,7 +292,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 skippedNotNews,
               });
             }
-            continue;
+            return;
           }
         } else if (post.imageUrl) {
           // Fallback for posts without imageUrls array
@@ -293,7 +320,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 skippedNotNews,
               });
             }
-            continue;
+            return;
           }
         }
         
@@ -367,7 +394,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 skippedNotNews,
               });
             }
-            continue;
+            return;
           } else if (batchResult.anyRealPhotos) {
             console.log(`   ✅ ACCEPTED: At least one real photo detected\n`);
           } else {
@@ -391,7 +418,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           for (const existing of recentArticles) {
             // Get stored entities (may be null for old articles without entities)
             const existingEntities = (existing as any).entities as ExtractedEntities | null;
-            if (!existingEntities) continue; // Skip old articles without entities
+            if (!existingEntities) return; // Skip old articles without entities
             
             // Compare entities
             const entityMatch = entityExtractionService.compareEntities(extractedEntities, existingEntities);
@@ -433,7 +460,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           
           // If we found entity duplicate, skip this post
           if (foundEntityDuplicate) {
-            continue;
+            return;
           }
         } catch (entityError) {
           console.error(`Error extracting entities, proceeding without entity check:`, entityError);
@@ -476,7 +503,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   skippedNotNews,
                 });
               }
-              continue;
+              return;
             }
             
             // If similarity is >=85%, it's an obvious duplicate - skip immediately
@@ -502,7 +529,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   skippedNotNews,
                 });
               }
-              continue;
+              return;
             }
             
             // If similarity is ≥50%, use GPT to verify (lowered from 70-85% to catch more duplicates)
@@ -556,7 +583,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   skippedNotNews,
                 });
               }
-              continue;
+              return;
             } else {
               console.log(`✅ NOT A DUPLICATE - GPT determined these are different events`);
               console.log(`   Proceeding with translation...\n`);
@@ -616,7 +643,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               }
               
               if (duplicateFoundInSafetyNet) {
-                continue; // Skip this post, duplicate found by safety net
+                return; // Skip this post, duplicate found by safety net
               }
               
               console.log(`   ✅ Safety net passed - not a duplicate of top similar stories`);
@@ -665,6 +692,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             // Randomly assign a journalist to this article
             const assignedJournalist = getRandomJournalist();
             
+            // Log right before database write to track hangs
+            console.log(`💾 Saving article to database: ${translation.translatedTitle.substring(0, 60)}...`);
+            console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Published: ${shouldAutoPublish}`);
+            
             // Create article - auto-publish only if interest score >= 4
             article = await storage.createArticle({
               title: translation.translatedTitle,
@@ -710,7 +741,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             if (createError.code === '23505') {
               console.log(`⚠️  Duplicate article caught by database constraint: ${post.sourceUrl}`);
               console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
-              continue; // Skip Facebook posting and move to next post
+              return; // Skip Facebook posting and move to next post
             } else {
               // Log and re-throw other errors to prevent silent failures
               console.error(`\n🚨 CRITICAL: Non-duplicate database error - re-throwing to stop scrape`);
@@ -793,8 +824,31 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             skippedNotNews,
           });
         }
-      } catch (error) {
-        console.error("Error processing post:", error);
+          })(), // End of async function - invoke immediately
+          120000, // 2 minute timeout
+          `Post processing timeout after 2 minutes: ${post.title.substring(0, 60)}...`
+        ); // End of withTimeout
+      } catch (error: any) {
+        console.error("\n❌ CRITICAL ERROR processing post:");
+        console.error(`   Post Title: ${post.title.substring(0, 60)}...`);
+        console.error(`   Source URL: ${post.sourceUrl}`);
+        console.error(`   Error: ${error.message || 'Unknown error'}`);
+        console.error(`   Stack:`, error.stack);
+        
+        // Log timeout errors specifically
+        if (error.message?.includes('timeout')) {
+          console.error(`   ⏱️  POST TIMED OUT - Skipping and continuing to next post`);
+          skipReasons.push({
+            reason: "Processing timeout",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: "Processing took longer than 2 minutes"
+          });
+        }
+        
+        // Continue to next post instead of stopping entire scrape
+        continue;
       }
     } // End of posts loop
     } // End of sources loop
