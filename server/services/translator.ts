@@ -197,6 +197,8 @@ CATEGORY GUIDE - Read the FULL story, not just the headline:
 **Economy:** Market trends, trade, economic indicators, financial news
   Examples: "Baht strengthens against dollar", "Export figures rise"
 
+**WHEN UNCERTAIN:** If the story doesn't clearly fit any specific category above, use "Local" as the default fallback category.
+
 IMPORTANT DISTINCTIONS:
 - Drowning/boat accident from weather/waves → "Weather" (NOT Crime)
 - Missing person/search operation → "Local" (NOT Crime)
