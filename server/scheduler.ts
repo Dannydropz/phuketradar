@@ -634,7 +634,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           contentEmbedding // Pass precomputed full content embedding to be stored
         );
 
-        // STEP 4: Classify event type and severity using GPT-5 nano (ultra-cheap!)
+        // STEP 4: Classify event type and severity using GPT-4o-mini
         const classification = await classificationService.classifyArticle(
           translation.translatedTitle,
           translation.excerpt
@@ -664,19 +664,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           try {
             // Randomly assign a journalist to this article
             const assignedJournalist = getRandomJournalist();
-            
-            // DEBUG: Log article data before attempting to create
-            console.log(`\n🔍 DEBUG: Attempting to create article in database`);
-            console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
-            console.log(`   Category: ${translation.category}`);
-            console.log(`   Interest Score: ${translation.interestScore}`);
-            console.log(`   Is Published: ${shouldAutoPublish}`);
-            console.log(`   Embedding: ${translation.embedding ? `Array[${translation.embedding.length}]` : 'NULL'}`);
-            console.log(`   Event Type: ${classification.eventType}`);
-            console.log(`   Severity: ${classification.severity}`);
-            console.log(`   Source URL: ${post.sourceUrl}`);
-            console.log(`   Image URL: ${post.imageUrl || 'NULL'}`);
-            console.log(`   Image URLs: ${post.imageUrls ? `Array[${post.imageUrls.length}]` : 'NULL'}`);
             
             // Create article - auto-publish only if interest score >= 4
             article = await storage.createArticle({
