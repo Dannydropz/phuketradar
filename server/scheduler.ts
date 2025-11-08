@@ -682,9 +682,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               facebookPostId: post.facebookPostId,
               details: `Score: ${translation.interestScore}/5`
             });
-            console.log(`   📋 Low interest score (${translation.interestScore}/5) - saving as DRAFT for review`);
-          } else {
-            console.log(`   ✅ High interest score (${translation.interestScore}/5) - AUTO-PUBLISHING`);
           }
           
           let article;
@@ -693,8 +690,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             const assignedJournalist = getRandomJournalist();
             
             // Log right before database write to track hangs
-            console.log(`💾 Saving article to database: ${translation.translatedTitle.substring(0, 60)}...`);
-            console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Published: ${shouldAutoPublish}`);
+            console.log(`💾 Attempting to save article to database...`);
+            console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
+            console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
             
             // Create article - auto-publish only if interest score >= 4
             article = await storage.createArticle({
@@ -722,10 +720,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
             console.log(`✅ SUCCESS: Article created with ID: ${article.id}`);
             
-            createdCount++;
             if (article.isPublished) {
+              console.log(`   📰 HIGH INTEREST (${translation.interestScore}/5) - Article AUTO-PUBLISHED`);
               publishedCount++;
+            } else {
+              console.log(`   📋 Low interest (${translation.interestScore}/5) - Article saved as DRAFT for review`);
             }
+            
+            createdCount++;
           } catch (createError: any) {
             // Comprehensive error logging
             console.error(`\n❌ ERROR: Failed to create article in database`);

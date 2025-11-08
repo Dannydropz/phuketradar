@@ -1,6 +1,6 @@
 export async function retryDatabaseOperation<T>(
   operation: () => Promise<T>,
-  maxRetries = 3,
+  maxRetries = 5,
   retryDelayMs = 1000,
   operationName = 'Database operation'
 ): Promise<T> {

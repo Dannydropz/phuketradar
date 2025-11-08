@@ -263,7 +263,7 @@ export class DatabaseStorage implements IStorage {
           throw error;
         }
       },
-      3,
+      5,
       1000,
       `Create article: ${insertArticle.title?.substring(0, 40)}...`
     );
