@@ -45,10 +45,10 @@ export default function Home() {
     return highInterestArticles.length > 0 ? highInterestArticles : articles;
   }, [highInterestArticles, articles]);
   
-  // Get urgent news (High Interest + Fresh, < 4 hours old), excluding hero articles
+  // Get breaking news (High Interest + Fresh, < 24 hours old), excluding hero articles
   const urgentNews = useMemo(() => {
     const now = Date.now();
-    const fourHoursAgo = now - (4 * 60 * 60 * 1000);
+    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
     
     // Get hero article IDs to exclude
     const heroIds = new Set([
@@ -57,10 +57,10 @@ export default function Home() {
     ].filter(Boolean));
     
     return highInterestArticles.filter(article => {
-      const isFresh = new Date(article.publishedAt).getTime() > fourHoursAgo;
+      const isFresh = new Date(article.publishedAt).getTime() > twentyFourHoursAgo;
       const notInHero = !heroIds.has(article.id);
       return isFresh && notInHero;
-    }).slice(0, 3); // Limit to 3 urgent stories
+    }).slice(0, 3); // Limit to 3 breaking stories
   }, [highInterestArticles, heroArticles]);
 
   if (isLoading) {
