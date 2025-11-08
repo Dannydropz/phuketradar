@@ -19,20 +19,29 @@ export function mapLegacyCategory(category: string): string {
   return legacyMap[categoryLower] || category;
 }
 
-export function getCategoryBadgeVariant(category: string): "destructive" | "default" | "outline" | "secondary" {
+export function getCategoryBadgeVariant(category: string): "destructive" | "default" | "outline" | "secondary" | "crime" | "warning" {
   const categoryLower = category.toLowerCase();
   
-  if (categoryLower === "crime" || categoryLower === "weather") {
-    return "destructive";
+  // Crime gets darker red
+  if (categoryLower === "crime") {
+    return "crime";
   }
   
+  // Traffic, Weather, Accidents get orange
+  if (categoryLower === "traffic" || categoryLower === "weather" || categoryLower === "accidents") {
+    return "warning";
+  }
+  
+  // Politics, Business, Economy get blue/default
   if (categoryLower === "politics" || categoryLower === "business" || categoryLower === "economy") {
     return "default";
   }
   
-  if (categoryLower === "tourism" || categoryLower === "traffic") {
+  // Tourism gets outline
+  if (categoryLower === "tourism") {
     return "outline";
   }
   
+  // Local and others get secondary
   return "secondary";
 }

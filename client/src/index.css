@@ -71,6 +71,14 @@
 
   --destructive-foreground: 0 0% 100%;
 
+  --crime: 0 70% 45%;
+
+  --crime-foreground: 0 0% 100%;
+
+  --warning: 25 95% 53%;
+
+  --warning-foreground: 0 0% 100%;
+
   --input: 220 13% 78%;
   --ring: 190 85% 35%;
   --chart-1: 190 85% 35%;
@@ -123,6 +131,14 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --crime-border: hsl(var(--crime));
+  --crime-border: hsl(from hsl(var(--crime)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --warning-border: hsl(var(--warning));
+  --warning-border: hsl(from hsl(var(--warning)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 .dark {
@@ -192,6 +208,14 @@
 
   --destructive-foreground: 0 0% 98%;
 
+  --crime: 0 70% 40%;
+
+  --crime-foreground: 0 0% 98%;
+
+  --warning: 25 95% 60%;
+
+  --warning-foreground: 0 0% 8%;
+
   --input: 0 0% 30%;
   --ring: 190 75% 45%;
   --chart-1: 190 75% 55%;
@@ -238,6 +262,14 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --crime-border: hsl(var(--crime));
+  --crime-border: hsl(from hsl(var(--crime)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --warning-border: hsl(var(--warning));
+  --warning-border: hsl(from hsl(var(--warning)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 @layer base {
