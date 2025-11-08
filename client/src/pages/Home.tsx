@@ -39,17 +39,29 @@ export default function Home() {
   const highInterestArticles = useMemo(() => {
     return articles.filter(article => (article.interestScore ?? 0) >= 4);
   }, [articles]);
+
+  // Hero section: Prioritize high-interest articles (score >= 4), but fall back to recent articles if none exist
+  const heroArticles = useMemo(() => {
+    return highInterestArticles.length > 0 ? highInterestArticles : articles;
+  }, [highInterestArticles, articles]);
   
-  // Get urgent news (High Interest + Fresh, < 4 hours old)
+  // Get urgent news (High Interest + Fresh, < 4 hours old), excluding hero articles
   const urgentNews = useMemo(() => {
     const now = Date.now();
     const fourHoursAgo = now - (4 * 60 * 60 * 1000);
     
+    // Get hero article IDs to exclude
+    const heroIds = new Set([
+      heroArticles[0]?.id,
+      ...heroArticles.slice(1, 6).map(a => a.id)
+    ].filter(Boolean));
+    
     return highInterestArticles.filter(article => {
       const isFresh = new Date(article.publishedAt).getTime() > fourHoursAgo;
-      return isFresh;
+      const notInHero = !heroIds.has(article.id);
+      return isFresh && notInHero;
     }).slice(0, 3); // Limit to 3 urgent stories
-  }, [highInterestArticles]);
+  }, [highInterestArticles, heroArticles]);
 
   if (isLoading) {
     return (
@@ -66,17 +78,20 @@ export default function Home() {
     );
   }
 
-  // Hero section: Prioritize high-interest articles (score >= 4), but fall back to recent articles if none exist
-  const heroArticles = highInterestArticles.length > 0 ? highInterestArticles : articles;
   const featured = heroArticles[0];
   const sidebar = heroArticles.slice(1, 6); // Show 5 trending stories
   
+  // Get IDs of articles already shown in hero section
+  const heroArticleIds = new Set([
+    featured?.id,
+    ...sidebar.map(a => a.id)
+  ].filter(Boolean));
+  
   // Get IDs of articles shown in hero and urgent news sections to avoid duplicates
   const excludedArticleIds = new Set([
-    featured?.id,
-    ...sidebar.map(a => a.id),
+    ...Array.from(heroArticleIds),
     ...urgentNews.map(a => a.id)
-  ].filter(Boolean));
+  ]);
   
   // Latest articles: Show ALL recent articles, excluding those already in hero/urgent sections
   const latestArticles = articles
