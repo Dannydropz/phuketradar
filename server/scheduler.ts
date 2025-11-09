@@ -695,9 +695,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         // STEP 5: Only create article if it's actual news
         if (translation.isActualNews) {
           // STEP 5.5: Check interest score for auto-publish decision
-          // Only auto-publish stories with interest score >= 4 (important/urgent news)
-          // Lower-scored stories are saved as drafts for review
-          const shouldAutoPublish = translation.interestScore >= 4;
+          // Auto-publish stories with interest score >= 3 (moderate interest and above)
+          // Lower-scored stories (1-2) are saved as drafts for review
+          const shouldAutoPublish = translation.interestScore >= 3;
           
           if (!shouldAutoPublish) {
             skipReasons.push({
@@ -719,7 +719,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
             console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
             
-            // Create article - auto-publish only if interest score >= 4
+            // Create article - auto-publish if interest score >= 3
             article = await storage.createArticle({
               title: translation.translatedTitle,
               content: translation.translatedContent,
@@ -733,7 +733,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               sourceUrl: post.sourceUrl,
               facebookPostId: post.facebookPostId || null, // Use scraped Facebook post ID for duplicate detection
               journalistId: assignedJournalist.id, // Assign random journalist
-              isPublished: shouldAutoPublish, // Only auto-publish high-interest stories (score >= 4)
+              isPublished: shouldAutoPublish, // Auto-publish moderate+ interest stories (score >= 3)
               originalLanguage: "th",
               translatedBy: "openai",
               embedding: translation.embedding,
@@ -808,8 +808,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           
           console.log(`✅ ${article.isPublished ? 'Created and published' : 'Created as draft'}: ${translation.translatedTitle.substring(0, 50)}...`);
 
-          // Auto-post to Facebook after publishing (only if not already posted)
-          if (article.isPublished && !article.facebookPostId && article.imageUrl) {
+          // Auto-post to Facebook after publishing (only for high-interest stories score >= 4)
+          // Score 3 articles are published but NOT auto-posted to Facebook
+          const shouldAutoPostToFacebook = article.isPublished && 
+                                           (article.interestScore ?? 0) >= 4 && 
+                                           !article.facebookPostId && 
+                                           article.imageUrl;
+          
+          if (shouldAutoPostToFacebook) {
             try {
               const fbResult = await postArticleToFacebook(article, storage);
               if (fbResult) {
@@ -829,6 +835,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
           } else if (article.isPublished && !article.imageUrl) {
             console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
+          } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
+            console.log(`⏭️  Skipping auto-post to Facebook (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
           }
         } else {
           skippedNotNews++;

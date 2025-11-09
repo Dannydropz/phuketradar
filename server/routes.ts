@@ -383,26 +383,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Article not found" });
       }
 
-      // Auto-post to Facebook after publishing (same as automated scraper)
-      if (article.isPublished && !article.facebookPostId && article.imageUrl) {
-        try {
-          console.log(`📘 [PUBLISH] Auto-posting to Facebook: ${article.title.substring(0, 60)}...`);
-          const fbResult = await postArticleToFacebook(article, storage);
-          if (fbResult) {
-            if (fbResult.status === 'posted') {
-              console.log(`✅ [PUBLISH] Posted to Facebook: ${fbResult.postUrl}`);
-            } else {
-              console.log(`ℹ️ [PUBLISH] Article already posted to Facebook`);
-            }
-            // Reload article to get updated Facebook fields
-            const updatedArticle = await storage.getArticleById(id);
-            return res.json(updatedArticle || article);
-          }
-        } catch (fbError) {
-          console.error(`⚠️ [PUBLISH] Facebook posting failed (non-critical):`, fbError);
-          // Continue and return the published article even if Facebook posting fails
-        }
-      }
+      // Manual publishes do NOT auto-post to Facebook
+      // Use the dedicated POST /api/admin/articles/:id/facebook endpoint to manually post to Facebook
+      console.log(`📰 [PUBLISH] Article published manually (not auto-posted to Facebook): ${article.title.substring(0, 60)}...`);
 
       res.json(article);
     } catch (error) {
