@@ -7,11 +7,19 @@ import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useState, useMemo } from "react";
 import type { ArticleListItem, Journalist } from "@shared/schema";
+import NotFound from "@/pages/not-found";
+
+const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
 
 export default function Home() {
-  const [, params] = useRoute("/category/:category");
-  const category = params?.category;
+  const [, params] = useRoute("/:category");
+  const category = params?.category?.toLowerCase();
   const [displayCount, setDisplayCount] = useState(12);
+
+  // Validate category - if invalid, show 404
+  if (category && !VALID_CATEGORIES.includes(category)) {
+    return <NotFound />;
+  }
   
   const { data: allArticles = [], isLoading } = useQuery<ArticleListItem[]>({
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],

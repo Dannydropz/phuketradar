@@ -14,13 +14,13 @@ import {
 
 const newsCategories = [
   { name: "All News", path: "/" },
-  { name: "Crime", path: "/category/crime" },
-  { name: "Local", path: "/category/local" },
-  { name: "Tourism", path: "/category/tourism" },
-  { name: "Politics", path: "/category/politics" },
-  { name: "Economy", path: "/category/economy" },
-  { name: "Traffic", path: "/category/traffic" },
-  { name: "Weather", path: "/category/weather" },
+  { name: "Crime", path: "/crime" },
+  { name: "Local", path: "/local" },
+  { name: "Tourism", path: "/tourism" },
+  { name: "Politics", path: "/politics" },
+  { name: "Economy", path: "/economy" },
+  { name: "Traffic", path: "/traffic" },
+  { name: "Weather", path: "/weather" },
 ];
 
 export function Header() {

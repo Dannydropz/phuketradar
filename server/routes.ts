@@ -741,6 +741,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // XML Sitemap endpoint for SEO
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'https://phuketradar.com';
+
+      const articles = await storage.getPublishedArticles();
+      const categories = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
+      
+      // Build sitemap XML
+      let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+      
+      // Homepage
+      sitemap += '  <url>\n';
+      sitemap += `    <loc>${baseUrl}/</loc>\n`;
+      sitemap += '    <changefreq>hourly</changefreq>\n';
+      sitemap += '    <priority>1.0</priority>\n';
+      sitemap += '  </url>\n';
+      
+      // Category pages (using clean URLs)
+      for (const category of categories) {
+        sitemap += '  <url>\n';
+        sitemap += `    <loc>${baseUrl}/${category}</loc>\n`;
+        sitemap += '    <changefreq>hourly</changefreq>\n';
+        sitemap += '    <priority>0.8</priority>\n';
+        sitemap += '  </url>\n';
+      }
+      
+      // Article pages
+      for (const article of articles) {
+        const url = article.slug 
+          ? `${baseUrl}/article/${article.slug}`
+          : `${baseUrl}/article/${article.id}`;
+        const lastmod = new Date(article.publishedAt).toISOString().split('T')[0];
+        
+        sitemap += '  <url>\n';
+        sitemap += `    <loc>${url}</loc>\n`;
+        sitemap += `    <lastmod>${lastmod}</lastmod>\n`;
+        sitemap += '    <changefreq>weekly</changefreq>\n';
+        sitemap += '    <priority>0.6</priority>\n';
+        sitemap += '  </url>\n';
+      }
+      
+      sitemap += '</urlset>';
+      
+      res.header('Content-Type', 'application/xml');
+      res.send(sitemap);
+    } catch (error) {
+      console.error("Error generating sitemap:", error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

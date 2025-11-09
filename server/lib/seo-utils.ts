@@ -138,7 +138,7 @@ export function generateBreadcrumbSchema(article: {
         "@type": "ListItem",
         "position": 2,
         "name": article.category,
-        "item": `${baseUrl}/category/${article.category.toLowerCase()}`
+        "item": `${baseUrl}/${article.category.toLowerCase()}`
       },
       {
         "@type": "ListItem",

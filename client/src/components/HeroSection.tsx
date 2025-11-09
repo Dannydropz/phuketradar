@@ -32,7 +32,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
   const handleFeaturedCategoryClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setLocation(`/category/${featuredMappedCategory.toLowerCase()}`);
+    setLocation(`/${featuredMappedCategory.toLowerCase()}`);
   };
   
   return (

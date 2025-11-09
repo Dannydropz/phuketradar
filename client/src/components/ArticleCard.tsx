@@ -122,7 +122,7 @@ export function ArticleCard({
   const handleCategoryClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setLocation(`/category/${mappedCategory.toLowerCase()}`);
+    setLocation(`/${mappedCategory.toLowerCase()}`);
   };
   
   return (

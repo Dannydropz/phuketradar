@@ -21,7 +21,6 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/article/:slugOrId" component={ArticleDetail} />
       <Route path="/journalist/:id" component={JournalistProfile} />
-      <Route path="/category/:category" component={Home} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin">
@@ -34,6 +33,7 @@ function Router() {
           <AdminInsights />
         </ProtectedRoute>
       </Route>
+      <Route path="/:category" component={Home} />
       <Route component={NotFound} />
     </Switch>
   );

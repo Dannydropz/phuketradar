@@ -86,6 +86,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// SEO: 301 redirect old /category/:category URLs to new /:category URLs
+app.get('/category/:category', (req, res) => {
+  const { category } = req.params;
+  res.redirect(301, `/${category}`);
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
