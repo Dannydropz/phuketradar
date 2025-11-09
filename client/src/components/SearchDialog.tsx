@@ -7,6 +7,7 @@ import { Search, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import type { ArticleListItem } from "@shared/schema";
+import { buildArticleUrl } from "@shared/category-map";
 
 interface SearchDialogProps {
   open: boolean;
@@ -77,7 +78,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
           ) : (
             <div className="space-y-3">
               {filteredArticles.map((article) => {
-                const articleUrl = article.slug ? `/article/${article.slug}` : `/article/${article.id}`;
+                const articleUrl = buildArticleUrl({ category: article.category, slug: article.slug || null, id: article.id });
                 const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
                 const isBreaking = article.category.toLowerCase() === "breaking";
                 const showRed = isBreaking && isFresh;

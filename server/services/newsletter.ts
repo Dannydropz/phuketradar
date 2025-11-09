@@ -1,6 +1,7 @@
 import type { Article } from "@shared/schema";
 import { format } from "date-fns";
 import { getUncachableResendClient } from "../lib/resend-client";
+import { buildArticleUrl } from "@shared/category-map";
 
 const SITE_URL = process.env.REPLIT_DEPLOYMENT === '1' 
   ? 'https://phuketradar.com'
@@ -33,9 +34,8 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
   
   // Featured Insight section (if any)
   const insightsHTML = insights.map(article => {
-    const articleUrl = article.slug 
-      ? `${SITE_URL}/article/${article.slug}`
-      : `${SITE_URL}/article/${article.id}`;
+    const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+    const articleUrl = `${SITE_URL}${articlePath}`;
     
     return `
       <tr>
@@ -69,9 +69,8 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
   
   // Regular breaking news articles
   const articlesHTML = breakingNews.map(article => {
-    const articleUrl = article.slug 
-      ? `${SITE_URL}/article/${article.slug}`
-      : `${SITE_URL}/article/${article.id}`;
+    const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+    const articleUrl = `${SITE_URL}${articlePath}`;
     
     const categoryColor = categoryColors[article.category] || categoryColors['Other'];
     

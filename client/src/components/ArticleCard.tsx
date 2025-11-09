@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { JournalistByline } from "./JournalistByline";
 import { getCategoryBadgeVariant, mapLegacyCategory, getBreakingBadgeState } from "@/lib/utils";
+import { buildArticleUrl } from "@shared/category-map";
 import type { LucideIcon } from "lucide-react";
 
 interface ArticleCardProps {
@@ -107,8 +108,8 @@ export function ArticleCard({
 }: ArticleCardProps) {
   const [, setLocation] = useLocation();
   
-  // Use slug for URL if available, fallback to ID
-  const articleUrl = slug ? `/article/${slug}` : `/article/${id}`;
+  // Build article URL with category
+  const articleUrl = buildArticleUrl({ category, slug: slug || null, id });
   
   // Map legacy categories to new topics
   const mappedCategory = mapLegacyCategory(category);

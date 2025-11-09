@@ -5,6 +5,7 @@ import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleImage } from "./ArticleImage";
 import { getCategoryBadgeVariant, mapLegacyCategory, getBreakingBadgeState } from "@/lib/utils";
+import { buildArticleUrl } from "@shared/category-map";
 
 interface HeroArticle {
   id: string;
@@ -24,7 +25,7 @@ interface HeroSectionProps {
 
 export function HeroSection({ featured, sidebar }: HeroSectionProps) {
   const [, setLocation] = useLocation();
-  const featuredUrl = featured.slug ? `/article/${featured.slug}` : `/article/${featured.id}`;
+  const featuredUrl = buildArticleUrl({ category: featured.category, slug: featured.slug || null, id: featured.id });
   const featuredMappedCategory = mapLegacyCategory(featured.category);
   const featuredCategoryVariant = getCategoryBadgeVariant(featuredMappedCategory);
   const featuredBadgeState = getBreakingBadgeState(featured.publishedAt, featured.interestScore);
@@ -83,7 +84,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
 
       <div className="lg:col-span-2 flex flex-col gap-6">
         {sidebar.slice(0, 5).map((article) => {
-          const articleUrl = article.slug ? `/article/${article.slug}` : `/article/${article.id}`;
+          const articleUrl = buildArticleUrl({ category: article.category, slug: article.slug || null, id: article.id });
           const mappedCategory = mapLegacyCategory(article.category);
           const categoryVariant = getCategoryBadgeVariant(mappedCategory);
           const badgeState = getBreakingBadgeState(article.publishedAt, article.interestScore);

@@ -92,6 +92,33 @@ app.get('/category/:category', (req, res) => {
   res.redirect(301, `/${category}`);
 });
 
+// SEO: 301 redirect old /article/:slug URLs to new /:category/:slug URLs
+app.get('/article/:slugOrId', async (req, res, next) => {
+  try {
+    const { slugOrId } = req.params;
+    const { resolveFrontendCategory } = await import('@shared/category-map');
+    const { storage } = await import('./storage');
+    
+    // Look up article to get its category
+    let article = await storage.getArticleBySlug(slugOrId);
+    if (!article) {
+      article = await storage.getArticleById(slugOrId);
+    }
+    
+    if (article) {
+      const frontendCategory = resolveFrontendCategory(article.category);
+      const slug = article.slug || article.id;
+      res.redirect(301, `/${frontendCategory}/${slug}`);
+    } else {
+      // Article not found, let it fall through to 404
+      next();
+    }
+  } catch (error) {
+    console.error('Error redirecting article URL:', error);
+    next();
+  }
+});
+
 (async () => {
   const server = await registerRoutes(app);
 

@@ -1,5 +1,6 @@
 import type { Article } from "@shared/schema";
 import type { IStorage } from "../storage";
+import { buildArticleUrl } from "@shared/category-map";
 
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 const FB_PAGE_ID = "786684811203574"; // Phuket Radar page ID
@@ -34,7 +35,8 @@ function getArticleUrl(article: Article): string {
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : "https://phuketradar.com";
   
-  return `${baseUrl}/article/${article.slug || article.id}`;
+  const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+  return `${baseUrl}${articlePath}`;
 }
 
 export async function postArticleToFacebook(

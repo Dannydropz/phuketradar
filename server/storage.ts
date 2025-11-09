@@ -1,8 +1,9 @@
 import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, users, articles, subscribers, journalists } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
 import { retryDatabaseOperation } from "./lib/db-retry";
+import { resolveDbCategories } from "@shared/category-map";
 
 export interface IStorage {
   // User methods
@@ -112,6 +113,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArticlesByCategory(category: string): Promise<ArticleListItem[]> {
+    const dbCategories = [...resolveDbCategories(category)];
+    
+    if (dbCategories.length === 0) {
+      return [];
+    }
+    
     return await db
       .select({
         id: articles.id,
@@ -139,7 +146,7 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
       })
       .from(articles)
-      .where(sql`LOWER(${articles.category}) = LOWER(${category}) AND ${articles.isPublished} = true`)
+      .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
       .orderBy(desc(articles.publishedAt));
   }
 

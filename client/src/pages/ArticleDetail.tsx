@@ -22,6 +22,7 @@ import type { Article, ArticleListItem, Journalist } from "@shared/schema";
 import { ArticleImage } from "@/components/ArticleImage";
 import { SEO } from "@/components/SEO";
 import { JournalistByline } from "@/components/JournalistByline";
+import { buildArticleUrl } from "@shared/category-map";
 
 // Helper functions for event icons and severity styling
 function getEventIcon(eventType?: string | null): LucideIcon | null {
@@ -86,7 +87,7 @@ function getSeverityIcon(severity?: string | null): LucideIcon | null {
 }
 
 export default function ArticleDetail() {
-  const [, params] = useRoute("/article/:slugOrId");
+  const [, params] = useRoute("/:category/:slugOrId");
   const slugOrId = params?.slugOrId || "";
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -191,9 +192,8 @@ export default function ArticleDetail() {
   const baseUrl = import.meta.env.VITE_REPLIT_DEV_DOMAIN 
     ? `https://${import.meta.env.VITE_REPLIT_DEV_DOMAIN}`
     : (typeof window !== 'undefined' ? window.location.origin : 'https://phuketradar.com');
-  const canonicalUrl = article.slug 
-    ? `${baseUrl}/article/${article.slug}`
-    : `${baseUrl}/article/${article.id}`;
+  const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+  const canonicalUrl = `${baseUrl}${articlePath}`;
 
   const handleShare = () => {
     if (navigator.share) {
@@ -360,7 +360,7 @@ export default function ArticleDetail() {
             <h3 className="text-xl font-bold mb-6">Latest</h3>
             <div className="space-y-4">
               {latestArticles.map((latestArticle) => {
-                const latestUrl = latestArticle.slug ? `/article/${latestArticle.slug}` : `/article/${latestArticle.id}`;
+                const latestUrl = buildArticleUrl({ category: latestArticle.category, slug: latestArticle.slug || null, id: latestArticle.id });
                 return (
                 <a 
                   key={latestArticle.id} 

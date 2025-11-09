@@ -13,6 +13,7 @@ import { postArticleToFacebook } from "./lib/facebook-service";
 import { sendBulkNewsletter } from "./services/newsletter";
 import { subHours } from "date-fns";
 import { insightService } from "./services/insight-service";
+import { buildArticleUrl } from "@shared/category-map";
 
 // Extend session type
 declare module "express-session" {
@@ -773,9 +774,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Article pages
       for (const article of articles) {
-        const url = article.slug 
-          ? `${baseUrl}/article/${article.slug}`
-          : `${baseUrl}/article/${article.id}`;
+        const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+        const url = `${baseUrl}${articlePath}`;
         const lastmod = new Date(article.publishedAt).toISOString().split('T')[0];
         
         sitemap += '  <url>\n';

@@ -19,8 +19,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/article/:slugOrId" component={ArticleDetail} />
-      <Route path="/journalist/:id" component={JournalistProfile} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin">
@@ -33,6 +31,8 @@ function Router() {
           <AdminInsights />
         </ProtectedRoute>
       </Route>
+      <Route path="/journalist/:id" component={JournalistProfile} />
+      <Route path="/:category/:slugOrId" component={ArticleDetail} />
       <Route path="/:category" component={Home} />
       <Route component={NotFound} />
     </Switch>

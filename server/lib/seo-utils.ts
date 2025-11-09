@@ -2,6 +2,7 @@
  * SEO Utilities
  * Functions for generating SEO-friendly URLs, meta tags, and structured data
  */
+import { buildArticleUrl, resolveFrontendCategory } from "@shared/category-map";
 
 /**
  * Generate a URL-safe slug from a title
@@ -78,6 +79,7 @@ export function generateNewsArticleSchema(article: {
   imageUrl: string | null;
   category: string;
   slug: string;
+  id: string;
 }) {
   const publishDate = typeof article.publishedAt === 'string' 
     ? article.publishedAt 
@@ -86,6 +88,8 @@ export function generateNewsArticleSchema(article: {
   const baseUrl = process.env.REPLIT_DEV_DOMAIN 
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : 'https://phuketradar.com';
+  
+  const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   
   return {
     "@context": "https://schema.org",
@@ -108,7 +112,7 @@ export function generateNewsArticleSchema(article: {
       }
     },
     "articleSection": article.category,
-    "url": `${baseUrl}/article/${article.slug}`
+    "url": `${baseUrl}${articlePath}`
   };
 }
 
@@ -119,10 +123,14 @@ export function generateBreadcrumbSchema(article: {
   title: string;
   category: string;
   slug: string;
+  id: string;
 }) {
   const baseUrl = process.env.REPLIT_DEV_DOMAIN 
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : 'https://phuketradar.com';
+  
+  const frontendCategory = resolveFrontendCategory(article.category);
+  const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   
   return {
     "@context": "https://schema.org",
@@ -137,14 +145,14 @@ export function generateBreadcrumbSchema(article: {
       {
         "@type": "ListItem",
         "position": 2,
-        "name": article.category,
-        "item": `${baseUrl}/${article.category.toLowerCase()}`
+        "name": frontendCategory,
+        "item": `${baseUrl}/${frontendCategory}`
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": article.title,
-        "item": `${baseUrl}/article/${article.slug}`
+        "item": `${baseUrl}${articlePath}`
       }
     ]
   };
