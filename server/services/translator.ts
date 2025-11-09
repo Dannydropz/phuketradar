@@ -172,14 +172,11 @@ CATEGORY GUIDE - Read the FULL story, not just the headline:
 **Weather:** Natural disasters, typhoons, monsoons, flooding, landslides, heat waves, storms, weather warnings, climate events
   Examples: "Typhoon approaching Phuket", "Heavy flooding in Patong", "Landslide blocks road"
 
-**Local:** Community news, missing persons, search/rescue operations (unless criminal), local government, general incidents
-  Examples: "Search for missing tourist", "Rescue operation saves swimmers", "Community meeting held"
+**Local:** Community news, missing persons, search/rescue operations, drownings, boat/sea accidents, water-related incidents, local government, general incidents
+  Examples: "Search for missing tourist", "Rescue operation saves swimmers", "Tourist drowns at beach", "Boat capsizes off Phuket coast", "Missing swimmer found", "Community meeting held"
 
 **Traffic:** Road accidents (non-criminal), road closures, construction, transportation disruptions
   Examples: "Car crashes on bypass road", "Road closed for repairs", "Traffic jam near airport"
-
-**Weather-Related Accidents:** Boat capsizes, drownings, flood victims → Use "Weather" category
-  Examples: "Tourist drowns in rough seas", "Boat capsizes in storm", "Four rescued from flooded area"
 
 **Crime:** ONLY intentional criminal activity - arrests, theft, assault, scams, police investigations of crimes
   Examples: "Police arrest theft suspect", "Scam targets tourists", "Assault investigation underway"
@@ -200,10 +197,10 @@ CATEGORY GUIDE - Read the FULL story, not just the headline:
 **WHEN UNCERTAIN:** If the story doesn't clearly fit any specific category above, use "Local" as the default fallback category.
 
 IMPORTANT DISTINCTIONS:
-- Drowning/boat accident from weather/waves → "Weather" (NOT Crime)
+- Drowning/boat accident/sea incident/missing swimmer → "Local" (water-related incidents are local news)
 - Missing person/search operation → "Local" (NOT Crime)
 - Car accident (no crime) → "Traffic" (NOT Crime)
-- Typhoon/flood/landslide → "Weather" (NOT Crime)
+- Typhoon/flood/landslide/weather events → "Weather" (natural disasters only)
 - Criminal arrest/theft/assault → "Crime" (YES Crime)
 
 INTEREST SCORE GUIDE (1-5):
@@ -215,9 +212,10 @@ INTEREST SCORE GUIDE (1-5):
 
 NOTE: Category = TOPIC (what type of story). Interest Score = URGENCY (how important).
 Example 1: Typhoon warning → Category="Weather", interestScore=5 (urgent weather event)
-Example 2: Tourist drowns in rough seas → Category="Weather", interestScore=5 (weather-related death)
-Example 3: Missing person search → Category="Local", interestScore=4 (important local incident)
-Example 4: Police arrest thief → Category="Crime", interestScore=4 (actual criminal activity)
+Example 2: Tourist drowns at beach → Category="Local", interestScore=5 (serious water incident, high urgency)
+Example 3: Missing swimmer search → Category="Local", interestScore=4 (important local incident)
+Example 4: Boat capsizes offshore → Category="Local", interestScore=4 (sea accident)
+Example 5: Police arrest thief → Category="Crime", interestScore=4 (actual criminal activity)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
