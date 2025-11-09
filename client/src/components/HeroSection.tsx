@@ -67,14 +67,6 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
                 Breaking News
               </Badge>
             )}
-            <Badge 
-              variant={featuredCategoryVariant} 
-              className="cursor-pointer"
-              onClick={handleFeaturedCategoryClick}
-              data-testid="badge-hero-category"
-            >
-              {featuredMappedCategory}
-            </Badge>
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
               <span data-testid="text-hero-time">{formatDistanceToNow(featured.publishedAt, { addSuffix: true })}</span>
@@ -127,18 +119,6 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
                       Breaking
                     </Badge>
                   )}
-                  <Badge 
-                    variant={categoryVariant} 
-                    className="cursor-pointer text-xs"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setLocation(`/category/${mappedCategory.toLowerCase()}`);
-                    }}
-                    data-testid={`badge-sidebar-category-${article.id}`}
-                  >
-                    {mappedCategory}
-                  </Badge>
                 </div>
                 <h3 className="font-semibold text-base mb-1.5 line-clamp-2 group-hover:text-primary transition-colors" data-testid={`text-sidebar-title-${article.id}`}>
                   {article.title}

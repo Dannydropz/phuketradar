@@ -157,40 +157,6 @@ export function ArticleCard({
                 Breaking News
               </Badge>
             )}
-            <Badge 
-              variant={categoryVariant} 
-              className="cursor-pointer"
-              onClick={handleCategoryClick}
-              data-testid={`badge-category-${id}`}
-            >
-              {mappedCategory}
-            </Badge>
-            {severity && severity.toLowerCase() !== "info" && (() => {
-              const severityStyle = getSeverityStyle(severity);
-              const SeverityIcon = getSeverityIcon(severity);
-              return (
-                <Badge 
-                  variant={severityStyle.variant}
-                  className={severityStyle.className}
-                  data-testid={`badge-severity-${id}`}
-                >
-                  {SeverityIcon && <SeverityIcon className="w-3 h-3 mr-1" />}
-                  {severity}
-                </Badge>
-              );
-            })()}
-            {eventType && eventType.toLowerCase() !== "other" && (() => {
-              const EventIcon = getEventIcon(eventType);
-              return (
-                <Badge 
-                  variant="outline"
-                  data-testid={`badge-event-type-${id}`}
-                >
-                  {EventIcon && <EventIcon className="w-3 h-3 mr-1" />}
-                  {eventType}
-                </Badge>
-              );
-            })()}
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
               <span data-testid={`text-time-${id}`}>{formatDistanceToNow(publishedAt, { addSuffix: true })}</span>
