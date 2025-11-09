@@ -810,10 +810,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
           // Auto-post to Facebook after publishing (only for high-interest stories score >= 4)
           // Score 3 articles are published but NOT auto-posted to Facebook
+          const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
           const shouldAutoPostToFacebook = article.isPublished && 
                                            (article.interestScore ?? 0) >= 4 && 
                                            !article.facebookPostId && 
-                                           article.imageUrl;
+                                           hasImage;
           
           if (shouldAutoPostToFacebook) {
             try {
@@ -833,7 +834,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             }
           } else if (article.isPublished && article.facebookPostId) {
             console.log(`⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
-          } else if (article.isPublished && !article.imageUrl) {
+          } else if (article.isPublished && !hasImage) {
             console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
           } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
             console.log(`⏭️  Skipping auto-post to Facebook (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
