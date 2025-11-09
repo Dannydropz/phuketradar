@@ -589,9 +589,6 @@ export default function AdminDashboard() {
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <Badge variant="secondary" data-testid={`badge-category-${article.id}`}>
-                              {article.category}
-                            </Badge>
                             <Badge
                               className={
                                 article.isPublished

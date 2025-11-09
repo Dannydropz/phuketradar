@@ -228,45 +228,23 @@ export default function ArticleDetail() {
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4 flex-wrap">
               {(() => {
-                const isFresh = (Date.now() - new Date(article.publishedAt).getTime()) < (8 * 60 * 60 * 1000);
-                const isBreaking = article.category.toLowerCase() === "breaking";
-                const showRed = isBreaking && isFresh;
+                const publishedTime = new Date(article.publishedAt).getTime();
+                const hoursSincePublish = (Date.now() - publishedTime) / (1000 * 60 * 60);
+                const showBreakingBadge = (article.interestScore ?? 0) >= 4 && hoursSincePublish < 24;
+                const showRedBadge = showBreakingBadge && hoursSincePublish < 6;
                 
-                return (
-                  <Badge 
-                    variant={showRed ? "destructive" : "secondary"} 
-                    className={showRed ? "font-bold" : ""}
-                    data-testid="badge-article-category"
-                  >
-                    {isBreaking ? (showRed ? "BREAKING" : "Breaking") : article.category}
-                  </Badge>
-                );
-              })()}
-              {article.severity && (() => {
-                const severityStyle = getSeverityStyle(article.severity);
-                const SeverityIcon = getSeverityIcon(article.severity);
-                return (
-                  <Badge 
-                    variant={severityStyle.variant}
-                    className={severityStyle.className}
-                    data-testid="badge-article-severity"
-                  >
-                    {SeverityIcon && <SeverityIcon className="w-3 h-3 mr-1" />}
-                    {article.severity}
-                  </Badge>
-                );
-              })()}
-              {article.eventType && (() => {
-                const EventIcon = getEventIcon(article.eventType);
-                return (
-                  <Badge 
-                    variant="outline"
-                    data-testid="badge-article-event-type"
-                  >
-                    {EventIcon && <EventIcon className="w-3 h-3 mr-1" />}
-                    {article.eventType}
-                  </Badge>
-                );
+                if (showBreakingBadge) {
+                  return (
+                    <Badge 
+                      variant={showRedBadge ? "destructive" : "secondary"} 
+                      className={showRedBadge ? "bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse" : "bg-gray-500 dark:bg-gray-600 text-white font-semibold"}
+                      data-testid="badge-article-breaking"
+                    >
+                      Breaking News
+                    </Badge>
+                  );
+                }
+                return null;
               })()}
               <div className="flex items-center text-sm text-muted-foreground">
                 <Clock className="w-3 h-3 mr-1" />
