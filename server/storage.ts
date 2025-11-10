@@ -28,6 +28,8 @@ export interface IStorage {
   claimArticleForFacebookPosting(id: string, lockToken: string): Promise<boolean>;
   finalizeArticleFacebookPost(id: string, lockToken: string, facebookPostId: string, facebookPostUrl: string): Promise<boolean>;
   releaseFacebookPostLock(id: string, lockToken: string): Promise<void>;
+  getArticlesWithStuckLocks(): Promise<{ id: string; title: string; facebookPostId: string }[]>;
+  clearStuckFacebookLock(id: string): Promise<void>;
   deleteArticle(id: string): Promise<boolean>;
   
   // Subscriber methods
@@ -320,6 +322,36 @@ export class DatabaseStorage implements IStorage {
         facebookPostUrl: null,
       })
       .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} = ${lockValue}`);
+  }
+
+  async getArticlesWithStuckLocks(): Promise<{ id: string; title: string; facebookPostId: string }[]> {
+    // Only return locks older than 5 minutes to avoid clearing in-flight posts
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    const results = await db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        facebookPostId: articles.facebookPostId,
+      })
+      .from(articles)
+      .where(sql`${articles.facebookPostId} LIKE 'LOCK:%' AND ${articles.publishedAt} < ${fiveMinutesAgo}`);
+    
+    return results.map(r => ({
+      id: r.id,
+      title: r.title,
+      facebookPostId: r.facebookPostId || '',
+    }));
+  }
+
+  async clearStuckFacebookLock(id: string): Promise<void> {
+    await db
+      .update(articles)
+      .set({
+        facebookPostId: null,
+        facebookPostUrl: null,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} LIKE 'LOCK:%'`);
   }
 
   async deleteArticle(id: string): Promise<boolean> {

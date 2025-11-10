@@ -491,6 +491,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear stuck Facebook posting locks - PROTECTED
+  app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
+    try {
+      console.log(`🔧 [ADMIN] Manually clearing stuck Facebook posting locks...`);
+      
+      const stuckLocks = await storage.getArticlesWithStuckLocks();
+      
+      if (stuckLocks.length === 0) {
+        console.log(`✅ [ADMIN] No stuck locks found`);
+        return res.json({
+          cleared: 0,
+          articles: [],
+        });
+      }
+      
+      console.warn(`⚠️  [ADMIN] Found ${stuckLocks.length} articles with stuck LOCK tokens`);
+      
+      const clearedArticles = [];
+      for (const article of stuckLocks) {
+        console.warn(`   - Clearing lock for: ${article.title.substring(0, 60)}... (ID: ${article.id})`);
+        await storage.clearStuckFacebookLock(article.id);
+        clearedArticles.push({
+          id: article.id,
+          title: article.title,
+          lockToken: article.facebookPostId,
+        });
+      }
+      
+      console.log(`✅ [ADMIN] Cleared ${stuckLocks.length} stuck locks`);
+      
+      res.json({
+        cleared: stuckLocks.length,
+        articles: clearedArticles,
+      });
+    } catch (error) {
+      console.error("Error clearing stuck Facebook locks:", error);
+      res.status(500).json({ error: "Failed to clear stuck locks" });
+    }
+  });
+
   // Cron endpoint for daily newsletter
   app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();

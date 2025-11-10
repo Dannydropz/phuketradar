@@ -112,6 +112,23 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
     const duplicateVerifier = new DuplicateVerifierService();
     console.log(`🧠 GPT duplicate verifier initialized (for 70-85% similarity cases)`);
     
+    // CLEANUP: Clear stuck Facebook posting locks before starting scrape
+    console.log(`\n🔧 Checking for stuck Facebook posting locks...`);
+    const stuckLocks = await storage.getArticlesWithStuckLocks();
+    if (stuckLocks.length > 0) {
+      console.warn(`⚠️  Found ${stuckLocks.length} articles with stuck LOCK tokens`);
+      for (const article of stuckLocks) {
+        console.warn(`   - Article ID: ${article.id}`);
+        console.warn(`     Title: ${article.title.substring(0, 60)}...`);
+        console.warn(`     Lock token: ${article.facebookPostId}`);
+        await storage.clearStuckFacebookLock(article.id);
+      }
+      console.log(`✅ Cleared ${stuckLocks.length} stuck locks - these articles will retry Facebook posting`);
+    } else {
+      console.log(`✅ No stuck locks found`);
+    }
+    console.log();
+    
     let totalPosts = 0;
     let createdCount = 0;
     let publishedCount = 0;
@@ -811,9 +828,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Auto-post to Facebook after publishing (only for high-interest stories score >= 4)
           // Score 3 articles are published but NOT auto-posted to Facebook
           const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
+          const isReallyPosted = article.facebookPostId && !article.facebookPostId.startsWith('LOCK:');
+          const isStuckWithLock = article.facebookPostId && article.facebookPostId.startsWith('LOCK:');
           const shouldAutoPostToFacebook = article.isPublished && 
                                            (article.interestScore ?? 0) >= 4 && 
-                                           !article.facebookPostId && 
+                                           !isReallyPosted && 
                                            hasImage;
           
           if (shouldAutoPostToFacebook) {
@@ -832,7 +851,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               console.error(`❌ Error posting to Facebook:`, fbError);
               // Don't fail the whole scrape if Facebook posting fails
             }
-          } else if (article.isPublished && article.facebookPostId) {
+          } else if (article.isPublished && isStuckWithLock) {
+            console.warn(`⚠️  STUCK LOCK DETECTED - Article has lock token instead of real Facebook post ID`);
+            console.warn(`   Article ID: ${article.id}`);
+            console.warn(`   Title: ${article.title.substring(0, 60)}...`);
+            console.warn(`   Lock token: ${article.facebookPostId}`);
+            console.warn(`   This indicates a previous Facebook posting attempt failed without releasing the lock`);
+            console.warn(`   The lock should have been cleared, but will retry on next scrape`);
+          } else if (article.isPublished && isReallyPosted) {
             console.log(`⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
           } else if (article.isPublished && !hasImage) {
             console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
