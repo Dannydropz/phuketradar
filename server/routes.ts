@@ -377,7 +377,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const article = await storage.updateArticle(id, { isPublished: true });
+      const article = await storage.updateArticle(id, { 
+        isPublished: true,
+        facebookPostId: null // Clear any previous posting attempts so button appears
+      });
       
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
