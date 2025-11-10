@@ -661,7 +661,7 @@ export default function AdminDashboard() {
                           </>
                         ) : (
                           <>
-                            {(!article.facebookPostId || article.facebookPostId?.startsWith('LOCK:')) && (
+                            {(!article.facebookPostId || article.facebookPostId === '' || article.facebookPostId?.startsWith('LOCK:')) && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
