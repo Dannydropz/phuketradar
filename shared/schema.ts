@@ -42,7 +42,7 @@ export const articles = pgTable("articles", {
   embedding: real("embedding").array(),
   facebookPostId: text("facebook_post_id").unique(), // OUR Facebook page post ID (set after posting)
   facebookPostUrl: text("facebook_post_url"), // OUR Facebook page post URL
-  sourceFacebookPostId: text("source_facebook_post_id").unique(), // Original source post ID (for duplicate detection)
+  sourceFacebookPostId: text("source_facebook_post_id"), // Original source post ID (for duplicate detection) - UNIQUE constraint added after data migration
   eventType: text("event_type"),
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),

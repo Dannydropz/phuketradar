@@ -8,16 +8,34 @@ This guide explains how to deploy the Facebook auto-posting bug fix to productio
 - **Updated Field**: `facebook_post_id` - now ONLY tracks OUR Facebook page posting status
 - **Result**: Duplicate detection works correctly, and auto-posting no longer incorrectly blocks articles
 
+## Why Staged Deployment?
+With 376 articles in production, adding a UNIQUE constraint during deployment can cause timeouts. We'll deploy in 3 stages:
+1. **First deployment**: Add column WITHOUT unique constraint (fast)
+2. **Data migration**: Populate the new column
+3. **Second deployment**: Add UNIQUE constraint (fast - column already has data)
+
 ---
 
-## Step-by-Step Production Deployment
+## STAGE 1: Initial Deployment (Add Column)
 
-### STEP 1: Access Your Production Database
+### STEP 1: Deploy the Code (WITHOUT UNIQUE Constraint)
+1. **Current State**: The schema has `sourceFacebookPostId` WITHOUT `.unique()`
+2. Click **Deploy** in Replit
+3. Wait for deployment to complete
+4. This creates the `source_facebook_post_id` column without constraints - should be FAST
+
+**Expected**: Deployment completes in ~1-2 minutes (no constraint = no timeout)
+
+---
+
+## STAGE 2: Data Migration
+
+### STEP 2: Access Your Production Database
 1. Open the Replit Database pane (left sidebar)
 2. Click the database dropdown and select **Production**
 3. Open the SQL console/query editor
 
-### STEP 2: Run Pre-Migration Checks (DRY RUN)
+### STEP 3: Run Pre-Migration Checks (DRY RUN)
 Copy and paste these queries ONE AT A TIME to see what will be affected:
 
 ```sql
@@ -34,15 +52,15 @@ LIMIT 20;
 ```
 
 ```sql
--- Count: How many articles will be migrated
+-- Count: How many articles will be migrated (should be ~376)
 SELECT COUNT(*) as articles_to_migrate
 FROM articles
 WHERE facebook_post_id IS NOT NULL;
 ```
 
-**Expected Result**: You should see articles that currently have a `facebook_post_id` value. These are articles scraped from Facebook (with source post IDs), NOT articles posted to YOUR Facebook page.
+**Expected Result**: You should see 376 articles with `facebook_post_id` values (scraped source IDs).
 
-### STEP 3: Run the Migration (DO THIS CAREFULLY)
+### STEP 4: Run the Data Migration
 Copy and paste this UPDATE statement into the SQL console:
 
 ```sql
@@ -61,13 +79,13 @@ WHERE facebook_post_id IS NOT NULL
 - Clears `facebook_post_url` (will be set when actually posted)
 - Skips any locked rows (safety measure)
 
-### STEP 4: Verify the Migration Worked
+### STEP 5: Verify the Migration Worked
 Run these verification queries:
 
 ```sql
--- Verify: Check migration statistics
+-- Verify: Check migration statistics (should show 376 migrated)
 SELECT 
-  COUNT(*) as total_articles,
+  COUNT(*) as migrated_articles,
   COUNT(CASE WHEN source_facebook_post_id IS NOT NULL THEN 1 END) as has_source_id,
   COUNT(CASE WHEN facebook_post_id IS NULL THEN 1 END) as facebook_id_cleared
 FROM articles
@@ -89,21 +107,26 @@ LIMIT 10;
 ```
 
 **Expected Results**:
-- `has_source_id` should equal the count from STEP 2
-- `facebook_post_id` should be NULL for migrated articles
+- `has_source_id` = 376 (all articles migrated)
+- `facebook_post_id` should be NULL for all migrated articles
 - `source_facebook_post_id` should contain the original Facebook post IDs
 
-### STEP 5: Deploy the New Code
-1. In the Replit workspace, click **Deploy** (or your deployment method)
-2. Wait for the deployment to complete
-3. The new code includes:
-   - Schema changes for `source_facebook_post_id`
-   - Updated duplicate detection logic
-   - Fixed Facebook auto-posting rules
-   - Admin dashboard improvements
+---
 
-### STEP 6: Test in Production
-After deployment, verify everything works:
+## STAGE 3: Add UNIQUE Constraint
+
+### STEP 6: Update Schema and Deploy Again
+**I'll do this for you** - After you confirm the migration worked, I'll:
+1. Add `.unique()` back to `sourceFacebookPostId` in the schema
+2. You deploy again
+3. This adds the UNIQUE constraint to the already-populated column (fast)
+
+**Expected**: Deployment completes quickly since data is already in place
+
+---
+
+## STEP 7: Test in Production
+After the second deployment, verify everything works:
 
 1. **Check Admin Dashboard**:
    - Go to `/admin` in production
