@@ -17,6 +17,7 @@ export interface IStorage {
   getArticleBySlug(slug: string): Promise<Article | undefined>;
   getArticleBySourceUrl(sourceUrl: string): Promise<Article | undefined>;
   getArticleByFacebookPostId(facebookPostId: string): Promise<Article | undefined>;
+  getArticleBySourceFacebookPostId(sourceFacebookPostId: string): Promise<Article | undefined>;
   getArticleByImageUrl(imageUrl: string): Promise<Article | undefined>;
   getArticlesWithImageHashes(): Promise<{ id: string; title: string; imageHash: string | null }[]>;
   getArticlesByCategory(category: string): Promise<ArticleListItem[]>;
@@ -104,6 +105,14 @@ export class DatabaseStorage implements IStorage {
     return article || undefined;
   }
 
+  async getArticleBySourceFacebookPostId(sourceFacebookPostId: string): Promise<Article | undefined> {
+    const [article] = await db
+      .select()
+      .from(articles)
+      .where(eq(articles.sourceFacebookPostId, sourceFacebookPostId));
+    return article || undefined;
+  }
+
   async getArticleByImageUrl(imageUrl: string): Promise<Article | undefined> {
     const [article] = await db
       .select()
@@ -140,6 +149,7 @@ export class DatabaseStorage implements IStorage {
         translatedBy: articles.translatedBy,
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
+        sourceFacebookPostId: articles.sourceFacebookPostId,
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
@@ -172,6 +182,7 @@ export class DatabaseStorage implements IStorage {
         translatedBy: articles.translatedBy,
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
+        sourceFacebookPostId: articles.sourceFacebookPostId,
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
@@ -433,6 +444,7 @@ export class DatabaseStorage implements IStorage {
         translatedBy: articles.translatedBy,
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
+        sourceFacebookPostId: articles.sourceFacebookPostId,
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,

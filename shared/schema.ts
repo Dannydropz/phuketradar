@@ -40,8 +40,9 @@ export const articles = pgTable("articles", {
   originalLanguage: text("original_language").default("th"),
   translatedBy: text("translated_by").default("openai"),
   embedding: real("embedding").array(),
-  facebookPostId: text("facebook_post_id").unique(),
-  facebookPostUrl: text("facebook_post_url"),
+  facebookPostId: text("facebook_post_id").unique(), // OUR Facebook page post ID (set after posting)
+  facebookPostUrl: text("facebook_post_url"), // OUR Facebook page post URL
+  sourceFacebookPostId: text("source_facebook_post_id").unique(), // Original source post ID (for duplicate detection)
   eventType: text("event_type"),
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),

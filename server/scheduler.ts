@@ -215,13 +215,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           return;
         }
         
-        // STEP -2: Check if this Facebook post ID already exists in database (fastest and most reliable check)
+        // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
         if (post.facebookPostId) {
-          const existingByPostId = await storage.getArticleByFacebookPostId(post.facebookPostId);
+          const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
           if (existingByPostId) {
             skippedSemanticDuplicates++;
             skipReasons.push({
-              reason: "Duplicate: Facebook Post ID",
+              reason: "Duplicate: Source Facebook Post ID",
               postTitle: post.title.substring(0, 60),
               sourceUrl: post.sourceUrl,
               facebookPostId: post.facebookPostId,
@@ -748,7 +748,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               imageHash: imageHash || null, // Store perceptual hash for duplicate detection
               category: translation.category,
               sourceUrl: post.sourceUrl,
-              facebookPostId: post.facebookPostId || null, // Use scraped Facebook post ID for duplicate detection
+              sourceFacebookPostId: post.facebookPostId || null, // Source post ID for duplicate detection
+              facebookPostId: null, // OUR posting status - only set after posting to OUR Facebook page
               journalistId: assignedJournalist.id, // Assign random journalist
               isPublished: shouldAutoPublish, // Auto-publish moderate+ interest stories (score >= 3)
               originalLanguage: "th",

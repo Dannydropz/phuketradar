@@ -605,6 +605,28 @@ export default function AdminDashboard() {
                             >
                               {article.isPublished ? "published" : "pending"}
                             </Badge>
+                            {article.interestScore !== null && article.interestScore !== undefined && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge 
+                                    className={
+                                      article.interestScore >= 4 
+                                        ? "bg-orange-500 text-white" 
+                                        : article.interestScore === 3 
+                                        ? "bg-yellow-500 text-white" 
+                                        : "bg-gray-500 text-white"
+                                    }
+                                    data-testid={`badge-interest-${article.id}`}
+                                  >
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    {article.interestScore}/5
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Interest Score: {article.interestScore}/5 {article.interestScore >= 4 ? "(Auto-posted to Facebook)" : article.interestScore === 3 ? "(Published, manual post)" : "(Draft only)"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <span className="text-xs md:text-sm text-muted-foreground">
                               {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
                             </span>
@@ -661,25 +683,35 @@ export default function AdminDashboard() {
                           </>
                         ) : (
                           <>
-                            {(!article.facebookPostId || article.facebookPostId === '' || article.facebookPostId?.startsWith('LOCK:')) && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => handlePostToFacebook(article.id)}
-                                    className="border-blue-500 text-blue-500 h-11 w-11 p-0"
-                                    disabled={facebookPostMutation.isPending}
-                                    data-testid={`button-facebook-${article.id}`}
-                                    aria-label={article.facebookPostId?.startsWith('LOCK:') ? "Retry posting to Facebook" : "Post to Facebook"}
-                                  >
-                                    <Facebook className="w-4 h-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{article.facebookPostId?.startsWith('LOCK:') ? "Retry posting to Facebook (previous attempt failed)" : "Post to Facebook"}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handlePostToFacebook(article.id)}
+                                  className="border-blue-500 text-blue-500 h-11 w-11 p-0"
+                                  disabled={facebookPostMutation.isPending}
+                                  data-testid={`button-facebook-${article.id}`}
+                                  aria-label={
+                                    article.facebookPostId?.startsWith('LOCK:') 
+                                      ? "Retry posting to Facebook" 
+                                      : article.facebookPostId 
+                                      ? "Post again to Facebook" 
+                                      : "Post to Facebook"
+                                  }
+                                >
+                                  <Facebook className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {article.facebookPostId?.startsWith('LOCK:') 
+                                    ? "Retry posting to Facebook (previous attempt failed)" 
+                                    : article.facebookPostId 
+                                    ? "Post again to Facebook (already posted)" 
+                                    : "Post to Facebook"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                             <Button
                               variant="outline"
                               onClick={() => handleUnpublish(article.id)}
