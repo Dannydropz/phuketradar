@@ -16,8 +16,9 @@ export interface TranslationResult {
 }
 
 // High-priority keywords that boost interest scores (urgent/dramatic news)
+// Note: "อุบัติเหตุ" (accident) removed - too generic, boosts infrastructure complaints
+// GPT's improved scoring guidance now handles real accidents vs. damage reports
 const HOT_KEYWORDS = [
-  "อุบัติเหตุ", // accident
   "ไฟไหม้", // fire
   "จมน้ำ", // drowning
   "จับกุม", // arrest
@@ -26,7 +27,6 @@ const HOT_KEYWORDS = [
   "โจร", // thief/robber
   "เสียชีวิต", // death/died
   "บาดเจ็บ", // injured
-  "ชนกัน", // collision
   "ตาย", // dead
   "ฆ่า", // kill
   "ยิง", // shoot
