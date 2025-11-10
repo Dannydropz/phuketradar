@@ -204,18 +204,25 @@ IMPORTANT DISTINCTIONS:
 - Criminal arrest/theft/assault → "Crime" (YES Crime)
 
 INTEREST SCORE GUIDE (1-5):
-- 5 = URGENT/DRAMATIC: Deaths, major accidents, violent crime, natural disasters, severe weather
-- 4 = IMPORTANT: Non-fatal accidents, arrests, significant disruptions, rescue operations
-- 3 = MODERATE: Tourism developments, business openings, community events, policy changes
-- 2 = MUNDANE: Government meetings, routine announcements, administrative updates
+- 5 = URGENT/DRAMATIC: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime, natural disasters, severe weather
+- 4 = IMPORTANT: Non-fatal traffic accidents (actual crashes/collisions), arrests, rescue operations, major service disruptions (power outages, water supply cuts)
+- 3 = MODERATE: MINOR infrastructure issues (damaged roads, potholes, routine repairs, maintenance complaints), tourism developments, business openings, community events, policy changes, traffic warnings
+- 2 = MUNDANE: Government meetings, routine announcements, administrative updates, inspection visits
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations
+
+CRITICAL DISTINCTION FOR INFRASTRUCTURE:
+- Damaged road with potholes/wear + safety concerns → Score 3 (moderate - routine maintenance issue)
+- Road COLLAPSE or major sinkhole → Score 5 (urgent - structural failure)
+- Road construction/closure announcement → Score 3 (moderate - planned disruption)
 
 NOTE: Category = TOPIC (what type of story). Interest Score = URGENCY (how important).
 Example 1: Typhoon warning → Category="Weather", interestScore=5 (urgent weather event)
-Example 2: Tourist drowns at beach → Category="Local", interestScore=5 (serious water incident, high urgency)
-Example 3: Missing swimmer search → Category="Local", interestScore=4 (important local incident)
-Example 4: Boat capsizes offshore → Category="Local", interestScore=4 (sea accident)
-Example 5: Police arrest thief → Category="Crime", interestScore=4 (actual criminal activity)
+Example 2: Tourist drowns at beach → Category="Local", interestScore=5 (death, high urgency)
+Example 3: Road collapse causes major sinkhole → Category="Traffic", interestScore=5 (major structural failure)
+Example 4: Damaged road with potholes, residents complain → Category="Traffic", interestScore=3 (minor infrastructure issue)
+Example 5: Car crash on highway → Category="Traffic", interestScore=4 (actual accident)
+Example 6: Missing swimmer search → Category="Local", interestScore=4 (important rescue operation)
+Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal activity)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
