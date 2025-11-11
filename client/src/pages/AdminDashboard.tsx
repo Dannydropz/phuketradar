@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Sparkles } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Instagram, MessageCircle, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -238,6 +238,48 @@ export default function AdminDashboard() {
     },
   });
 
+  const instagramPostMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${id}/instagram`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Posted to Instagram",
+        description: "The article has been shared on your Instagram account",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Instagram Post Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const threadsPostMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${id}/threads`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Posted to Threads",
+        description: "The article has been shared on your Threads account",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Threads Post Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleScrape = () => {
     scrapeMutation.mutate();
   };
@@ -264,6 +306,14 @@ export default function AdminDashboard() {
 
   const handlePostToFacebook = (id: string) => {
     facebookPostMutation.mutate(id);
+  };
+
+  const handlePostToInstagram = (id: string) => {
+    instagramPostMutation.mutate(id);
+  };
+
+  const handlePostToThreads = (id: string) => {
+    threadsPostMutation.mutate(id);
   };
 
   const handleBatchFacebookPost = () => {
@@ -709,6 +759,64 @@ export default function AdminDashboard() {
                                     : article.facebookPostId 
                                     ? "Post again to Facebook (already posted)" 
                                     : "Post to Facebook"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handlePostToInstagram(article.id)}
+                                  className="border-pink-500 text-pink-500 h-11 w-11 p-0"
+                                  disabled={instagramPostMutation.isPending}
+                                  data-testid={`button-instagram-${article.id}`}
+                                  aria-label={
+                                    article.instagramPostId?.startsWith('IG-LOCK:') 
+                                      ? "Retry posting to Instagram" 
+                                      : article.instagramPostId 
+                                      ? "Post again to Instagram" 
+                                      : "Post to Instagram"
+                                  }
+                                >
+                                  <Instagram className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {article.instagramPostId?.startsWith('IG-LOCK:') 
+                                    ? "Retry posting to Instagram (previous attempt failed)" 
+                                    : article.instagramPostId 
+                                    ? "Post again to Instagram (already posted)" 
+                                    : "Post to Instagram"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handlePostToThreads(article.id)}
+                                  className="border-purple-500 text-purple-500 h-11 w-11 p-0"
+                                  disabled={threadsPostMutation.isPending}
+                                  data-testid={`button-threads-${article.id}`}
+                                  aria-label={
+                                    article.threadsPostId?.startsWith('THREADS-LOCK:') 
+                                      ? "Retry posting to Threads" 
+                                      : article.threadsPostId 
+                                      ? "Post again to Threads" 
+                                      : "Post to Threads"
+                                  }
+                                >
+                                  <MessageCircle className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {article.threadsPostId?.startsWith('THREADS-LOCK:') 
+                                    ? "Retry posting to Threads (previous attempt failed)" 
+                                    : article.threadsPostId 
+                                    ? "Post again to Threads (already posted)" 
+                                    : "Post to Threads"}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
