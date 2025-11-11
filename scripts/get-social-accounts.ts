@@ -1,5 +1,3 @@
-import "dotenv/config";
-
 const GRAPH_API_URL = 'https://graph.facebook.com/v21.0';
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 const FB_PAGE_ID = process.env.FB_PAGE_ID;
