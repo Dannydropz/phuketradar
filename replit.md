@@ -4,6 +4,7 @@
 Phuket Radar is a news aggregation platform for Phuket's international community. It scrapes Thai Facebook news, translates it to English using AI, and delivers it in a fast, mobile-optimized, newsletter-style format. The platform focuses on providing curated, relevant news, distinguishing it from promotional content.
 
 ## Recent Changes
+- **2025-01-11**: Extended multi-platform social media posting to Instagram and Threads. Added 4 new database columns (`instagramPostId`, `instagramPostUrl`, `threadsPostId`, `threadsPostUrl`) with platform-specific claim-before-post locks (`IG-LOCK:`, `THREADS-LOCK:`). Implemented InstagramService (container-based publish + auto-comments) and ThreadsService (thread-based publish with article link in main text). Updated scheduler for sequential auto-posting (Facebook → Instagram → Threads) for high-interest articles (score ≥ 4). Added admin UI buttons for manual posting to all platforms.
 - **2025-01-08**: Fixed duplicate article bug by storing actual Facebook post ID from scraped data (was incorrectly null). Removed `source_url` UNIQUE constraint due to deployment timeouts on large production dataset. Duplicate prevention maintained through: (1) `facebook_post_id` UNIQUE constraint, (2) application-level checks in scheduler (lines 232-259), and (3) semantic similarity verification.
 
 ## User Preferences
@@ -51,7 +52,13 @@ Preferred communication style: Simple, everyday language.
         - **Safety**: GPT errors default to "duplicate" to prevent false negatives
     - **Layer 6**: Database UNIQUE constraints for `source_url` and `facebook_post_id`
     - **Note**: Perceptual image hashing disabled due to false positives - Full content semantic analysis is more accurate
-- **Facebook Posting**: Automated posting of articles to Facebook with multi-image support, smart fallback, and atomic double-post prevention using a claim-before-post pattern. Posts include title, excerpt, "Read more" link in comments, and category-specific hashtags. Auto-posting occurs both during automated scraping (for high-interest articles) and when manually publishing draft articles via the admin dashboard.
+- **Multi-Platform Social Media Posting**: Automated cross-platform posting to Facebook, Instagram, and Threads with unified claim-before-post architecture:
+    - **Facebook**: Multi-image carousel posts with title + excerpt, "Read more" link in comments, category hashtags. Uses `LOCK:` prefix for atomic claim.
+    - **Instagram**: Container-based publishing (create → publish) with single/carousel image posts, auto-comments with article link. Uses `IG-LOCK:` prefix. Requires: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`, `pages_read_engagement` permissions. Rate limit: 200 calls/hour.
+    - **Threads**: Thread-based publishing (create → publish) with article link embedded in main post text. Uses `THREADS-LOCK:` prefix. Rate limits: 250 posts/day, 1000 replies/day.
+    - **Sequential Posting**: Auto-posts execute sequentially (Facebook → Instagram → Threads) to respect Meta rate limits and simplify lock management.
+    - **Auto-Posting Trigger**: High-interest articles (score ≥ 4) with images are auto-posted to all platforms during scraping. Lower-scored articles (1-3) require manual posting via admin dashboard.
+    - **Lock Management**: Each platform has distinct lock prefix preventing false "already posted" detection during concurrent operations. Lock verification on update/release prevents stuck locks.
 - **Deployment**: Utilizes environment variables, separate client (Vite) and server (esbuild) builds.
 
 ### Automated Scraping
