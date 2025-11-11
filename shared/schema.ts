@@ -43,6 +43,10 @@ export const articles = pgTable("articles", {
   facebookPostId: text("facebook_post_id").unique(), // OUR Facebook page post ID (set after posting)
   facebookPostUrl: text("facebook_post_url"), // OUR Facebook page post URL
   sourceFacebookPostId: text("source_facebook_post_id").unique(), // Original source post ID (for duplicate detection)
+  instagramPostId: text("instagram_post_id"), // OUR Instagram post ID (set after posting)
+  instagramPostUrl: text("instagram_post_url"), // OUR Instagram post URL
+  threadsPostId: text("threads_post_id"), // OUR Threads post ID (set after posting)
+  threadsPostUrl: text("threads_post_url"), // OUR Threads post URL
   eventType: text("event_type"),
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),

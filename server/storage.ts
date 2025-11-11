@@ -29,6 +29,12 @@ export interface IStorage {
   claimArticleForFacebookPosting(id: string, lockToken: string): Promise<boolean>;
   finalizeArticleFacebookPost(id: string, lockToken: string, facebookPostId: string, facebookPostUrl: string): Promise<boolean>;
   releaseFacebookPostLock(id: string, lockToken: string): Promise<void>;
+  claimArticleForInstagramPosting(id: string, lockToken: string): Promise<boolean>;
+  updateArticleInstagramPost(id: string, instagramPostId: string, instagramPostUrl: string, lockToken: string): Promise<void>;
+  releaseInstagramPostLock(id: string, lockToken: string): Promise<void>;
+  claimArticleForThreadsPosting(id: string, lockToken: string): Promise<boolean>;
+  updateArticleThreadsPost(id: string, threadsPostId: string, threadsPostUrl: string, lockToken: string): Promise<void>;
+  releaseThreadsPostLock(id: string, lockToken: string): Promise<void>;
   getArticlesWithStuckLocks(): Promise<{ id: string; title: string; facebookPostId: string }[]>;
   clearStuckFacebookLock(id: string): Promise<void>;
   deleteArticle(id: string): Promise<boolean>;
@@ -150,6 +156,10 @@ export class DatabaseStorage implements IStorage {
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
         sourceFacebookPostId: articles.sourceFacebookPostId,
+        instagramPostId: articles.instagramPostId,
+        instagramPostUrl: articles.instagramPostUrl,
+        threadsPostId: articles.threadsPostId,
+        threadsPostUrl: articles.threadsPostUrl,
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
@@ -183,6 +193,10 @@ export class DatabaseStorage implements IStorage {
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
         sourceFacebookPostId: articles.sourceFacebookPostId,
+        instagramPostId: articles.instagramPostId,
+        instagramPostUrl: articles.instagramPostUrl,
+        threadsPostId: articles.threadsPostId,
+        threadsPostUrl: articles.threadsPostUrl,
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
@@ -365,6 +379,86 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} LIKE 'LOCK:%'`);
   }
 
+  // Instagram posting methods
+  async claimArticleForInstagramPosting(id: string, lockToken: string): Promise<boolean> {
+    const lockValue = `IG-LOCK:${lockToken}`;
+    const result = await db
+      .update(articles)
+      .set({
+        instagramPostId: lockValue,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.instagramPostId} IS NULL`)
+      .returning();
+    return result.length > 0;
+  }
+
+  async updateArticleInstagramPost(
+    id: string,
+    instagramPostId: string,
+    instagramPostUrl: string,
+    lockToken: string
+  ): Promise<void> {
+    const lockValue = `IG-LOCK:${lockToken}`;
+    await db
+      .update(articles)
+      .set({
+        instagramPostId,
+        instagramPostUrl,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.instagramPostId} = ${lockValue}`);
+  }
+
+  async releaseInstagramPostLock(id: string, lockToken: string): Promise<void> {
+    const lockValue = `IG-LOCK:${lockToken}`;
+    await db
+      .update(articles)
+      .set({
+        instagramPostId: null,
+        instagramPostUrl: null,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.instagramPostId} = ${lockValue}`);
+  }
+
+  // Threads posting methods
+  async claimArticleForThreadsPosting(id: string, lockToken: string): Promise<boolean> {
+    const lockValue = `THREADS-LOCK:${lockToken}`;
+    const result = await db
+      .update(articles)
+      .set({
+        threadsPostId: lockValue,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.threadsPostId} IS NULL`)
+      .returning();
+    return result.length > 0;
+  }
+
+  async updateArticleThreadsPost(
+    id: string,
+    threadsPostId: string,
+    threadsPostUrl: string,
+    lockToken: string
+  ): Promise<void> {
+    const lockValue = `THREADS-LOCK:${lockToken}`;
+    await db
+      .update(articles)
+      .set({
+        threadsPostId,
+        threadsPostUrl,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.threadsPostId} = ${lockValue}`);
+  }
+
+  async releaseThreadsPostLock(id: string, lockToken: string): Promise<void> {
+    const lockValue = `THREADS-LOCK:${lockToken}`;
+    await db
+      .update(articles)
+      .set({
+        threadsPostId: null,
+        threadsPostUrl: null,
+      })
+      .where(sql`${articles.id} = ${id} AND ${articles.threadsPostId} = ${lockValue}`);
+  }
+
   async deleteArticle(id: string): Promise<boolean> {
     const result = await db
       .delete(articles)
@@ -445,6 +539,10 @@ export class DatabaseStorage implements IStorage {
         facebookPostId: articles.facebookPostId,
         facebookPostUrl: articles.facebookPostUrl,
         sourceFacebookPostId: articles.sourceFacebookPostId,
+        instagramPostId: articles.instagramPostId,
+        instagramPostUrl: articles.instagramPostUrl,
+        threadsPostId: articles.threadsPostId,
+        threadsPostUrl: articles.threadsPostUrl,
         eventType: articles.eventType,
         severity: articles.severity,
         articleType: articles.articleType,
