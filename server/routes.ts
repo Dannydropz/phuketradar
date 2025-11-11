@@ -10,6 +10,8 @@ import { scrapeJobManager } from "./scrape-jobs";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
+import { postArticleToInstagram } from "./lib/instagram-service";
+import { postArticleToThreads } from "./lib/threads-service";
 import { sendBulkNewsletter } from "./services/newsletter";
 import { subHours } from "date-fns";
 import { insightService } from "./services/insight-service";
@@ -491,6 +493,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in batch Facebook posting:", error);
       res.status(500).json({ error: "Failed to batch post to Facebook" });
+    }
+  });
+
+  // Post article to Instagram - PROTECTED
+  app.post("/api/admin/articles/:id/instagram", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+      
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can be posted to Instagram" });
+      }
+
+      if (article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:')) {
+        return res.status(400).json({ error: "Article already posted to Instagram" });
+      }
+
+      const igResult = await postArticleToInstagram(article, storage);
+      
+      if (!igResult) {
+        return res.status(500).json({ error: "Failed to post to Instagram" });
+      }
+
+      // Reload article to get updated state (service handles DB update)
+      const updatedArticle = await storage.getArticleById(id);
+
+      res.json({
+        ...updatedArticle,
+        status: igResult.status,
+      });
+    } catch (error) {
+      console.error("Error posting to Instagram:", error);
+      res.status(500).json({ error: "Failed to post to Instagram" });
+    }
+  });
+
+  // Post article to Threads - PROTECTED
+  app.post("/api/admin/articles/:id/threads", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+      
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can be posted to Threads" });
+      }
+
+      if (article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:')) {
+        return res.status(400).json({ error: "Article already posted to Threads" });
+      }
+
+      const threadsResult = await postArticleToThreads(article, storage);
+      
+      if (!threadsResult) {
+        return res.status(500).json({ error: "Failed to post to Threads" });
+      }
+
+      // Reload article to get updated state (service handles DB update)
+      const updatedArticle = await storage.getArticleById(id);
+
+      res.json({
+        ...updatedArticle,
+        status: threadsResult.status,
+      });
+    } catch (error) {
+      console.error("Error posting to Threads:", error);
+      res.status(500).json({ error: "Failed to post to Threads" });
     }
   });
 

@@ -24,6 +24,8 @@ import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
 import { checkSemanticDuplicate, getTopSimilarArticles } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
+import { postArticleToInstagram } from "./lib/instagram-service";
+import { postArticleToThreads } from "./lib/threads-service";
 import { entityExtractionService, type ExtractedEntities } from "./services/entity-extraction";
 import { imageHashService } from "./services/image-hash";
 import { imageAnalysisService } from "./services/image-analysis";
@@ -865,6 +867,76 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
           } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
             console.log(`⏭️  Skipping auto-post to Facebook (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
+          }
+
+          // Auto-post to Instagram after Facebook (only for high-interest stories score >= 4)
+          const isReallyPostedToInstagram = article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:');
+          const isStuckWithInstagramLock = article.instagramPostId && article.instagramPostId.startsWith('IG-LOCK:');
+          const shouldAutoPostToInstagram = article.isPublished && 
+                                            (article.interestScore ?? 0) >= 4 && 
+                                            !isReallyPostedToInstagram && 
+                                            hasImage;
+          
+          if (shouldAutoPostToInstagram) {
+            try {
+              const igResult = await postArticleToInstagram(article, storage);
+              if (igResult) {
+                if (igResult.status === 'posted') {
+                  console.log(`📸 Posted to Instagram: ${igResult.postUrl}`);
+                } else {
+                  console.log(`ℹ️  Article already posted to Instagram: ${igResult.postUrl}`);
+                }
+              } else {
+                console.error(`❌ Failed to post to Instagram for ${article.title.substring(0, 60)}...`);
+              }
+            } catch (igError) {
+              console.error(`❌ Error posting to Instagram:`, igError);
+              // Don't fail the whole scrape if Instagram posting fails
+            }
+          } else if (article.isPublished && isStuckWithInstagramLock) {
+            console.warn(`⚠️  STUCK INSTAGRAM LOCK DETECTED - Article has lock token instead of real Instagram post ID`);
+            console.warn(`   Article ID: ${article.id}`);
+            console.warn(`   Title: ${article.title.substring(0, 60)}...`);
+            console.warn(`   Lock token: ${article.instagramPostId}`);
+          } else if (article.isPublished && isReallyPostedToInstagram) {
+            console.log(`⏭️  Already posted to Instagram: ${article.title.substring(0, 60)}...`);
+          } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
+            console.log(`⏭️  Skipping auto-post to Instagram (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
+          }
+
+          // Auto-post to Threads after Instagram (only for high-interest stories score >= 4)
+          const isReallyPostedToThreads = article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:');
+          const isStuckWithThreadsLock = article.threadsPostId && article.threadsPostId.startsWith('THREADS-LOCK:');
+          const shouldAutoPostToThreads = article.isPublished && 
+                                          (article.interestScore ?? 0) >= 4 && 
+                                          !isReallyPostedToThreads && 
+                                          hasImage;
+          
+          if (shouldAutoPostToThreads) {
+            try {
+              const threadsResult = await postArticleToThreads(article, storage);
+              if (threadsResult) {
+                if (threadsResult.status === 'posted') {
+                  console.log(`🧵 Posted to Threads: ${threadsResult.postUrl}`);
+                } else {
+                  console.log(`ℹ️  Article already posted to Threads: ${threadsResult.postUrl}`);
+                }
+              } else {
+                console.error(`❌ Failed to post to Threads for ${article.title.substring(0, 60)}...`);
+              }
+            } catch (threadsError) {
+              console.error(`❌ Error posting to Threads:`, threadsError);
+              // Don't fail the whole scrape if Threads posting fails
+            }
+          } else if (article.isPublished && isStuckWithThreadsLock) {
+            console.warn(`⚠️  STUCK THREADS LOCK DETECTED - Article has lock token instead of real Threads post ID`);
+            console.warn(`   Article ID: ${article.id}`);
+            console.warn(`   Title: ${article.title.substring(0, 60)}...`);
+            console.warn(`   Lock token: ${article.threadsPostId}`);
+          } else if (article.isPublished && isReallyPostedToThreads) {
+            console.log(`⏭️  Already posted to Threads: ${article.title.substring(0, 60)}...`);
+          } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
+            console.log(`⏭️  Skipping auto-post to Threads (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
           }
         } else {
           skippedNotNews++;
