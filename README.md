@@ -21,8 +21,7 @@ Preferred communication style: Simple, everyday language.
 - **Server**: Express.js with TypeScript for RESTful APIs.
 - **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for `users`, `articles` (with embedding vectors and perceptual image hashes), and `subscribers`.
 - **Business Logic**:
-    - **ScraperService**: Uses 24
-    -  for Facebook post scraping.
+    - **ScraperService**: Uses scrapecreators.com API for Facebook post scraping with multi-image carousel support.
     - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, category classification (Breaking, Tourism, Business, Events, Other), and interest scoring (1-5 scale).
     - **Interest Scoring**: GPT-4-mini rates articles 1-5 (5=urgent/dramatic, 4=important, 3=moderate, 2=mundane, 1=trivial). Thai keyword boosting (+1 for hot keywords like drownings/crime/accidents, -1 for cold keywords like meetings/ceremonies) adjusts final scores.
     - **Auto-Publish Logic**: Only stories with interest_score >= 4 are auto-published. Lower-scored stories (1-3) saved as drafts for manual review.
@@ -31,7 +30,7 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
 
 ### Architectural Decisions
-- **Scraping**: Pluggable architecture supporting multiple providers (JINA AI Reader via `scrapecreators` is current). Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source. Smart pagination logic: page 1 is always fetched completely (ensures latest posts captured), and early-stop requires 5+ consecutive duplicates on later pages (prevents missing new posts when Facebook returns posts out of chronological order).
+- **Scraping**: Uses scrapecreators.com API for Facebook post scraping. Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source. Smart pagination logic: page 1 is always fetched completely (ensures latest posts captured), and early-stop requires 5+ consecutive duplicates on later pages (prevents missing new posts when Facebook returns posts out of chronological order).
 - **Translation**: Hybrid pipeline using Google Translate for complex Thai text and GPT-4-mini for polishing and style. Enriches content with Phuket-specific context and location descriptions.
 - **Data Flow**: Unidirectional: Scraper → Image Check → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
 - **Image Requirement**: Posts with 0 images are automatically skipped - only posts with 1+ photos are published.
@@ -78,10 +77,11 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Third-Party Services
-- **JINA AI Reader API**: `https://r.jina.ai` for converting Facebook pages to markdown.
+- **scrapecreators.com API**: `https://api.scrapecreators.com/v1/facebook/profile/posts` for Facebook post scraping with multi-image support.
 - **OpenAI API**: GPT-4-mini for translation/classification/rewriting, text-embedding-3-large for embeddings, GPT-4o-mini for duplicate verification and vision analysis.
 - **Neon Database**: Serverless PostgreSQL hosting.
 - **Resend**: Email delivery service.
+- **Meta Graph API**: Facebook, Instagram, and Threads posting APIs for automated social media cross-posting.
 
 ### Key Libraries
 - **Authentication**: `connect-pg-simple`.
