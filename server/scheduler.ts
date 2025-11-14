@@ -674,7 +674,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         }
 
         // STEP 3: Translate and rewrite (pass precomputed embedding from full Thai content)
-        // Wrap in try-catch to provide graceful fallback for Google Translate 429/503 errors
         let translation;
         try {
           translation = await translatorService.translateAndRewrite(
@@ -683,26 +682,31 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             contentEmbedding // Pass precomputed full content embedding to be stored
           );
         } catch (translationError) {
-          console.error(`❌ Translation failed, using original Thai text as fallback:`, translationError);
+          // Translation failed - skip this post entirely (do NOT publish Thai text)
+          console.error(`\n❌ TRANSLATION FAILED - Skipping post`);
+          console.error(`   Title: ${post.title.substring(0, 60)}...`);
+          console.error(`   Error: ${translationError}`);
+          console.error(`   ✅ Post skipped (prevents publishing untranslated Thai content)\n`);
           
-          // Fallback: Use original Thai text with minimal processing
-          translation = {
-            translatedTitle: post.title.substring(0, 200), // Use first 200 chars as title
-            translatedContent: post.content,
-            excerpt: post.content.substring(0, 300) + "...",
-            category: "Other" as const,
-            isActualNews: true, // Assume it's news if we got this far
-            interestScore: 3, // Default to medium interest (will be draft, not auto-published)
-            embedding: contentEmbedding,
-          };
-          
+          skippedNotNews++;
           skipReasons.push({
-            reason: "Translation error (Thai fallback)",
+            reason: "Translation service error",
             postTitle: post.title.substring(0, 60),
             sourceUrl: post.sourceUrl,
             facebookPostId: post.facebookPostId,
-            details: `Using original Thai text due to translation service error`
+            details: `Translation API failed - post skipped to prevent Thai text from being published`
           });
+          
+          if (callbacks?.onProgress) {
+            callbacks.onProgress({
+              totalPosts,
+              processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+              createdArticles: createdCount,
+              skippedNotNews,
+            });
+          }
+          
+          return; // Skip this post entirely
         }
 
         // STEP 4: Classify event type and severity using GPT-4o-mini
