@@ -52,6 +52,7 @@ export const articles = pgTable("articles", {
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),
   interestScore: real("interest_score"),
+  isDeveloping: boolean("is_developing").default(false), // Story missing key details (names, ages, causes)
   relatedArticleIds: text("related_article_ids").array(),
   entities: json("entities"),
 });
