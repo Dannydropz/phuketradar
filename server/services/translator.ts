@@ -12,6 +12,7 @@ export interface TranslationResult {
   category: string;
   isActualNews: boolean;
   interestScore: number;
+  isDeveloping: boolean;
   embedding?: number[];
 }
 
@@ -226,6 +227,28 @@ Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal a
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
+7. Determine if this is a DEVELOPING STORY - missing key details that are typically included in complete news reports
+
+DEVELOPING STORY CRITERIA:
+A story is "developing" when it lacks specific details that would normally be present in a complete news report.
+Check for missing information:
+- Names: Are specific names of people/organizations missing when they would normally be included?
+- Ages: For incidents involving people, are ages missing?
+- Causes: Is the cause/reason missing (e.g., cause of death, cause of accident, reason for action)?
+- Official statements: Are quotes or official explanations missing when expected?
+
+Examples of DEVELOPING stories:
+✓ "Tourist drowns at Patong Beach" (missing: name, age, nationality, cause)
+✓ "Fire breaks out at Phuket restaurant" (missing: restaurant name, cause, extent of damage)
+✓ "Police investigate assault incident" (missing: victim details, suspect information, motive)
+
+Examples of COMPLETE stories:
+✗ "John Smith, 45, drowns at Patong Beach after ignoring red flag warnings" (has name, age, cause)
+✗ "Fire destroys Thai Kitchen Restaurant on Bangla Road, electrical fault suspected" (has location, cause)
+✗ "Police arrest 32-year-old British tourist for assault outside Tiger Nightclub" (has age, nationality, location)
+
+NOTE: Only mark as developing if it's HIGH interest (score 4-5) AND missing key details. Lower interest stories don't need this flag.
+
 Respond in JSON format:
 {
   "isActualNews": true/false,
@@ -234,7 +257,8 @@ Respond in JSON format:
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
   "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
-  "interestScore": 1-5 (integer)
+  "interestScore": 1-5 (integer),
+  "isDeveloping": true/false
 }
 
 If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
@@ -310,6 +334,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         category: category, // Use validated category (defaults to "Local" if invalid)
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
+        isDeveloping: result.isDeveloping || false,
         embedding,
       };
     } catch (error) {
