@@ -33,6 +33,7 @@ export const articles = pgTable("articles", {
   imageHash: text("image_hash"),
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull(),
+  sourceName: text("source_name"), // Name of Facebook page (e.g., "Phuket Info Center")
   author: text("author"), // Deprecated: use journalistId instead
   journalistId: varchar("journalist_id"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
