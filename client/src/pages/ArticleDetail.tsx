@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/carousel";
 import { Clock, Share2, AlertTriangle, AlertCircle, Info, Car, Shield, Cloud, Heart, Users, Palmtree, Building2, Landmark, Leaf } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { SiFacebook } from "react-icons/si";
 import { useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleCard } from "@/components/ArticleCard";
@@ -353,6 +354,11 @@ export default function ArticleDetail() {
             dangerouslySetInnerHTML={{ __html: article.content }}
             data-testid="content-article-body"
           />
+
+          <div className="mt-8 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
+            <SiFacebook className="w-5 h-5 text-[#1877F2]" />
+            <span data-testid="text-article-source">Source: The Phuket Times - Facebook, translated from Thai</span>
+          </div>
         </article>
 
         <aside className="lg:col-span-1">
