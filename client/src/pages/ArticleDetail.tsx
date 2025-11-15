@@ -247,6 +247,15 @@ export default function ArticleDetail() {
                 }
                 return null;
               })()}
+              {article.isDeveloping && (
+                <Badge 
+                  variant="default"
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                  data-testid="badge-article-developing"
+                >
+                  Developing
+                </Badge>
+              )}
               <div className="flex items-center text-sm text-muted-foreground">
                 <Clock className="w-3 h-3 mr-1" />
                 <span data-testid="text-article-time">
