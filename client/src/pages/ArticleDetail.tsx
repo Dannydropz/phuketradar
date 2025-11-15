@@ -357,7 +357,7 @@ export default function ArticleDetail() {
 
           <div className="mt-8 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
             <SiFacebook className="w-5 h-5 text-[#1877F2]" />
-            <span data-testid="text-article-source">Source: The Phuket Times - Facebook, translated from Thai</span>
+            <span data-testid="text-article-source">Source: {article.sourceName || "Facebook"} - translated from Thai</span>
           </div>
         </article>
 
