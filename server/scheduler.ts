@@ -765,6 +765,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               eventType: classification.eventType,
               severity: classification.severity,
               interestScore: translation.interestScore,
+              isDeveloping: translation.isDeveloping, // Flag for stories missing key details
               entities: extractedEntities as any, // Store extracted entities for future duplicate detection
             });
 
