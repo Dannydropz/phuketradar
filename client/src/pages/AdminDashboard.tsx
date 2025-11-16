@@ -63,7 +63,7 @@ export default function AdminDashboard() {
     retry: 1,
   });
 
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/admin/categories"],
     enabled: isAuthenticated,
   });
@@ -1076,7 +1076,11 @@ export default function AdminDashboard() {
               {editingArticle ? "Edit Article" : "Create New Article"}
             </DialogTitle>
           </DialogHeader>
-          {categories.length > 0 && (
+          {categoriesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">Loading editor...</p>
+            </div>
+          ) : categories.length > 0 ? (
             <ArticleEditor
               article={editingArticle || undefined}
               categories={categories}
@@ -1084,6 +1088,10 @@ export default function AdminDashboard() {
               onCancel={handleCancelEdit}
               isSaving={createArticleMutation.isPending || updateArticleMutation.isPending}
             />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-destructive">No categories available. Please create categories first.</p>
+            </div>
           )}
         </DialogContent>
       </Dialog>
