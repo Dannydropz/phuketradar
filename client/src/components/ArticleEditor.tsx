@@ -38,6 +38,7 @@ interface ArticleEditorProps {
     category: string;
     imageUrl?: string;
     imageUrls?: string[];
+    interestScore?: number;
   }) => Promise<void>;
   onCancel: () => void;
   isSaving?: boolean;
@@ -55,6 +56,7 @@ export function ArticleEditor({
   const [category, setCategory] = useState(article?.category || '');
   const [imageUrl, setImageUrl] = useState(article?.imageUrl || '');
   const [imageUrls, setImageUrls] = useState<string[]>(article?.imageUrls || []);
+  const [interestScore, setInterestScore] = useState<number>(article?.interestScore ?? 3);
 
   const editor = useEditor({
     extensions: [
@@ -106,6 +108,7 @@ export function ArticleEditor({
       category,
       imageUrl: imageUrl || undefined,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      interestScore,
     });
   };
 
@@ -170,6 +173,26 @@ export function ArticleEditor({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Interest Score */}
+      <div className="space-y-2">
+        <Label htmlFor="article-interest-score">Interest Score</Label>
+        <Select value={interestScore.toString()} onValueChange={(val) => setInterestScore(parseInt(val))}>
+          <SelectTrigger id="article-interest-score" data-testid="select-article-interest-score">
+            <SelectValue placeholder="Select interest score" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">1 - Low (Draft only)</SelectItem>
+            <SelectItem value="2">2 - Minor (Draft only)</SelectItem>
+            <SelectItem value="3">3 - Moderate (Published, manual post)</SelectItem>
+            <SelectItem value="4">4 - High (Auto-posted to socials)</SelectItem>
+            <SelectItem value="5">5 - Urgent (Auto-posted to socials)</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Scores 4-5 trigger automatic posting to Facebook/Instagram/Threads when published.
+        </p>
       </div>
 
       {/* Excerpt */}
