@@ -102,6 +102,95 @@ function enrichWithPhuketContext(text: string): string {
 }
 
 export class TranslatorService {
+  // Premium GPT-4 enrichment for high-priority stories (score 4-5)
+  private async enrichWithPremiumGPT4(params: {
+    title: string;
+    content: string;
+    excerpt: string;
+    category: string;
+  }): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
+    const prompt = `You are a premium news editor for Phuket Radar, tasked with taking a good news article and transforming it into an EXCEPTIONAL piece of journalism.
+
+CURRENT ARTICLE:
+Title: ${params.title}
+Category: ${params.category}
+Content: ${params.content}
+
+YOUR MISSION:
+Transform this article into a deeply engaging, journalistic masterpiece by adding:
+
+1. CONTEXTUAL BACKGROUND:
+   - Add relevant historical context about the location/venue/area
+   - Include brief background on recurring issues or patterns if applicable
+   - Mention relevant statistics or trends when they add depth
+   - Example: For Bangla Road incident → mention its reputation, typical challenges, patrol presence
+
+2. AREA-SPECIFIC ENRICHMENT:
+   - Weave in details about landmarks, venues, or geographic significance
+   - Add tourism context when relevant (visitor numbers, economic impact, area reputation)
+   - Include local color that helps international readers visualize the setting
+   - Example: "Bangla Road, which attracts thousands of visitors nightly to its bars and clubs"
+
+3. PROFESSIONAL DEPTH:
+   - Expand thin sections with journalistic context
+   - Add "why this matters" framing for readers
+   - Include broader implications or patterns when relevant
+   - Structure with subheadings (<h2>) for longer pieces to improve readability
+
+4. ENGAGING NARRATIVE:
+   - Use vivid, professional language that draws readers in
+   - Employ strong verbs and active voice
+   - Create smooth transitions between ideas
+   - Build narrative arc: incident → context → implications
+
+CRITICAL REQUIREMENTS:
+- NEVER invent facts, quotes, or statistics
+- Maintain 100% factual accuracy from the original article
+- Only add verifiable general context (e.g., "Bangla Road is known for nightlife" not "5,000 people visit daily" unless stated)
+- Keep the same category and core story
+- Preserve all names, times, numbers, and specific details exactly as provided
+- Write in HTML with <p> tags and <h2> subheadings for structure
+- Use AP Style for the headline
+
+EXAMPLES OF GOOD ENRICHMENT:
+✓ Adding: "Bangla Road, the heart of Patong's entertainment district, which generates substantial tourism revenue"
+✓ Adding: "This incident highlights ongoing public safety concerns in the area"
+✓ Adding: "Local authorities have increased patrols in recent months"
+✗ BAD: "5,000 tourists visit nightly" (specific number not in original)
+✗ BAD: "The victim said he was upset" (quote not in original)
+
+Respond in JSON format:
+{
+  "enrichedTitle": "compelling headline with perfect AP Style",
+  "enrichedContent": "deeply enriched HTML article with context, background, and journalistic depth",
+  "enrichedExcerpt": "2-3 sentence summary that captures the enriched story's significance"
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert news editor who transforms good articles into exceptional journalism by adding rich context, background, and professional depth while maintaining strict factual accuracy.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.4, // Slightly higher for creative enrichment while staying factual
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content || "{}");
+    
+    return {
+      enrichedTitle: result.enrichedTitle || params.title,
+      enrichedContent: result.enrichedContent || params.content,
+      enrichedExcerpt: result.enrichedExcerpt || params.excerpt,
+    };
+  }
+
   async translateAndRewrite(
     title: string,
     content: string,
@@ -109,17 +198,17 @@ export class TranslatorService {
   ): Promise<TranslationResult> {
     try {
       // STEP 1: Enrich Thai text with Phuket context
-      const enrichedTitle = enrichWithPhuketContext(title);
-      const enrichedContent = enrichWithPhuketContext(content);
+      const enrichedThaiTitle = enrichWithPhuketContext(title);
+      const enrichedThaiContent = enrichWithPhuketContext(content);
       
       // STEP 2: Determine translation strategy
-      const isComplex = isComplexThaiText(enrichedContent);
-      let sourceTextForGPT = `${enrichedTitle}\n\n${enrichedContent}`;
+      const isComplex = isComplexThaiText(enrichedThaiContent);
+      let sourceTextForGPT = `${enrichedThaiTitle}\n\n${enrichedThaiContent}`;
       
       // STEP 3: Pre-translate with Google Translate if complex
       if (isComplex) {
         try {
-          console.log(`🌍 Complex text detected (${enrichedContent.length} chars) - using Google Translate → GPT-4o-mini pipeline`);
+          console.log(`🌍 Complex text detected (${enrichedThaiContent.length} chars) - using Google Translate → GPT-4o-mini pipeline`);
           const googleResult = await translate(sourceTextForGPT, { to: "en" });
           sourceTextForGPT = googleResult.text;
         } catch (googleError) {
@@ -127,7 +216,7 @@ export class TranslatorService {
           // Fall back to direct translation if Google Translate fails
         }
       } else {
-        console.log(`⚡ Simple text (${enrichedContent.length} chars) - using direct GPT-4o-mini translation`);
+        console.log(`⚡ Simple text (${enrichedThaiContent.length} chars) - using direct GPT-4o-mini translation`);
       }
 
       // STEP 4: Polish/rewrite with GPT-4o-mini
@@ -140,9 +229,12 @@ Your task:
    - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
 3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style
 
-CONTEXT PRESERVATION:
+CONTEXT & ENRICHMENT REQUIREMENTS:
 - If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally
-- Add brief contextual details about Phuket locations when relevant to help international readers
+- Add brief LOCAL CONTEXT about Phuket locations when relevant to help international readers understand the setting
+- Include BACKGROUND INFORMATION when it adds depth (e.g., "Bangla Road, Patong's famous nightlife strip", "the island's main tourist beach")
+- Weave in AREA-SPECIFIC DETAILS naturally (known landmarks, popular venues, geographic context)
+- Use an ENGAGING NEWS STYLE that goes beyond basic facts - help readers understand WHY this matters
 - Maintain all factual details, names, times, and numbers exactly as provided
 
 GRAMMAR & STYLE REQUIREMENTS:
@@ -301,14 +393,41 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
       
       console.log(`   📊 Final Interest Score: ${finalInterestScore}/5`);
 
+      // STEP 6: PREMIUM ENRICHMENT for high-priority stories (score 4-5)
+      let enrichedTitle = result.translatedTitle || title;
+      let enrichedContent = result.translatedContent || content;
+      let enrichedExcerpt = result.excerpt || "";
+      
+      if (finalInterestScore >= 4) {
+        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying GPT-4 premium enrichment...`);
+        
+        try {
+          const enrichmentResult = await this.enrichWithPremiumGPT4({
+            title: enrichedTitle,
+            content: enrichedContent,
+            excerpt: enrichedExcerpt,
+            category,
+          });
+          
+          enrichedTitle = enrichmentResult.enrichedTitle;
+          enrichedContent = enrichmentResult.enrichedContent;
+          enrichedExcerpt = enrichmentResult.enrichedExcerpt;
+          
+          console.log(`   ✅ GPT-4 enrichment complete - story enhanced with deep journalism`);
+        } catch (enrichmentError) {
+          console.warn(`   ⚠️  GPT-4 enrichment failed, using GPT-4o-mini version:`, enrichmentError);
+          // Fall back to the GPT-4o-mini version if enrichment fails
+        }
+      }
+
       // Use precomputed embedding (from Thai title) if provided
       // This ensures we always compare embeddings in the same language (Thai)
       const embedding = precomputedEmbedding;
 
       return {
-        translatedTitle: result.translatedTitle || title,
-        translatedContent: result.translatedContent || content,
-        excerpt: result.excerpt || "",
+        translatedTitle: enrichedTitle,
+        translatedContent: enrichedContent,
+        excerpt: enrichedExcerpt,
         category: category, // Use validated category (defaults to "Local" if invalid)
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
