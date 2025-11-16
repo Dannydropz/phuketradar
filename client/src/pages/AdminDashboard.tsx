@@ -63,22 +63,28 @@ export default function AdminDashboard() {
     retry: 1,
   });
 
+  // Debug: Log authentication state immediately
+  console.log('[AUTH DEBUG] isAuthenticated:', isAuthenticated);
+
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useQuery<Category[]>({
     queryKey: ["/api/admin/categories"],
-    enabled: isAuthenticated,
+    enabled: true, // Force it to always run
     retry: 2,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Don't cache
+    refetchOnMount: true,
   });
 
   // Debug logging for categories
   useEffect(() => {
-    console.log('[CATEGORIES] Loading state:', { 
+    console.log('[CATEGORIES] Query state:', { 
       isAuthenticated, 
       categoriesLoading, 
       categoriesCount: categories.length,
-      hasError: !!categoriesError 
+      categoriesData: categories,
+      hasError: !!categoriesError,
+      errorMessage: categoriesError instanceof Error ? categoriesError.message : categoriesError
     });
-  }, [isAuthenticated, categoriesLoading, categories.length, categoriesError]);
+  }, [isAuthenticated, categoriesLoading, categories, categoriesError]);
 
   // Log query errors for debugging
   useEffect(() => {
