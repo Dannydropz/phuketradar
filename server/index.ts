@@ -14,6 +14,9 @@ app.set('trust proxy', 1);
 // Serve static files from attached_assets folder at /assets route
 app.use('/assets', express.static(path.join(process.cwd(), 'attached_assets')));
 
+// Serve uploaded images from public/uploads folder
+app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
