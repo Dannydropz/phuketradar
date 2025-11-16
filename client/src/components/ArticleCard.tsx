@@ -19,7 +19,6 @@ interface ArticleCardProps {
   category: string;
   publishedAt: Date;
   interestScore?: number | null;
-  isDeveloping?: boolean | null;
   eventType?: string | null;
   severity?: string | null;
   journalist?: {
@@ -103,7 +102,6 @@ export function ArticleCard({
   category,
   publishedAt,
   interestScore,
-  isDeveloping,
   eventType,
   severity,
   journalist,
@@ -158,15 +156,6 @@ export function ArticleCard({
                 data-testid={`badge-breaking-${id}`}
               >
                 Breaking News
-              </Badge>
-            )}
-            {isDeveloping && (
-              <Badge 
-                variant="default"
-                className="bg-orange-600 hover:bg-orange-700 text-white font-semibold"
-                data-testid={`badge-developing-${id}`}
-              >
-                Developing
               </Badge>
             )}
             <div className="flex items-center text-sm text-muted-foreground">

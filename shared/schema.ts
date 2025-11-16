@@ -33,7 +33,6 @@ export const articles = pgTable("articles", {
   imageHash: text("image_hash"),
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull(),
-  sourceName: text("source_name"), // Name of Facebook page (e.g., "Phuket Info Center")
   author: text("author"), // Deprecated: use journalistId instead
   journalistId: varchar("journalist_id"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
@@ -52,7 +51,6 @@ export const articles = pgTable("articles", {
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),
   interestScore: real("interest_score"),
-  isDeveloping: boolean("is_developing").default(false), // Story missing key details (names, ages, causes)
   relatedArticleIds: text("related_article_ids").array(),
   entities: json("entities"),
 });

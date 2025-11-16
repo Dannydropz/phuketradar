@@ -754,7 +754,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               imageHash: imageHash || null, // Store perceptual hash for duplicate detection
               category: translation.category,
               sourceUrl: post.sourceUrl,
-              sourceName: source.name, // Name of Facebook page source (e.g., "Phuket Info Center")
               sourceFacebookPostId: post.facebookPostId || null, // Source post ID for duplicate detection
               facebookPostId: null, // OUR posting status - only set after posting to OUR Facebook page
               journalistId: assignedJournalist.id, // Assign random journalist
@@ -765,7 +764,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               eventType: classification.eventType,
               severity: classification.severity,
               interestScore: translation.interestScore,
-              isDeveloping: translation.isDeveloping, // Flag for stories missing key details
               entities: extractedEntities as any, // Store extracted entities for future duplicate detection
             });
 
