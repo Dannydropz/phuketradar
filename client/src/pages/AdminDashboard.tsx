@@ -63,10 +63,22 @@ export default function AdminDashboard() {
     retry: 1,
   });
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useQuery<Category[]>({
     queryKey: ["/api/admin/categories"],
     enabled: isAuthenticated,
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Debug logging for categories
+  useEffect(() => {
+    console.log('[CATEGORIES] Loading state:', { 
+      isAuthenticated, 
+      categoriesLoading, 
+      categoriesCount: categories.length,
+      hasError: !!categoriesError 
+    });
+  }, [isAuthenticated, categoriesLoading, categories.length, categoriesError]);
 
   // Log query errors for debugging
   useEffect(() => {
@@ -79,6 +91,18 @@ export default function AdminDashboard() {
       });
     }
   }, [error, toast]);
+
+  // Handle categories errors
+  useEffect(() => {
+    if (categoriesError) {
+      console.error("Admin categories query error:", categoriesError);
+      toast({
+        title: "Failed to Load Categories",
+        description: categoriesError instanceof Error ? categoriesError.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  }, [categoriesError, toast]);
 
   // Poll for job status when there's an active job
   useEffect(() => {
@@ -399,11 +423,15 @@ export default function AdminDashboard() {
   const handleCreateArticle = () => {
     setEditingArticle(null);
     setEditorOpen(true);
+    // Refetch categories to ensure they're loaded
+    refetchCategories();
   };
 
   const handleEditArticle = (article: Article) => {
     setEditingArticle(article);
     setEditorOpen(true);
+    // Refetch categories to ensure they're loaded
+    refetchCategories();
   };
 
   const handleSaveArticle = async (data: {
