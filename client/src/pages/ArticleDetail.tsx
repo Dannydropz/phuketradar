@@ -247,6 +247,15 @@ export default function ArticleDetail() {
                 }
                 return null;
               })()}
+              {article.isDeveloping && (
+                <Badge 
+                  variant="secondary" 
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                  data-testid="badge-article-developing"
+                >
+                  Developing Story
+                </Badge>
+              )}
               <div className="flex items-center text-sm text-muted-foreground">
                 <Clock className="w-3 h-3 mr-1" />
                 <span data-testid="text-article-time">
@@ -357,7 +366,9 @@ export default function ArticleDetail() {
 
           <div className="mt-8 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
             <SiFacebook className="w-5 h-5 text-[#1877F2]" />
-            <span data-testid="text-article-source">Source: Facebook - translated from Thai</span>
+            <span data-testid="text-article-source">
+              Source: {article.sourceName || "Facebook"} - translated from Thai
+            </span>
           </div>
         </article>
 
