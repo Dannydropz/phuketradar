@@ -12,6 +12,7 @@ export interface TranslationResult {
   category: string;
   isActualNews: boolean;
   interestScore: number;
+  isDeveloping: boolean;
   embedding?: number[];
 }
 
@@ -234,7 +235,8 @@ Respond in JSON format:
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
   "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
-  "interestScore": 1-5 (integer)
+  "interestScore": 1-5 (integer),
+  "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts)
 }
 
 If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
@@ -310,6 +312,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         category: category, // Use validated category (defaults to "Local" if invalid)
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
+        isDeveloping: result.isDeveloping || false,
         embedding,
       };
     } catch (error) {
