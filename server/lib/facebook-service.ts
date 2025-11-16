@@ -129,21 +129,25 @@ export async function postArticleToFacebook(
         const imageUrl = imageUrls[i];
         console.log(`📘 [FB-POST] Uploading image ${i + 1}/${imageUrls.length}: ${imageUrl}`);
         
-        const uploadResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            url: imageUrl,
-            published: false,
-            access_token: FB_PAGE_ACCESS_TOKEN,
-          }),
-        });
+        // CRITICAL FIX: Access token MUST be in URL query param for unpublished uploads
+        // This ensures Facebook recognizes the request is being made as the page itself
+        const uploadResponse = await fetch(
+          `https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos?access_token=${FB_PAGE_ACCESS_TOKEN}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              url: imageUrl,
+              published: false,
+            }),
+          }
+        );
 
         if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error(`❌ [FB-POST] Failed to upload image ${i + 1}:`, errorText);
+          const errorData = await uploadResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
+          console.error(`❌ [FB-POST] Failed to upload image ${i + 1}:`, JSON.stringify(errorData, null, 2));
           // Continue with other images rather than failing completely
           continue;
         }
@@ -184,10 +188,10 @@ export async function postArticleToFacebook(
         });
 
         if (!photoResponse.ok) {
-          const errorText = await photoResponse.text();
+          const errorData = await photoResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
           console.error("❌ [FB-POST] Fallback single-image post also failed:");
           console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
-          console.error(`❌ [FB-POST] Response: ${errorText}`);
+          console.error(`❌ [FB-POST] Response:`, JSON.stringify(errorData, null, 2));
           
           await storage.releaseFacebookPostLock(article.id, lockToken);
           return null;
@@ -220,10 +224,10 @@ export async function postArticleToFacebook(
         });
 
         if (!feedResponse.ok) {
-          const errorText = await feedResponse.text();
+          const errorData = await feedResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
           console.error("❌ [FB-POST] Multi-image feed post failed, falling back to single-image:");
           console.error(`❌ [FB-POST] Status: ${feedResponse.status}`);
-          console.error(`❌ [FB-POST] Response: ${errorText}`);
+          console.error(`❌ [FB-POST] Response:`, JSON.stringify(errorData, null, 2));
           
           // FALLBACK: Try single-image posting with a known-good image URL
           console.log(`📘 [FB-POST] Attempting fallback to single-image post with: ${fallbackImageUrl}`);
@@ -241,10 +245,10 @@ export async function postArticleToFacebook(
           });
 
           if (!photoResponse.ok) {
-            const fallbackErrorText = await photoResponse.text();
+            const fallbackErrorData = await photoResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
             console.error("❌ [FB-POST] Fallback single-image post also failed:");
             console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
-            console.error(`❌ [FB-POST] Response: ${fallbackErrorText}`);
+            console.error(`❌ [FB-POST] Response:`, JSON.stringify(fallbackErrorData, null, 2));
             
             await storage.releaseFacebookPostLock(article.id, lockToken);
             return null;
@@ -278,10 +282,10 @@ export async function postArticleToFacebook(
       });
 
       if (!photoResponse.ok) {
-        const errorText = await photoResponse.text();
+        const errorData = await photoResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
         console.error("❌ [FB-POST] Facebook photo post failed:");
         console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
-        console.error(`❌ [FB-POST] Response: ${errorText}`);
+        console.error(`❌ [FB-POST] Response:`, JSON.stringify(errorData, null, 2));
         
         await storage.releaseFacebookPostLock(article.id, lockToken);
         return null;
