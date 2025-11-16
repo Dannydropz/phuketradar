@@ -15,16 +15,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Instagram, MessageCircle, Sparkles } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Instagram, MessageCircle, Sparkles, AlertTriangle, Plus, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Article } from "@shared/schema";
+import type { Article, Category } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { ArticleImage } from "@/components/ArticleImage";
+import { ArticleEditor } from "@/components/ArticleEditor";
 
 type ScrapeJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -42,7 +43,7 @@ interface ScrapeJob {
   error?: string;
 }
 
-type FilterType = 'all' | 'pending' | 'published';
+type FilterType = 'all' | 'pending' | 'needsReview';
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -52,11 +53,18 @@ export default function AdminDashboard() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
-    enabled: isAuthenticated, // Only run query when authenticated
-    retry: 1, // Retry once if it fails
+    enabled: isAuthenticated,
+    retry: 1,
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/admin/categories"],
+    enabled: isAuthenticated,
   });
 
   // Log query errors for debugging
@@ -280,6 +288,73 @@ export default function AdminDashboard() {
     },
   });
 
+  const createArticleMutation = useMutation({
+    mutationFn: async (data: {
+      title: string;
+      content: string;
+      excerpt: string;
+      category: string;
+      imageUrl?: string;
+      imageUrls?: string[];
+    }) => {
+      const res = await apiRequest("POST", "/api/admin/articles", {
+        ...data,
+        sourceUrl: "manual-creation",
+        isPublished: false,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      setEditorOpen(false);
+      setEditingArticle(null);
+      toast({
+        title: "Article Created",
+        description: "The article has been created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Create Article",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateArticleMutation = useMutation({
+    mutationFn: async ({ id, data }: {
+      id: string;
+      data: {
+        title: string;
+        content: string;
+        excerpt: string;
+        category: string;
+        imageUrl?: string;
+        imageUrls?: string[];
+      };
+    }) => {
+      const res = await apiRequest("PATCH", `/api/admin/articles/${id}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      setEditorOpen(false);
+      setEditingArticle(null);
+      toast({
+        title: "Article Updated",
+        description: "The article has been updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Update Article",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleScrape = () => {
     scrapeMutation.mutate();
   };
@@ -318,6 +393,36 @@ export default function AdminDashboard() {
 
   const handleBatchFacebookPost = () => {
     batchFacebookPostMutation.mutate();
+  };
+
+  const handleCreateArticle = () => {
+    setEditingArticle(null);
+    setEditorOpen(true);
+  };
+
+  const handleEditArticle = (article: Article) => {
+    setEditingArticle(article);
+    setEditorOpen(true);
+  };
+
+  const handleSaveArticle = async (data: {
+    title: string;
+    content: string;
+    excerpt: string;
+    category: string;
+    imageUrl?: string;
+    imageUrls?: string[];
+  }) => {
+    if (editingArticle) {
+      await updateArticleMutation.mutateAsync({ id: editingArticle.id, data });
+    } else {
+      await createArticleMutation.mutateAsync(data);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditorOpen(false);
+    setEditingArticle(null);
   };
 
   const handleToggleSelect = (id: string) => {
@@ -386,14 +491,14 @@ export default function AdminDashboard() {
 
   const stats = {
     pending: articles.filter((a) => !a.isPublished).length,
-    approved: articles.filter((a) => a.isPublished).length,
+    needsReview: articles.filter((a) => a.needsReview).length,
     total: articles.length,
   };
 
   // Filter articles based on active filter
   const filteredArticles = articles.filter((article) => {
     if (activeFilter === 'pending') return !article.isPublished;
-    if (activeFilter === 'published') return article.isPublished;
+    if (activeFilter === 'needsReview') return article.needsReview;
     return true; // 'all'
   });
 
@@ -508,6 +613,24 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card 
               className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
+                activeFilter === 'all' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
+              onClick={() => setActiveFilter('all')}
+              data-testid="filter-all"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">All Articles</p>
+                  <p className="text-3xl font-bold" data-testid="stat-total">{stats.total}</p>
+                </div>
+                <Badge variant="secondary" className="text-lg px-4 py-2">
+                  {stats.total}
+                </Badge>
+              </div>
+            </Card>
+
+            <Card 
+              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
                 activeFilter === 'pending' ? 'ring-2 ring-primary bg-primary/5' : ''
               }`}
               onClick={() => setActiveFilter('pending')}
@@ -515,7 +638,7 @@ export default function AdminDashboard() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Pending Review</p>
+                  <p className="text-sm text-muted-foreground mb-1">Pending</p>
                   <p className="text-3xl font-bold" data-testid="stat-pending">{stats.pending}</p>
                 </div>
                 <Badge variant="secondary" className="text-lg px-4 py-2">
@@ -526,36 +649,23 @@ export default function AdminDashboard() {
 
             <Card 
               className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
-                activeFilter === 'published' ? 'ring-2 ring-primary bg-primary/5' : ''
+                activeFilter === 'needsReview' ? 'ring-2 ring-primary bg-primary/5' : ''
               }`}
-              onClick={() => setActiveFilter('published')}
-              data-testid="filter-published"
+              onClick={() => setActiveFilter('needsReview')}
+              data-testid="filter-needs-review"
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Published</p>
-                  <p className="text-3xl font-bold" data-testid="stat-approved">{stats.approved}</p>
+                <div className="flex items-center gap-2">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Needs Review</p>
+                    <p className="text-3xl font-bold" data-testid="stat-needs-review">{stats.needsReview}</p>
+                  </div>
+                  {stats.needsReview > 0 && (
+                    <AlertTriangle className="w-5 h-5 text-destructive" />
+                  )}
                 </div>
-                <Badge className="bg-primary text-primary-foreground text-lg px-4 py-2">
-                  {stats.approved}
-                </Badge>
-              </div>
-            </Card>
-
-            <Card 
-              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
-                activeFilter === 'all' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
-              onClick={() => setActiveFilter('all')}
-              data-testid="filter-all"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Total Articles</p>
-                  <p className="text-3xl font-bold" data-testid="stat-total">{stats.total}</p>
-                </div>
-                <Badge variant="secondary" className="text-lg px-4 py-2">
-                  {stats.total}
+                <Badge variant={stats.needsReview > 0 ? "destructive" : "secondary"} className="text-lg px-4 py-2">
+                  {stats.needsReview}
                 </Badge>
               </div>
             </Card>
@@ -572,8 +682,17 @@ export default function AdminDashboard() {
                     </p>
                   )}
                 </div>
-                {filteredArticles.some((a) => !a.isPublished) && (
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={handleCreateArticle}
+                    data-testid="button-create-article"
+                    className="h-11 px-4 py-2"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Post
+                  </Button>
+                  {filteredArticles.some((a) => !a.isPublished) && (
+                    <>
                     {selectedArticles.size > 0 && (
                       <>
                         <span className="text-xs md:text-sm text-muted-foreground">
@@ -614,8 +733,9 @@ export default function AdminDashboard() {
                       />
                       <label className="text-xs md:text-sm font-medium whitespace-nowrap">Select All</label>
                     </div>
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
               {articles.length === 0 ? (
                 <div className="text-center py-12">
@@ -677,6 +797,18 @@ export default function AdminDashboard() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
+                            {article.needsReview && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center" data-testid={`icon-needs-review-${article.id}`}>
+                                    <AlertTriangle className="w-4 h-4 text-destructive" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{article.reviewReason || "This article needs manual review"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <span className="text-xs md:text-sm text-muted-foreground">
                               {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
                             </span>
@@ -699,6 +831,15 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 justify-end md:justify-start">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleEditArticle(article)}
+                          data-testid={`button-edit-${article.id}`}
+                          className="h-11 w-11 p-0"
+                          aria-label="Edit article"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="outline"
                           onClick={() => handlePreview(article)}
@@ -916,6 +1057,25 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editorOpen} onOpenChange={(open) => !open && handleCancelEdit()}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-article-editor">
+          <DialogHeader>
+            <DialogTitle data-testid="text-editor-title">
+              {editingArticle ? "Edit Article" : "Create New Article"}
+            </DialogTitle>
+          </DialogHeader>
+          {categories.length > 0 && (
+            <ArticleEditor
+              article={editingArticle || undefined}
+              categories={categories}
+              onSave={handleSaveArticle}
+              onCancel={handleCancelEdit}
+              isSaving={createArticleMutation.isPending || updateArticleMutation.isPending}
+            />
           )}
         </DialogContent>
       </Dialog>

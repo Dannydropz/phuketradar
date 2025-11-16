@@ -4,6 +4,7 @@
 Phuket Radar is a news aggregation platform for Phuket's international community. It scrapes Thai Facebook news, translates it to English using AI, and delivers it in a fast, mobile-optimized, newsletter-style format. The platform focuses on providing curated, relevant news, distinguishing it from promotional content.
 
 ## Recent Changes
+- **2025-11-16**: **Hybrid CMS Implementation** - Transformed Phuket Radar from pure automation to hybrid CMS supporting manual content creation and review. Added `needs_review` and `review_reason` database columns to flag high-interest posts (score 4-5) classified as "non-news" (likely truncated Facebook "See more" posts). Created dynamic `categories` table with color/icon support for custom content types (guides, lifestyle, etc.). Integrated TipTap WYSIWYG editor with rich formatting (bold, italic, headings, lists, links, images). Updated scraper to save truncated high-interest posts as drafts for manual expansion instead of skipping. Added "Needs Review" filter in admin dashboard with warning icons and tooltips. Implemented "Create New Post" feature for publishing original content (guides, SEO articles). All admin UI uses shadcn components (Dialog, Tabs, Tooltip) for polished experience.
 - **2025-11-16**: Restored source attribution and developing story features using proper Drizzle migrations via `db:push`. Added `source_name` column (nullable text) to track actual Facebook source names (The Phuket Times, Phuket Info Center, Phuket Hot News, Newshawk Phuket). Added `is_developing` column (boolean, default false) for stories with limited details. Updated TranslatorService to detect developing stories via GPT analysis (phrases like "authorities investigating", "more details to follow", sparse information). Updated ArticleDetail page to display actual source names and orange "Developing Story" badge. Fixed Facebook posting authentication by moving access token to URL query parameter for all post creation endpoints (multi-image grid, single-image, fallbacks).
 - **2025-11-15**: Implemented source attribution system. Added `source_name` database column to track which Facebook page each article originated from (Phuket Times, Info Center, Hot News, or Newshawk). Updated scheduler to capture source name during scraping and ArticleDetail page to display actual source instead of generic "Facebook" label. Existing articles show "Facebook" fallback for null source_name values.
 - **2025-01-11**: Extended multi-platform social media posting to Instagram and Threads. Added 4 new database columns (`instagramPostId`, `instagramPostUrl`, `threadsPostId`, `threadsPostUrl`) with platform-specific claim-before-post locks (`IG-LOCK:`, `THREADS-LOCK:`). Implemented InstagramService (container-based publish + auto-comments) and ThreadsService (thread-based publish with article link in main text). Updated scheduler for sequential auto-posting (Facebook → Instagram → Threads) for high-interest articles (score ≥ 4). Added admin UI buttons for manual posting to all platforms.
@@ -18,18 +19,31 @@ Preferred communication style: Simple, everyday language.
 - **Frameworks**: React 18 with TypeScript, Vite, Wouter, TanStack Query.
 - **UI/UX**: shadcn/ui, Radix UI, Tailwind CSS, Inter font, responsive design, light/dark mode.
 - **Component Architecture**: Atomic design, reusable components, React Context for theme, custom hooks.
+- **Content Editor**: TipTap WYSIWYG editor with rich text formatting (bold, italic, headings, lists, links, inline images), toolbar controls, and undo/redo.
 
 ### Backend
 - **Server**: Express.js with TypeScript for RESTful APIs.
-- **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for `users`, `articles` (with embedding vectors and perceptual image hashes), and `subscribers`.
+- **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for `users`, `articles` (with embedding vectors, perceptual image hashes, manual review flags), `subscribers`, and `categories` (dynamic category management).
 - **Business Logic**:
-    - **ScraperService**: Uses scrapecreators.com API for Facebook post scraping with multi-image carousel support.
-    - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, category classification (Breaking, Tourism, Business, Events, Other), and interest scoring (1-5 scale).
+    - **ScraperService**: Uses scrapecreators.com API for Facebook post scraping with multi-image carousel support. Flags truncated high-interest posts for manual review instead of skipping.
+    - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, category classification, and interest scoring (1-5 scale).
+    - **Manual Review System**: High-interest posts (score 4-5) flagged as "non-news" are saved as drafts with `needsReview: true` for manual expansion/editing instead of being skipped.
     - **Interest Scoring**: GPT-4-mini rates articles 1-5 (5=urgent/dramatic, 4=important, 3=moderate, 2=mundane, 1=trivial). Thai keyword boosting (+1 for hot keywords like drownings/crime/accidents, -1 for cold keywords like meetings/ceremonies) adjusts final scores.
     - **Auto-Publish Logic**: Only stories with interest_score >= 4 are auto-published. Lower-scored stories (1-3) saved as drafts for manual review.
     - **Embedding Generation**: OpenAI text-embedding-3-large for semantic analysis from FULL Thai content (title + first 8000 chars) - not just titles - for accurate duplicate detection even with different headlines.
     - **Duplicate Verification**: Hybrid system - embeddings from full Thai content (title + 8000 chars), 50% similarity threshold triggers GPT-4o-mini verification, safety net checks top 5 similar stories for <50% cases.
-- **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes.
+- **API Endpoints**: CRUD for articles, admin endpoint for triggering scrapes, category management, article creation/editing, articles needing review query.
+
+### Content Management
+- **Hybrid CMS**: Combines automated scraping with manual content creation and review for maximum flexibility.
+- **WYSIWYG Editor**: TipTap-based rich text editor for creating/editing articles with full formatting support.
+- **Dynamic Categories**: Database-driven category system allowing custom categories (Guides, Lifestyle, etc.) beyond default news categories.
+- **Manual Review Workflow**:
+  1. High-interest posts (4-5) flagged as "non-news" saved as drafts with `needsReview: true`
+  2. Admin dashboard shows "Needs Review" tab with warning icons and reason tooltips
+  3. Editor allows expanding truncated Facebook "See more" posts by visiting source and copying full text
+  4. After editing, article can be published normally
+- **Original Content Creation**: "Create New Post" button in admin for writing guides, SEO articles, and other non-scraped content.
 
 ### Architectural Decisions
 - **Scraping**: Uses scrapecreators.com API for Facebook post scraping. Scrapes configurable sources from `server/config/news-sources.ts` with 3-page pagination depth per source. Smart pagination logic: page 1 is always fetched completely (ensures latest posts captured), and early-stop requires 5+ consecutive duplicates on later pages (prevents missing new posts when Facebook returns posts out of chronological order).
