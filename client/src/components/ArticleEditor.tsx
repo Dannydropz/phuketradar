@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Article, Category } from '@shared/schema';
+import { useToast } from '@/hooks/use-toast';
+import { Upload } from 'lucide-react';
 
 interface ArticleEditorProps {
   article?: Article;
@@ -51,12 +53,14 @@ export function ArticleEditor({
   onCancel,
   isSaving = false,
 }: ArticleEditorProps) {
+  const { toast } = useToast();
   const [title, setTitle] = useState(article?.title || '');
   const [excerpt, setExcerpt] = useState(article?.excerpt || '');
   const [category, setCategory] = useState(article?.category || '');
   const [imageUrl, setImageUrl] = useState(article?.imageUrl || '');
   const [imageUrls, setImageUrls] = useState<string[]>(article?.imageUrls || []);
   const [interestScore, setInterestScore] = useState<number>(article?.interestScore ?? 3);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -139,6 +143,84 @@ export function ArticleEditor({
     setImageUrls(imageUrls.filter((_, i) => i !== index));
   };
 
+  const handleFeaturedImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setImageUrl(data.imageUrl);
+      
+      toast({
+        title: "Image Uploaded",
+        description: "Featured image uploaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+      // Reset file input
+      e.target.value = '';
+    }
+  };
+
+  const handleAdditionalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setImageUrls([...imageUrls, data.imageUrl]);
+      
+      toast({
+        title: "Image Uploaded",
+        description: "Additional image uploaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+      // Reset file input
+      e.target.value = '';
+    }
+  };
+
   if (!editor) {
     return <div>Loading editor...</div>;
   }
@@ -213,10 +295,31 @@ export function ArticleEditor({
         <Label>Featured Image</Label>
         <div className="flex gap-2">
           <Input
+            type="file"
+            accept="image/*"
+            onChange={handleFeaturedImageUpload}
+            disabled={isUploadingImage}
+            className="hidden"
+            id="featured-image-upload"
+            data-testid="input-article-image-file"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => document.getElementById('featured-image-upload')?.click()}
+            disabled={isUploadingImage}
+            data-testid="button-upload-featured-image"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {isUploadingImage ? 'Uploading...' : 'Upload Image'}
+          </Button>
+          <Input
             data-testid="input-article-image-url"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="Enter image URL"
+            placeholder="Or enter image URL"
+            className="flex-1"
           />
         </div>
         {imageUrl && (
@@ -231,6 +334,26 @@ export function ArticleEditor({
       <div className="space-y-2">
         <Label>Additional Images</Label>
         <div className="flex gap-2">
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleAdditionalImageUpload}
+            disabled={isUploadingImage}
+            className="hidden"
+            id="additional-image-upload"
+            data-testid="input-additional-image-file"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => document.getElementById('additional-image-upload')?.click()}
+            disabled={isUploadingImage}
+            data-testid="button-upload-additional-image"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {isUploadingImage ? 'Uploading...' : 'Upload Image'}
+          </Button>
           <Button
             type="button"
             variant="outline"
