@@ -1,0 +1,119 @@
+
+[DB POOL] New database connection established
+
+2025-11-16 13:28:06.35
+a8abe286
+User
+Loaded 3 journalists for article attribution
+2025-11-16 13:28:07.27
+a8abe286
+User
+Loaded 102 existing article embeddings
+2025-11-16 13:28:07.49
+a8abe286
+User
+Loaded 689 existing article image hashes
+2025-11-16 13:28:07.49
+a8abe286
+User
+🧠 GPT duplicate verifier initialized (for 70-85% similarity cases)
+2025-11-16 13:28:07.49
+a8abe286
+User
+🔧 Checking for stuck Facebook posting locks...
+2025-11-16 13:28:07.69
+a8abe286
+User
+✅ No stuck locks found
+2025-11-16 13:28:07.69
+a8abe286
+User
+Scraping source: The Phuket Times
+2025-11-16 13:28:07.69
+a8abe286
+User
+🔄 Using ScrapeCreators scraper (single image only)
+2025-11-16 13:28:07.69
+a8abe286
+User
+📄 Fetching page 1/3...
+2025-11-16 13:28:07.87
+a8abe286
+User
+Loaded 102 existing article embeddings
+2025-11-16 13:28:07.91
+a8abe286
+User
+🧠 GPT duplicate verifier initialized (for 70-85% similarity cases)
+2025-11-16 13:28:07.91
+a8abe286
+User
+🔧 Checking for stuck Facebook posting locks...
+2025-11-16 13:28:07.91
+a8abe286
+User
+Loaded 689 existing article image hashes
+2025-11-16 13:28:07.95
+a8abe286
+User
+✅ No stuck locks found
+2025-11-16 13:28:07.95
+a8abe286
+User
+Scraping source: The Phuket Times
+2025-11-16 13:28:07.95
+a8abe286
+User
+📄 Fetching page 1/3...
+2025-11-16 13:28:07.95
+a8abe286
+User
+🔄 Using ScrapeCreators scraper (single image only)
+2025-11-16 13:28:11.52
+a8abe286
+User
+}
+2025-11-16 13:28:11.52
+a8abe286
+User
+"videoDetails": {},
+2025-11-16 13:28:11.52
+a8abe286
+User
+"id": "Y29tbWVudDoxMTc3NDEwNzc0NTA5NzYzXzQyMDI4NTkwMzMzMDM3MTM=",
+2025-11-16 13:28:11.52
+a8abe286
+User
+"image": "https://scontent-atl3-1.xx.fbcdn.net/v/t15.5256-10/583152620_3044992732360703_2862740829190657097_n.jpg?stp=dst-jpg_p565x565_tt6&_nc_cat=1&ccb=1-7&_nc_sid=5fad0e&_nc_ohc=CTaVuqz9xfkQ7kNvwERj0cs&_nc_oc=Adn_YOi15cZUOtJhVewneGkDZ_skfwSNX-h0aRpvykCXWkujMqwQfVF63Rz9Ijvl_xY&_nc_zt=23&_nc_ht=scontent-atl3-1.xx&_nc_gid=tisRAGxM4IYW-FeThXmbQQ&oh=00_AfgDB-poo4fqBcOmBLAfqUY1CocjX2fWO_Yimmk_IM651g&oe=691F4B71",
+2025-11-16 13:28:11.52
+a8abe286
+User
+"id": "100067225537993"
+2025-11-16 13:28:11.52
+a8abe286
+User
+"commentCount": 4,
+2025-11-16 13:28:11.52
+a8abe286
+User
+"topComments": [
+2025-11-16 13:28:11.52
+a8abe286
+User
+"url": "https://www.facebook.com/pornsak.jarusansuttikul"
+2025-11-16 13:28:11.52
+a8abe286
+User
+{
+2025-11-16 13:28:11.52
+a8abe286
+User
+"gender": "MALE",
+2025-11-16 13:28:11.52
+a8abe286
+User
+Post 1: No timestamp - "ตำรวจที่เลว น่ากลัวกว่าโจร!
+2025-11-16 13:28:11.52
+a8abe286
+User
+}

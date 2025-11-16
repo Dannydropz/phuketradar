@@ -1,0 +1,151 @@
+2025-11-16 13:44:27.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:27.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:27.75
+a8abe286
+User
+6:44:27 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 32ms :…
+2025-11-16 13:44:29.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:29.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:29.76
+a8abe286
+User
+6:44:29 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 32ms :…
+2025-11-16 13:44:31.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:31.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:31.75
+a8abe286
+User
+6:44:31 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 33ms :…
+2025-11-16 13:44:32.87
+a8abe286
+User
+Checking against story with 34.2% similarity...
+2025-11-16 13:44:33.73
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:33.73
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:33.76
+a8abe286
+User
+6:44:33 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 33ms :…
+2025-11-16 13:44:35.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:35.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:35.75
+a8abe286
+User
+6:44:35 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 33ms :…
+2025-11-16 13:44:37.69
+a8abe286
+User
+Checking against story with 33.2% similarity...
+2025-11-16 13:44:37.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:37.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:37.76
+a8abe286
+User
+6:44:37 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 36ms :…
+2025-11-16 13:44:39.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:39.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:39.75
+a8abe286
+User
+6:44:39 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 33ms :…
+2025-11-16 13:44:41.72
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:41.72
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:41.75
+a8abe286
+User
+6:44:41 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 33ms :…
+2025-11-16 13:44:41.79
+a8abe286
+User
+[DB POOL] Database connection removed from pool
+2025-11-16 13:44:42.67
+a8abe286
+User
+✅ Safety net passed - not a duplicate of top similar stories
+2025-11-16 13:44:42.67
+a8abe286
+User
+⚡ Simple text (169 chars) - using direct GPT-4o-mini translation
+2025-11-16 13:44:43.73
+a8abe286
+User
+[AUTH CHECK] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 - Session auth: true
+2025-11-16 13:44:43.73
+a8abe286
+User
+[AUTH CHECK] Authorized - proceeding
+2025-11-16 13:44:43.76
+a8abe286
+User
+6:44:43 AM [express] GET /api/admin/scrape/status/8a597da4-e877-49c5-8967-64c4a5ec78f6 304 in 33ms :…
+2025-11-16 13:44:43.81
+a8abe286
+User
+📊 Final Interest Score: 4/5
+2025-11-16 13:44:43.81
+a8abe286
+User
+🔥 HOT KEYWORD BOOST: 3 → 4
+2025-11-16 13:44:44.87
+a8abe286
+User
+[CLASSIFIER] Classified as Crime / Medium: "ตำรวจที่เลว น่ากลัวกว่าโจร!..."
+2025-11-16 13:44:44.87
+a8abe286
+User
+⏭️ Skipped non-news: ตำรวจที่เลว น่ากลัวกว่าโจร!...
+2025-11-16 13:44:45.70
+a8abe286
+User
+[DB POOL] New database connection established
+2025-11-16 13:44:45.73
+a8abe286
+User

@@ -1,0 +1,167 @@
+2025-11-16 13:31:06.44
+a8abe286
+User
+✅ ACCEPTED: At least one real photo detected
+2025-11-16 13:31:06.44
+a8abe286
+User
+File size: 107KB
+2025-11-16 13:31:06.44
+a8abe286
+User
+Image 1: ✅ real_photo (high confidence)
+2025-11-16 13:31:08.11
+a8abe286
+User
+🛡️ SAFETY NET: Similarity below 50% (49.3%) - Checking top 5 similar stories...
+2025-11-16 13:31:08.11
+a8abe286
+User
+Checking against story with 49.3% similarity...
+2025-11-16 13:31:08.11
+a8abe286
+User
+Found 5 stories to check
+2025-11-16 13:31:11.81
+a8abe286
+User
+Checking against story with 40.7% similarity...
+2025-11-16 13:31:13.85
+a8abe286
+User
+Checking against story with 42.3% similarity...
+2025-11-16 13:31:16.70
+a8abe286
+User
+Checking against story with 39.6% similarity...
+2025-11-16 13:31:19.40
+a8abe286
+User
+Checking against story with 40.3% similarity...
+2025-11-16 13:31:21.40
+a8abe286
+User
+Checking against story with 38.5% similarity...
+2025-11-16 13:31:24.74
+a8abe286
+User
+Checking against story with 39.4% similarity...
+2025-11-16 13:31:25.91
+a8abe286
+User
+✅ Safety net passed - not a duplicate of top similar stories
+2025-11-16 13:31:25.91
+a8abe286
+User
+🌍 Complex text detected (460 chars) - using Google Translate → GPT-4o-mini pipeline
+2025-11-16 13:31:26.38
+a8abe286
+User
+at Translator.buildError (/home/runner/workspace/node_modules/@vitalets/google-translate-api/dist/cjs/index.js:74:46)
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async withTimeout (file:///home/runner/workspace/dist/index.js:2915:20)
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async file:///home/runner/workspace/dist/index.js:3426:31
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async Translator.translate (/home/runner/workspace/node_modules/@vitalets/google-translate-api/dist/cjs/index.js:29:19)
+2025-11-16 13:31:26.38
+a8abe286
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async file:///home/runner/workspace/dist/index.js:4532:22
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async withSchedulerLock (file:///home/runner/workspace/dist/index.js:3847:20)
+2025-11-16 13:31:26.38
+a8abe286
+User
+⚠️ Google Translate failed, falling back to direct GPT-4o-mini: TooManyRequestsError: Too Many Requests IP: 2600:1900:0:2d08::2b01, Time: 2025-11-16T06:31:26Z, Url: https://translate.google.com/translate_a/single?client=at&dt=t&dt=rm&dj=1
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async runScheduledScrape (file:///home/runner/workspace/dist/index.js:2985:11)
+2025-11-16 13:31:26.38
+a8abe286
+User
+at async TranslatorService.translateAndRewrite (file:///home/runner/workspace/dist/index.js:1871:36)
+2025-11-16 13:31:28.55
+a8abe286
+User
+Checking against story with 38.5% similarity...
+2025-11-16 13:31:31.40
+a8abe286
+User
+📊 Final Interest Score: 3/5
+2025-11-16 13:31:31.40
+a8abe286
+User
+🏷️ Category: Local - This story involves local vendors selling goods in a public area, which falls under community news.
+2025-11-16 13:31:32.19
+a8abe286
+User
+[CLASSIFIER] Classified as Tourism / Low: "Vendors Set Up Tents on Public Sidewalk at Patong's Colonnad..."
+2025-11-16 13:31:32.19
+a8abe286
+User
+💾 Attempting to save article to database...
+2025-11-16 13:31:32.19
+a8abe286
+User
+Category: Local | Interest: 3/5 | Will publish: true
+2025-11-16 13:31:32.19
+a8abe286
+User
+Title: Vendors Set Up Tents on Public Sidewalk at Patong's Colonnad...
+2025-11-16 13:31:32.36
+a8abe286
+User
+📰 HIGH INTEREST (3/5) - Article AUTO-PUBLISHED
+2025-11-16 13:31:32.36
+a8abe286
+User
+✅ SUCCESS: Article created with ID: f17d0163-8604-4453-81c9-c611e0279d08
+2025-11-16 13:31:32.37
+a8abe286
+User
+⏭️ Skipping auto-post to Facebook (score 3/5 - manual post available in admin): Vendors Set Up Tents on Public Sidewalk at Patong's Colonnad...
+2025-11-16 13:31:32.37
+a8abe286
+User
+⏭️ Skipping auto-post to Instagram (score 3/5 - manual post available in admin): Vendors Set Up Tents on Public Sidewalk at Patong's Colonnad...
+2025-11-16 13:31:32.37
+a8abe286
+User
+✅ Created and published: Vendors Set Up Tents on Public Sidewalk at Patong'...
+2025-11-16 13:31:32.37
+a8abe286
+User
+⏭️ Skipping auto-post to Threads (score 3/5 - manual post available in admin): Vendors Set Up Tents on Public Sidewalk at Patong's Colonnad...
+2025-11-16 13:31:32.47
+a8abe286
+User
+[IMAGE-HASH] Generating perceptual hash for: https://scontent-atl3-2.xx.fbcdn.net/v/t39.10873-6/386198576_184083014658497_175...
+2025-11-16 13:31:32.55
+a8abe286
+User
+[IMAGE-HASH] Generated hash: ffff
+2025-11-16 13:31:32.55
+a8abe286
+User
+📸 IMAGE QUALITY CHECK: Analyzing 1 image(s)...
+
+Collapse
+
+Wrap
+
+Colors
+
