@@ -414,7 +414,6 @@ export default function ArticleDetail() {
                 imageUrl={relatedArticle.imageUrl || undefined}
                 category={relatedArticle.category}
                 publishedAt={new Date(relatedArticle.publishedAt)}
-                isDeveloping={relatedArticle.isDeveloping}
               />
             ))}
           </div>

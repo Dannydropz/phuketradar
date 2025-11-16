@@ -187,7 +187,6 @@ export default function Home() {
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
                       interestScore={article.interestScore}
-                      isDeveloping={article.isDeveloping}
                       eventType={article.eventType}
                       severity={article.severity}
                       journalist={journalist ? {
@@ -226,7 +225,6 @@ export default function Home() {
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
                       interestScore={article.interestScore}
-                      isDeveloping={article.isDeveloping}
                       eventType={article.eventType}
                       severity={article.severity}
                       journalist={journalist ? {

@@ -123,7 +123,6 @@ export default function JournalistProfile() {
                   imageUrl={article.imageUrl || undefined}
                   category={article.category}
                   publishedAt={new Date(article.publishedAt)}
-                  isDeveloping={article.isDeveloping}
                   eventType={article.eventType}
                   severity={article.severity}
                 />
