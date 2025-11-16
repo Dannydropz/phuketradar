@@ -207,7 +207,6 @@ export async function postArticleToFacebook(
 
         const feedParams = new URLSearchParams({
           message: postMessage,
-          access_token: FB_PAGE_ACCESS_TOKEN,
         });
 
         // Add attached_media parameters
@@ -215,7 +214,7 @@ export async function postArticleToFacebook(
           feedParams.append(`attached_media[${index}]`, JSON.stringify({ media_fbid: photoId }));
         });
 
-        const feedResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/feed`, {
+        const feedResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/feed?access_token=${FB_PAGE_ACCESS_TOKEN}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
