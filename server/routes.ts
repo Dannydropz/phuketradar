@@ -285,6 +285,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .replace(/(^-|-$)/g, '');
       }
       
+      // Mark manually created articles
+      articleData.isManuallyCreated = true;
+      
+      // Set sourceUrl to our domain if not provided (since it's manually created)
+      if (!articleData.sourceUrl) {
+        articleData.sourceUrl = 'https://phuketradar.com';
+      }
+      
       const article = await storage.createArticle(articleData);
       res.json(article);
     } catch (error) {

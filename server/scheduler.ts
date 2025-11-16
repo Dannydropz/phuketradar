@@ -826,13 +826,15 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
           // Auto-post to Facebook after publishing (only for high-interest stories score >= 4)
           // Score 3 articles are published but NOT auto-posted to Facebook
+          // Manually created articles are NEVER auto-posted regardless of interest score
           const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
           const isReallyPosted = article.facebookPostId && !article.facebookPostId.startsWith('LOCK:');
           const isStuckWithLock = article.facebookPostId && article.facebookPostId.startsWith('LOCK:');
           const shouldAutoPostToFacebook = article.isPublished && 
                                            (article.interestScore ?? 0) >= 4 && 
                                            !isReallyPosted && 
-                                           hasImage;
+                                           hasImage &&
+                                           !article.isManuallyCreated; // Don't auto-post manually created articles
           
           if (shouldAutoPostToFacebook) {
             try {
@@ -866,12 +868,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
 
           // Auto-post to Instagram after Facebook (only for high-interest stories score >= 4)
+          // Manually created articles are NEVER auto-posted regardless of interest score
           const isReallyPostedToInstagram = article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:');
           const isStuckWithInstagramLock = article.instagramPostId && article.instagramPostId.startsWith('IG-LOCK:');
           const shouldAutoPostToInstagram = article.isPublished && 
                                             (article.interestScore ?? 0) >= 4 && 
                                             !isReallyPostedToInstagram && 
-                                            hasImage;
+                                            hasImage &&
+                                            !article.isManuallyCreated; // Don't auto-post manually created articles
           
           if (shouldAutoPostToInstagram) {
             try {
@@ -901,12 +905,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           }
 
           // Auto-post to Threads after Instagram (only for high-interest stories score >= 4)
+          // Manually created articles are NEVER auto-posted regardless of interest score
           const isReallyPostedToThreads = article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:');
           const isStuckWithThreadsLock = article.threadsPostId && article.threadsPostId.startsWith('THREADS-LOCK:');
           const shouldAutoPostToThreads = article.isPublished && 
                                           (article.interestScore ?? 0) >= 4 && 
                                           !isReallyPostedToThreads && 
-                                          hasImage;
+                                          hasImage &&
+                                          !article.isManuallyCreated; // Don't auto-post manually created articles
           
           if (shouldAutoPostToThreads) {
             try {
