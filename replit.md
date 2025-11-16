@@ -18,9 +18,12 @@ Preferred communication style: Simple, everyday language.
 - **Data Layer**: Drizzle ORM, PostgreSQL (Neon-backed) for `users`, `articles` (with embedding vectors), `subscribers`, and dynamic `categories`.
 - **Business Logic**:
     - **ScraperService**: Uses scrapecreators.com API for Facebook post scraping with multi-image carousel support.
-    - **TranslatorService**: OpenAI GPT-4-mini for Thai-to-English translation, content rewriting, news filtering, category classification, and interest scoring (1-5 scale).
+    - **TranslatorService**: Hybrid tiered translation system:
+      - **Tier 1 (Interest Score 1-3)**: GPT-4o-mini with enhanced context/background instructions for engaging news style
+      - **Tier 2 (Interest Score 4-5)**: GPT-4o-mini translation → GPT-4 premium enrichment (adds deep journalism, area statistics, historical context, professional narrative)
+      - All stories get local context, but high-priority stories receive exceptional journalistic depth
     - **Manual Review System**: High-interest posts (score 4-5) flagged as "non-news" are saved as drafts for manual expansion/editing.
-    - **Interest Scoring**: GPT-4-mini rates articles 1-5, adjusted by Thai keyword boosting. Only stories with `interest_score >= 4` are auto-published.
+    - **Interest Scoring**: GPT-4o-mini rates articles 1-5, adjusted by Thai keyword boosting. Only stories with `interest_score >= 4` are auto-published.
     - **Embedding Generation**: OpenAI text-embedding-3-large for semantic analysis from full Thai content (title + first 8000 chars).
     - **Duplicate Verification**: Hybrid system using embeddings (50% similarity threshold) and GPT-4o-mini for verification, with a safety net check against top 5 similar stories.
 - **API Endpoints**: CRUD for articles, admin endpoints for scraping, category management, article creation/editing, and articles needing review.
@@ -30,11 +33,14 @@ Preferred communication style: Simple, everyday language.
 - **WYSIWYG Editor**: TipTap-based rich text editor for creating/editing articles.
 - **Dynamic Categories**: Database-driven category system for custom content types (Guides, Lifestyle, etc.).
 - **Manual Review Workflow**: High-interest "non-news" posts are flagged for manual review and editing before publication.
-- **Original Content Creation**: Admin feature for creating guides, SEO articles, and other non-scraped content.
+- **Original Content Creation**: Admin feature for creating guides, SEO articles, and other non-scraped content with interest score selector (1-5) to control auto-posting behavior.
 
 ### Architectural Decisions
 - **Scraping**: Uses scrapecreators.com API with configurable sources and smart pagination logic to ensure timely capture of new posts.
-- **Translation**: Hybrid pipeline using Google Translate for initial text and GPT-4-mini for refinement, enriching content with local context.
+- **Translation**: Multi-tier hybrid pipeline:
+  - Google Translate for complex Thai text (400+ chars) → GPT-4o-mini refinement with local context
+  - Simple Thai text → direct GPT-4o-mini translation with area-specific enrichment
+  - High-priority stories (score 4-5) → additional GPT-4 premium enrichment pass for deep journalism
 - **Data Flow**: Unidirectional: Scraper → Image Check → Duplicate Check → Text Graphic Filter → Semantic Similarity Check → Translator → Database → API → Frontend. Includes pre-translation checks to optimize API costs.
 - **Image Requirement**: Only posts with 1+ images are published; posts with 0 images are skipped.
 - **Text Graphic Filtering**: Multi-stage system using `text_format_preset_id`, file size, and color dominance analysis to reject text-on-background images.
@@ -47,7 +53,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Third-Party Services
 - **scrapecreators.com API**: For Facebook post scraping.
-- **OpenAI API**: GPT-4-mini (translation, classification, rewriting), text-embedding-3-large (embeddings), GPT-4o-mini (duplicate verification, vision analysis).
+- **OpenAI API**: GPT-4o-mini (translation, classification, rewriting), GPT-4 (premium enrichment for high-priority stories), text-embedding-3-large (embeddings), GPT-4o-mini (duplicate verification, vision analysis).
 - **Neon Database**: Serverless PostgreSQL hosting.
 - **Resend**: Email delivery service.
 - **Meta Graph API**: Facebook, Instagram, and Threads posting APIs.
