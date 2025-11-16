@@ -935,79 +935,17 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`⏭️  Skipping auto-post to Threads (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
           }
         } else {
-          // Not classified as actual news
-          // Check if it has high interest score (4-5) - might be truncated/incomplete text
+          // Not classified as actual news - skip regardless of interest score
           const interestScore = translation.interestScore || 0;
-          const isHighInterest = interestScore >= 4;
-          
-          if (isHighInterest) {
-            // High interest but classified as non-news - likely truncated Facebook post
-            // Save as draft for manual review instead of skipping
-            console.log(`⚠️  High interest (${interestScore}/5) but flagged as non-news - SAVING FOR REVIEW`);
-            console.log(`   This might be a truncated "See more" post that needs manual expansion`);
-            
-            try {
-              const assignedJournalist = getRandomJournalist();
-              
-              const reviewArticle = await storage.createArticle({
-                title: translation.translatedTitle,
-                content: translation.translatedContent,
-                excerpt: translation.excerpt,
-                originalTitle: post.title,
-                originalContent: post.content,
-                imageUrl: post.imageUrl || null,
-                imageUrls: post.imageUrls || null,
-                imageHash: imageHash || null,
-                category: translation.category,
-                sourceUrl: post.sourceUrl,
-                sourceName: source.name,
-                sourceFacebookPostId: post.facebookPostId || null,
-                facebookPostId: null,
-                journalistId: assignedJournalist.id,
-                isPublished: false, // Save as draft
-                originalLanguage: "th",
-                translatedBy: "openai",
-                embedding: translation.embedding,
-                eventType: classification.eventType,
-                severity: classification.severity,
-                interestScore: translation.interestScore,
-                isDeveloping: translation.isDeveloping || false,
-                // TODO: Re-enable once database columns are added
-                // needsReview: true, // FLAG FOR MANUAL REVIEW
-                // reviewReason: `High interest score (${interestScore}/5) but classified as non-news. May be truncated "See more" post or requires manual verification.`,
-                entities: extractedEntities as any,
-              });
-              
-              console.log(`📋 FLAGGED FOR REVIEW: ${reviewArticle.title.substring(0, 60)}...`);
-              console.log(`   Article ID: ${reviewArticle.id}`);
-              console.log(`   View in admin to expand/edit before publishing`);
-              
-              createdCount++;
-              
-              skipReasons.push({
-                reason: "Needs review (high interest, non-news flag)",
-                postTitle: post.title.substring(0, 60),
-                sourceUrl: post.sourceUrl,
-                facebookPostId: post.facebookPostId,
-                details: `Score ${interestScore}/5 - likely truncated post`
-              });
-            } catch (reviewError: any) {
-              console.error(`❌ Failed to save article for review:`, reviewError);
-              // Fall through to regular skip
-              skippedNotNews++;
-            }
-          } else {
-            // Low interest and not news - skip as before
-            skippedNotNews++;
-            skipReasons.push({
-              reason: "Not news (AI classified)",
-              postTitle: post.title.substring(0, 60),
-              sourceUrl: post.sourceUrl,
-              facebookPostId: post.facebookPostId,
-              details: `AI classified as non-news (score: ${interestScore}/5)`
-            });
-            console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
-          }
+          skippedNotNews++;
+          skipReasons.push({
+            reason: "Not news (AI classified)",
+            postTitle: post.title.substring(0, 60),
+            sourceUrl: post.sourceUrl,
+            facebookPostId: post.facebookPostId,
+            details: `AI classified as non-news (score: ${interestScore}/5)`
+          });
+          console.log(`⏭️  Skipped non-news: ${post.title.substring(0, 50)}...`);
         }
         
         // Update progress after each post
