@@ -55,6 +55,8 @@ export const articles = pgTable("articles", {
   entities: json("entities"),
   sourceName: text("source_name"), // Actual source (e.g., "Phuket Times", "Info Center")
   isDeveloping: boolean("is_developing").default(false), // Story has limited details
+  needsReview: boolean("needs_review").default(false), // Flagged for manual review
+  reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts
@@ -82,6 +84,16 @@ export const subscribers = pgTable("subscribers", {
   unsubscribeToken: varchar("unsubscribe_token").notNull().unique().default(sql`gen_random_uuid()`),
 });
 
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  color: text("color").notNull().default("#3b82f6"), // Tailwind blue-500
+  icon: text("icon"), // Optional Lucide icon name
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  isDefault: boolean("is_default").notNull().default(false), // Prevents deletion of core categories
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -100,6 +112,11 @@ export const insertSubscriberSchema = createInsertSchema(subscribers).pick({
   email: true,
 });
 
+export const insertCategorySchema = createInsertSchema(categories).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertJournalist = z.infer<typeof insertJournalistSchema>;
@@ -108,6 +125,8 @@ export type InsertArticle = z.infer<typeof insertArticleSchema>;
 export type Article = typeof articles.$inferSelect;
 export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
 export type Subscriber = typeof subscribers.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
 export type ArticleListItem = Omit<Article, 'content' | 'embedding' | 'originalTitle' | 'originalContent'>;
