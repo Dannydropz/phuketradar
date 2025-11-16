@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, users, articles, subscribers, journalists } from "@shared/schema";
+import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, type Category, type InsertCategory, users, articles, subscribers, journalists, categories } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
@@ -49,6 +49,13 @@ export interface IStorage {
   getAllJournalists(): Promise<Journalist[]>;
   getJournalistById(id: string): Promise<Journalist | undefined>;
   getArticlesByJournalistId(journalistId: string): Promise<ArticleListItem[]>;
+  
+  // Category methods
+  getAllCategories(): Promise<Category[]>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  
+  // Article review methods
+  getArticlesNeedingReview(): Promise<Article[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -142,6 +149,8 @@ export class DatabaseStorage implements IStorage {
         slug: articles.slug,
         title: articles.title,
         excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
@@ -166,6 +175,10 @@ export class DatabaseStorage implements IStorage {
         interestScore: articles.interestScore,
         relatedArticleIds: articles.relatedArticleIds,
         entities: articles.entities,
+        sourceName: articles.sourceName,
+        isDeveloping: articles.isDeveloping,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -179,6 +192,8 @@ export class DatabaseStorage implements IStorage {
         slug: articles.slug,
         title: articles.title,
         excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
@@ -203,6 +218,10 @@ export class DatabaseStorage implements IStorage {
         interestScore: articles.interestScore,
         relatedArticleIds: articles.relatedArticleIds,
         entities: articles.entities,
+        sourceName: articles.sourceName,
+        isDeveloping: articles.isDeveloping,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -549,9 +568,38 @@ export class DatabaseStorage implements IStorage {
         interestScore: articles.interestScore,
         relatedArticleIds: articles.relatedArticleIds,
         entities: articles.entities,
+        sourceName: articles.sourceName,
+        isDeveloping: articles.isDeveloping,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
+      .orderBy(desc(articles.publishedAt));
+  }
+
+  // Category methods
+  async getAllCategories(): Promise<Category[]> {
+    return await db
+      .select()
+      .from(categories)
+      .orderBy(categories.name);
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const [category] = await db
+      .insert(categories)
+      .values(insertCategory)
+      .returning();
+    return category;
+  }
+
+  // Article review methods
+  async getArticlesNeedingReview(): Promise<Article[]> {
+    return await db
+      .select()
+      .from(articles)
+      .where(eq(articles.needsReview, true))
       .orderBy(desc(articles.publishedAt));
   }
 }

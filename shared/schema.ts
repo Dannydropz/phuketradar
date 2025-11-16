@@ -129,4 +129,4 @@ export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
-export type ArticleListItem = Omit<Article, 'content' | 'embedding' | 'originalTitle' | 'originalContent'>;
+export type ArticleListItem = Omit<Article, 'content' | 'embedding'>;

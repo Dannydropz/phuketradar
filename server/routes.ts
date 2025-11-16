@@ -261,6 +261,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get articles needing review - PROTECTED
+  app.get("/api/admin/articles/needs-review", requireAdminAuth, async (req, res) => {
+    try {
+      const articles = await storage.getArticlesNeedingReview();
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching articles needing review:", error);
+      res.status(500).json({ error: "Failed to fetch articles needing review" });
+    }
+  });
+
+  // Create new article - PROTECTED
+  app.post("/api/admin/articles", requireAdminAuth, async (req, res) => {
+    try {
+      const articleData = req.body;
+      
+      // Generate slug from title if not provided
+      if (!articleData.slug && articleData.title) {
+        articleData.slug = articleData.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+      }
+      
+      const article = await storage.createArticle(articleData);
+      res.json(article);
+    } catch (error) {
+      console.error("Error creating article:", error);
+      res.status(500).json({ error: "Failed to create article" });
+    }
+  });
+
+  // Get all categories - PROTECTED
+  app.get("/api/admin/categories", requireAdminAuth, async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  // Create new category - PROTECTED
+  app.post("/api/admin/categories", requireAdminAuth, async (req, res) => {
+    try {
+      const { name, color, icon } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+      
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      
+      const category = await storage.createCategory({
+        name,
+        slug,
+        color: color || '#3b82f6',
+        icon: icon || null,
+        isDefault: false,
+      });
+      
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
   // Scrape and process articles - PROTECTED (async with job tracking)
   app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
