@@ -330,6 +330,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seed default categories - PROTECTED
+  app.post("/api/admin/categories/seed", requireAdminAuth, async (req, res) => {
+    try {
+      const defaultCategories = [
+        { name: "Crime", slug: "crime", color: "#ef4444", icon: null },
+        { name: "Local News", slug: "local-news", color: "#3b82f6", icon: null },
+        { name: "Tourism", slug: "tourism", color: "#10b981", icon: null },
+        { name: "Politics", slug: "politics", color: "#8b5cf6", icon: null },
+        { name: "Economy", slug: "economy", color: "#f59e0b", icon: null },
+        { name: "Traffic", slug: "traffic", color: "#ec4899", icon: null },
+        { name: "Weather", slug: "weather", color: "#06b6d4", icon: null },
+        { name: "Guides", slug: "guides", color: "#84cc16", icon: null },
+        { name: "Lifestyle", slug: "lifestyle", color: "#f97316", icon: null },
+        { name: "Environment", slug: "environment", color: "#22c55e", icon: null },
+        { name: "Health", slug: "health", color: "#14b8a6", icon: null },
+        { name: "Entertainment", slug: "entertainment", color: "#a855f7", icon: null },
+        { name: "Sports", slug: "sports", color: "#f43f5e", icon: null },
+      ];
+
+      const existingCategories = await storage.getAllCategories();
+      const existingSlugs = new Set(existingCategories.map(c => c.slug));
+      
+      const created = [];
+      for (const cat of defaultCategories) {
+        if (!existingSlugs.has(cat.slug)) {
+          const category = await storage.createCategory({
+            ...cat,
+            isDefault: true,
+          });
+          created.push(category);
+        }
+      }
+
+      res.json({
+        success: true,
+        created: created.length,
+        total: defaultCategories.length,
+        categories: created,
+      });
+    } catch (error) {
+      console.error("Error seeding categories:", error);
+      res.status(500).json({ error: "Failed to seed categories" });
+    }
+  });
+
   // Scrape and process articles - PROTECTED (async with job tracking)
   app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
