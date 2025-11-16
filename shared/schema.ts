@@ -55,6 +55,7 @@ export const articles = pgTable("articles", {
   entities: json("entities"),
   sourceName: text("source_name"), // Actual source (e.g., "Phuket Times", "Info Center")
   isDeveloping: boolean("is_developing").default(false), // Story has limited details
+  isManuallyCreated: boolean("is_manually_created").default(false), // True if created via admin UI, false if scraped
   // TODO: Add these columns once ALTER TABLE completes on production database
   // needsReview: boolean("needs_review").default(false), // Flagged for manual review
   // reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
