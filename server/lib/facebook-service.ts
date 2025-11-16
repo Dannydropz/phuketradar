@@ -175,7 +175,7 @@ export async function postArticleToFacebook(
         // FALLBACK: Use single-image posting with a known-good image URL
         console.log(`📘 [FB-POST] Falling back to single-image post: ${fallbackImageUrl}`);
         
-        const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
+        const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos?access_token=${FB_PAGE_ACCESS_TOKEN}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -183,7 +183,6 @@ export async function postArticleToFacebook(
           body: JSON.stringify({
             url: fallbackImageUrl,
             message: postMessage,
-            access_token: FB_PAGE_ACCESS_TOKEN,
           }),
         });
 
