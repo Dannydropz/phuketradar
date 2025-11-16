@@ -426,6 +426,31 @@ export default function AdminDashboard() {
     batchFacebookPostMutation.mutate();
   };
 
+  const seedCategoriesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/categories/seed");
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      toast({
+        title: "Categories Created",
+        description: `Successfully created ${data.created} new categories`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Create Categories",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSeedCategories = () => {
+    seedCategoriesMutation.mutate();
+  };
+
   const handleCreateArticle = () => {
     setEditingArticle(null);
     setEditorOpen(true);
@@ -731,6 +756,24 @@ export default function AdminDashboard() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Post
                   </Button>
+                  {categories.length === 0 && (
+                    <Button
+                      onClick={handleSeedCategories}
+                      data-testid="button-seed-categories"
+                      className="h-11 px-4 py-2"
+                      variant="outline"
+                      disabled={seedCategoriesMutation.isPending}
+                    >
+                      {seedCategoriesMutation.isPending ? (
+                        <>Creating...</>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Default Categories
+                        </>
+                      )}
+                    </Button>
+                  )}
                   {filteredArticles.some((a) => !a.isPublished) && (
                     <>
                     {selectedArticles.size > 0 && (
