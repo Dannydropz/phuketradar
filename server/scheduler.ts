@@ -802,16 +802,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             }
           }
           
-          // Add to existing embeddings so we can catch duplicates within this batch
-          if (translation.embedding) {
-            existingEmbeddings.push({
-              id: article.id,
-              title: translation.translatedTitle,
-              content: article.content,
-              embedding: translation.embedding,
-            });
-          }
-          
           // Add to existing image hashes so we can catch duplicates within this batch
           if (imageHash) {
             existingImageHashes.push({
