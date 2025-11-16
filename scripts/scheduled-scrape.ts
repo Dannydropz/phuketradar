@@ -59,7 +59,7 @@ async function runScheduledScrape() {
         'Content-Type': 'application/json',
       },
       // Add timeout to prevent hanging
-      signal: AbortSignal.timeout(120000), // 120 second timeout
+      signal: AbortSignal.timeout(480000), // 480 second (8 minute) timeout
     });
 
     console.log(`Response status: ${response.status} ${response.statusText}`);
@@ -89,7 +89,7 @@ async function runScheduledScrape() {
       console.error('Error message:', error.message);
       
       if (error.name === 'AbortError') {
-        console.error('Request timed out after 120 seconds');
+        console.error('Request timed out after 480 seconds');
       }
     } else {
       console.error('Unknown error:', error);
