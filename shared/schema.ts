@@ -53,6 +53,8 @@ export const articles = pgTable("articles", {
   interestScore: real("interest_score"),
   relatedArticleIds: text("related_article_ids").array(),
   entities: json("entities"),
+  sourceName: text("source_name"), // Actual source (e.g., "Phuket Times", "Info Center")
+  isDeveloping: boolean("is_developing").default(false), // Story has limited details
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts
