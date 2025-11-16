@@ -43,7 +43,8 @@ interface ScrapeJob {
   error?: string;
 }
 
-type FilterType = 'all' | 'pending' | 'needsReview';
+// TODO: Re-enable 'needsReview' once database columns are added
+type FilterType = 'all' | 'pending'; // | 'needsReview';
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -491,14 +492,16 @@ export default function AdminDashboard() {
 
   const stats = {
     pending: articles.filter((a) => !a.isPublished).length,
-    needsReview: articles.filter((a) => a.needsReview).length,
+    // TODO: Re-enable once database columns are added
+    // needsReview: articles.filter((a) => a.needsReview).length,
     total: articles.length,
   };
 
   // Filter articles based on active filter
   const filteredArticles = articles.filter((article) => {
     if (activeFilter === 'pending') return !article.isPublished;
-    if (activeFilter === 'needsReview') return article.needsReview;
+    // TODO: Re-enable once database columns are added
+    // if (activeFilter === 'needsReview') return article.needsReview;
     return true; // 'all'
   });
 
@@ -647,6 +650,7 @@ export default function AdminDashboard() {
               </div>
             </Card>
 
+            {/* TODO: Re-enable once database columns are added
             <Card 
               className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
                 activeFilter === 'needsReview' ? 'ring-2 ring-primary bg-primary/5' : ''
@@ -669,6 +673,7 @@ export default function AdminDashboard() {
                 </Badge>
               </div>
             </Card>
+            */}
           </div>
 
           <Card>
@@ -797,6 +802,7 @@ export default function AdminDashboard() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
+                            {/* TODO: Re-enable once database columns are added
                             {article.needsReview && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -809,6 +815,7 @@ export default function AdminDashboard() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
+                            */}
                             <span className="text-xs md:text-sm text-muted-foreground">
                               {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
                             </span>

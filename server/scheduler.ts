@@ -982,8 +982,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 severity: classification.severity,
                 interestScore: translation.interestScore,
                 isDeveloping: translation.isDeveloping || false,
-                needsReview: true, // FLAG FOR MANUAL REVIEW
-                reviewReason: `High interest score (${interestScore}/5) but classified as non-news. May be truncated "See more" post or requires manual verification.`,
+                // TODO: Re-enable once database columns are added
+                // needsReview: true, // FLAG FOR MANUAL REVIEW
+                // reviewReason: `High interest score (${interestScore}/5) but classified as non-news. May be truncated "See more" post or requires manual verification.`,
                 entities: extractedEntities as any,
               });
               

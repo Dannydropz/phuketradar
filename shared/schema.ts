@@ -55,8 +55,9 @@ export const articles = pgTable("articles", {
   entities: json("entities"),
   sourceName: text("source_name"), // Actual source (e.g., "Phuket Times", "Info Center")
   isDeveloping: boolean("is_developing").default(false), // Story has limited details
-  needsReview: boolean("needs_review").default(false), // Flagged for manual review
-  reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
+  // TODO: Add these columns once ALTER TABLE completes on production database
+  // needsReview: boolean("needs_review").default(false), // Flagged for manual review
+  // reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts

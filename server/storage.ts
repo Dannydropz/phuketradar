@@ -177,8 +177,6 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
         sourceName: articles.sourceName,
         isDeveloping: articles.isDeveloping,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -220,8 +218,6 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
         sourceName: articles.sourceName,
         isDeveloping: articles.isDeveloping,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -570,8 +566,6 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
         sourceName: articles.sourceName,
         isDeveloping: articles.isDeveloping,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
@@ -594,13 +588,10 @@ export class DatabaseStorage implements IStorage {
     return category;
   }
 
-  // Article review methods
+  // Article review methods (disabled until database columns are added)
   async getArticlesNeedingReview(): Promise<Article[]> {
-    return await db
-      .select()
-      .from(articles)
-      .where(eq(articles.needsReview, true))
-      .orderBy(desc(articles.publishedAt));
+    // TODO: Re-enable once needs_review column is added to database
+    return [];
   }
 }
 
