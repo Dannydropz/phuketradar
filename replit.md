@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
 - **Dynamic Categories**: Database-driven category system for custom content types (Guides, Lifestyle, etc.).
 - **Manual Review Workflow**: High-interest "non-news" posts are flagged for manual review and editing before publication.
 - **Original Content Creation**: Admin feature for creating guides, SEO articles, and other non-scraped content with interest score selector (1-5) to control auto-posting behavior.
+- **Image Upload System**: Direct file upload support via multer for both featured and additional images, stored in `public/uploads` directory. Supports both URL input and file upload (max 10MB, jpeg/jpg/png/gif/webp formats).
 
 ### Architectural Decisions
 - **Scraping**: Uses scrapecreators.com API with configurable sources and smart pagination logic to ensure timely capture of new posts.
@@ -45,7 +46,8 @@ Preferred communication style: Simple, everyday language.
 - **Image Requirement**: Only posts with 1+ images are published; posts with 0 images are skipped.
 - **Text Graphic Filtering**: Multi-stage system using `text_format_preset_id`, file size, and color dominance analysis to reject text-on-background images.
 - **Duplicate Detection**: Multi-layer system including URL normalization, Facebook Post ID/source URL checks, exact image URL matching, entity matching, and hybrid semantic analysis with GPT verification.
-- **Multi-Platform Social Media Posting**: Automated cross-platform posting to Facebook, Instagram, and Threads for high-interest articles (score ≥ 4) using a unified claim-before-post architecture and sequential execution to manage rate limits.
+- **Multi-Platform Social Media Posting**: Automated cross-platform posting to Facebook, Instagram, and Threads for high-interest articles (score ≥ 4) using a unified claim-before-post architecture and sequential execution to manage rate limits. **IMPORTANT**: Only scraped articles auto-post; manually created articles with `isManuallyCreated=true` require manual posting regardless of interest score.
+- **Article Origin Tracking**: `isManuallyCreated` boolean field distinguishes scraped content (false) from manually created content (true) to control auto-posting behavior.
 - **Automated Scraping**: GitHub Actions triggers scraping every 2 hours via an HTTP POST request to `/api/cron/scrape`. Comprehensive skip-reason tracking and logging for debugging.
 - **Email Newsletter System**: `subscribers` table, Resend integration, Morning Brew-style HTML template, sends last 24 hours of published articles (max 10), scheduled daily via GitHub Actions.
 
@@ -65,3 +67,4 @@ Preferred communication style: Simple, everyday language.
 - **Form Management**: React Hook Form with `@hookform/resolvers`.
 - **UI Primitives**: Radix UI components.
 - **Image Processing**: `sharp` for image manipulation.
+- **File Upload**: `multer` for handling multipart/form-data file uploads.
