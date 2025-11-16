@@ -413,6 +413,7 @@ export default function AdminDashboard() {
     category: string;
     imageUrl?: string;
     imageUrls?: string[];
+    interestScore?: number;
   }) => {
     if (editingArticle) {
       await updateArticleMutation.mutateAsync({ id: editingArticle.id, data });
