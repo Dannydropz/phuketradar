@@ -266,7 +266,7 @@ export async function postArticleToFacebook(
       // SINGLE IMAGE POST: Use simple photo upload
       console.log(`📘 [FB-POST] Creating single-image post: ${primaryImageUrl}`);
       
-      const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos`, {
+      const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos?access_token=${FB_PAGE_ACCESS_TOKEN}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -274,7 +274,6 @@ export async function postArticleToFacebook(
         body: JSON.stringify({
           url: primaryImageUrl,
           message: postMessage,
-          access_token: FB_PAGE_ACCESS_TOKEN,
         }),
       });
 
