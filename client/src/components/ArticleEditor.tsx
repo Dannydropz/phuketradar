@@ -75,7 +75,22 @@ export function ArticleEditor({
           class: 'text-primary underline',
         },
       }),
-      Image.configure({
+      Image.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            width: {
+              default: null,
+              renderHTML: () => ({}),
+            },
+            height: {
+              default: null,
+              renderHTML: () => ({}),
+            },
+          };
+        },
+      }).configure({
+        inline: false,
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-md',
         },
