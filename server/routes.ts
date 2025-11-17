@@ -1023,12 +1023,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+  fs.mkdir(uploadsDir, { recursive: true }).catch(console.error);
+
   // Configure multer for image uploads
   const storage_multer = multer.diskStorage({
-    destination: async (req, file, cb) => {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
+    destination: (req, file, cb) => {
+      cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -1059,12 +1061,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      // Generate URL for uploaded image
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : 'https://phuketradar.com';
-      
-      const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+      // Generate URL for uploaded image - use relative path for both dev and prod
+      const imageUrl = `/uploads/${req.file.filename}`;
       
       res.json({ imageUrl });
     } catch (error) {
