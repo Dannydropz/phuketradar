@@ -410,4 +410,18 @@
     height: auto !important;
     display: block;
   }
+
+  /* Force responsive images on mobile - override any inline width/height attributes */
+  @media (max-width: 768px) {
+    .prose img[width],
+    .prose img[height],
+    .prose-sm img[width],
+    .prose-sm img[height],
+    .prose-lg img[width],
+    .prose-lg img[height] {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  }
 }

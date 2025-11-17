@@ -75,24 +75,12 @@ export function ArticleEditor({
           class: 'text-primary underline',
         },
       }),
-      Image.extend({
-        addAttributes() {
-          return {
-            ...this.parent?.(),
-            width: {
-              default: null,
-              renderHTML: () => ({}),
-            },
-            height: {
-              default: null,
-              renderHTML: () => ({}),
-            },
-          };
-        },
-      }).configure({
+      Image.configure({
         inline: false,
+        allowBase64: false,
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-md',
+          style: null,
         },
       }),
       Placeholder.configure({
