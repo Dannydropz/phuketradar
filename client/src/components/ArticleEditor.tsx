@@ -326,11 +326,22 @@ export function ArticleEditor({
           />
         </div>
         {imageUrl && (
-          <img
-            src={imageUrl}
-            alt="Preview"
-            className="w-full max-w-md rounded-md"
-          />
+          <div className="space-y-2">
+            <img
+              src={imageUrl}
+              alt="Preview"
+              className="w-full max-w-md rounded-md"
+            />
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setImageUrl('')}
+              data-testid="button-remove-featured-image"
+            >
+              Remove
+            </Button>
+          </div>
         )}
       </div>
 
