@@ -395,6 +395,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           
           console.log(`\n   📊 SUMMARY: ${realPhotoCount} real photos, ${textGraphicCount} text graphics, ${uncertainCount} uncertain`);
           
+          // Extra logging for multi-image posts with multiple real photos
+          if (batchResult.multipleRealPhotos) {
+            console.log(`   🌟 HIGH QUALITY: Post has ${realPhotoCount} real photos - strong accept signal!`);
+          }
+          
           // Reject ONLY if ALL images are confirmed text graphics with high confidence
           if (batchResult.allTextGraphics) {
             skippedNotNews++;

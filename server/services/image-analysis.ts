@@ -199,6 +199,7 @@ export class ImageAnalysisService {
   async analyzeMultipleImages(imageUrls: string[]): Promise<{
     allTextGraphics: boolean;
     anyRealPhotos: boolean;
+    multipleRealPhotos: boolean;
     results: Array<{ url: string; analysis: ImageAnalysisResult }>;
   }> {
     const results = await Promise.all(
@@ -218,7 +219,14 @@ export class ImageAnalysisService {
            r.analysis.status === 'analysis_error'
     );
 
-    return { allTextGraphics, anyRealPhotos, results };
+    // Count how many images are confirmed real photos (high confidence)
+    const realPhotoCount = results.filter(
+      r => r.analysis.status === 'real_photo' && r.analysis.confidence !== 'low'
+    ).length;
+    
+    const multipleRealPhotos = realPhotoCount >= 2;
+
+    return { allTextGraphics, anyRealPhotos, multipleRealPhotos, results };
   }
 }
 
