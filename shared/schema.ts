@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real, json, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -54,8 +54,12 @@ export const articles = pgTable("articles", {
   relatedArticleIds: text("related_article_ids").array(),
   entities: json("entities"),
   sourceName: text("source_name"), // Actual source (e.g., "Phuket Times", "Info Center")
-  isDeveloping: boolean("is_developing").default(false), // Story has limited details
+  isDeveloping: boolean("is_developing").default(false), // Story has limited details or expecting updates
   isManuallyCreated: boolean("is_manually_created").default(false), // True if created via admin UI, false if scraped
+  parentStoryId: varchar("parent_story_id"), // If this was created from merging stories, points to the main story
+  mergedIntoId: varchar("merged_into_id"), // If this story was merged into another, points to the merged story
+  lastEnrichedAt: timestamp("last_enriched_at"), // When the last enrichment pass was done
+  enrichmentCount: integer("enrichment_count").default(0), // Number of times this story has been enriched
   // TODO: Add these columns once ALTER TABLE completes on production database
   // needsReview: boolean("needs_review").default(false), // Flagged for manual review
   // reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
