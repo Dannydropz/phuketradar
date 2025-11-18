@@ -53,7 +53,26 @@ export default function Home() {
     return highInterestArticles.length > 0 ? highInterestArticles : articles;
   }, [highInterestArticles, articles]);
   
-  // Get breaking news (High Interest + Fresh, < 24 hours old), excluding hero articles
+  // Get developing stories (isDeveloping = true, published, < 24 hours old)
+  const developingStories = useMemo(() => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+    
+    // Get hero article IDs to exclude
+    const heroIds = new Set([
+      heroArticles[0]?.id,
+      ...heroArticles.slice(1, 6).map(a => a.id)
+    ].filter(Boolean));
+    
+    return articles.filter(article => {
+      const isDeveloping = article.isDeveloping === true;
+      const isFresh = new Date(article.publishedAt).getTime() > twentyFourHoursAgo;
+      const notInHero = !heroIds.has(article.id);
+      return isDeveloping && isFresh && notInHero;
+    }).slice(0, 3); // Limit to 3 developing stories
+  }, [articles, heroArticles]);
+  
+  // Get breaking news (High Interest + Fresh, < 24 hours old), excluding hero articles and developing stories
   const urgentNews = useMemo(() => {
     const now = Date.now();
     const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
@@ -64,12 +83,16 @@ export default function Home() {
       ...heroArticles.slice(1, 6).map(a => a.id)
     ].filter(Boolean));
     
+    // Get developing story IDs to exclude
+    const developingIds = new Set(developingStories.map(a => a.id));
+    
     return highInterestArticles.filter(article => {
       const isFresh = new Date(article.publishedAt).getTime() > twentyFourHoursAgo;
       const notInHero = !heroIds.has(article.id);
-      return isFresh && notInHero;
+      const notDeveloping = !developingIds.has(article.id);
+      return isFresh && notInHero && notDeveloping;
     }).slice(0, 3); // Limit to 3 breaking stories
-  }, [highInterestArticles, heroArticles]);
+  }, [highInterestArticles, heroArticles, developingStories]);
 
   if (isLoading) {
     return (
@@ -95,9 +118,10 @@ export default function Home() {
     ...sidebar.map(a => a.id)
   ].filter(Boolean));
   
-  // Get IDs of articles shown in hero and urgent news sections to avoid duplicates
+  // Get IDs of articles shown in hero, developing, and urgent news sections to avoid duplicates
   const excludedArticleIds = new Set([
     ...Array.from(heroArticleIds),
+    ...developingStories.map(a => a.id),
     ...urgentNews.map(a => a.id)
   ]);
   
@@ -163,6 +187,47 @@ export default function Home() {
               interestScore: article.interestScore,
             }))}
           />
+
+          {developingStories.length > 0 && (
+            <section className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="relative flex items-center justify-center">
+                  <div className="w-3 h-3 bg-blue-600 dark:bg-blue-500 rounded-full animate-pulse"></div>
+                  <div className="absolute w-3 h-3 bg-blue-600 dark:bg-blue-500 rounded-full animate-ping opacity-75"></div>
+                </div>
+                <h2 className="text-3xl font-bold">Live</h2>
+                <span className="text-sm text-muted-foreground">Developing stories with updates</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {developingStories.map((article) => {
+                  const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
+                  return (
+                    <ArticleCard
+                      key={article.id}
+                      id={article.id}
+                      slug={article.slug}
+                      title={article.title}
+                      excerpt={article.excerpt}
+                      imageUrl={article.imageUrl || undefined}
+                      category={article.category}
+                      publishedAt={new Date(article.publishedAt)}
+                      interestScore={article.interestScore}
+                      eventType={article.eventType}
+                      severity={article.severity}
+                      isDeveloping={article.isDeveloping}
+                      lastEnrichedAt={article.lastEnrichedAt}
+                      journalist={journalist ? {
+                        id: journalist.id,
+                        nickname: journalist.nickname,
+                        surname: journalist.surname,
+                        headshot: journalist.headshot,
+                      } : undefined}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {urgentNews.length > 0 && (
             <section className="mb-12">

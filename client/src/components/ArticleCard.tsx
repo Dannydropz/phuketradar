@@ -21,6 +21,8 @@ interface ArticleCardProps {
   interestScore?: number | null;
   eventType?: string | null;
   severity?: string | null;
+  isDeveloping?: boolean | null;
+  lastEnrichedAt?: Date | null;
   journalist?: {
     id: string;
     nickname: string;
@@ -104,6 +106,8 @@ export function ArticleCard({
   interestScore,
   eventType,
   severity,
+  isDeveloping,
+  lastEnrichedAt,
   journalist,
 }: ArticleCardProps) {
   const [, setLocation] = useLocation();
@@ -158,9 +162,22 @@ export function ArticleCard({
                 Breaking News
               </Badge>
             )}
+            {isDeveloping && (
+              <Badge 
+                variant="default"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold"
+                data-testid={`badge-developing-${id}`}
+              >
+                Developing
+              </Badge>
+            )}
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
-              <span data-testid={`text-time-${id}`}>{formatDistanceToNow(publishedAt, { addSuffix: true })}</span>
+              <span data-testid={`text-time-${id}`}>
+                {isDeveloping && lastEnrichedAt 
+                  ? `Updated ${formatDistanceToNow(new Date(lastEnrichedAt), { addSuffix: true })}`
+                  : formatDistanceToNow(publishedAt, { addSuffix: true })}
+              </span>
             </div>
           </div>
           <h3 className="text-xl font-semibold mb-3 line-clamp-2" data-testid={`text-title-${id}`}>
