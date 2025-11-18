@@ -265,11 +265,6 @@ export class ScraperService {
               }
             }
           }
-          
-          // Try video thumbnail if no images found
-          if (imageUrls.length === 0 && post.videoDetails?.thumbnail) {
-            imageUrls.push(post.videoDetails.thumbnail);
-          }
         }
         
         // Set the first image as primary imageUrl for backward compatibility
