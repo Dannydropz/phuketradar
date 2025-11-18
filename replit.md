@@ -46,6 +46,14 @@ Preferred communication style: Simple, everyday language.
 - **Image Requirement**: Only posts with 1+ images are published; posts with 0 images are skipped.
 - **Text Graphic Filtering**: Multi-stage system using `text_format_preset_id`, file size, and color dominance analysis to reject text-on-background images.
 - **Duplicate Detection**: Multi-layer system including URL normalization, Facebook Post ID/source URL checks, exact image URL matching, entity matching, and hybrid semantic analysis with GPT verification.
+- **Second Pass Enrichment System**: Advanced story merging and enrichment pipeline that creates "developing" stories:
+  - **DuplicateDetectionService**: Multi-layer detection using embeddings (50% similarity), entity extraction, and GPT-4o-mini verification
+  - **StoryMergerService**: GPT-4 intelligently combines duplicate stories into enriched articles with combined details and narrative
+  - **EnrichmentService**: GPT-4 adds fresh context, background, and updates to developing stories over time
+  - **StoryEnrichmentCoordinator**: Orchestrates the entire workflow - checks duplicates during scraping, merges stories immediately, enriches periodically
+  - **Automated Enrichment**: GitHub Actions triggers enrichment every 15 minutes via `/api/cron/enrich` endpoint
+  - **Live Section**: Frontend displays developing stories with "Last updated X minutes ago" timestamps and blue "Developing" badge
+  - Stories marked `isDeveloping=true` receive periodic enrichment until complete; merged duplicates track `mergedIntoId` and `enrichmentCount`
 - **Multi-Platform Social Media Posting**: Automated cross-platform posting to Facebook, Instagram, and Threads for high-interest articles (score ≥ 4) using a unified claim-before-post architecture and sequential execution to manage rate limits. **IMPORTANT**: Only scraped articles auto-post; manually created articles with `isManuallyCreated=true` require manual posting regardless of interest score.
 - **Article Origin Tracking**: `isManuallyCreated` boolean field distinguishes scraped content (false) from manually created content (true) to control auto-posting behavior.
 - **Automated Scraping**: GitHub Actions triggers scraping every 2 hours via an HTTP POST request to `/api/cron/scrape`. Comprehensive skip-reason tracking and logging for debugging.
