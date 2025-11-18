@@ -373,13 +373,18 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           
           const batchResult = await imageAnalysisService.analyzeMultipleImages(imagesToCheck);
           
-          // Log each image result
+          // Log each image result with detailed breakdown
+          const realPhotoCount = batchResult.results.filter(r => r.analysis.status === 'real_photo').length;
+          const textGraphicCount = batchResult.results.filter(r => r.analysis.status === 'solid_background' && r.analysis.confidence === 'high').length;
+          const uncertainCount = batchResult.results.length - realPhotoCount - textGraphicCount;
+          
           batchResult.results.forEach((result, idx) => {
             const { analysis } = result;
             const icon = analysis.status === 'solid_background' ? '❌' : 
                         analysis.status === 'real_photo' ? '✅' : '⚠️';
-            console.log(`   Image ${idx + 1}: ${icon} ${analysis.status} (${analysis.confidence} confidence)`);
+            console.log(`   Image ${idx + 1}/${imagesToCheck.length}: ${icon} ${analysis.status} (${analysis.confidence} confidence)`);
             console.log(`      ${analysis.reason}`);
+            console.log(`      URL: ${result.url.substring(0, 100)}${result.url.length > 100 ? '...' : ''}`);
             if (analysis.metadata?.fileSize) {
               console.log(`      File size: ${Math.round(analysis.metadata.fileSize / 1024)}KB`);
             }
@@ -387,6 +392,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               console.log(`      Color dominance: ${analysis.metadata.dominancePercentage.toFixed(1)}%`);
             }
           });
+          
+          console.log(`\n   📊 SUMMARY: ${realPhotoCount} real photos, ${textGraphicCount} text graphics, ${uncertainCount} uncertain`);
           
           // Reject ONLY if ALL images are confirmed text graphics with high confidence
           if (batchResult.allTextGraphics) {
