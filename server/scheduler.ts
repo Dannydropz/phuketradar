@@ -742,8 +742,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
             console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
             console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
             
-            // Create article - auto-publish if interest score >= 3
-            article = await storage.createArticle({
+            // Prepare article data for duplicate detection
+            const articleData: InsertArticle = {
               title: translation.translatedTitle,
               content: translation.translatedContent,
               excerpt: translation.excerpt,
@@ -767,7 +767,37 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               interestScore: translation.interestScore,
               isDeveloping: translation.isDeveloping || false, // Story has limited details
               entities: extractedEntities as any, // Store extracted entities for future duplicate detection
-            });
+            };
+            
+            // STEP 5.7: Check for duplicates and merge if found (NEW Second Pass Enrichment System)
+            const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
+            const enrichmentCoordinator = new StoryEnrichmentCoordinator();
+            
+            console.log(`🔍 Running duplicate detection and enrichment...`);
+            const enrichmentResult = await enrichmentCoordinator.processNewStory(articleData, storage);
+            
+            if (enrichmentResult.action === 'merge') {
+              console.log(`🔄 MERGED: Story merged into existing article(s)`);
+              console.log(`   Reason: ${enrichmentResult.reason}`);
+              console.log(`   Merged with: ${enrichmentResult.mergedWith?.join(', ')}`);
+              
+              skipReasons.push({
+                reason: "Merged with existing",
+                postTitle: post.title.substring(0, 60),
+                sourceUrl: post.sourceUrl,
+                facebookPostId: post.facebookPostId,
+                details: enrichmentResult.reason || 'Story merged into existing article'
+              });
+              
+              // Skip creating a new article - it was merged into existing one
+              return;
+            }
+            
+            // If enrichment returned modified article data, use it
+            const finalArticleData = enrichmentResult.article || articleData;
+            
+            // Create article - auto-publish if interest score >= 3
+            article = await storage.createArticle(finalArticleData);
 
             console.log(`✅ SUCCESS: Article created with ID: ${article.id}`);
             

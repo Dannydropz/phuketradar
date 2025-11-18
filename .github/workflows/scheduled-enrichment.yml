@@ -1,0 +1,32 @@
+name: Scheduled Story Enrichment
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run story enrichment
+        env:
+          CRON_API_KEY: ${{ secrets.CRON_API_KEY }}
+          NODE_ENV: production
+        run: npx tsx scripts/scheduled-enrichment.ts

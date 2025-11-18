@@ -207,6 +207,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enrichment endpoint - triggered by GitHub Actions
+  app.post("/api/cron/enrich", requireCronAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🔄 ENRICHMENT TRIGGERED 🔄");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: EXTERNAL CRON SERVICE (GitHub Actions)`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log("=".repeat(80) + "\n");
+
+    try {
+      console.log("🔄 Starting enrichment pass...");
+      const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
+      const coordinator = new StoryEnrichmentCoordinator();
+      
+      const result = await coordinator.enrichDevelopingStories(storage);
+
+      console.log("✅ Enrichment completed successfully");
+      console.log("Result:", JSON.stringify(result, null, 2));
+      
+      res.json({
+        success: true,
+        message: "Enrichment completed successfully",
+        timestamp: timestamp,
+        result: result,
+      });
+    } catch (error) {
+      console.error("❌ Error during enrichment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      // Always return 200 OK for GitHub Actions (even on errors)
+      res.json({
+        success: false,
+        message: "Enrichment completed with errors",
+        error: errorMessage,
+        timestamp: timestamp,
+      });
+    }
+  });
+
   // Admin routes
 
   // Admin authentication
