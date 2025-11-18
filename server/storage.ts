@@ -56,6 +56,9 @@ export interface IStorage {
   
   // Article review methods
   getArticlesNeedingReview(): Promise<Article[]>;
+  
+  // Enrichment methods
+  getDevelopingArticles(): Promise<Article[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -592,6 +595,24 @@ export class DatabaseStorage implements IStorage {
   async getArticlesNeedingReview(): Promise<Article[]> {
     // TODO: Re-enable once needs_review column is added to database
     return [];
+  }
+
+  // Enrichment methods
+  async getDevelopingArticles(): Promise<Article[]> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    return await db
+      .select()
+      .from(articles)
+      .where(
+        and(
+          eq(articles.isDeveloping, true),
+          eq(articles.isPublished, true),
+          gte(articles.publishedAt, twentyFourHoursAgo),
+          isNull(articles.mergedIntoId)
+        )
+      )
+      .orderBy(desc(articles.interestScore), desc(articles.publishedAt));
   }
 }
 
