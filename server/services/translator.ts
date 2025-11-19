@@ -14,6 +14,7 @@ export interface TranslationResult {
   interestScore: number;
   isDeveloping: boolean;
   embedding?: number[];
+  facebookHeadline?: string;
 }
 
 // High-priority keywords that boost interest scores (urgent/dramatic news)
@@ -76,7 +77,7 @@ function isComplexThaiText(thaiText: string): boolean {
   // - Longer than 400 characters
   // - Contains formal/government keywords
   const complexKeywords = ["แถลง", "เจ้าหน้าที่", "ประกาศ", "กระทรวง", "นายกรัฐมนตรี", "ผู้ว่าราชการ"];
-  
+
   return (
     thaiText.length > 400 ||
     complexKeywords.some(keyword => thaiText.includes(keyword))
@@ -86,7 +87,7 @@ function isComplexThaiText(thaiText: string): boolean {
 // Enrich Thai text with Phuket location context
 function enrichWithPhuketContext(text: string): string {
   let enrichedText = text;
-  
+
   // Add context notes for known Phuket locations
   for (const [location, context] of Object.entries(PHUKET_CONTEXT_MAP)) {
     if (enrichedText.includes(location)) {
@@ -97,7 +98,7 @@ function enrichWithPhuketContext(text: string): string {
       );
     }
   }
-  
+
   return enrichedText;
 }
 
@@ -183,7 +184,7 @@ Respond in JSON format:
     });
 
     const result = JSON.parse(completion.choices[0].message.content || "{}");
-    
+
     return {
       enrichedTitle: result.enrichedTitle || params.title,
       enrichedContent: result.enrichedContent || params.content,
@@ -200,11 +201,11 @@ Respond in JSON format:
       // STEP 1: Enrich Thai text with Phuket context
       const enrichedThaiTitle = enrichWithPhuketContext(title);
       const enrichedThaiContent = enrichWithPhuketContext(content);
-      
+
       // STEP 2: Determine translation strategy
       const isComplex = isComplexThaiText(enrichedThaiContent);
       let sourceTextForGPT = `${enrichedThaiTitle}\n\n${enrichedThaiContent}`;
-      
+
       // STEP 3: Pre-translate with Google Translate if complex
       if (isComplex) {
         try {
@@ -328,7 +329,8 @@ Respond in JSON format:
   "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer),
-  "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts)
+  "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts),
+  "facebookHeadline": "A short, punchy, high-CTR headline specifically for Facebook. Focus on emotion, urgency, and impact. Example: 'Tragedy at Bang Tao: Two family members drown despite red-flag warnings' instead of 'Two people drown at Bang Tao Beach'. Max 15 words."
 }
 
 If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
@@ -358,10 +360,10 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
 
       // Validate category - ensure it's one of the allowed values
       const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime"];
-      const category = result.category && validCategories.includes(result.category) 
-        ? result.category 
+      const category = result.category && validCategories.includes(result.category)
+        ? result.category
         : "Local";
-      
+
       if (result.category && result.category !== category) {
         console.log(`   ⚠️  Invalid category "${result.category}" - defaulting to "Local"`);
       }
@@ -369,38 +371,38 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
       // STEP 5: Apply keyword boosting to interest score
       // Start with GPT's base score
       let finalInterestScore = result.interestScore || 3;
-      
+
       // Boost for hot keywords (urgent news like drownings, crime, accidents)
-      const hasHotKeyword = HOT_KEYWORDS.some(keyword => 
+      const hasHotKeyword = HOT_KEYWORDS.some(keyword =>
         title.includes(keyword) || content.includes(keyword)
       );
       if (hasHotKeyword) {
         finalInterestScore = Math.min(5, finalInterestScore + 1);
         console.log(`   🔥 HOT KEYWORD BOOST: ${finalInterestScore - 1} → ${finalInterestScore}`);
       }
-      
+
       // Reduce for cold keywords (boring news like meetings, ceremonies)
-      const hasColdKeyword = COLD_KEYWORDS.some(keyword => 
+      const hasColdKeyword = COLD_KEYWORDS.some(keyword =>
         title.includes(keyword) || content.includes(keyword)
       );
       if (hasColdKeyword) {
         finalInterestScore = Math.max(1, finalInterestScore - 1);
         console.log(`   ❄️  COLD KEYWORD PENALTY: ${finalInterestScore + 1} → ${finalInterestScore}`);
       }
-      
+
       // Ensure score stays within 1-5 range
       finalInterestScore = Math.max(1, Math.min(5, finalInterestScore));
-      
+
       console.log(`   📊 Final Interest Score: ${finalInterestScore}/5`);
 
       // STEP 6: PREMIUM ENRICHMENT for high-priority stories (score 4-5)
       let enrichedTitle = result.translatedTitle || title;
       let enrichedContent = result.translatedContent || content;
       let enrichedExcerpt = result.excerpt || "";
-      
+
       if (finalInterestScore >= 4) {
         console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying GPT-4 premium enrichment...`);
-        
+
         try {
           const enrichmentResult = await this.enrichWithPremiumGPT4({
             title: enrichedTitle,
@@ -408,11 +410,11 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
             excerpt: enrichedExcerpt,
             category,
           });
-          
+
           enrichedTitle = enrichmentResult.enrichedTitle;
           enrichedContent = enrichmentResult.enrichedContent;
           enrichedExcerpt = enrichmentResult.enrichedExcerpt;
-          
+
           console.log(`   ✅ GPT-4 enrichment complete - story enhanced with deep journalism`);
         } catch (enrichmentError) {
           console.warn(`   ⚠️  GPT-4 enrichment failed, using GPT-4o-mini version:`, enrichmentError);
@@ -433,6 +435,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         interestScore: finalInterestScore,
         isDeveloping: result.isDeveloping || false,
         embedding,
+        facebookHeadline: result.facebookHeadline,
       };
     } catch (error) {
       console.error("Error translating content:", error);
@@ -482,7 +485,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#039;/g, "'");
-      
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -564,22 +567,22 @@ Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "wordCount": numbe
       const isRealPhoto = result.isRealPhoto || false;
       const confidence = result.confidence || 0;
       const wordCount = result.wordCount || 0;
-      
+
       // Apply word count threshold: 15+ words = text graphic
       const hasTooManyWords = wordCount >= 15;
-      
+
       // Explicit blank image detection: 0 words + very low confidence = blank/broken image
       const isProbablyBlank = wordCount === 0 && confidence < 50;
-      
+
       // Require high confidence (>80) AND word count below threshold to accept
       // Also reject if it's probably a blank image
       const accepted = isRealPhoto && confidence > 80 && !hasTooManyWords && !isProbablyBlank;
-      
+
       console.log(`🖼️  Image classification: ${accepted ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
       console.log(`   Word count on image: ${wordCount} words ${hasTooManyWords ? "(≥15 = TEXT GRAPHIC)" : isProbablyBlank ? "(0 words + low conf = BLANK)" : "(< 15 = OK)"}`);
       console.log(`   Confidence: ${confidence}%`);
       console.log(`   Reason: ${result.reason}`);
-      
+
       return accepted;
     } catch (error) {
       console.error("Error classifying image:", error);

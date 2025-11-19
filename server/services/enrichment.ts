@@ -10,40 +10,40 @@ interface EnrichmentResult {
 }
 
 export class EnrichmentService {
-  
+
   /**
    * Enrich a developing story with context, background, and updates
    */
   async enrichStory(article: Article): Promise<EnrichmentResult> {
     console.log(`[ENRICHMENT] Enriching article: ${article.title}`);
-    
+
     try {
-      const systemPrompt = `You are a news editor adding context, depth, and updates to a breaking news story.
+      const systemPrompt = `You are a news editor updating a breaking news story with new details.
 
 Your goal is to:
-1. Keep ALL existing facts and details from the original article
-2. Add relevant context about the location, event type, or situation
-3. Include helpful background information (e.g., beach safety, previous incidents, local statistics)
-4. If this is a developing story, add an "UPDATE:" section with any clarifications or additional context
+1. Create a single, cohesive narrative that integrates ALL facts (old and new)
+2. Do NOT just append "Update:" at the bottom - rewrite the story to include the new info naturally
+3. Resolve any contradictions by prioritizing the most recent/specific details
+4. Keep Thai names, locations, and specific details exact
 5. Use active, professional journalistic writing
-6. Make the article feel comprehensive and authoritative
+6. If the story is still unfolding (missing key outcomes, names, or official statements), mark it as developing
 
 Structure:
-- Start with the existing core story
-- Weave in contextual information naturally
-- If adding updates, use "UPDATE:" section at the end
-- Keep Thai names, locations, and specific details exact
+- Strong, updated headline (if needed)
+- Lead paragraph with the latest/most important development
+- Body paragraphs with context and background
+- "What we know so far" summary if complex
 
 Return JSON with:
 {
-  "enrichedContent": "The enhanced article with context woven in",
-  "updateSummary": "Brief description of what was added",
-  "shouldContinueDeveloping": true/false (true if still missing names, exact time, full circumstances)
+  "enrichedContent": "The fully rewritten, comprehensive article",
+  "updateSummary": "Brief note on what was added/changed",
+  "shouldContinueDeveloping": true/false (true if still missing key details)
 }`;
 
       const enrichmentCount = article.enrichmentCount || 0;
       const lastEnriched = article.lastEnrichedAt ? new Date(article.lastEnrichedAt).toISOString() : 'never';
-      
+
       const userPrompt = `Enrich this ${article.isDeveloping ? 'developing' : 'published'} news story.
 
 Original Article:
@@ -58,9 +58,9 @@ Metadata:
 - Source: ${article.sourceName || 'Unknown'}
 
 Add context, background, and depth to make this story more comprehensive. If it's still developing (missing names, exact times, or full details), mark shouldContinueDeveloping as true.`;
-      
+
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -74,13 +74,13 @@ Add context, background, and depth to make this story more comprehensive. If it'
         response_format: { type: 'json_object' },
         temperature: 0.5, // Slightly creative for good context
       });
-      
+
       const result = JSON.parse(response.choices[0].message.content || '{}');
-      
+
       console.log(`[ENRICHMENT] Successfully enriched article`);
       console.log(`[ENRICHMENT] Update summary: ${result.updateSummary}`);
       console.log(`[ENRICHMENT] Should continue developing: ${result.shouldContinueDeveloping}`);
-      
+
       return {
         enrichedContent: result.enrichedContent || article.content,
         updateSummary: result.updateSummary || 'Added context and background',
@@ -88,7 +88,7 @@ Add context, background, and depth to make this story more comprehensive. If it'
       };
     } catch (error) {
       console.error('[ENRICHMENT] Error enriching story:', error);
-      
+
       // Fallback: return original content
       return {
         enrichedContent: article.content,
@@ -97,7 +97,7 @@ Add context, background, and depth to make this story more comprehensive. If it'
       };
     }
   }
-  
+
   /**
    * Find articles ready for enrichment
    * - Developing stories

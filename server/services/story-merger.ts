@@ -12,7 +12,7 @@ interface MergedStory {
 }
 
 export class StoryMergerService {
-  
+
   /**
    * Merge multiple duplicate articles into one comprehensive story
    */
@@ -20,7 +20,7 @@ export class StoryMergerService {
     if (stories.length === 0) {
       throw new Error('Cannot merge zero stories');
     }
-    
+
     if (stories.length === 1) {
       // Single story, just return it
       return {
@@ -31,9 +31,9 @@ export class StoryMergerService {
         combinedDetails: 'No merge required - single story'
       };
     }
-    
+
     console.log(`[STORY MERGER] Merging ${stories.length} duplicate stories using GPT-4...`);
-    
+
     try {
       const systemPrompt = `You are a news editor combining multiple reports about the SAME incident into one comprehensive article.
 
@@ -62,15 +62,15 @@ Title: ${story.originalTitle || story.title}
 Content: ${(story.originalContent || story.content).substring(0, 1500)}
 `;
       }).join('\n\n');
-      
+
       const userPrompt = `Merge these ${stories.length} reports about the same incident into one comprehensive article:
 
 ${storiesText}
 
 Create a single, complete article that includes all unique details from each report.`;
-      
+
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -84,13 +84,13 @@ Create a single, complete article that includes all unique details from each rep
         response_format: { type: 'json_object' },
         temperature: 0.4,
       });
-      
+
       const result = JSON.parse(response.choices[0].message.content || '{}');
-      
+
       console.log(`[STORY MERGER] Successfully merged stories into: "${result.title}"`);
       console.log(`[STORY MERGER] Combined details: ${result.combinedDetails}`);
       console.log(`[STORY MERGER] Developing status: ${result.isDeveloping}`);
-      
+
       return {
         title: result.title || stories[0].title,
         content: result.content || stories[0].content,
@@ -100,12 +100,12 @@ Create a single, complete article that includes all unique details from each rep
       };
     } catch (error) {
       console.error('[STORY MERGER] Error merging stories:', error);
-      
+
       // Fallback: return the most recent/detailed story
-      const fallback = stories.sort((a, b) => 
+      const fallback = stories.sort((a, b) =>
         b.content.length - a.content.length
       )[0];
-      
+
       return {
         title: fallback.title,
         content: fallback.content,
@@ -115,7 +115,7 @@ Create a single, complete article that includes all unique details from each rep
       };
     }
   }
-  
+
   /**
    * Helper to calculate time ago from a date
    */
@@ -123,13 +123,13 @@ Create a single, complete article that includes all unique details from each rep
     const now = new Date();
     const diffMs = now.getTime() - new Date(date).getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return 'just now';
     if (diffMins < 60) return `${diffMins}m ago`;
-    
+
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
   }

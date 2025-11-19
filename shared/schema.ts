@@ -41,6 +41,7 @@ export const articles = pgTable("articles", {
   translatedBy: text("translated_by").default("openai"),
   embedding: real("embedding").array(),
   facebookPostId: text("facebook_post_id").unique(), // OUR Facebook page post ID (set after posting)
+  facebookHeadline: text("facebook_headline"), // High-CTR headline for social media
   facebookPostUrl: text("facebook_post_url"), // OUR Facebook page post URL
   sourceFacebookPostId: text("source_facebook_post_id").unique(), // Original source post ID (for duplicate detection)
   instagramPostId: text("instagram_post_id"), // OUR Instagram post ID (set after posting)

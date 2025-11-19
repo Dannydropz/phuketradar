@@ -16,7 +16,7 @@ interface FacebookCommentResponse {
 
 function generateHashtags(category: string): string {
   const baseHashtag = "#Phuket";
-  
+
   const categoryHashtags: Record<string, string[]> = {
     "Breaking": ["#PhuketNews", "#ThailandNews", "#BreakingNews"],
     "Tourism": ["#PhuketTourism", "#ThailandTravel", "#VisitPhuket"],
@@ -34,26 +34,26 @@ function getArticleUrl(article: Article): string {
   const baseUrl = process.env.NODE_ENV === "development" && process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : "https://phuketradar.com";
-  
+
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   return `${baseUrl}${articlePath}`;
 }
 
 export async function postArticleToFacebook(
-  article: Article, 
+  article: Article,
   storage: IStorage
 ): Promise<{ status: 'posted' | 'already-posted'; postId: string; postUrl: string } | null> {
-  
+
   // CRITICAL: Disable all Facebook posting in development environment
   if (process.env.NODE_ENV === "development") {
     console.log(`🚫 [FB-POST] Facebook posting DISABLED in development environment`);
     console.log(`📘 [FB-POST] Article: ${article.title.substring(0, 60)}... (would post in production)`);
     return null;
   }
-  
+
   console.log(`📘 [FB-POST] Starting Facebook post attempt for article: ${article.title.substring(0, 60)}...`);
   console.log(`📘 [FB-POST] Article ID: ${article.id}`);
-  
+
   if (!FB_PAGE_ACCESS_TOKEN) {
     console.error("❌ [FB-POST] FB_PAGE_ACCESS_TOKEN not configured");
     return null;
@@ -61,25 +61,25 @@ export async function postArticleToFacebook(
 
   // Get the primary image URL (prefer imageUrl, fallback to first imageUrls)
   const primaryImageUrl = article.imageUrl || (article.imageUrls && article.imageUrls[0]);
-  
+
   if (!primaryImageUrl) {
     console.error(`❌ [FB-POST] Article ${article.id} has no image, skipping Facebook post`);
     return null;
   }
-  
+
   console.log(`📘 [FB-POST] Using image: ${primaryImageUrl}`);
 
   // STEP 1: CLAIM - Acquire exclusive lock before making external API call
   // Generate unique lock token for this posting attempt
   const lockToken = `${article.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   console.log(`🔒 [FB-POST] Attempting to claim article for posting (lockToken: ${lockToken.substring(0, 40)}...)...`);
-  
+
   const claimed = await storage.claimArticleForFacebookPosting(article.id, lockToken);
-  
+
   if (!claimed) {
     // Another process already claimed or posted this article
     console.log(`⏭️  [FB-POST] Could not claim article - already posted or being posted by another process`);
-    
+
     // Reload to get current state
     const freshArticle = await storage.getArticleById(article.id);
     if (freshArticle?.facebookPostId && !freshArticle.facebookPostId.startsWith('LOCK:')) {
@@ -91,20 +91,21 @@ export async function postArticleToFacebook(
         postUrl: freshArticle.facebookPostUrl || `https://www.facebook.com/${freshArticle.facebookPostId.replace('_', '/posts/')}`,
       };
     }
-    
+
     console.log(`⚠️  [FB-POST] Article is locked by another process - skipping`);
     return null;
   }
-  
+
   console.log(`✅ [FB-POST] Successfully claimed article - proceeding with Facebook API call...`);
 
   try {
     const hashtags = generateHashtags(article.category);
     const articleUrl = getArticleUrl(article);
-    
+
     // STEP 2: POST - Make the external API call (we hold the lock)
-    // Post message: title + excerpt + CTA + hashtags
-    const postMessage = `${article.title}\n\n${article.excerpt}\n\nWant the full story? Click the link in the first comment below...\n\n${hashtags}`;
+    // Post message: title (or FB headline) + excerpt + CTA + hashtags
+    const headline = article.facebookHeadline || article.title;
+    const postMessage = `${headline}\n\n${article.excerpt}\n\nWant the full story? Click the link in the first comment below...\n\n${hashtags}`;
 
     console.log(`📘 [FB-POST] Posting to Facebook API...`);
     console.log(`📘 [FB-POST] Page ID: ${FB_PAGE_ID}`);
@@ -113,22 +114,22 @@ export async function postArticleToFacebook(
     let postId: string;
 
     // Check if article has multiple images
-    const imageUrls = article.imageUrls && article.imageUrls.length > 0 
-      ? article.imageUrls 
+    const imageUrls = article.imageUrls && article.imageUrls.length > 0
+      ? article.imageUrls
       : (article.imageUrl ? [article.imageUrl] : []);
-    
+
     if (imageUrls.length > 1) {
       // MULTI-IMAGE POST: Upload photos unpublished, then create grid post
       console.log(`📘 [FB-POST] Creating multi-image grid post with ${imageUrls.length} images...`);
-      
+
       const photoIds: string[] = [];
       const successfulImageUrls: string[] = []; // Track which image URLs uploaded successfully
-      
+
       // Step 2a: Upload each photo with published=false
       for (let i = 0; i < imageUrls.length; i++) {
         const imageUrl = imageUrls[i];
         console.log(`📘 [FB-POST] Uploading image ${i + 1}/${imageUrls.length}: ${imageUrl}`);
-        
+
         // CRITICAL FIX: Access token MUST be in URL query param for unpublished uploads
         // This ensures Facebook recognizes the request is being made as the page itself
         const uploadResponse = await fetch(
@@ -159,7 +160,7 @@ export async function postArticleToFacebook(
       }
 
       // Determine best fallback image URL: use a successfully uploaded image if available
-      const fallbackImageUrl = successfulImageUrls.length > 0 
+      const fallbackImageUrl = successfulImageUrls.length > 0
         ? successfulImageUrls[0]  // Use first successfully uploaded image
         : primaryImageUrl;         // Fallback to primary if all uploads failed
 
@@ -170,11 +171,11 @@ export async function postArticleToFacebook(
       } else if (photoIds.length === 1) {
         console.warn("⚠️  [FB-POST] Only 1 image uploaded successfully, falling back to single-image post");
       }
-      
+
       if (photoIds.length <= 1) {
         // FALLBACK: Use single-image posting with a known-good image URL
         console.log(`📘 [FB-POST] Falling back to single-image post: ${fallbackImageUrl}`);
-        
+
         const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos?access_token=${FB_PAGE_ACCESS_TOKEN}`, {
           method: "POST",
           headers: {
@@ -191,7 +192,7 @@ export async function postArticleToFacebook(
           console.error("❌ [FB-POST] Fallback single-image post also failed:");
           console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
           console.error(`❌ [FB-POST] Response:`, JSON.stringify(errorData, null, 2));
-          
+
           await storage.releaseFacebookPostLock(article.id, lockToken);
           return null;
         }
@@ -199,7 +200,7 @@ export async function postArticleToFacebook(
         const photoData = await photoResponse.json() as FacebookPostResponse;
         postId = photoData.post_id || photoData.id;
         console.log(`✅ [FB-POST] Fallback single-image post succeeded, ID: ${postId}`);
-        
+
       } else {
         // MULTI-IMAGE: Create feed post with attached_media
         console.log(`✅ [FB-POST] Successfully uploaded ${photoIds.length} photos, creating grid post...`);
@@ -226,10 +227,10 @@ export async function postArticleToFacebook(
           console.error("❌ [FB-POST] Multi-image feed post failed, falling back to single-image:");
           console.error(`❌ [FB-POST] Status: ${feedResponse.status}`);
           console.error(`❌ [FB-POST] Response:`, JSON.stringify(errorData, null, 2));
-          
+
           // FALLBACK: Try single-image posting with a known-good image URL
           console.log(`📘 [FB-POST] Attempting fallback to single-image post with: ${fallbackImageUrl}`);
-          
+
           const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos?access_token=${FB_PAGE_ACCESS_TOKEN}`, {
             method: "POST",
             headers: {
@@ -246,7 +247,7 @@ export async function postArticleToFacebook(
             console.error("❌ [FB-POST] Fallback single-image post also failed:");
             console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
             console.error(`❌ [FB-POST] Response:`, JSON.stringify(fallbackErrorData, null, 2));
-            
+
             await storage.releaseFacebookPostLock(article.id, lockToken);
             return null;
           }
@@ -254,18 +255,18 @@ export async function postArticleToFacebook(
           const photoData = await photoResponse.json() as FacebookPostResponse;
           postId = photoData.post_id || photoData.id;
           console.log(`✅ [FB-POST] Fallback single-image post succeeded, ID: ${postId}`);
-          
+
         } else {
           const feedData = await feedResponse.json() as FacebookPostResponse;
           postId = feedData.id;
           console.log(`✅ [FB-POST] Created multi-image grid post, ID: ${postId}`);
         }
       }
-      
+
     } else {
       // SINGLE IMAGE POST: Use simple photo upload
       console.log(`📘 [FB-POST] Creating single-image post: ${primaryImageUrl}`);
-      
+
       const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${FB_PAGE_ID}/photos?access_token=${FB_PAGE_ACCESS_TOKEN}`, {
         method: "POST",
         headers: {
@@ -282,7 +283,7 @@ export async function postArticleToFacebook(
         console.error("❌ [FB-POST] Facebook photo post failed:");
         console.error(`❌ [FB-POST] Status: ${photoResponse.status}`);
         console.error(`❌ [FB-POST] Response:`, JSON.stringify(errorData, null, 2));
-        
+
         await storage.releaseFacebookPostLock(article.id, lockToken);
         return null;
       }
@@ -291,7 +292,7 @@ export async function postArticleToFacebook(
       postId = photoData.post_id || photoData.id;
       console.log(`✅ [FB-POST] Created single-image photo post, ID: ${postId}`);
     }
-    
+
     console.log(`✅ [FB-POST] Posted to Facebook successfully!`);
     console.log(`✅ [FB-POST] Post ID: ${postId}`);
 
@@ -310,7 +311,7 @@ export async function postArticleToFacebook(
     if (commentResponse.ok) {
       const commentData = await commentResponse.json() as FacebookCommentResponse;
       console.log(`✅ [FB-POST] Added comment to post: ${commentData.id}`);
-      
+
       // Pin the comment so it stays at the top
       const pinResponse = await fetch(`https://graph.facebook.com/v18.0/${commentData.id}?is_pinned=true&access_token=${FB_PAGE_ACCESS_TOKEN}`, {
         method: "POST",
@@ -334,11 +335,11 @@ export async function postArticleToFacebook(
     console.log(`✅ [FB-POST] Facebook API call successful!`);
     console.log(`📘 [FB-POST] Post ID: ${postId}`);
     console.log(`📘 [FB-POST] Post URL: ${postUrl}`);
-    
+
     // STEP 3: FINALIZE - Update database with real post ID (only if we still hold the lock)
     console.log(`💾 [FB-POST] Finalizing database with real post ID...`);
     const finalized = await storage.finalizeArticleFacebookPost(article.id, lockToken, postId, postUrl);
-    
+
     if (finalized) {
       console.log(`✅ [FB-POST] Successfully finalized post in database (status: posted)`);
       console.log(`✅ [FB-POST] Completed Facebook posting for article ${article.id}`);
@@ -351,23 +352,23 @@ export async function postArticleToFacebook(
       // This should never happen, but handle gracefully
       console.error(`⚠️  [FB-POST] Failed to finalize - lock was lost or stolen`);
       console.error(`⚠️  [FB-POST] This indicates a critical error in the locking mechanism`);
-      
+
       // Release our lock attempt
       await storage.releaseFacebookPostLock(article.id, lockToken);
-      
+
       // Note: Facebook post remains orphaned on Facebook
       // In production, could attempt to delete it via Graph API here
       console.warn(`⚠️  [FB-POST] Orphaned Facebook post created: ${postId}`);
-      
+
       return null;
     }
   } catch (error) {
     console.error("❌ [FB-POST] Error during Facebook posting:", error);
-    
+
     // Release lock on error to allow retry
     console.log(`🔓 [FB-POST] Releasing lock due to error...`);
     await storage.releaseFacebookPostLock(article.id, lockToken);
-    
+
     return null;
   }
 }

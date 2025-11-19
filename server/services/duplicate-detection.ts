@@ -19,7 +19,7 @@ interface Entity {
 }
 
 export class DuplicateDetectionService {
-  
+
   /**
    * Main duplicate detection method - uses multi-layer approach
    */
@@ -32,43 +32,115 @@ export class DuplicateDetectionService {
     publishedAt?: Date;
   }): Promise<DetectionResult[]> {
     console.log('[DUPLICATE DETECTION] Starting multi-layer detection...');
-    
+
     // Layer 1: Embedding similarity (fast)
     const embeddingMatches = await this.findByEmbedding(article.embedding);
     console.log(`[DUPLICATE DETECTION] Embedding layer found ${embeddingMatches.length} potential matches`);
-    
+
     if (embeddingMatches.length === 0) {
       return [];
     }
-    
+
     // Layer 2: Entity matching (filter)
     const entityMatches = await this.filterByEntities(article, embeddingMatches);
     console.log(`[DUPLICATE DETECTION] Entity layer filtered to ${entityMatches.length} candidates`);
-    
+
     if (entityMatches.length === 0) {
       return [];
     }
-    
+
     // Layer 3: GPT-4 verification (precise)
     const verifiedMatches = await this.verifyWithGPT4(article, entityMatches);
     console.log(`[DUPLICATE DETECTION] GPT-4 verification confirmed ${verifiedMatches.length} duplicates`);
-    
+
     return verifiedMatches;
   }
-  
+
+  /**
+   * Find related stories that might be updates (broader than duplicates)
+   * Used by the enrichment coordinator to merge developing stories
+   */
+  async findRelatedStories(article: Article): Promise<Article[]> {
+    console.log(`[RELATED STORY SEARCH] Looking for updates/related stories for: "${article.title}"`);
+
+    // 1. Find candidates with similar embeddings (broader threshold)
+    const candidates = await this.findByEmbedding(article.embedding, 0.35); // Lower threshold for related stories
+
+    if (candidates.length === 0) return [];
+
+    // 2. Filter by entities (must share location or event type)
+    const entityMatches = await this.filterByEntities({
+      title: article.title,
+      content: article.content,
+      originalTitle: article.originalTitle || undefined,
+      originalContent: article.originalContent || undefined
+    }, candidates);
+
+    if (entityMatches.length === 0) return [];
+
+    // 3. Use GPT-4 to check if they are related/updates
+    const relatedStories: Article[] = [];
+
+    for (const candidate of entityMatches) {
+      // Skip self
+      if (candidate.id === article.id) continue;
+
+      try {
+        const isRelated = await this.checkIfRelated(article, candidate);
+        if (isRelated) {
+          relatedStories.push(candidate);
+        }
+      } catch (error) {
+        console.error(`[RELATED STORY SEARCH] Error checking relation:`, error);
+      }
+    }
+
+    console.log(`[RELATED STORY SEARCH] Found ${relatedStories.length} related stories`);
+    return relatedStories;
+  }
+
+  /**
+   * Check if two articles are related (updates of each other)
+   */
+  private async checkIfRelated(article1: Article, article2: Article): Promise<boolean> {
+    const systemPrompt = `You are a news editor determining if two articles are about the SAME evolving event.
+    
+    They are related if:
+    - They describe the same event (e.g. "Landslide in Patong")
+    - One is an update to the other
+    - They cover different aspects of the same specific incident
+    
+    Return JSON: { "isRelated": true/false, "reason": "..." }`;
+
+    const userPrompt = `Article 1: "${article1.title}"\n${article1.content.substring(0, 500)}\n\nArticle 2: "${article2.title}"\n${article2.content.substring(0, 500)}`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+    return result.isRelated === true;
+  }
+
   /**
    * Layer 1: Find articles with similar embeddings
    */
-  private async findByEmbedding(embedding?: number[]): Promise<Article[]> {
+  private async findByEmbedding(embedding?: number[] | null, threshold = 0.4): Promise<Article[]> {
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');
       return [];
     }
-    
+
     try {
       // Find articles from the last 24 hours with similar embeddings
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      
+
       // Use cosine similarity with a lower threshold (0.4 instead of 0.5)
       // to catch more potential matches for GPT verification
       const embeddingStr = `[${embedding.join(',')}]`;
@@ -79,18 +151,18 @@ export class DuplicateDetectionService {
         WHERE embedding IS NOT NULL
           AND published_at >= ${twentyFourHoursAgo}
           AND merged_into_id IS NULL
-          AND 1 - (embedding <=> ${embeddingStr}::vector) >= 0.4
+          AND 1 - (embedding <=> ${embeddingStr}::vector) >= ${threshold}
         ORDER BY similarity DESC
         LIMIT 10
       `);
-      
+
       return similarArticles.rows as Article[];
     } catch (error) {
       console.error('[DUPLICATE DETECTION] Error in embedding search:', error);
       return [];
     }
   }
-  
+
   /**
    * Layer 2: Extract entities and filter by matching location/time
    */
@@ -101,43 +173,43 @@ export class DuplicateDetectionService {
     try {
       // Extract entities from the new article
       const entities = await this.extractEntities(article.originalTitle || article.title, article.originalContent || article.content);
-      
+
       if (entities.length === 0) {
         // If we can't extract entities, fall back to all candidates
         return candidates;
       }
-      
+
       // Filter candidates that share key entities (especially locations)
       const filtered = candidates.filter(candidate => {
         const candidateText = `${candidate.originalTitle || candidate.title} ${candidate.originalContent || candidate.content}`;
-        
+
         // Check if candidate contains any of the extracted locations
         const locationEntities = entities.filter(e => e.type === 'location');
         if (locationEntities.length > 0) {
-          const hasMatchingLocation = locationEntities.some(entity => 
+          const hasMatchingLocation = locationEntities.some(entity =>
             candidateText.toLowerCase().includes(entity.value.toLowerCase())
           );
           if (hasMatchingLocation) {
             return true;
           }
         }
-        
+
         // Check for event/person matches
         const eventEntities = entities.filter(e => e.type === 'event' || e.type === 'person');
         if (eventEntities.length > 0) {
           const matchCount = eventEntities.filter(entity =>
             candidateText.toLowerCase().includes(entity.value.toLowerCase())
           ).length;
-          
+
           // If at least 30% of entities match, consider it
           if (matchCount / eventEntities.length >= 0.3) {
             return true;
           }
         }
-        
+
         return false;
       });
-      
+
       // If filtering is too aggressive and we have no matches, return top candidates
       return filtered.length > 0 ? filtered : candidates.slice(0, 5);
     } catch (error) {
@@ -145,16 +217,16 @@ export class DuplicateDetectionService {
       return candidates;
     }
   }
-  
+
   /**
    * Extract key entities from text using GPT-4
    */
   private async extractEntities(title: string, content: string): Promise<Entity[]> {
     try {
       const text = title + "\n\n" + content.substring(0, 500);
-      
+
       const systemPrompt = 'Extract key entities from this Thai news article. Return a JSON array of entities with type (location, person, organization, event) and value. Focus on specific locations (beaches, roads, districts), event types (accident, rescue, drowning), and key people/organizations.';
-      
+
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -170,7 +242,7 @@ export class DuplicateDetectionService {
         response_format: { type: 'json_object' },
         temperature: 0.3,
       });
-      
+
       const result = JSON.parse(response.choices[0].message.content || '{"entities":[]}');
       return result.entities || [];
     } catch (error) {
@@ -178,7 +250,7 @@ export class DuplicateDetectionService {
       return [];
     }
   }
-  
+
   /**
    * Layer 3: Use GPT-4 to verify if articles are about the same incident
    */
@@ -187,7 +259,7 @@ export class DuplicateDetectionService {
     candidates: Article[]
   ): Promise<DetectionResult[]> {
     const results: DetectionResult[] = [];
-    
+
     for (const candidate of candidates) {
       try {
         const systemPrompt = `You are analyzing if two news articles report on the SAME incident or event. 
@@ -212,7 +284,7 @@ Return JSON with:
         const article1Content = (article.originalContent || article.content).substring(0, 800);
         const article2Title = candidate.originalTitle || candidate.title;
         const article2Content = (candidate.originalContent || candidate.content).substring(0, 800);
-        
+
         const userPrompt = `Article 1 (NEW):
 Title: ${article1Title}
 Content: ${article1Content}
@@ -222,9 +294,9 @@ Title: ${article2Title}
 Content: ${article2Content}
 
 Are these about the same incident?`;
-        
+
         const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           messages: [
             {
               role: 'system',
@@ -238,9 +310,9 @@ Are these about the same incident?`;
           response_format: { type: 'json_object' },
           temperature: 0.2,
         });
-        
+
         const result = JSON.parse(response.choices[0].message.content || '{}');
-        
+
         if (result.isSameIncident && result.confidence >= 70) {
           results.push({
             isDuplicate: true,
@@ -253,7 +325,7 @@ Are these about the same incident?`;
         console.error('[DUPLICATE DETECTION] Error in GPT-4 verification:', error);
       }
     }
-    
+
     return results;
   }
 }
