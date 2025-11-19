@@ -1,11 +1,11 @@
 export const CATEGORY_TO_DB = {
-  local: ["Breaking", "Info", "Other", "Events"],
+  local: ["Breaking", "Info", "Other", "Events", "Local", "other"],
   tourism: ["Tourism"],
-  economy: ["Business"],
+  economy: ["Business", "Economy"],
   weather: ["Weather"],
-  crime: ["Breaking"],
-  politics: ["Breaking"],
-  traffic: ["Breaking"],
+  crime: ["Breaking", "Crime"],
+  politics: ["Breaking", "Politics"],
+  traffic: ["Breaking", "Traffic"],
 } as const;
 
 export const DB_TO_CATEGORY: Record<string, string> = {

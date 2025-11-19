@@ -101,13 +101,13 @@ app.get('/article/:slugOrId', async (req, res, next) => {
     const { slugOrId } = req.params;
     const { resolveFrontendCategory } = await import('@shared/category-map');
     const { storage } = await import('./storage');
-    
+
     // Look up article to get its category
     let article = await storage.getArticleBySlug(slugOrId);
     if (!article) {
       article = await storage.getArticleById(slugOrId);
     }
-    
+
     if (article) {
       const frontendCategory = resolveFrontendCategory(article.category);
       const slug = article.slug || article.id;
@@ -150,7 +150,6 @@ app.get('/article/:slugOrId', async (req, res, next) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });

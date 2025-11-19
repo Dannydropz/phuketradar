@@ -10,6 +10,39 @@ Phuket Radar is a news aggregation platform for Phuket's international community
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Environment Variables
+
+Required `.env` variables:
+
+```bash
+# Database
+DATABASE_URL=postgresql://...
+
+# OpenAI API
+OPENAI_API_KEY=sk-...
+
+# Admin Password
+ADMIN_PASSWORD=...
+
+# Session Secret
+SESSION_SECRET=...
+
+# Facebook Page Access Token (for posting articles)
+FB_PAGE_ACCESS_TOKEN=...
+
+# Cron API Key (for scheduled scraping via GitHub Actions)
+CRON_API_KEY=...
+
+# Scraping Provider: 'scrapecreators' (single image) or 'apify' (multi-image support)
+SCRAPER_PROVIDER=apify
+
+# ScrapeCreators API (single image scraping)
+SCRAPECREATORS_API_KEY=...
+
+# Apify API (multi-image scraping)
+APIFY_API_KEY=...
+```
+
 ## System Architecture
 
 ### Frontend
