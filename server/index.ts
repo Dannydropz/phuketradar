@@ -11,6 +11,11 @@ const app = express();
 // Trust proxy for secure cookies behind HTTPS proxies (Replit, etc.)
 app.set('trust proxy', 1);
 
+// Health check endpoint (before any middleware/DB checks)
+app.get('/health', (_req, res) => {
+  res.status(200).send('OK');
+});
+
 // Serve static files from attached_assets folder at /assets route
 app.use('/assets', express.static(path.join(process.cwd(), 'attached_assets')));
 
@@ -29,7 +34,7 @@ if (!process.env.DATABASE_URL) {
 const PgSession = connectPgSimple(session);
 const sessionStore = new PgSession({
   conString: process.env.DATABASE_URL,
-  createTableIfMissing: true,
+  createTableIfMissing: false, // Prevent startup DB query - table should exist
 });
 
 // Session middleware for admin authentication
