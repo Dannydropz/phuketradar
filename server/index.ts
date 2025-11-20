@@ -132,14 +132,18 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 (async () => {
   // Ensure database schema is up to date before starting server
   // This bypasses Replit's broken migration detection
-  try {
-    log("🔧 [SCHEMA] Ensuring database schema is up to date...");
-    await db.execute(sql`ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;`);
-    log("✅ [SCHEMA] Database schema verified");
-  } catch (error) {
-    log("❌ [SCHEMA] Error ensuring schema:");
-    console.error(error);
-    // Don't throw - let the server start anyway
+  if (process.env.SKIP_SCHEMA_CHECK !== 'true') {
+    try {
+      log("🔧 [SCHEMA] Ensuring database schema is up to date...");
+      await db.execute(sql`ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;`);
+      log("✅ [SCHEMA] Database schema verified");
+    } catch (error) {
+      log("❌ [SCHEMA] Error ensuring schema:");
+      console.error(error);
+      // Don't throw - let the server start anyway
+    }
+  } else {
+    log("⏭️  [SCHEMA] Schema check skipped (SKIP_SCHEMA_CHECK=true)");
   }
 
   const server = await registerRoutes(app);
