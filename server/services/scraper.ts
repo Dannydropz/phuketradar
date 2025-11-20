@@ -76,29 +76,29 @@ export class ScraperService {
       if (apiId && /^\d+$/.test(apiId)) {
         return apiId;
       }
-      
+
       // Step 2: Look for numeric ID in URL
       const numericMatch = url.match(/\/posts\/(\d+)/);
       if (numericMatch) {
         return numericMatch[1];
       }
-      
+
       // Step 3: If API id is pfbid, use it (we couldn't find numeric)
       if (apiId && apiId.startsWith('pfbid')) {
         return apiId;
       }
-      
+
       // Step 4: Extract pfbid from URL as last resort
       const pfbidMatch = url.match(/\/posts\/(pfbid[\w]+)/);
       if (pfbidMatch) {
         return pfbidMatch[1];
       }
-      
+
       // Step 5: Use any apiId we have
       if (apiId) {
         return apiId;
       }
-      
+
       // No ID found
       return null;
     } catch (error) {
@@ -119,13 +119,13 @@ export class ScraperService {
       if (postId) {
         return `https://www.facebook.com/posts/${postId}`;
       }
-      
+
       // Fallback: try to extract from URL if no ID provided
       const postIdMatch = fallbackUrl.match(/\/posts\/([^/?]+)/);
       if (postIdMatch) {
         return `https://www.facebook.com/posts/${postIdMatch[1]}`;
       }
-      
+
       // Last resort: return original URL
       return fallbackUrl;
     } catch (error) {
@@ -141,7 +141,7 @@ export class ScraperService {
       }
 
       console.log(`Scraping Facebook page: ${pageUrl}`);
-      
+
       // Fetch posts from scrapecreators API
       const response = await fetch(`${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`, {
         headers: {
@@ -156,14 +156,14 @@ export class ScraperService {
       }
 
       const data: ScrapeCreatorsResponse = await response.json();
-      
+
       console.log(`ScrapeCreators returned ${data.posts?.length || 0} posts`);
-      
+
       // Log first post structure to understand the API response
       if (data.posts && data.posts.length > 0) {
         console.log("\n📋 FIRST POST STRUCTURE FROM API:");
         console.log(JSON.stringify(data.posts[0], null, 2));
-        
+
         // Log attachment structure if it exists
         if (data.posts[0].attachments?.data) {
           console.log("\n📎 ATTACHMENTS STRUCTURE:");
@@ -171,7 +171,7 @@ export class ScraperService {
         }
         console.log("\n");
       }
-      
+
       if (!data.success || !data.posts || data.posts.length === 0) {
         console.log("No posts found in response");
         return [];
@@ -179,7 +179,7 @@ export class ScraperService {
 
       const scrapedPosts = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
       console.log(`Successfully parsed ${scrapedPosts.length} posts`);
-      
+
       return scrapedPosts;
     } catch (error) {
       console.error("Error scraping Facebook page:", error);
@@ -202,7 +202,7 @@ export class ScraperService {
         // Extract canonical Facebook post ID for deduplication
         const rawSourceUrl = post.permalink || post.url || sourceUrl;
         const facebookPostId = this.extractFacebookPostId(rawSourceUrl, post.id);
-        
+
         // Skip if we've already seen this post ID in this batch
         if (facebookPostId && seenUrls.has(facebookPostId)) {
           console.log(`⏭️  Skipping duplicate post ID in batch: ${facebookPostId}`);
@@ -225,7 +225,7 @@ export class ScraperService {
         // Extract ALL image URLs from the post
         const imageUrls: string[] = [];
         let imageUrl: string | undefined;
-        
+
         // PRIORITY 1: Use the new 'images' array field (multi-image carousel support)
         if (post.images && Array.isArray(post.images) && post.images.length > 0) {
           // ScrapeCreators now provides ALL images in the 'images' array
@@ -237,12 +237,12 @@ export class ScraperService {
           if (post.image) {
             imageUrls.push(post.image);
           }
-          
+
           // Try full_picture (alternative field)
           if (post.full_picture && post.full_picture !== post.image) {
             imageUrls.push(post.full_picture);
           }
-          
+
           // Try attachments for additional images (old method)
           if (post.attachments?.data) {
             for (const attachment of post.attachments.data) {
@@ -254,7 +254,7 @@ export class ScraperService {
               else if (attachment.url && (attachment.type === 'photo' || attachment.media_type === 'photo') && !imageUrls.includes(attachment.url)) {
                 imageUrls.push(attachment.url);
               }
-              
+
               // Try ALL subattachments (for multi-image posts)
               if (attachment.subattachments?.data) {
                 for (const subattachment of attachment.subattachments.data) {
@@ -266,10 +266,10 @@ export class ScraperService {
             }
           }
         }
-        
+
         // Set the first image as primary imageUrl for backward compatibility
         imageUrl = imageUrls[0];
-        
+
         // Log multi-image posts for debugging
         if (imageUrls.length > 1) {
           console.log(`\n📸 MULTI-IMAGE POST DETECTED!`);
@@ -306,7 +306,7 @@ export class ScraperService {
 
   // Method to fetch multiple pages of posts using cursor pagination
   async scrapeFacebookPageWithPagination(
-    pageUrl: string, 
+    pageUrl: string,
     maxPages: number = 3,
     checkForDuplicate?: (sourceUrl: string) => Promise<boolean>
   ): Promise<ScrapedPost[]> {
@@ -323,7 +323,7 @@ export class ScraperService {
       const REQUIRED_CONSECUTIVE_DUPLICATES = 5; // Need 5+ consecutive duplicates to early-stop
 
       while (pageCount < maxPages && !shouldStop) {
-        const url = cursor 
+        const url = cursor
           ? `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}&cursor=${cursor}`
           : `${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`;
 
@@ -346,13 +346,13 @@ export class ScraperService {
         if (pageCount === 0 && data.posts && data.posts.length > 0) {
           console.log("\n📋 FIRST POST STRUCTURE FROM API:");
           console.log(JSON.stringify(data.posts[0], null, 2));
-          
+
           // Log attachment structure if it exists
           if (data.posts[0].attachments?.data) {
             console.log("\n📎 ATTACHMENTS STRUCTURE:");
             console.log(JSON.stringify(data.posts[0].attachments, null, 2));
           }
-          
+
           // Log timestamps to debug recent post capture
           console.log("\n⏰ POST TIMESTAMPS ON PAGE 1:");
           const now = new Date();
@@ -377,7 +377,7 @@ export class ScraperService {
         const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
         let newPostsOnThisPage = 0;
         let duplicatesOnThisPage = 0;
-        
+
         // If duplicate checker is provided, track consecutive duplicates
         if (checkForDuplicate) {
           for (const post of parsed) {
@@ -385,7 +385,7 @@ export class ScraperService {
             if (isDuplicate) {
               consecutiveDuplicates++;
               duplicatesOnThisPage++;
-              
+
               // CRITICAL: Never early-stop on page 1 (ensures we always get latest posts)
               // On later pages, require 5+ consecutive duplicates before stopping
               if (pageCount > 0 && consecutiveDuplicates >= REQUIRED_CONSECUTIVE_DUPLICATES) {
@@ -394,7 +394,7 @@ export class ScraperService {
                 console.log(`   Consecutive duplicates: ${consecutiveDuplicates}`);
                 console.log(`   Last duplicate: "${post.title.substring(0, 50)}..."`);
                 console.log(`   Stopping pagination to save API credits\n`);
-                
+
                 // Set flag to stop pagination after this page
                 shouldStop = true;
                 break;
@@ -453,14 +453,16 @@ export async function getScraperService(): Promise<{
     checkForDuplicate?: (sourceUrl: string) => Promise<boolean>
   ) => Promise<ScrapedPost[]>;
 }> {
-  const provider = process.env.SCRAPER_PROVIDER || (process.env.APIFY_API_KEY ? 'apify' : 'scrapecreators');
-  
+  const provider = process.env.SCRAPER_PROVIDER ||
+    (process.env.SCRAPECREATORS_API_KEY ? 'scrapecreators' :
+      (process.env.APIFY_API_KEY ? 'apify' : 'scrapecreators'));
+
   if (provider === 'apify' && process.env.APIFY_API_KEY) {
     console.log('🔄 Using Apify scraper (multi-image support enabled)');
     const { apifyScraperService } = await import('./apify-scraper');
     return apifyScraperService;
   }
-  
+
   console.log('🔄 Using ScrapeCreators scraper (single image only)');
   return scraperService;
 }
