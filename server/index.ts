@@ -131,19 +131,19 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 
 (async () => {
   // Ensure database schema is up to date before starting server
-  // This bypasses Replit's broken migration detection
-  if (process.env.SKIP_SCHEMA_CHECK !== 'true') {
-    try {
-      log("🔧 [SCHEMA] Ensuring database schema is up to date...");
-      await db.execute(sql`ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;`);
-      log("✅ [SCHEMA] Database schema verified");
-    } catch (error) {
-      log("❌ [SCHEMA] Error ensuring schema:");
-      console.error(error);
-      // Don't throw - let the server start anyway
-    }
-  } else {
-    log("⏭️  [SCHEMA] Schema check skipped (SKIP_SCHEMA_CHECK=true)");
+  // We always run this manual fix because Drizzle migration might be skipped
+  try {
+    log("🔧 [SCHEMA] Ensuring database schema is up to date...");
+    await db.execute(sql`ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;`);
+    log("✅ [SCHEMA] Database schema verified");
+  } catch (error) {
+    log("❌ [SCHEMA] Error ensuring schema:");
+    console.error(error);
+    // Don't throw - let the server start anyway
+  }
+
+  if (process.env.SKIP_SCHEMA_CHECK === 'true') {
+    log("⏭️  [SCHEMA] Drizzle schema check skipped (SKIP_SCHEMA_CHECK=true)");
   }
 
   const server = await registerRoutes(app);
