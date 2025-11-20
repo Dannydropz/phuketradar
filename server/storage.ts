@@ -190,7 +190,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        facebookHeadline: articles.facebookHeadline,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -237,7 +236,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        facebookHeadline: articles.facebookHeadline,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -591,7 +589,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        facebookHeadline: articles.facebookHeadline,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
