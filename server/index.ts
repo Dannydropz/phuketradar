@@ -5,6 +5,7 @@ import { neon } from "@neondatabase/serverless";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
+import { ensureSchema } from "../scripts/ensure-schema";
 
 const app = express();
 
@@ -128,6 +129,10 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 });
 
 (async () => {
+  // Ensure database schema is up to date before starting server
+  // This bypasses Replit's broken migration detection
+  await ensureSchema();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

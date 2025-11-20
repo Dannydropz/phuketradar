@@ -54,7 +54,7 @@ function requireCronAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   const providedKey = authHeader.replace(/^Bearer\s+/i, '');
-  
+
   if (providedKey === cronApiKey) {
     console.log(`[CRON AUTH] Valid API key - authorized`);
     return next();
@@ -66,7 +66,7 @@ function requireCronAuth(req: Request, res: Response, next: NextFunction) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Article routes
-  
+
   // Get all published articles
   app.get("/api/articles", async (req, res) => {
     try {
@@ -94,28 +94,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/articles/:slugOrId", async (req, res) => {
     try {
       const { slugOrId } = req.params;
-      
+
       // Try to find by slug first (preferred for SEO)
       let article = await storage.getArticleBySlug(slugOrId);
-      
+
       // Fall back to ID lookup if not found by slug
       if (!article) {
         article = await storage.getArticleById(slugOrId);
       }
-      
+
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
-      
+
       res.json(article);
     } catch (error) {
       console.error("Error fetching article:", error);
-      res.status(500).json({ error: "Failed to fetch article" });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to fetch article", details: errorMessage });
     }
   });
 
   // Journalist routes
-  
+
   // Get all journalists
   app.get("/api/journalists", async (req, res) => {
     try {
@@ -132,13 +133,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const journalist = await storage.getJournalistById(id);
-      
+
       if (!journalist) {
         return res.status(404).json({ error: "Journalist not found" });
       }
-      
+
       const articles = await storage.getArticlesByJournalistId(id);
-      
+
       res.json({
         ...journalist,
         articles
@@ -165,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import and run the scheduled scrape function directly
       const { runScheduledScrape } = await import("./scheduler");
       const { withSchedulerLock } = await import("./lib/scheduler-lock");
-      
+
       // Use database lock to prevent duplicate runs
       const result = await withSchedulerLock(
         runScheduledScrape,
@@ -221,12 +222,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🔄 Starting enrichment pass...");
       const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
       const coordinator = new StoryEnrichmentCoordinator();
-      
+
       const result = await coordinator.enrichDevelopingStories(storage);
 
       console.log("✅ Enrichment completed successfully");
       console.log("Result:", JSON.stringify(result, null, 2));
-      
+
       res.json({
         success: true,
         message: "Enrichment completed successfully",
@@ -318,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/articles", requireAdminAuth, async (req, res) => {
     try {
       const articleData = req.body;
-      
+
       // Generate slug from title if not provided
       if (!articleData.slug && articleData.title) {
         articleData.slug = articleData.title
@@ -326,15 +327,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, '');
       }
-      
+
       // Mark manually created articles
       articleData.isManuallyCreated = true;
-      
+
       // Set sourceUrl to our domain if not provided (since it's manually created)
       if (!articleData.sourceUrl) {
         articleData.sourceUrl = 'https://phuketradar.com';
       }
-      
+
       const article = await storage.createArticle(articleData);
       res.json(article);
     } catch (error) {
@@ -358,13 +359,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/categories", requireAdminAuth, async (req, res) => {
     try {
       const { name, color, icon } = req.body;
-      
+
       if (!name) {
         return res.status(400).json({ error: "Category name is required" });
       }
-      
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      
+
       const category = await storage.createCategory({
         name,
         slug,
@@ -372,7 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         icon: icon || null,
         isDefault: false,
       });
-      
+
       res.json(category);
     } catch (error) {
       console.error("Error creating category:", error);
@@ -401,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const existingCategories = await storage.getAllCategories();
       const existingSlugs = new Set(existingCategories.map(c => c.slug));
-      
+
       const created = [];
       for (const cat of defaultCategories) {
         if (!existingSlugs.has(cat.slug)) {
@@ -434,27 +435,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Trigger: MANUAL (Admin Dashboard)`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
     console.log("=".repeat(80) + "\n");
-    
+
     // Create job and respond immediately
     const job = scrapeJobManager.createJob();
     console.log(`Created scrape job: ${job.id}`);
-    
+
     res.json({
       success: true,
       jobId: job.id,
       message: "Scraping started in background",
     });
-    
+
     // Process in background (no await) - use the same runScheduledScrape function as automated scraping
     (async () => {
       try {
         scrapeJobManager.updateJob(job.id, { status: 'processing' });
-        
+
         console.log(`[Job ${job.id}] Starting scrape using runScheduledScrape() with job tracking`);
-        
+
         // Import and run the scheduled scrape function with progress callbacks
         const { runScheduledScrape } = await import("./scheduler");
-        
+
         const result = await runScheduledScrape({
           onProgress: (stats) => {
             scrapeJobManager.updateProgress(job.id, {
@@ -465,14 +466,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           },
         });
-        
+
         if (result) {
           console.log(`[Job ${job.id}] Scrape completed successfully`);
           console.log(`[Job ${job.id}] Total posts: ${result.totalPosts}`);
           console.log(`[Job ${job.id}] Articles created: ${result.articlesCreated}`);
           console.log(`[Job ${job.id}] Skipped (duplicates): ${result.skippedSemanticDuplicates}`);
           console.log(`[Job ${job.id}] Skipped (not news/text graphics): ${result.skippedNotNews}`);
-          
+
           scrapeJobManager.markCompleted(job.id);
         } else {
           console.error(`[Job ${job.id}] Scrape returned null result`);
@@ -491,11 +492,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const job = scrapeJobManager.getJob(id);
-      
+
       if (!job) {
         return res.status(404).json({ error: "Job not found" });
       }
-      
+
       res.json(job);
     } catch (error) {
       console.error("Error fetching job status:", error);
@@ -510,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
 
       const article = await storage.updateArticle(id, updates);
-      
+
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
@@ -527,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const success = await storage.deleteArticle(id);
-      
+
       if (!success) {
         return res.status(404).json({ error: "Article not found" });
       }
@@ -543,11 +544,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const article = await storage.updateArticle(id, { 
+      const article = await storage.updateArticle(id, {
         isPublished: true,
         facebookPostId: null // Clear any previous posting attempts so button appears
       });
-      
+
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
@@ -568,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const article = await storage.getArticleById(id);
-      
+
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
@@ -582,7 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const fbResult = await postArticleToFacebook(article, storage);
-      
+
       if (!fbResult) {
         return res.status(500).json({ error: "Failed to post to Facebook" });
       }
@@ -621,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const articleListItem of articlesToPost) {
         try {
           console.log(`📘 Posting: ${articleListItem.title.substring(0, 60)}...`);
-          
+
           // Fetch full article with content for Facebook posting
           const fullArticle = await storage.getArticleById(articleListItem.id);
           if (!fullArticle) {
@@ -629,9 +630,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             results.errors.push(`${articleListItem.title}: Article not found`);
             continue;
           }
-          
+
           const fbResult = await postArticleToFacebook(fullArticle, storage);
-          
+
           if (fbResult) {
             results.successful++;
             if (fbResult.status === 'posted') {
@@ -665,7 +666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const article = await storage.getArticleById(id);
-      
+
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
@@ -679,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const igResult = await postArticleToInstagram(article, storage);
-      
+
       if (!igResult) {
         return res.status(500).json({ error: "Failed to post to Instagram" });
       }
@@ -702,7 +703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const article = await storage.getArticleById(id);
-      
+
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
@@ -716,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const threadsResult = await postArticleToThreads(article, storage);
-      
+
       if (!threadsResult) {
         return res.status(500).json({ error: "Failed to post to Threads" });
       }
@@ -738,9 +739,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
     try {
       console.log(`🔧 [ADMIN] Manually clearing stuck Facebook posting locks...`);
-      
+
       const stuckLocks = await storage.getArticlesWithStuckLocks();
-      
+
       if (stuckLocks.length === 0) {
         console.log(`✅ [ADMIN] No stuck locks found`);
         return res.json({
@@ -748,9 +749,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           articles: [],
         });
       }
-      
+
       console.warn(`⚠️  [ADMIN] Found ${stuckLocks.length} articles with stuck LOCK tokens`);
-      
+
       const clearedArticles = [];
       for (const article of stuckLocks) {
         console.warn(`   - Clearing lock for: ${article.title.substring(0, 60)}... (ID: ${article.id})`);
@@ -761,9 +762,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lockToken: article.facebookPostId,
         });
       }
-      
+
       console.log(`✅ [ADMIN] Cleared ${stuckLocks.length} stuck locks`);
-      
+
       res.json({
         cleared: stuckLocks.length,
         articles: clearedArticles,
@@ -786,7 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get active subscribers
       const subscribers = await storage.getAllActiveSubscribers();
-      
+
       if (subscribers.length === 0) {
         console.log("ℹ️  No active subscribers - skipping newsletter");
         return res.json({
@@ -800,11 +801,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get articles from the last 24 hours, published only
       const allArticles = await storage.getPublishedArticles();
       const cutoff = subHours(new Date(), 24);
-      
+
       const recentArticles = allArticles
         .filter(article => new Date(article.publishedAt) >= cutoff)
         .slice(0, 10); // Limit to 10 most recent articles
-      
+
       console.log(`📊 Filtered articles: ${recentArticles.length} from last 24 hours (cutoff: ${cutoff.toISOString()})`);
 
       if (recentArticles.length === 0) {
@@ -838,7 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Error sending newsletter:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
+
       res.json({
         success: false,
         message: "Newsletter sending failed",
@@ -849,12 +850,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Newsletter subscription routes
-  
+
   // Subscribe to newsletter
   app.post("/api/subscribe", async (req, res) => {
     try {
       const result = insertSubscriberSchema.safeParse(req.body);
-      
+
       if (!result.success) {
         return res.status(400).json({ error: "Invalid email address" });
       }
@@ -863,15 +864,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getSubscriberByEmail(result.data.email);
       if (existing) {
         if (existing.isActive) {
-          return res.status(200).json({ 
+          return res.status(200).json({
             message: "You're already subscribed to Phuket Radar!",
-            alreadySubscribed: true 
+            alreadySubscribed: true
           });
         } else {
           // Reactivate subscription
           await storage.unsubscribeByToken(existing.unsubscribeToken);
           const reactivated = await storage.createSubscriber(result.data);
-          return res.status(200).json({ 
+          return res.status(200).json({
             message: "Welcome back! Your subscription has been reactivated.",
             subscriber: { email: reactivated.email }
           });
@@ -879,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const subscriber = await storage.createSubscriber(result.data);
-      res.status(201).json({ 
+      res.status(201).json({
         message: "Successfully subscribed to Phuket Radar!",
         subscriber: { email: subscriber.email }
       });
@@ -894,7 +895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.params;
       const success = await storage.unsubscribeByToken(token);
-      
+
       if (!success) {
         return res.status(404).send(`
           <!DOCTYPE html>
@@ -926,12 +927,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Insight Generation routes - PROTECTED
-  
+
   // Generate Insight from breaking news articles
   app.post("/api/admin/insights/generate", requireAdminAuth, async (req, res) => {
     try {
       const { topic, sourceArticleIds, eventType } = req.body;
-      
+
       if (!topic || !sourceArticleIds || sourceArticleIds.length === 0) {
         return res.status(400).json({ error: "Topic and source articles are required" });
       }
@@ -944,9 +945,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sourceArticles = await Promise.all(
         sourceArticleIds.map((id: string) => storage.getArticleById(id))
       );
-      
+
       const validArticles = sourceArticles.filter(a => a !== null);
-      
+
       if (validArticles.length === 0) {
         return res.status(404).json({ error: "No valid source articles found" });
       }
@@ -975,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/insights/publish", requireAdminAuth, async (req, res) => {
     try {
       const { title, content, excerpt, relatedArticleIds, sources } = req.body;
-      
+
       if (!title || !content || !excerpt) {
         return res.status(400).json({ error: "Title, content, and excerpt are required" });
       }
@@ -1011,24 +1012,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // XML Sitemap endpoint for SEO
   app.get("/sitemap.xml", async (req, res) => {
     try {
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : 'https://phuketradar.com';
 
       const articles = await storage.getPublishedArticles();
       const categories = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
-      
+
       // Build sitemap XML
       let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
       sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-      
+
       // Homepage
       sitemap += '  <url>\n';
       sitemap += `    <loc>${baseUrl}/</loc>\n`;
       sitemap += '    <changefreq>hourly</changefreq>\n';
       sitemap += '    <priority>1.0</priority>\n';
       sitemap += '  </url>\n';
-      
+
       // Category pages (using clean URLs)
       for (const category of categories) {
         sitemap += '  <url>\n';
@@ -1037,13 +1038,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sitemap += '    <priority>0.8</priority>\n';
         sitemap += '  </url>\n';
       }
-      
+
       // Article pages
       for (const article of articles) {
         const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
         const url = `${baseUrl}${articlePath}`;
         const lastmod = new Date(article.publishedAt).toISOString().split('T')[0];
-        
+
         sitemap += '  <url>\n';
         sitemap += `    <loc>${url}</loc>\n`;
         sitemap += `    <lastmod>${lastmod}</lastmod>\n`;
@@ -1051,9 +1052,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sitemap += '    <priority>0.6</priority>\n';
         sitemap += '  </url>\n';
       }
-      
+
       sitemap += '</urlset>';
-      
+
       res.header('Content-Type', 'application/xml');
       res.send(sitemap);
     } catch (error) {
@@ -1084,7 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allowedTypes = /jpeg|jpg|png|gif|webp/;
       const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
       const mimetype = allowedTypes.test(file.mimetype);
-      
+
       if (mimetype && extname) {
         return cb(null, true);
       } else {
@@ -1102,7 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate URL for uploaded image - use relative path for both dev and prod
       const imageUrl = `/uploads/${req.file.filename}`;
-      
+
       res.json({ imageUrl });
     } catch (error) {
       console.error("Error uploading image:", error);

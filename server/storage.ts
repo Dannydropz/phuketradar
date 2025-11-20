@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, type Category, type InsertCategory, users, articles, subscribers, journalists, categories } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, sql, inArray, and, gte, isNull } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
 import { retryDatabaseOperation } from "./lib/db-retry";
 import { resolveDbCategories } from "@shared/category-map";
@@ -10,7 +10,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Article methods
   getAllArticles(): Promise<Article[]>;
   getArticleById(id: string): Promise<Article | undefined>;
@@ -38,25 +38,25 @@ export interface IStorage {
   getArticlesWithStuckLocks(): Promise<{ id: string; title: string; facebookPostId: string }[]>;
   clearStuckFacebookLock(id: string): Promise<void>;
   deleteArticle(id: string): Promise<boolean>;
-  
+
   // Subscriber methods
   createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
   getSubscriberByEmail(email: string): Promise<Subscriber | undefined>;
   getAllActiveSubscribers(): Promise<Subscriber[]>;
   unsubscribeByToken(token: string): Promise<boolean>;
-  
+
   // Journalist methods
   getAllJournalists(): Promise<Journalist[]>;
   getJournalistById(id: string): Promise<Journalist | undefined>;
   getArticlesByJournalistId(journalistId: string): Promise<ArticleListItem[]>;
-  
+
   // Category methods
   getAllCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
-  
+
   // Article review methods
   getArticlesNeedingReview(): Promise<Article[]>;
-  
+
   // Enrichment methods
   getDevelopingArticles(): Promise<Article[]>;
 }
@@ -90,6 +90,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArticleById(id: string): Promise<Article | undefined> {
+    // Validate ID is a UUID to prevent DB errors
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return undefined;
+    }
+
     const [article] = await db
       .select()
       .from(articles)
@@ -141,11 +146,11 @@ export class DatabaseStorage implements IStorage {
 
   async getArticlesByCategory(category: string): Promise<ArticleListItem[]> {
     const dbCategories = [...resolveDbCategories(category)];
-    
+
     if (dbCategories.length === 0) {
       return [];
     }
-    
+
     return await db
       .select({
         id: articles.id,
@@ -180,6 +185,12 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
         sourceName: articles.sourceName,
         isDeveloping: articles.isDeveloping,
+        isManuallyCreated: articles.isManuallyCreated,
+        parentStoryId: articles.parentStoryId,
+        mergedIntoId: articles.mergedIntoId,
+        lastEnrichedAt: articles.lastEnrichedAt,
+        enrichmentCount: articles.enrichmentCount,
+        facebookHeadline: articles.facebookHeadline,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -221,6 +232,12 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
         sourceName: articles.sourceName,
         isDeveloping: articles.isDeveloping,
+        isManuallyCreated: articles.isManuallyCreated,
+        parentStoryId: articles.parentStoryId,
+        mergedIntoId: articles.mergedIntoId,
+        lastEnrichedAt: articles.lastEnrichedAt,
+        enrichmentCount: articles.enrichmentCount,
+        facebookHeadline: articles.facebookHeadline,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -245,7 +262,7 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
       })
       .from(articles);
-    
+
     // Filter out articles without original content (legacy articles before this fix)
     return result
       .filter(a => a.title !== null && a.content !== null)
@@ -272,11 +289,11 @@ export class DatabaseStorage implements IStorage {
 
   async createArticle(insertArticle: InsertArticle): Promise<Article> {
     let articleData: any;
-    
+
     if (!insertArticle.slug) {
       const articleId = (insertArticle as any).id || crypto.randomUUID();
       const slug = generateUniqueSlug(insertArticle.title, articleId);
-      
+
       articleData = {
         ...insertArticle,
         ...(!(insertArticle as any).id && { id: articleId }),
@@ -285,7 +302,7 @@ export class DatabaseStorage implements IStorage {
     } else {
       articleData = insertArticle;
     }
-    
+
     return retryDatabaseOperation(
       async () => {
         try {
@@ -293,7 +310,7 @@ export class DatabaseStorage implements IStorage {
             .insert(articles)
             .values(articleData)
             .returning();
-          
+
           return article;
         } catch (error: any) {
           console.error(`\n❌ [STORAGE] Database insertion failed`);
@@ -306,7 +323,7 @@ export class DatabaseStorage implements IStorage {
           console.error(`   Full Error:`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
           console.error(`   Article Title: ${insertArticle.title?.substring(0, 60) || 'MISSING'}...`);
           console.error(`   Source URL: ${insertArticle.sourceUrl || 'MISSING'}`);
-          
+
           // Re-throw the error so scheduler can handle it
           throw error;
         }
@@ -370,7 +387,7 @@ export class DatabaseStorage implements IStorage {
   async getArticlesWithStuckLocks(): Promise<{ id: string; title: string; facebookPostId: string }[]> {
     // Only return locks older than 5 minutes to avoid clearing in-flight posts
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    
+
     const results = await db
       .select({
         id: articles.id,
@@ -379,7 +396,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(articles)
       .where(sql`${articles.facebookPostId} LIKE 'LOCK:%' AND ${articles.publishedAt} < ${fiveMinutesAgo}`);
-    
+
     return results.map(r => ({
       id: r.id,
       title: r.title,
@@ -569,6 +586,12 @@ export class DatabaseStorage implements IStorage {
         entities: articles.entities,
         sourceName: articles.sourceName,
         isDeveloping: articles.isDeveloping,
+        isManuallyCreated: articles.isManuallyCreated,
+        parentStoryId: articles.parentStoryId,
+        mergedIntoId: articles.mergedIntoId,
+        lastEnrichedAt: articles.lastEnrichedAt,
+        enrichmentCount: articles.enrichmentCount,
+        facebookHeadline: articles.facebookHeadline,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
@@ -600,7 +623,7 @@ export class DatabaseStorage implements IStorage {
   // Enrichment methods
   async getDevelopingArticles(): Promise<Article[]> {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     return await db
       .select()
       .from(articles)
