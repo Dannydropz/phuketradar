@@ -5,7 +5,8 @@ import { neon } from "@neondatabase/serverless";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
-import { ensureSchema } from "../scripts/ensure-schema";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 
@@ -131,7 +132,15 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 (async () => {
   // Ensure database schema is up to date before starting server
   // This bypasses Replit's broken migration detection
-  await ensureSchema();
+  try {
+    log("🔧 [SCHEMA] Ensuring database schema is up to date...");
+    await db.execute(sql`ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;`);
+    log("✅ [SCHEMA] Database schema verified");
+  } catch (error) {
+    log("❌ [SCHEMA] Error ensuring schema:");
+    console.error(error);
+    // Don't throw - let the server start anyway
+  }
 
   const server = await registerRoutes(app);
 
