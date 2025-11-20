@@ -18,6 +18,6 @@ jobs:
         run: |
           curl -X POST https://phuketradar-production.up.railway.app/api/cron/enrich \
             -H "Content-Type: application/json" \
-            -H "x-api-key: ${{ secrets.CRON_API_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}" \
             --fail --show-error
 
