@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: phuketradar-app
+    restart: always
+    ports:
+      - "80:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      # Database - You can use the same Neon URL or a local DB
+      - DATABASE_URL=${DATABASE_URL}
+      # Secrets - These will be read from a .env file on the server
+      - SESSION_SECRET=${SESSION_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FB_PAGE_ACCESS_TOKEN=${FB_PAGE_ACCESS_TOKEN}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - CRON_API_KEY=${CRON_API_KEY}
+    volumes:
+      - ./uploads:/app/public/uploads # Persist uploaded images
