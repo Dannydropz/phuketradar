@@ -134,7 +134,11 @@ app.get('/article/:slugOrId', async (req, res, next) => {
   // We always run this manual fix because Drizzle migration might be skipped
   try {
     log("🔧 [SCHEMA] Ensuring database schema is up to date...");
-    await db.execute(sql`ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;`);
+    await db.execute(sql`
+      ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
+      ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
+      ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
+    `);
     log("✅ [SCHEMA] Database schema verified");
   } catch (error) {
     log("❌ [SCHEMA] Error ensuring schema:");
