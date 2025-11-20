@@ -6,7 +6,7 @@ import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { Journalist } from "@shared/schema";
 import { ArticleCard } from "@/components/ArticleCard";
-import { EmailSignup } from "@/components/EmailSignup";
+
 import { SEO } from "@/components/SEO";
 import { Sparkles } from "lucide-react";
 
@@ -69,7 +69,7 @@ export default function JournalistProfile() {
         description={journalist.bio}
       />
       <Header />
-      
+
       <main className="flex-1 container max-w-6xl mx-auto px-4 py-12">
         {/* Journalist Header */}
         <div className="mb-12">
@@ -89,11 +89,11 @@ export default function JournalistProfile() {
               <Badge variant="secondary" className="mb-4" data-testid="badge-journalist-beat">
                 {journalist.beat}
               </Badge>
-              
+
               <p className="text-lg text-muted-foreground mb-4" data-testid="text-journalist-bio">
                 {journalist.bio}
               </p>
-              
+
               <p className="text-sm italic text-muted-foreground" data-testid="text-journalist-fun-fact">
                 <span className="font-semibold">Fun fact:</span> {journalist.funFact}
               </p>
@@ -106,7 +106,7 @@ export default function JournalistProfile() {
           <h2 className="text-2xl font-bold mb-6" data-testid="text-articles-heading">
             Articles by {journalist.nickname} ({publishedArticles.length})
           </h2>
-          
+
           {publishedArticles.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               No published articles yet.
@@ -133,10 +133,10 @@ export default function JournalistProfile() {
 
         {/* Newsletter signup */}
         <div className="mt-16">
-          <EmailSignup />
+
         </div>
       </main>
-      
+
       <Footer />
     </div>
   );

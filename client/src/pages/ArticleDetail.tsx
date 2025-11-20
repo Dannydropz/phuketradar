@@ -17,7 +17,7 @@ import { SiFacebook } from "react-icons/si";
 import { useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { ArticleCard } from "@/components/ArticleCard";
-import { EmailSignup } from "@/components/EmailSignup";
+
 import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem, Journalist } from "@shared/schema";
 import { ArticleImage } from "@/components/ArticleImage";
@@ -28,7 +28,7 @@ import { buildArticleUrl } from "@shared/category-map";
 // Helper functions for event icons and severity styling
 function getEventIcon(eventType?: string | null): LucideIcon | null {
   if (!eventType) return null;
-  
+
   switch (eventType.toLowerCase()) {
     case "accident":
       return Car;
@@ -55,7 +55,7 @@ function getEventIcon(eventType?: string | null): LucideIcon | null {
 
 function getSeverityStyle(severity?: string | null): { variant: "default" | "destructive" | "secondary" | "outline", className: string } {
   if (!severity) return { variant: "secondary", className: "" };
-  
+
   switch (severity.toLowerCase()) {
     case "critical":
       return { variant: "destructive", className: "bg-red-600 hover:bg-red-700 text-white font-semibold" };
@@ -73,7 +73,7 @@ function getSeverityStyle(severity?: string | null): { variant: "default" | "des
 
 function getSeverityIcon(severity?: string | null): LucideIcon | null {
   if (!severity) return null;
-  
+
   switch (severity.toLowerCase()) {
     case "critical":
       return AlertTriangle;
@@ -99,12 +99,12 @@ export default function ArticleDetail() {
   });
 
   // Debug logging
-  console.log("ArticleDetail Debug:", { 
-    slugOrId, 
-    isLoading, 
-    isError, 
+  console.log("ArticleDetail Debug:", {
+    slugOrId,
+    isLoading,
+    isError,
     hasArticle: !!article,
-    error: error?.message 
+    error: error?.message
   });
 
   const { data: allArticles = [] } = useQuery<ArticleListItem[]>({
@@ -184,13 +184,13 @@ export default function ArticleDetail() {
   const relatedArticles = allArticles
     .filter((a) => a.id !== article.id && a.category === article.category)
     .slice(0, 3);
-  
+
   const latestArticles = allArticles
     .filter((a) => a.id !== article.id)
     .slice(0, 5);
 
   // Generate canonical URL for SEO (SSR-safe)
-  const baseUrl = import.meta.env.VITE_REPLIT_DEV_DOMAIN 
+  const baseUrl = import.meta.env.VITE_REPLIT_DEV_DOMAIN
     ? `https://${import.meta.env.VITE_REPLIT_DEV_DOMAIN}`
     : (typeof window !== 'undefined' ? window.location.origin : 'https://phuketradar.com');
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
@@ -211,7 +211,7 @@ export default function ArticleDetail() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO 
+      <SEO
         title={article.title}
         description={article.excerpt}
         image={article.imageUrl || (article.imageUrls && article.imageUrls[0]) || undefined}
@@ -220,219 +220,218 @@ export default function ArticleDetail() {
         publishedTime={article.publishedAt.toString()}
         author={journalist ? `${journalist.nickname} ${journalist.surname}` : undefined}
       />
-      
+
       <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <article className="lg:col-span-2">
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-              {(() => {
-                const publishedTime = new Date(article.publishedAt).getTime();
-                const hoursSincePublish = (Date.now() - publishedTime) / (1000 * 60 * 60);
-                const showBreakingBadge = (article.interestScore ?? 0) >= 4 && hoursSincePublish < 24;
-                const showRedBadge = showBreakingBadge && hoursSincePublish < 6;
-                
-                if (showBreakingBadge) {
-                  return (
-                    <Badge 
-                      variant={showRedBadge ? "destructive" : "secondary"} 
-                      className={showRedBadge ? "bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse" : "bg-gray-500 dark:bg-gray-600 text-white font-semibold"}
-                      data-testid="badge-article-breaking"
-                    >
-                      Breaking News
-                    </Badge>
-                  );
-                }
-                return null;
-              })()}
-              {article.isDeveloping && (
-                <Badge 
-                  variant="secondary" 
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
-                  data-testid="badge-article-developing"
-                >
-                  Developing Story
-                </Badge>
-              )}
-              <div className="flex items-center text-sm text-muted-foreground">
-                <Clock className="w-3 h-3 mr-1" />
-                <span data-testid="text-article-time">
-                  {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
-                </span>
-              </div>
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-article-title">
-              {article.title}
-            </h1>
-            {journalist && (
               <div className="mb-6">
-                <JournalistByline
-                  journalistId={journalist.id}
-                  nickname={journalist.nickname}
-                  surname={journalist.surname}
-                  headshot={journalist.headshot}
-                  size="md"
-                />
-              </div>
-            )}
-            <p className="text-xl text-muted-foreground mb-6" data-testid="text-article-excerpt">
-              {article.excerpt}
-            </p>
-            <div className="flex items-center justify-end border-y py-4">
-              <Button variant="outline" size="sm" onClick={handleShare} data-testid="button-share">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-            </div>
-          </div>
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  {(() => {
+                    const publishedTime = new Date(article.publishedAt).getTime();
+                    const hoursSincePublish = (Date.now() - publishedTime) / (1000 * 60 * 60);
+                    const showBreakingBadge = (article.interestScore ?? 0) >= 4 && hoursSincePublish < 24;
+                    const showRedBadge = showBreakingBadge && hoursSincePublish < 6;
 
-          <div className="mb-8">
-            {article.imageUrls && article.imageUrls.length > 1 ? (
-              <div className="space-y-4">
-                <Carousel className="w-full rounded-lg overflow-hidden relative" setApi={setApi}>
-                  <CarouselContent>
-                    {article.imageUrls.map((imageUrl, index) => (
-                      <CarouselItem key={index}>
-                        <div className="relative w-full flex items-center justify-center">
-                          <ArticleImage
-                            src={imageUrl}
-                            alt={`${article.title} - Image ${index + 1}`}
-                            category={article.category}
-                            className="w-full max-h-[400px] md:max-h-[600px] object-contain"
-                            testId={`img-article-${index}`}
-                          />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="left-4" />
-                  <CarouselNext className="right-4" />
-                  <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm z-10">
-                    {current + 1} / {article.imageUrls?.length ?? 0}
-                  </div>
-                </Carousel>
-                
-                <div className="flex items-center justify-center gap-1">
-                  {article.imageUrls.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => api?.scrollTo(index)}
-                      className="flex items-center justify-center min-w-11 min-h-11 hover-elevate active-elevate-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                      aria-label={`Go to image ${index + 1}`}
-                      aria-current={index === current ? "true" : "false"}
-                      data-testid={`dot-carousel-${index}`}
+                    if (showBreakingBadge) {
+                      return (
+                        <Badge
+                          variant={showRedBadge ? "destructive" : "secondary"}
+                          className={showRedBadge ? "bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse" : "bg-gray-500 dark:bg-gray-600 text-white font-semibold"}
+                          data-testid="badge-article-breaking"
+                        >
+                          Breaking News
+                        </Badge>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {article.isDeveloping && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                      data-testid="badge-article-developing"
                     >
-                      <div 
-                        className={`h-2 rounded-full transition-all ${
-                          index === current 
-                            ? 'w-8 bg-primary' 
-                            : 'w-2 bg-muted-foreground/30'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
-              <div className="rounded-lg overflow-hidden flex items-center justify-center">
-                <ArticleImage
-                  src={article.imageUrl || (article.imageUrls ? article.imageUrls[0] : '')}
-                  alt={article.title}
-                  category={article.category}
-                  className="w-full max-h-[400px] md:max-h-[600px] object-contain"
-                  testId="img-article-main"
-                />
-              </div>
-            ) : (
-              <div className="rounded-lg overflow-hidden">
-                <ArticleImage
-                  src={undefined}
-                  alt={article.title}
-                  category={article.category}
-                  className="w-full h-[400px]"
-                  testId="img-article-main"
-                />
-              </div>
-            )}
-          </div>
-
-          <div
-            className="prose prose-lg dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: article.content }}
-            data-testid="content-article-body"
-          />
-
-          <div className="mt-8 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
-            <SiFacebook className="w-5 h-5 text-[#1877F2]" />
-            <span data-testid="text-article-source">
-              Source: {article.sourceName || "Facebook"} - translated from Thai
-            </span>
-          </div>
-        </article>
-
-        <aside className="lg:col-span-1">
-          <div className="sticky top-20">
-            <h3 className="text-xl font-bold mb-6">Latest</h3>
-            <div className="space-y-4">
-              {latestArticles.map((latestArticle) => {
-                const latestUrl = buildArticleUrl({ category: latestArticle.category, slug: latestArticle.slug || null, id: latestArticle.id });
-                return (
-                <a 
-                  key={latestArticle.id} 
-                  href={latestUrl}
-                  className="flex gap-3 group"
-                  data-testid={`link-latest-${latestArticle.id}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
-                      {latestArticle.title}
-                    </h4>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
-                    </div>
+                      Developing Story
+                    </Badge>
+                  )}
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Clock className="w-3 h-3 mr-1" />
+                    <span data-testid="text-article-time">
+                      {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
+                    </span>
                   </div>
-                  <div className="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden">
-                    <ArticleImage
-                      src={latestArticle.imageUrl || undefined}
-                      alt={latestArticle.title}
-                      category={latestArticle.category}
-                      className="w-full h-full object-cover"
+                </div>
+                <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-article-title">
+                  {article.title}
+                </h1>
+                {journalist && (
+                  <div className="mb-6">
+                    <JournalistByline
+                      journalistId={journalist.id}
+                      nickname={journalist.nickname}
+                      surname={journalist.surname}
+                      headshot={journalist.headshot}
+                      size="md"
                     />
                   </div>
-                </a>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
-      </div>
-    </div>
+                )}
+                <p className="text-xl text-muted-foreground mb-6" data-testid="text-article-excerpt">
+                  {article.excerpt}
+                </p>
+                <div className="flex items-center justify-end border-y py-4">
+                  <Button variant="outline" size="sm" onClick={handleShare} data-testid="button-share">
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                </div>
+              </div>
 
-    {relatedArticles.length > 0 && (
-      <section className="bg-card border-y mt-12 py-12">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <h2 className="text-3xl font-bold mb-6">Related Articles</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {relatedArticles.map((relatedArticle) => (
-              <ArticleCard
-                key={relatedArticle.id}
-                id={relatedArticle.id}
-                slug={relatedArticle.slug}
-                title={relatedArticle.title}
-                excerpt={relatedArticle.excerpt}
-                imageUrl={relatedArticle.imageUrl || undefined}
-                category={relatedArticle.category}
-                publishedAt={new Date(relatedArticle.publishedAt)}
+              <div className="mb-8">
+                {article.imageUrls && article.imageUrls.length > 1 ? (
+                  <div className="space-y-4">
+                    <Carousel className="w-full rounded-lg overflow-hidden relative" setApi={setApi}>
+                      <CarouselContent>
+                        {article.imageUrls.map((imageUrl, index) => (
+                          <CarouselItem key={index}>
+                            <div className="relative w-full flex items-center justify-center">
+                              <ArticleImage
+                                src={imageUrl}
+                                alt={`${article.title} - Image ${index + 1}`}
+                                category={article.category}
+                                className="w-full max-h-[400px] md:max-h-[600px] object-contain"
+                                testId={`img-article-${index}`}
+                              />
+                            </div>
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      <CarouselPrevious className="left-4" />
+                      <CarouselNext className="right-4" />
+                      <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm z-10">
+                        {current + 1} / {article.imageUrls?.length ?? 0}
+                      </div>
+                    </Carousel>
+
+                    <div className="flex items-center justify-center gap-1">
+                      {article.imageUrls.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => api?.scrollTo(index)}
+                          className="flex items-center justify-center min-w-11 min-h-11 hover-elevate active-elevate-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          aria-label={`Go to image ${index + 1}`}
+                          aria-current={index === current ? "true" : "false"}
+                          data-testid={`dot-carousel-${index}`}
+                        >
+                          <div
+                            className={`h-2 rounded-full transition-all ${index === current
+                              ? 'w-8 bg-primary'
+                              : 'w-2 bg-muted-foreground/30'
+                              }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
+                  <div className="rounded-lg overflow-hidden flex items-center justify-center">
+                    <ArticleImage
+                      src={article.imageUrl || (article.imageUrls ? article.imageUrls[0] : '')}
+                      alt={article.title}
+                      category={article.category}
+                      className="w-full max-h-[400px] md:max-h-[600px] object-contain"
+                      testId="img-article-main"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-lg overflow-hidden">
+                    <ArticleImage
+                      src={undefined}
+                      alt={article.title}
+                      category={article.category}
+                      className="w-full h-[400px]"
+                      testId="img-article-main"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="prose prose-lg dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: article.content }}
+                data-testid="content-article-body"
               />
-            ))}
+
+              <div className="mt-8 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
+                <SiFacebook className="w-5 h-5 text-[#1877F2]" />
+                <span data-testid="text-article-source">
+                  Source: {article.sourceName || "Facebook"} - translated from Thai
+                </span>
+              </div>
+            </article>
+
+            <aside className="lg:col-span-1">
+              <div className="sticky top-20">
+                <h3 className="text-xl font-bold mb-6">Latest</h3>
+                <div className="space-y-4">
+                  {latestArticles.map((latestArticle) => {
+                    const latestUrl = buildArticleUrl({ category: latestArticle.category, slug: latestArticle.slug || null, id: latestArticle.id });
+                    return (
+                      <a
+                        key={latestArticle.id}
+                        href={latestUrl}
+                        className="flex gap-3 group"
+                        data-testid={`link-latest-${latestArticle.id}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                            {latestArticle.title}
+                          </h4>
+                          <div className="flex items-center text-xs text-muted-foreground">
+                            <span>{formatDistanceToNow(new Date(latestArticle.publishedAt), { addSuffix: true })}</span>
+                          </div>
+                        </div>
+                        <div className="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden">
+                          <ArticleImage
+                            src={latestArticle.imageUrl || undefined}
+                            alt={latestArticle.title}
+                            category={latestArticle.category}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
-      </section>
-    )}
 
-    <EmailSignup />
+        {relatedArticles.length > 0 && (
+          <section className="bg-card border-y mt-12 py-12">
+            <div className="container mx-auto px-4 max-w-6xl">
+              <h2 className="text-3xl font-bold mb-6">Related Articles</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {relatedArticles.map((relatedArticle) => (
+                  <ArticleCard
+                    key={relatedArticle.id}
+                    id={relatedArticle.id}
+                    slug={relatedArticle.slug}
+                    title={relatedArticle.title}
+                    excerpt={relatedArticle.excerpt}
+                    imageUrl={relatedArticle.imageUrl || undefined}
+                    category={relatedArticle.category}
+                    publishedAt={new Date(relatedArticle.publishedAt)}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+
       </main>
       <Footer />
     </div>

@@ -35,17 +35,17 @@ export function generateUniqueSlug(title: string, id: string): string {
   const baseSlug = generateSlug(title);
   // Take first 8 characters of UUID for uniqueness
   const uniqueSuffix = id.substring(0, 8);
-  
+
   // If slug is empty or too short, use 'article' prefix
   if (!baseSlug || baseSlug.length < 3) {
     return `article-${uniqueSuffix}`;
   }
-  
+
   // If slug is short, append suffix with hyphen
   if (baseSlug.length < 10) {
     return `${baseSlug}-${uniqueSuffix}`;
   }
-  
+
   // Truncate to 90 chars to leave room for suffix
   const truncatedSlug = baseSlug.substring(0, 90);
   return `${truncatedSlug}-${uniqueSuffix}`;
@@ -60,7 +60,7 @@ export function generateMetaDescription(excerpt: string): string {
   if (excerpt.length <= maxLength) {
     return excerpt;
   }
-  
+
   // Truncate at last complete word before maxLength
   const truncated = excerpt.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
@@ -81,16 +81,16 @@ export function generateNewsArticleSchema(article: {
   slug: string;
   id: string;
 }) {
-  const publishDate = typeof article.publishedAt === 'string' 
-    ? article.publishedAt 
+  const publishDate = typeof article.publishedAt === 'string'
+    ? article.publishedAt
     : article.publishedAt.toISOString();
-  
-  const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+
+  const baseUrl = process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : 'https://phuketradar.com';
-  
+
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
-  
+
   return {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
@@ -125,13 +125,13 @@ export function generateBreadcrumbSchema(article: {
   slug: string;
   id: string;
 }) {
-  const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+  const baseUrl = process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : 'https://phuketradar.com';
-  
+
   const frontendCategory = resolveFrontendCategory(article.category);
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
-  
+
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

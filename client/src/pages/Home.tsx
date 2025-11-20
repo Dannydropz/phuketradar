@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
 import { ArticleCard } from "@/components/ArticleCard";
-import { EmailSignup } from "@/components/EmailSignup";
+
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
@@ -20,7 +20,7 @@ export default function Home() {
   if (category && !VALID_CATEGORIES.includes(category)) {
     return <NotFound />;
   }
-  
+
   const { data: allArticles = [], isLoading } = useQuery<ArticleListItem[]>({
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
@@ -52,24 +52,24 @@ export default function Home() {
   const heroArticles = useMemo(() => {
     return highInterestArticles.length > 0 ? highInterestArticles : articles;
   }, [highInterestArticles, articles]);
-  
+
   // Get live stories (developing OR breaking/high-interest, < 24 hours old)
   const liveStories = useMemo(() => {
     const now = Date.now();
     const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
-    
+
     // Get hero article IDs to exclude
     const heroIds = new Set([
       heroArticles[0]?.id,
       ...heroArticles.slice(1, 6).map(a => a.id)
     ].filter(Boolean));
-    
+
     return articles.filter(article => {
       const isDeveloping = article.isDeveloping === true;
       const isBreaking = (article.interestScore ?? 0) >= 4;
       const isFresh = new Date(article.publishedAt).getTime() > twentyFourHoursAgo;
       const notInHero = !heroIds.has(article.id);
-      
+
       return (isDeveloping || isBreaking) && isFresh && notInHero;
     }).slice(0, 6); // Limit to 6 live stories total
   }, [articles, heroArticles]);
@@ -91,19 +91,19 @@ export default function Home() {
 
   const featured = heroArticles[0];
   const sidebar = heroArticles.slice(1, 6); // Show 5 trending stories
-  
+
   // Get IDs of articles already shown in hero section
   const heroArticleIds = new Set([
     featured?.id,
     ...sidebar.map(a => a.id)
   ].filter(Boolean));
-  
+
   // Get IDs of articles shown in hero and live sections to avoid duplicates
   const excludedArticleIds = new Set([
     ...Array.from(heroArticleIds),
     ...liveStories.map(a => a.id)
   ]);
-  
+
   // Latest articles: Show ALL recent articles, excluding those already in hero/urgent sections
   const latestArticles = articles
     .filter(article => !excludedArticleIds.has(article.id))
@@ -128,8 +128,8 @@ export default function Home() {
     );
   }
 
-  const categoryTitle = category 
-    ? category.charAt(0).toUpperCase() + category.slice(1) 
+  const categoryTitle = category
+    ? category.charAt(0).toUpperCase() + category.slice(1)
     : "All News";
 
   return (
@@ -143,7 +143,7 @@ export default function Home() {
               <p className="text-muted-foreground mt-2">Latest {categoryTitle.toLowerCase()} news from Phuket</p>
             </div>
           )}
-          
+
           <HeroSection
             featured={{
               id: featured.id,
@@ -209,7 +209,7 @@ export default function Home() {
           )}
         </div>
 
-        <EmailSignup />
+
 
         <div className="container mx-auto px-4 py-8">
           {latestArticles.length > 0 && (

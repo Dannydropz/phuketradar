@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { getUncachableResendClient } from "../lib/resend-client";
 import { buildArticleUrl } from "@shared/category-map";
 
-const SITE_URL = process.env.REPLIT_DEPLOYMENT === '1' 
+const SITE_URL = process.env.REPLIT_DEPLOYMENT === '1'
   ? 'https://phuketradar.com'
   : 'http://localhost:5000';
 
@@ -19,11 +19,11 @@ interface NewsletterArticle {
 
 export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date): string {
   const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
-  
+
   // Separate Insights from breaking news
   const insights = articles.filter(a => a.articleType === 'insight');
   const breakingNews = articles.filter(a => a.articleType !== 'insight');
-  
+
   const categoryColors: Record<string, string> = {
     'Breaking': '#ef4444',
     'Tourism': '#3b82f6',
@@ -31,12 +31,12 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
     'Events': '#f59e0b',
     'Other': '#6b7280',
   };
-  
+
   // Featured Insight section (if any)
   const insightsHTML = insights.map(article => {
     const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
     const articleUrl = `${SITE_URL}${articlePath}`;
-    
+
     return `
       <tr>
         <td style="padding: 24px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; margin: 0 24px 24px 24px;">
@@ -66,14 +66,14 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
       </tr>
     `;
   }).join('');
-  
+
   // Regular breaking news articles
   const articlesHTML = breakingNews.map(article => {
     const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
     const articleUrl = `${SITE_URL}${articlePath}`;
-    
+
     const categoryColor = categoryColors[article.category] || categoryColors['Other'];
-    
+
     return `
       <tr>
         <td style="padding: 24px 0; border-bottom: 1px solid #e5e7eb;">
@@ -100,7 +100,7 @@ export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date
       </tr>
     `;
   }).join('');
-  
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -197,18 +197,18 @@ export async function sendNewsletter(
     const { client, fromEmail } = await getUncachableResendClient();
     const date = new Date();
     const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
-    
+
     let htmlContent = generateNewsletterHTML(articles, date);
     const unsubscribeUrl = `${SITE_URL}/api/unsubscribe/${unsubscribeToken}`;
     htmlContent = htmlContent.replace('{{UNSUBSCRIBE_URL}}', unsubscribeUrl);
-    
+
     const result = await client.emails.send({
       from: fromEmail,
       to,
       subject: `Phuket Radar - ${formattedDate}`,
       html: htmlContent,
     });
-    
+
     console.log(`✅ Newsletter sent to ${to}: ${result.data?.id}`);
     return true;
   } catch (error) {
@@ -223,9 +223,9 @@ export async function sendBulkNewsletter(
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
-  
+
   console.log(`📧 Sending newsletter to ${subscribers.length} subscribers...`);
-  
+
   for (const subscriber of subscribers) {
     const success = await sendNewsletter(subscriber.email, articles, subscriber.unsubscribeToken);
     if (success) {
@@ -233,11 +233,11 @@ export async function sendBulkNewsletter(
     } else {
       failed++;
     }
-    
+
     // Rate limiting: wait 100ms between sends to avoid hitting Resend limits
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   console.log(`📧 Newsletter campaign complete: ${sent} sent, ${failed} failed`);
   return { sent, failed };
 }
