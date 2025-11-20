@@ -189,6 +189,7 @@ app.get('/article/:slugOrId', async (req, res, next) => {
   // Recommended schedule: Every 4 hours (0:00, 4:00, 8:00, 12:00, 16:00, 20:00 Bangkok time)
   // See EXTERNAL_CRON_SETUP.md for complete setup instructions
   log('📅 Automated internal scraping DISABLED');
+  log(`📅 CRON_API_KEY loaded: ${process.env.CRON_API_KEY ? 'YES (' + process.env.CRON_API_KEY.substring(0, 3) + '...)' : 'NO'}`);
   log('📅 External cron endpoint: POST /api/cron/scrape (requires CRON_API_KEY)');
   log('📅 Manual scraping available at: /api/admin/scrape (requires admin session)');
 })();
