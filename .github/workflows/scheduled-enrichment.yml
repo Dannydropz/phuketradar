@@ -14,19 +14,10 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      - name: Install dependencies
-        run: npm install
-      
-      - name: Run story enrichment
-        env:
-          CRON_API_KEY: ${{ secrets.CRON_API_KEY }}
-          NODE_ENV: production
-        run: npx tsx scripts/scheduled-enrichment.ts
+      - name: Trigger enrichment on Railway
+        run: |
+          curl -X POST https://phuketradar-production.up.railway.app/api/cron/enrich \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ${{ secrets.CRON_API_KEY }}" \
+            --fail --show-error
+
