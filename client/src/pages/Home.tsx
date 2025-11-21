@@ -49,8 +49,18 @@ export default function Home() {
   }, [articles]);
 
   // Hero section: Prioritize high-interest articles (score >= 4), but fall back to recent articles if none exist
+  // Hero section: Prioritize high-interest articles (score >= 4), but fill with recent articles if needed
   const heroArticles = useMemo(() => {
-    return highInterestArticles.length > 0 ? highInterestArticles : articles;
+    // If we have enough high-interest articles (6+), use them exclusively
+    if (highInterestArticles.length >= 6) {
+      return highInterestArticles;
+    }
+
+    // Otherwise, take all high-interest articles and fill the rest with recent articles
+    const highInterestIds = new Set(highInterestArticles.map(a => a.id));
+    const remainingArticles = articles.filter(a => !highInterestIds.has(a.id));
+
+    return [...highInterestArticles, ...remainingArticles];
   }, [highInterestArticles, articles]);
 
   // Get live stories (developing OR breaking/high-interest, < 24 hours old)

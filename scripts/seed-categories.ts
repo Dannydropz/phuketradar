@@ -6,7 +6,8 @@
 
 import "dotenv/config";
 import { db } from "../server/db";
-import { categories } from "@shared/schema";
+import { categories } from "../shared/schema";
+import { sql } from "drizzle-orm";
 
 const CATEGORIES = [
     { id: "breaking-news", name: "Breaking News", slug: "breaking-news", displayOrder: 1 },
@@ -21,7 +22,20 @@ const CATEGORIES = [
 
 async function seedCategories() {
     try {
-        console.log("🌱 Seeding categories...\n");
+        console.log("🌱 Seeding categories...");
+
+        // Ensure table exists
+        await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS categories (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL UNIQUE,
+        slug TEXT NOT NULL UNIQUE,
+        color TEXT NOT NULL DEFAULT '#3b82f6',
+        icon TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        is_default BOOLEAN NOT NULL DEFAULT false
+      );
+    `);
 
         for (const category of CATEGORIES) {
             try {
