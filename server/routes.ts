@@ -157,51 +157,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("\n".repeat(3) + "=".repeat(80));
     console.log("🚨 SCRAPE TRIGGERED 🚨");
     console.log(`Time: ${timestamp}`);
-    console.log(`Trigger: EXTERNAL CRON SERVICE (cron-job.org)`);
+    console.log(`Trigger: EXTERNAL CRON SERVICE (GitHub Actions)`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
     console.log("=".repeat(80) + "\n");
 
     try {
       console.log("🔄 Starting scrape process...");
-      // Import and run the scheduled scrape function directly
+      // Import the scheduled scrape function
       const { runScheduledScrape } = await import("./scheduler");
       const { withSchedulerLock } = await import("./lib/scheduler-lock");
 
-      // Use database lock to prevent duplicate runs
-      const result = await withSchedulerLock(
-        runScheduledScrape,
-        () => {
-          console.log(`⏭️  Skipping scrape - another scrape is already running`);
-        }
-      );
+      // Check if a scrape is already running
+      const { acquireSchedulerLock } = await import("./lib/scheduler-lock");
+      const lockAcquired = await acquireSchedulerLock();
 
-      if (result) {
-        console.log("✅ Scrape completed successfully");
-        console.log("Result:", JSON.stringify(result, null, 2));
-        // Always return 200 OK for GitHub Actions (even with partial failures)
-        res.json({
-          success: true,
-          message: "Scrape completed successfully",
-          timestamp: timestamp,
-          result: result,
-        });
-      } else {
-        console.log("⏭️  Scrape skipped - another scrape was already running");
-        // Always return 200 OK for GitHub Actions
-        res.json({
+      if (!lockAcquired) {
+        console.log("⏭️  Scrape skipped - another scrape is already running");
+        return res.json({
           success: true,
           message: "Scrape skipped - another instance already running",
           timestamp: timestamp,
         });
       }
+
+      // Return immediately - scrape will run in background
+      res.json({
+        success: true,
+        message: "Scrape started in background",
+        timestamp: timestamp,
+      });
+
+      // Run scrape in background (don't await)
+      withSchedulerLock(
+        runScheduledScrape,
+        () => {
+          console.log(`⏭️  Skipping scrape - another scrape is already running`);
+        }
+      ).then((result) => {
+        if (result) {
+          console.log("✅ Scrape completed successfully");
+          console.log("Result:", JSON.stringify(result, null, 2));
+        }
+      }).catch((error) => {
+        console.error("❌ Error during background scrape:", error);
+      });
+
     } catch (error) {
-      console.error("❌ Error during cron scrape:", error);
+      console.error("❌ Error starting scrape:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      // Always return 200 OK for GitHub Actions (even on errors)
-      // This prevents GitHub Actions from showing failure when articles were actually published
       res.json({
         success: false,
-        message: "Scrape completed with errors",
+        message: "Failed to start scrape",
         error: errorMessage,
         timestamp: timestamp,
       });
