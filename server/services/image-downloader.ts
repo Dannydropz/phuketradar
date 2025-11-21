@@ -76,10 +76,14 @@ export class ImageDownloaderService {
                     },
                     (error, result) => {
                         if (error) {
-                            console.error("❌ Cloudinary upload failed:", error);
-                            // Fallback to local? Or just fail?
-                            // For now, let's fail so we know something is wrong
-                            resolve(null);
+                            console.error("❌ Cloudinary upload failed:", {
+                                message: error.message,
+                                name: error.name,
+                                http_code: error.http_code,
+                            });
+                            console.warn("⚠️  Falling back to original URL");
+                            // Fallback to original URL instead of null
+                            resolve(url);
                         } else {
                             console.log(`✅ Uploaded to Cloudinary: ${result?.secure_url}`);
                             resolve(result?.secure_url || null);
