@@ -56,6 +56,11 @@ const COLD_KEYWORDS = [
   "เตรียมความพร้อม", // preparation
   "ตรวจเยี่ยม", // inspection visit
   "ลงพื้นที่", // area visit
+  "แก้ไขปัญหา", // solve problem/tackle issue
+  "ดูแลเรื่อง", // take care of/address
+  "ทำงานเพื่อ", // work to/work on
+  "บรรเทา", // alleviate/ease
+  "ร่วมกัน", // together/jointly (often in meeting contexts)
 ];
 
 // Phuket location context map for richer rewrites
@@ -309,28 +314,43 @@ IMPORTANT DISTINCTIONS:
 
 INTEREST SCORE GUIDE (1-5):
 - 5 = URGENT/LIFE-THREATENING: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime with injuries, natural disasters causing damage, severe weather with casualties
-- 4 = SERIOUS/ACTIONABLE: Non-fatal traffic accidents with injuries (actual crashes/collisions with victims), arrests for serious crimes, active rescue operations, major service disruptions affecting many people
-- 3 = NOTEWORTHY: MINOR infrastructure issues (damaged roads, potholes, routine repairs), tourism developments, business openings, policy changes, traffic warnings, community initiatives
-- 2 = ROUTINE/ADMINISTRATIVE: Government meetings (even about important topics), routine announcements, administrative updates, inspection visits, preparation meetings, cultural events, festivals
+- 4 = SERIOUS/ACTIONABLE: **ACTUAL accidents with injuries** (crashes, collisions with victims), arrests for serious crimes, active rescue operations, major service disruptions affecting many people
+- 3 = NOTEWORTHY: MINOR infrastructure issues (damaged roads, potholes, routine repairs), tourism developments, business openings, policy changes, traffic warnings, community initiatives, **construction delays**
+- 2 = ROUTINE/ADMINISTRATIVE: **Government officials inspecting/visiting/tackling issues**, meetings (even about important topics), routine announcements, administrative updates, preparation meetings, cultural events, festivals, **officials "working to alleviate" or "looking into" problems**
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages
 
-CRITICAL RULES:
-- Meetings ABOUT disasters are NOT disasters → Score 2 (e.g., "flood relief meeting" = meeting, not flood)
-- Cultural/arts events (exhibitions, festivals, biennales) → Score 2 (routine cultural programming)
-- Hit-and-run accidents with injuries → Score 4-5 (serious crime + injuries)
-- "Preparation" or "planning" meetings → Score 2 (administrative, not action)
-- Inspection visits by officials → Score 2 (routine administrative)
+CRITICAL SCORING RULES:
+1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
+   - Example: "Governor tackles traffic issues" = 2 (inspection/meeting)
+   - Example: "Mayor visits flood area" = 2 (inspection visit)
+   
+2. **"Accident/crash/collision" = Score 4-5** (actual event with victims)
+   - Example: "Traffic accident at intersection" = 4 (real accident)
+   - Example: "Car crash with injuries" = 4-5 (accident with victims)
+   
+3. **Meetings ABOUT disasters ≠ disasters** → Score 2
+   - Example: "Flood relief meeting" = 2 (meeting, not flood)
+   
+4. **Cultural/arts events** → Score 2
+   - Example: "Biennale exhibition" = 2 (cultural event)
+   
+5. **Construction delays/complaints** → Score 3
+   - Example: "Bypass road delayed" = 3 (infrastructure issue)
+   
+6. **Hit-and-run with injuries** → Score 4-5
+   - Example: "Hit-and-run leaves victim injured" = 4-5 (crime + injuries)
 
 NOTE: Category = TOPIC (what type of story). Interest Score = URGENCY (how important).
 Example 1: Typhoon warning → Category="Weather", interestScore=5 (urgent weather event)
 Example 2: Tourist drowns at beach → Category="Local", interestScore=5 (death, high urgency)
 Example 3: Road collapse causes major sinkhole → Category="Traffic", interestScore=5 (major structural failure)
 Example 4: Damaged road with potholes, residents complain → Category="Traffic", interestScore=3 (minor infrastructure issue)
-Example 5: Car crash on highway with injuries → Category="Traffic", interestScore=4 (actual accident with victims)
+Example 5: **Traffic accident at intersection** → Category="Traffic", interestScore=4 (actual accident)
 Example 6: Hit-and-run leaves motorcyclist injured → Category="Crime", interestScore=4-5 (crime + injuries)
 Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal activity)
 Example 8: Community meeting about flood relief → Category="Local", interestScore=2 (meeting, not actual flood)
 Example 9: Thailand Biennale art exhibition → Category="Tourism", interestScore=2 (cultural event)
+Example 10: **Governor and mayor tackle traffic congestion** → Category="Traffic", interestScore=2 (officials inspecting, not actual event)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
