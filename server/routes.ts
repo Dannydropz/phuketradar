@@ -187,28 +187,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: timestamp,
       });
 
-      // Run scrape in background (don't await)
-      // Note: Lock is already acquired above, will auto-release after 15 min timeout
-      runScheduledScrape()
-        .then((result) => {
+      // Run scrape in background in next tick to isolate from request handling
+      // This prevents database errors during scraping from affecting the main site
+      process.nextTick(async () => {
+        try {
+          console.log("🔄 Starting background scrape...");
+          const result = await runScheduledScrape();
           if (result) {
             console.log("✅ Scrape completed successfully");
             console.log("Result:", JSON.stringify(result, null, 2));
           }
-        })
-        .catch((error) => {
-          console.error("❌ Error during background scrape:", error);
-        })
-        .finally(async () => {
-          // Release lock after scrape completes or fails
+        } catch (error) {
+          // Log error but don't crash - scraper failures should not affect main site
+          console.error("❌ Error during background scrape (isolated, site remains up):");
+          console.error(error);
+        } finally {
+          // Always release lock, even on error
           try {
             const { releaseSchedulerLock } = await import("./lib/scheduler-lock");
             await releaseSchedulerLock();
             console.log("🔓 Scheduler lock released");
           } catch (lockError) {
-            console.error("Error releasing lock:", lockError);
+            console.error("⚠️  Error releasing lock (non-critical):", lockError);
           }
-        });
+        }
+      });
 
     } catch (error) {
       console.error("❌ Error starting scrape:", error);

@@ -1069,6 +1069,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Continue to next post instead of stopping entire scrape
           continue;
         }
+
+        // Small delay between posts to prevent overwhelming database (especially on Neon free tier)
+        await new Promise(resolve => setTimeout(resolve, 500));
       } // End of posts loop
     } // End of sources loop
 

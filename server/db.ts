@@ -13,7 +13,7 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,
+  max: 5, // Reduced from 10 to prevent overwhelming Neon's free tier during scraping
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 60000, // Increased from 30s to 60s for slow Neon queries during scraping
 });
