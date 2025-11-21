@@ -18,7 +18,7 @@ import { neon } from "@neondatabase/serverless";
 const sql = neon(process.env.DATABASE_URL!);
 
 const LOCK_NAME = "scheduler_scrape";
-const STALE_LOCK_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+const STALE_LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Ensures the scheduler_locks table exists.
@@ -62,7 +62,7 @@ export async function acquireSchedulerLock(): Promise<boolean> {
     await cleanStaleLocks();
 
     const instanceId = `${process.pid}-${Date.now()}`;
-    
+
     const result = await sql`
       INSERT INTO scheduler_locks (lock_name, instance_id, acquired_at)
       VALUES (${LOCK_NAME}, ${instanceId}, NOW())
@@ -102,7 +102,7 @@ export async function withSchedulerLock<T>(
   onSkip?: () => void
 ): Promise<T | null> {
   const lockAcquired = await acquireSchedulerLock();
-  
+
   if (!lockAcquired) {
     if (onSkip) {
       onSkip();
