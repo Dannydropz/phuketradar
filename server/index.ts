@@ -37,6 +37,9 @@ const PgSession = connectPgSimple(session);
 const sessionStore = new PgSession({
   conString: process.env.DATABASE_URL,
   createTableIfMissing: false, // Prevent startup DB query - table should exist
+  errorLog: (error) => {
+    console.error('[SESSION STORE] Error:', error);
+  },
 });
 
 // Session middleware for admin authentication
@@ -134,15 +137,28 @@ app.get('/article/:slugOrId', async (req, res, next) => {
   // We always run this manual fix because Drizzle migration might be skipped
   try {
     log("🔧 [SCHEMA] Ensuring database schema is up to date...");
-    await db.execute(sql`
+
+    // Add timeout to prevent startup hangs if DB is slow (e.g., Neon cold start)
+    const schemaCheckPromise = db.execute(sql`
       ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
       ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
       ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
     `);
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Schema check timeout after 10s')), 10000)
+    );
+
+    await Promise.race([schemaCheckPromise, timeoutPromise]);
     log("✅ [SCHEMA] Database schema verified");
-  } catch (error) {
-    log("❌ [SCHEMA] Error ensuring schema:");
-    console.error(error);
+  } catch (error: any) {
+    if (error.message?.includes('timeout')) {
+      log("⚠️  [SCHEMA] Schema check timed out - database may be cold starting");
+      log("   Server will start anyway, schema will be checked on first query");
+    } else {
+      log("❌ [SCHEMA] Error ensuring schema:");
+      console.error(error);
+    }
     // Don't throw - let the server start anyway
   }
 
