@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -39,7 +39,7 @@ export const articles = pgTable("articles", {
   isPublished: boolean("is_published").notNull().default(false),
   originalLanguage: text("original_language").default("th"),
   translatedBy: text("translated_by").default("openai"),
-  embedding: real("embedding").array(),
+  embedding: vector("embedding", { dimensions: 3072 }),
   facebookPostId: text("facebook_post_id").unique(), // OUR Facebook page post ID (set after posting)
   facebookHeadline: text("facebook_headline"), // High-CTR headline for social media
   facebookPostUrl: text("facebook_post_url"), // OUR Facebook page post URL
