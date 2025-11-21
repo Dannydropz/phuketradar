@@ -111,11 +111,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArticleBySourceUrl(sourceUrl: string): Promise<Article | undefined> {
-    const [article] = await db
-      .select()
-      .from(articles)
-      .where(eq(articles.sourceUrl, sourceUrl));
-    return article || undefined;
+    return retryDatabaseOperation(async () => {
+      const [article] = await db
+        .select()
+        .from(articles)
+        .where(eq(articles.sourceUrl, sourceUrl));
+      return article || undefined;
+    }, 3, 2000, `getArticleBySourceUrl(${sourceUrl.substring(0, 40)}...)`);
   }
 
   async getArticleByFacebookPostId(facebookPostId: string): Promise<Article | undefined> {
@@ -127,21 +129,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArticleBySourceFacebookPostId(sourceFacebookPostId: string): Promise<Article | undefined> {
-    const [article] = await db
-      .select()
-      .from(articles)
-      .where(eq(articles.sourceFacebookPostId, sourceFacebookPostId));
-    return article || undefined;
+    return retryDatabaseOperation(async () => {
+      const [article] = await db
+        .select()
+        .from(articles)
+        .where(eq(articles.sourceFacebookPostId, sourceFacebookPostId));
+      return article || undefined;
+    }, 3, 2000, `getArticleBySourceFacebookPostId(${sourceFacebookPostId.substring(0, 20)}...)`);
   }
 
   async getArticleByImageUrl(imageUrl: string): Promise<Article | undefined> {
-    const [article] = await db
-      .select()
-      .from(articles)
-      .where(
-        sql`${articles.imageUrl} = ${imageUrl} OR ${imageUrl} = ANY(${articles.imageUrls})`
-      );
-    return article || undefined;
+    return retryDatabaseOperation(async () => {
+      const [article] = await db
+        .select()
+        .from(articles)
+        .where(
+          sql`${articles.imageUrl} = ${imageUrl} OR ${imageUrl} = ANY(${articles.imageUrls})`
+        );
+      return article || undefined;
+    }, 3, 2000, `getArticleByImageUrl(${imageUrl.substring(0, 30)}...)`);
   }
 
   async getArticlesByCategory(category: string): Promise<ArticleListItem[]> {
