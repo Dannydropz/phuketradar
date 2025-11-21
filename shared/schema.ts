@@ -39,7 +39,7 @@ export const articles = pgTable("articles", {
   isPublished: boolean("is_published").notNull().default(false),
   originalLanguage: text("original_language").default("th"),
   translatedBy: text("translated_by").default("openai"),
-  embedding: vector("embedding", { dimensions: 3072 }),
+  embedding: real("embedding").array(),
   facebookPostId: text("facebook_post_id").unique(), // OUR Facebook page post ID (set after posting)
   facebookHeadline: text("facebook_headline"), // High-CTR headline for social media
   facebookPostUrl: text("facebook_post_url"), // OUR Facebook page post URL
