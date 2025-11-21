@@ -188,19 +188,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Run scrape in background (don't await)
-      withSchedulerLock(
-        runScheduledScrape,
-        () => {
-          console.log(`⏭️  Skipping scrape - another scrape is already running`);
-        }
-      ).then((result) => {
-        if (result) {
-          console.log("✅ Scrape completed successfully");
-          console.log("Result:", JSON.stringify(result, null, 2));
-        }
-      }).catch((error) => {
-        console.error("❌ Error during background scrape:", error);
-      });
+      // Note: Lock is already acquired above, so just run the scrape
+      runScheduledScrape()
+        .then((result) => {
+          if (result) {
+            console.log("✅ Scrape completed successfully");
+            console.log("Result:", JSON.stringify(result, null, 2));
+          }
+          // Release lock after scrape completes
+          return import("./lib/scheduler-lock").then(({ releaseSchedulerLock }) => releaseSchedulerLock());
+        })
+        .catch((error) => {
+          console.error("❌ Error during background scrape:", error);
+          // Release lock even on error
+          return import("./lib/scheduler-lock").then(({ releaseSchedulerLock }) => releaseSchedulerLock());
+        });
 
     } catch (error) {
       console.error("❌ Error starting scrape:", error);
