@@ -83,6 +83,7 @@ export function HeroSection({ featured, sidebar }: HeroSectionProps) {
       </Link>
 
       <div className="md:col-span-2 flex flex-col gap-6">
+        <h2 className="text-2xl font-bold">Trending</h2>
         {sidebar.slice(0, 5).map((article) => {
           const articleUrl = buildArticleUrl({ category: article.category, slug: article.slug || null, id: article.id });
           const mappedCategory = mapLegacyCategory(article.category);
