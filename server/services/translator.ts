@@ -33,6 +33,13 @@ const HOT_KEYWORDS = [
   "ฆ่า", // kill
   "ยิง", // shoot
   "แทง", // stab
+  "ชน", // collision/crash
+  "รถชน", // car crash
+  "ขับหนี", // hit and run
+  "หนีหาย", // fled/escaped
+  "สาหัส", // seriously injured
+  "ระเบิด", // explosion
+  "โจรกรรม", // robbery
 ];
 
 // Low-priority keywords that lower interest scores (routine/boring news)
@@ -46,6 +53,9 @@ const COLD_KEYWORDS = [
   "มอบของ", // giving/donation ceremony
   "พิธี", // ceremony
   "การประชุม", // conference
+  "เตรียมความพร้อม", // preparation
+  "ตรวจเยี่ยม", // inspection visit
+  "ลงพื้นที่", // area visit
 ];
 
 // Phuket location context map for richer rewrites
@@ -298,25 +308,29 @@ IMPORTANT DISTINCTIONS:
 - Criminal arrest/theft/assault → "Crime" (YES Crime)
 
 INTEREST SCORE GUIDE (1-5):
-- 5 = URGENT/DRAMATIC: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime, natural disasters, severe weather
-- 4 = IMPORTANT: Non-fatal traffic accidents (actual crashes/collisions), arrests, rescue operations, major service disruptions (power outages, water supply cuts)
-- 3 = MODERATE: MINOR infrastructure issues (damaged roads, potholes, routine repairs, maintenance complaints), tourism developments, business openings, community events, policy changes, traffic warnings
-- 2 = MUNDANE: Government meetings, routine announcements, administrative updates, inspection visits
-- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations
+- 5 = URGENT/LIFE-THREATENING: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime with injuries, natural disasters causing damage, severe weather with casualties
+- 4 = SERIOUS/ACTIONABLE: Non-fatal traffic accidents with injuries (actual crashes/collisions with victims), arrests for serious crimes, active rescue operations, major service disruptions affecting many people
+- 3 = NOTEWORTHY: MINOR infrastructure issues (damaged roads, potholes, routine repairs), tourism developments, business openings, policy changes, traffic warnings, community initiatives
+- 2 = ROUTINE/ADMINISTRATIVE: Government meetings (even about important topics), routine announcements, administrative updates, inspection visits, preparation meetings, cultural events, festivals
+- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages
 
-CRITICAL DISTINCTION FOR INFRASTRUCTURE:
-- Damaged road with potholes/wear + safety concerns → Score 3 (moderate - routine maintenance issue)
-- Road COLLAPSE or major sinkhole → Score 5 (urgent - structural failure)
-- Road construction/closure announcement → Score 3 (moderate - planned disruption)
+CRITICAL RULES:
+- Meetings ABOUT disasters are NOT disasters → Score 2 (e.g., "flood relief meeting" = meeting, not flood)
+- Cultural/arts events (exhibitions, festivals, biennales) → Score 2 (routine cultural programming)
+- Hit-and-run accidents with injuries → Score 4-5 (serious crime + injuries)
+- "Preparation" or "planning" meetings → Score 2 (administrative, not action)
+- Inspection visits by officials → Score 2 (routine administrative)
 
 NOTE: Category = TOPIC (what type of story). Interest Score = URGENCY (how important).
 Example 1: Typhoon warning → Category="Weather", interestScore=5 (urgent weather event)
 Example 2: Tourist drowns at beach → Category="Local", interestScore=5 (death, high urgency)
 Example 3: Road collapse causes major sinkhole → Category="Traffic", interestScore=5 (major structural failure)
 Example 4: Damaged road with potholes, residents complain → Category="Traffic", interestScore=3 (minor infrastructure issue)
-Example 5: Car crash on highway → Category="Traffic", interestScore=4 (actual accident)
-Example 6: Missing swimmer search → Category="Local", interestScore=4 (important rescue operation)
+Example 5: Car crash on highway with injuries → Category="Traffic", interestScore=4 (actual accident with victims)
+Example 6: Hit-and-run leaves motorcyclist injured → Category="Crime", interestScore=4-5 (crime + injuries)
 Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal activity)
+Example 8: Community meeting about flood relief → Category="Local", interestScore=2 (meeting, not actual flood)
+Example 9: Thailand Biennale art exhibition → Category="Tourism", interestScore=2 (cultural event)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
