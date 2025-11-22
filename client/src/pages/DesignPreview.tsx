@@ -14,13 +14,7 @@ export default function DesignPreview() {
                     <div className="flex items-center justify-between h-16">
                         {/* Logo Area */}
                         <div className="flex items-center gap-2">
-                            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30">
-                                <div className="absolute w-2 h-2 bg-blue-500 rounded-full animate-ping" />
-                                <div className="w-2.5 h-2.5 bg-blue-400 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
-                            </div>
-                            <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-                                PhuketRadar
-                            </span>
+                            <img src="/logo-white.png" alt="Phuket Radar" className="h-8 w-auto object-contain" />
                         </div>
 
                         {/* Desktop Menu */}
@@ -121,15 +115,15 @@ export default function DesignPreview() {
                 {/* The "Radar" Feed - Mixed Density */}
                 <section>
                     <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
-                        <h2 className="text-2xl font-bold text-white">Latest Radar</h2>
+                        <h2 className="text-2xl font-bold text-white">On the Radar</h2>
                         <div className="flex gap-4">
                             {["All", "Trending", "Local", "Weather"].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab.toLowerCase())}
                                     className={`text-sm font-medium transition-colors ${activeTab === tab.toLowerCase()
-                                            ? "text-white"
-                                            : "text-zinc-500 hover:text-zinc-300"
+                                        ? "text-white"
+                                        : "text-zinc-500 hover:text-zinc-300"
                                         }`}
                                 >
                                     {tab}
