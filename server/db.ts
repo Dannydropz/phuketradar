@@ -9,6 +9,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// Parse connection string to extract host for IPv4 forcing
+const dbUrl = new URL(process.env.DATABASE_URL);
+const dbHost = dbUrl.hostname;
+
 // Use standard PostgreSQL driver instead of Neon serverless
 // This provides stable TCP connections and avoids WebSocket timeout issues
 export const pool = new Pool({
@@ -19,7 +23,9 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000, // Standard 10s is enough with TCP
   query_timeout: 60000,
   allowExitOnIdle: false,
-  ssl: { rejectUnauthorized: false } // Neon requires SSL
+  ssl: { rejectUnauthorized: false }, // Neon/Supabase requires SSL
+  // Explicitly set host to force DNS resolution (helps with IPv6 issues on Railway)
+  host: dbHost,
 });
 
 pool.on('error', (err) => {
