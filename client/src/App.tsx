@@ -13,6 +13,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminInsights from "@/pages/AdminInsights";
 import AdminLogin from "@/pages/AdminLogin";
 import Privacy from "@/pages/Privacy";
+import DesignPreview from "@/pages/DesignPreview";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/design-preview" component={DesignPreview} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin">
         <ProtectedRoute>
