@@ -6,7 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 
-import logoWhite from "@assets/logo-white.png";
+import logoWhite from "@assets/logo-white-transparent.png";
 
 // Helper to resolve image URLs
 const getImageUrl = (url?: string | null) => {
@@ -19,6 +19,7 @@ const getImageUrl = (url?: string | null) => {
 const getJournalistImageUrl = (url?: string | null) => {
     if (!url) return null;
     if (url.startsWith("http")) return url;
+    if (url.startsWith("/assets/")) return url;
     return `/assets/${url}`;
 };
 
@@ -112,7 +113,7 @@ export default function HomeNew() {
                         {/* Logo Area */}
                         <Link href="/">
                             <div className="flex items-center gap-2 cursor-pointer">
-                                <img src={logoWhite} alt="Phuket Radar" className="h-8 w-auto object-contain" />
+                                <img src={logoWhite} alt="Phuket Radar" className="h-10 w-auto object-contain" />
                             </div>
                         </Link>
 
