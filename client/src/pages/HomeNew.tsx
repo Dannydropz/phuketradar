@@ -162,40 +162,42 @@ export default function HomeNew() {
 
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                             {/* Main Hero Card */}
-                            <Link href={`/${heroArticle.category.toLowerCase()}/${heroArticle.slug || heroArticle.id}`}>
-                                <div className="lg:col-span-8 group cursor-pointer h-full">
-                                    <div className="relative aspect-[16/9] rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-2xl shadow-blue-900/10">
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
-                                        <img
-                                            src={getImageUrl(heroArticle.imageUrl)}
-                                            alt={heroArticle.title}
-                                            className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
-                                        />
-                                        <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
-                                            <div className="flex items-center gap-3 mb-3 text-sm text-blue-400 font-medium">
-                                                <span className="bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 backdrop-blur-md uppercase text-xs">
-                                                    {heroArticle.category}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-zinc-400">
-                                                    <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(heroArticle.publishedAt), { addSuffix: true })}
-                                                </span>
+                            <div className="lg:col-span-8 h-full">
+                                <Link href={`/${heroArticle.category.toLowerCase()}/${heroArticle.slug || heroArticle.id}`}>
+                                    <a className="block h-full group cursor-pointer">
+                                        <div className="relative aspect-[16/9] rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-2xl shadow-blue-900/10 h-full">
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
+                                            <img
+                                                src={getImageUrl(heroArticle.imageUrl)}
+                                                alt={heroArticle.title}
+                                                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+                                            />
+                                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
+                                                <div className="flex items-center gap-3 mb-3 text-sm text-blue-400 font-medium">
+                                                    <span className="bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 backdrop-blur-md uppercase text-xs">
+                                                        {heroArticle.category}
+                                                    </span>
+                                                    <span className="flex items-center gap-1 text-zinc-400">
+                                                        <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(heroArticle.publishedAt), { addSuffix: true })}
+                                                    </span>
+                                                </div>
+                                                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight mb-3 group-hover:text-blue-100 transition-colors">
+                                                    {heroArticle.title}
+                                                </h1>
+                                                <p className="text-base md:text-lg text-zinc-300 line-clamp-2 max-w-3xl">
+                                                    {heroArticle.excerpt}
+                                                </p>
                                             </div>
-                                            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight mb-3 group-hover:text-blue-100 transition-colors">
-                                                {heroArticle.title}
-                                            </h1>
-                                            <p className="text-base md:text-lg text-zinc-300 line-clamp-2 max-w-3xl">
-                                                {heroArticle.excerpt}
-                                            </p>
                                         </div>
-                                    </div>
-                                </div>
-                            </Link>
+                                    </a>
+                                </Link>
+                            </div>
 
                             {/* Side Stories - Compact List */}
                             <div className="lg:col-span-4 flex flex-col gap-6">
                                 {sideStories.map((article) => (
                                     <Link key={article.id} href={`/${article.category.toLowerCase()}/${article.slug || article.id}`}>
-                                        <div className="group cursor-pointer flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+                                        <a className="block group cursor-pointer flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
                                             <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800 border border-white/5">
                                                 <img
                                                     src={getImageUrl(article.imageUrl)}
@@ -213,7 +215,7 @@ export default function HomeNew() {
                                                     {article.title}
                                                 </h3>
                                             </div>
-                                        </div>
+                                        </a>
                                     </Link>
                                 ))}
                             </div>
@@ -231,8 +233,8 @@ export default function HomeNew() {
                                     key={tab}
                                     onClick={() => setActiveTab(tab.toLowerCase())}
                                     className={`text-sm font-medium px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${activeTab === tab.toLowerCase()
-                                            ? "bg-white text-black"
-                                            : "text-zinc-400 hover:text-white hover:bg-white/10"
+                                        ? "bg-white text-black"
+                                        : "text-zinc-400 hover:text-white hover:bg-white/10"
                                         }`}
                                 >
                                     {tab}
@@ -246,48 +248,57 @@ export default function HomeNew() {
                             const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
                             return (
                                 <Link key={article.id} href={`/${article.category.toLowerCase()}/${article.slug || article.id}`}>
-                                    <div className="group bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-300 flex flex-col h-full">
-                                        <div className="aspect-[3/2] overflow-hidden relative">
-                                            <div className="absolute top-3 left-3 z-10">
-                                                <span className="bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border border-white/10">
-                                                    {article.category}
-                                                </span>
-                                            </div>
-                                            <img
-                                                src={getImageUrl(article.imageUrl)}
-                                                alt={article.title}
-                                                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                                            />
-                                        </div>
-                                        <div className="p-5 flex flex-col flex-grow">
-                                            <div className="flex items-center justify-between text-xs text-zinc-500 mb-3">
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
-                                                </span>
-                                            </div>
-                                            <h3 className="text-lg font-bold text-zinc-100 mb-2 leading-snug group-hover:text-blue-400 transition-colors line-clamp-2">
-                                                {article.title}
-                                            </h3>
-                                            <p className="text-sm text-zinc-400 line-clamp-2 mb-4 flex-grow">
-                                                {article.excerpt}
-                                            </p>
-                                            <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
-                                                <div className="flex items-center gap-2">
-                                                    {journalist?.headshot ? (
-                                                        <img src={getImageUrl(journalist.headshot)} className="w-6 h-6 rounded-full object-cover" alt={journalist.nickname} />
-                                                    ) : (
-                                                        <div className="w-6 h-6 rounded-full bg-zinc-800" />
-                                                    )}
-                                                    <span className="text-xs text-zinc-400">{journalist?.nickname || "Phuket Radar"}</span>
+                                    <a className="block h-full">
+                                        <div className="group bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-300 flex flex-col h-full">
+                                            <div className="aspect-[3/2] overflow-hidden relative">
+                                                <div className="absolute top-3 left-3 z-10">
+                                                    <span className="bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border border-white/10">
+                                                        {article.category}
+                                                    </span>
                                                 </div>
-                                                <div className="flex gap-3">
-                                                    <button className="text-zinc-500 hover:text-white transition-colors"><Share2 className="w-4 h-4" /></button>
-                                                    <button className="text-zinc-500 hover:text-white transition-colors"><Bookmark className="w-4 h-4" /></button>
+                                                <img
+                                                    src={getImageUrl(article.imageUrl)}
+                                                    alt={article.title}
+                                                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                                                />
+                                            </div>
+                                            <div className="p-5 flex flex-col flex-grow">
+                                                <div className="flex items-center justify-between text-xs text-zinc-500 mb-3">
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-lg font-bold text-zinc-100 mb-2 leading-snug group-hover:text-blue-400 transition-colors line-clamp-2">
+                                                    {article.title}
+                                                </h3>
+                                                <p className="text-sm text-zinc-400 line-clamp-2 mb-4 flex-grow">
+                                                    {article.excerpt}
+                                                </p>
+                                                <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
+                                                    <div className="flex items-center gap-2">
+                                                        {journalist?.headshot ? (
+                                                            <img
+                                                                src={getImageUrl(journalist.headshot)}
+                                                                className="w-6 h-6 rounded-full object-cover"
+                                                                alt={journalist.nickname}
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-6 h-6 rounded-full bg-zinc-800 ${journalist?.headshot ? 'hidden' : ''}`} />
+                                                        <span className="text-xs text-zinc-400">{journalist?.nickname || "Phuket Radar"}</span>
+                                                    </div>
+                                                    <div className="flex gap-3">
+                                                        <button className="text-zinc-500 hover:text-white transition-colors"><Share2 className="w-4 h-4" /></button>
+                                                        <button className="text-zinc-500 hover:text-white transition-colors"><Bookmark className="w-4 h-4" /></button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </a>
                                 </Link>
                             );
                         })}
