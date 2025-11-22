@@ -113,7 +113,7 @@ export default function HomeNew() {
                         {/* Logo Area */}
                         <Link href="/">
                             <div className="flex items-center gap-2 cursor-pointer">
-                                <img src={logoWhite} alt="Phuket Radar" className="h-10 w-auto object-contain" />
+                                <img src={logoWhite} alt="Phuket Radar" className="h-14 w-auto object-contain" />
                             </div>
                         </Link>
 

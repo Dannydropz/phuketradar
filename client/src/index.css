@@ -151,20 +151,20 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 0 0% 8%;
+  --background: 0 0% 2%; /* #050505 */
 
   --foreground: 0 0% 98%;
 
-  --header: 0 0% 100%;
-  --header-foreground: 0 0% 8%;
+  --header: 0 0% 2%;
+  --header-foreground: 0 0% 98%;
 
-  --border: 0 0% 20%;
+  --border: 240 3.7% 15.9%; /* Zinc-800 */
 
-  --card: 0 0% 12%;
+  --card: 0 0% 4%; /* #0A0A0A */
 
   --card-foreground: 0 0% 98%;
 
-  --card-border: 0 0% 18%;
+  --card-border: 240 3.7% 15.9%;
 
   --sidebar: 0 0% 10%;
 
