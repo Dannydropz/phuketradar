@@ -1044,8 +1044,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 });
               }
             })(), // End of async function - invoke immediately
-            120000, // 2 minute timeout
-            `Post processing timeout after 2 minutes: ${post.title.substring(0, 60)}...`
+            300000, // 5 minute timeout (increased from 2 min due to slow Neon queries)
+            `Post processing timeout after 5 minutes: ${post.title.substring(0, 60)}...`
           ); // End of withTimeout
         } catch (error: any) {
           console.error("\n❌ CRITICAL ERROR processing post:");

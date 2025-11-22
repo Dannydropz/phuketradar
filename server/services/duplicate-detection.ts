@@ -137,6 +137,13 @@ export class DuplicateDetectionService {
       return [];
     }
 
+    // TEMPORARY: Disable embedding search due to performance issues with array-based cosine similarity
+    // The URL and Facebook Post ID checks (done earlier in the pipeline) are sufficient for now
+    // TODO: Re-enable once we migrate to pgvector extension or optimize the query
+    console.log('[DUPLICATE DETECTION] Embedding search temporarily disabled for performance');
+    return [];
+
+    /* DISABLED - TOO SLOW ON NEON
     try {
       // Find articles from the last 24 hours with similar embeddings
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -177,6 +184,7 @@ export class DuplicateDetectionService {
       console.error('[DUPLICATE DETECTION] Error in embedding search:', error);
       return [];
     }
+    */
   }
 
   /**
