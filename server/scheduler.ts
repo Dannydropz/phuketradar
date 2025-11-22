@@ -85,6 +85,21 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log("=".repeat(80) + "\n");
 
+  // CRITICAL: Check database health before starting scrape
+  console.log("🏥 Checking database health before starting scrape...");
+  const { waitForDatabaseHealth } = await import("./lib/db-health");
+
+  const isHealthy = await waitForDatabaseHealth(60000); // Wait up to 60 seconds
+
+  if (!isHealthy) {
+    console.error("❌ Database is unhealthy - aborting scrape to prevent timeouts");
+    console.error("   This usually indicates Neon is experiencing issues or cold starting");
+    console.error("   The scrape will be retried on the next scheduled run");
+    throw new Error("Database health check failed - scrape aborted");
+  }
+
+  console.log("✅ Database is healthy - proceeding with scrape\n");
+
   try {
     const sources = getEnabledSources();
     console.log(`Scraping ${sources.length} Facebook news sources`);
