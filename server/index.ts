@@ -133,39 +133,7 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 });
 
 (async () => {
-  // Ensure database schema is up to date before starting server
-  // We always run this manual fix because Drizzle migration might be skipped
-  try {
-    log("🔧 [SCHEMA] Ensuring database schema is up to date...");
-
-    // Add timeout to prevent startup hangs if DB is slow (e.g., Neon cold start)
-    const schemaCheckPromise = db.execute(sql`
-      ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
-      ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
-      ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
-    `);
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Schema check timeout after 10s')), 10000)
-    );
-
-    await Promise.race([schemaCheckPromise, timeoutPromise]);
-    log("✅ [SCHEMA] Database schema verified");
-  } catch (error: any) {
-    if (error.message?.includes('timeout')) {
-      log("⚠️  [SCHEMA] Schema check timed out - database may be cold starting");
-      log("   Server will start anyway, schema will be checked on first query");
-    } else {
-      log("❌ [SCHEMA] Error ensuring schema:");
-      console.error(error);
-    }
-    // Don't throw - let the server start anyway
-  }
-
-  if (process.env.SKIP_SCHEMA_CHECK === 'true') {
-    log("⏭️  [SCHEMA] Drizzle schema check skipped (SKIP_SCHEMA_CHECK=true)");
-  }
-
+  // Register routes first
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -190,11 +158,44 @@ app.get('/article/:slugOrId', async (req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+
+  // CRITICAL FIX: Start server immediately to satisfy Railway health checks
+  // Do not wait for database checks before listening
   server.listen({
     port,
     host: "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
+
+    // Run database checks in background AFTER server is listening
+    (async () => {
+      try {
+        log("🔧 [SCHEMA] Ensuring database schema is up to date...");
+
+        // Add timeout to prevent startup hangs if DB is slow (e.g., Neon cold start)
+        const schemaCheckPromise = db.execute(sql`
+          ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
+          ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
+          ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
+        `);
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Schema check timeout after 10s')), 10000)
+        );
+
+        await Promise.race([schemaCheckPromise, timeoutPromise]);
+        log("✅ [SCHEMA] Database schema verified");
+      } catch (error: any) {
+        if (error.message?.includes('timeout')) {
+          log("⚠️  [SCHEMA] Schema check timed out - database may be cold starting");
+          log("   Server is running, schema will be checked on first query");
+        } else {
+          log("❌ [SCHEMA] Error ensuring schema:");
+          console.error(error);
+        }
+        // Don't throw - server is already running
+      }
+    })();
   });
 
   // Automated scraping DISABLED - Use external cron service instead
