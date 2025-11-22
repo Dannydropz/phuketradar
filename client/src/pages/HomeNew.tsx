@@ -6,11 +6,20 @@ import { formatDistanceToNow } from "date-fns";
 import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 
+import logoWhite from "@assets/logo-white.png";
+
 // Helper to resolve image URLs
 const getImageUrl = (url?: string | null) => {
     if (!url) return "/placeholder-16x9.png";
     if (url.startsWith("http")) return url;
     return `/uploads/${url}`;
+};
+
+// Helper to resolve journalist image URLs (usually in assets)
+const getJournalistImageUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `/assets/${url}`;
 };
 
 const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather", "business", "events"];
@@ -103,7 +112,7 @@ export default function HomeNew() {
                         {/* Logo Area */}
                         <Link href="/">
                             <div className="flex items-center gap-2 cursor-pointer">
-                                <img src="/logo-white.png" alt="Phuket Radar" className="h-8 w-auto object-contain" />
+                                <img src={logoWhite} alt="Phuket Radar" className="h-8 w-auto object-contain" />
                             </div>
                         </Link>
 
@@ -279,7 +288,7 @@ export default function HomeNew() {
                                                     <div className="flex items-center gap-2">
                                                         {journalist?.headshot ? (
                                                             <img
-                                                                src={getImageUrl(journalist.headshot)}
+                                                                src={getJournalistImageUrl(journalist.headshot) || ""}
                                                                 className="w-6 h-6 rounded-full object-cover"
                                                                 alt={journalist.nickname}
                                                                 onError={(e) => {
