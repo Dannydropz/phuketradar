@@ -6,14 +6,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Home from "@/pages/HomeNew";
-import ArticleDetail from "@/pages/ArticleDetailNew";
+import Home from "@/pages/Home";
+import ArticleDetail from "@/pages/ArticleDetail";
 import JournalistProfile from "@/pages/JournalistProfile";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminInsights from "@/pages/AdminInsights";
 import AdminLogin from "@/pages/AdminLogin";
 import Privacy from "@/pages/Privacy";
-import DesignPreview from "@/pages/DesignPreview";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,7 +20,6 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/privacy" component={Privacy} />
-      <Route path="/design-preview" component={DesignPreview} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin">
         <ProtectedRoute>

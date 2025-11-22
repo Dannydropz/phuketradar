@@ -141,32 +141,22 @@ export class DuplicateDetectionService {
       // Find articles from the last 24 hours with similar embeddings
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      // OPTIMIZED: Use simple dot product instead of full cosine similarity
-      // This is 10x faster and good enough for duplicate detection
-      // We normalize embeddings before storage, so dot product ≈ cosine similarity
-      const embeddingStr = `ARRAY[${embedding.join(',')}]::real[]`;
-
+      // Use cosine similarity with a lower threshold (0.4 instead of 0.5)
+      // to catch more potential matches for GPT verification
+      const embeddingStr = `[${embedding.join(',')}]`;
       const similarArticles = await db.execute(sql`
-        SELECT a.*,
-          (
-            SELECT SUM(a_val * q_val)
-            FROM unnest(a.embedding) WITH ORDINALITY AS t1(a_val, idx)
-            JOIN unnest(${embeddingStr}) WITH ORDINALITY AS t2(q_val, idx2) ON t1.idx = t2.idx2
-          ) AS similarity
-        FROM articles a
-        WHERE a.embedding IS NOT NULL
-          AND a.published_at >= ${twentyFourHoursAgo}
-          AND a.merged_into_id IS NULL
-          AND array_length(a.embedding, 1) = ${embedding.length}
+        SELECT *,
+          1 - (embedding <=> ${embeddingStr}::vector) AS similarity
+        FROM articles
+        WHERE embedding IS NOT NULL
+          AND published_at >= ${twentyFourHoursAgo}
+          AND merged_into_id IS NULL
+          AND 1 - (embedding <=> ${embeddingStr}::vector) >= ${threshold}
         ORDER BY similarity DESC
         LIMIT 10
       `);
 
-      // Filter by threshold after fetching (faster than HAVING clause)
-      const filtered = (similarArticles.rows as any[]).filter(row => row.similarity >= threshold);
-
-      console.log(`[DUPLICATE DETECTION] Embedding search found ${filtered.length} matches (threshold: ${threshold})`);
-      return filtered as Article[];
+      return similarArticles.rows as Article[];
     } catch (error) {
       console.error('[DUPLICATE DETECTION] Error in embedding search:', error);
       return [];

@@ -20,9 +20,6 @@ export interface TranslationResult {
 // High-priority keywords that boost interest scores (urgent/dramatic news)
 // Note: "อุบัติเหตุ" (accident) removed - too generic, boosts infrastructure complaints
 // GPT's improved scoring guidance now handles real accidents vs. damage reports
-// High-priority keywords that boost interest scores (urgent/dramatic news)
-// Note: "อุบัติเหตุ" (accident) removed - too generic, boosts infrastructure complaints
-// GPT's improved scoring guidance now handles real accidents vs. damage reports
 const HOT_KEYWORDS = [
   "ไฟไหม้", // fire
   "จมน้ำ", // drowning
@@ -43,13 +40,6 @@ const HOT_KEYWORDS = [
   "สาหัส", // seriously injured
   "ระเบิด", // explosion
   "โจรกรรม", // robbery
-  "ทำร้าย", // assault/attack
-  "ทะเลาะวิวาท", // fight/brawl
-  "น้ำท่วม", // flood
-  "ดินสไลด์", // landslide
-  "ดินถล่ม", // landslide
-  "ข่มขืน", // rape
-  "ยาเสพติด", // drugs
 ];
 
 // Low-priority keywords that lower interest scores (routine/boring news)
@@ -71,18 +61,6 @@ const COLD_KEYWORDS = [
   "ทำงานเพื่อ", // work to/work on
   "บรรเทา", // alleviate/ease
   "ร่วมกัน", // together/jointly (often in meeting contexts)
-  "กระตุ้น", // boost/stimulate (economy)
-  "เศรษฐกิจ", // economy
-  "การท่องเที่ยว", // tourism (general promotion)
-  "ซอฟต์พาวเวอร์", // soft power
-  "เทศกาล", // festival
-  "งานประเพณี", // tradition/fair
-  "ลงนาม", // sign (MOU/agreement)
-  "MOU", // MOU
-  "เวลเนส", // wellness
-  "สุขภาพ", // health (promotion)
-  "ผลักดัน", // push for/drive
-  "พัฒนา", // develop/development
 ];
 
 // Phuket location context map for richer rewrites
@@ -336,10 +314,10 @@ IMPORTANT DISTINCTIONS:
 
 INTEREST SCORE GUIDE (1-5):
 - 5 = URGENT/LIFE-THREATENING: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime with injuries, natural disasters causing damage, severe weather with casualties
-- 4 = SERIOUS/ACTIONABLE: **ACTUAL accidents with injuries** (crashes, collisions with victims), arrests for serious crimes, active rescue operations, major service disruptions affecting many people, physical fights/brawls
-- 3 = NOTEWORTHY: MINOR infrastructure issues (damaged roads, potholes, routine repairs), traffic warnings, community initiatives, **construction delays**, significant local protests
-- 2 = ROUTINE/ADMINISTRATIVE: **Government officials inspecting/visiting/tackling issues**, meetings (even about important topics), routine announcements, administrative updates, preparation meetings, cultural events, festivals, **officials "working to alleviate" or "looking into" problems**, **Summits**, **Conferences**, **Economic initiatives**, **Tourism promotions**, **MOU signings**
-- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages, promotional content
+- 4 = SERIOUS/ACTIONABLE: **ACTUAL accidents with injuries** (crashes, collisions with victims), arrests for serious crimes, active rescue operations, major service disruptions affecting many people
+- 3 = NOTEWORTHY: MINOR infrastructure issues (damaged roads, potholes, routine repairs), tourism developments, business openings, policy changes, traffic warnings, community initiatives, **construction delays**
+- 2 = ROUTINE/ADMINISTRATIVE: **Government officials inspecting/visiting/tackling issues**, meetings (even about important topics), routine announcements, administrative updates, preparation meetings, cultural events, festivals, **officials "working to alleviate" or "looking into" problems**
+- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages
 
 CRITICAL SCORING RULES:
 1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
@@ -353,13 +331,11 @@ CRITICAL SCORING RULES:
 3. **Meetings ABOUT disasters ≠ disasters** → Score 2
    - Example: "Flood relief meeting" = 2 (meeting, not flood)
    
-4. **Cultural/arts/wellness events** → Score 2
+4. **Cultural/arts events** → Score 2
    - Example: "Biennale exhibition" = 2 (cultural event)
-   - Example: "Global Wellness Summit" = 2 (business/promotional event)
    
-5. **Economic/Tourism Boosts** → Score 2
-   - Example: "Phuket to host major summit" = 2 (future plan/business)
-   - Example: "New campaign to boost tourism" = 2 (marketing/admin)
+5. **Construction delays/complaints** → Score 3
+   - Example: "Bypass road delayed" = 3 (infrastructure issue)
    
 6. **Hit-and-run with injuries** → Score 4-5
    - Example: "Hit-and-run leaves victim injured" = 4-5 (crime + injuries)
@@ -375,7 +351,6 @@ Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal a
 Example 8: Community meeting about flood relief → Category="Local", interestScore=2 (meeting, not actual flood)
 Example 9: Thailand Biennale art exhibition → Category="Tourism", interestScore=2 (cultural event)
 Example 10: **Governor and mayor tackle traffic congestion** → Category="Traffic", interestScore=2 (officials inspecting, not actual event)
-Example 11: **Phuket to Host Global Wellness Summit** → Category="Business", interestScore=2 (future event/economic news)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
