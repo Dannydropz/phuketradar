@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/HomeNew";
-import ArticleDetail from "@/pages/ArticleDetail";
+import ArticleDetail from "@/pages/ArticleDetailNew";
 import JournalistProfile from "@/pages/JournalistProfile";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminInsights from "@/pages/AdminInsights";
