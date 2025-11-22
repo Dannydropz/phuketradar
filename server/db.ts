@@ -3,13 +3,16 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
-// Configure Neon for optimal serverless performance
-neonConfig.webSocketConstructor = ws;
+// CRITICAL FIX: Disable WebSocket for Railway compatibility
+// Railway has issues with WebSocket connections to Neon, causing ETIMEDOUT errors
+// Forcing HTTP mode makes connections more reliable
+neonConfig.webSocketConstructor = undefined; // Disable WebSocket, use HTTP instead
+neonConfig.useSecureWebSocket = false; // Ensure no WebSocket fallback
+neonConfig.pipelineConnect = 'password'; // Use password-based connection
 
 // CRITICAL: Increase fetch connection timeout for Neon's serverless architecture
 // Neon can have cold starts and network latency, especially during heavy operations
 neonConfig.fetchConnectionCache = true; // Enable connection caching
-neonConfig.pipelineConnect = false; // Disable pipelining to avoid timeout issues
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
