@@ -63,7 +63,7 @@ export default function JournalistProfile() {
   const publishedArticles = journalist.articles.filter(a => a.publishedAt);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-[#050505] text-white">
       <SEO
         title={`${journalist.nickname} ${journalist.surname} - Reporter | Phuket Radar`}
         description={journalist.bio}
@@ -75,27 +75,27 @@ export default function JournalistProfile() {
         <div className="mb-12">
           <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Large headshot */}
-            <Avatar className="w-48 h-48 border-4 border-border rounded-xl after:content-none" data-testid="img-journalist-avatar">
+            <Avatar className="w-48 h-48 border-4 border-white/10 rounded-xl after:content-none" data-testid="img-journalist-avatar">
               <AvatarImage src={journalist.headshot} alt={`${journalist.nickname} ${journalist.surname}`} className="object-cover object-top" />
-              <AvatarFallback className="text-4xl rounded-xl">{journalist.nickname[0]}</AvatarFallback>
+              <AvatarFallback className="text-4xl rounded-xl bg-zinc-800">{journalist.nickname[0]}</AvatarFallback>
             </Avatar>
 
             {/* Bio section */}
             <div className="flex-1">
               <h1 className="text-4xl font-bold mb-2 flex items-center gap-2" data-testid="text-journalist-name">
                 {journalist.nickname} {journalist.surname}
-                <Sparkles className="w-5 h-5 text-muted-foreground/60" />
+                <Sparkles className="w-5 h-5 text-blue-400/60" />
               </h1>
-              <Badge variant="secondary" className="mb-4" data-testid="badge-journalist-beat">
+              <Badge variant="secondary" className="mb-4 bg-blue-500/10 text-blue-400 border border-blue-500/20" data-testid="badge-journalist-beat">
                 {journalist.beat}
               </Badge>
 
-              <p className="text-lg text-muted-foreground mb-4" data-testid="text-journalist-bio">
+              <p className="text-lg text-zinc-300 mb-4" data-testid="text-journalist-bio">
                 {journalist.bio}
               </p>
 
-              <p className="text-sm italic text-muted-foreground" data-testid="text-journalist-fun-fact">
-                <span className="font-semibold">Fun fact:</span> {journalist.funFact}
+              <p className="text-sm italic text-zinc-400" data-testid="text-journalist-fun-fact">
+                <span className="font-semibold text-white">Fun fact:</span> {journalist.funFact}
               </p>
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function JournalistProfile() {
           </h2>
 
           {publishedArticles.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-zinc-400">
               No published articles yet.
             </div>
           ) : (

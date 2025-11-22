@@ -207,24 +207,28 @@ export default function ArticleDetailNew() {
                             </h1>
 
                             {journalist && (
-                                <div className="flex items-center gap-3 mb-6">
-                                    {journalist.headshot ? (
-                                        <img
-                                            src={getJournalistImageUrl(journalist.headshot) || ""}
-                                            className="w-12 h-12 rounded-full object-cover border border-white/10"
-                                            alt={journalist.nickname}
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-full bg-zinc-800 border border-white/10" />
-                                    )}
-                                    <div>
-                                        <p className="text-sm font-medium text-white">{journalist.nickname} {journalist.surname}</p>
-                                        <p className="text-xs text-zinc-500">{journalist.beat}</p>
-                                    </div>
-                                </div>
+                                <Link href={`/journalist/${journalist.id}`}>
+                                    <a className="flex items-center gap-3 mb-6 group cursor-pointer hover:opacity-80 transition-opacity">
+                                        {journalist.headshot ? (
+                                            <img
+                                                src={getJournalistImageUrl(journalist.headshot) || ""}
+                                                className="w-12 h-12 rounded-full object-cover border border-white/10 group-hover:border-blue-500/50 transition-colors"
+                                                alt={journalist.nickname}
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-zinc-800 border border-white/10 group-hover:border-blue-500/50 transition-colors" />
+                                        )}
+                                        <div>
+                                            <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">
+                                                {journalist.nickname} {journalist.surname}
+                                            </p>
+                                            <p className="text-xs text-zinc-500">{journalist.beat}</p>
+                                        </div>
+                                    </a>
+                                </Link>
                             )}
 
                             <p className="text-xl text-zinc-300 mb-6 leading-relaxed">
