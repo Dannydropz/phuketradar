@@ -159,8 +159,8 @@ app.get('/article/:slugOrId', async (req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
 
-  // CRITICAL FIX: Start server immediately to satisfy Railway health checks
-  // Do not wait for database checks before listening
+  // CRITICAL: Start server IMMEDIATELY to satisfy Railway health checks
+  // Do NOT wait for database checks before listening
   server.listen({
     port,
     host: "0.0.0.0",
@@ -168,11 +168,12 @@ app.get('/article/:slugOrId', async (req, res, next) => {
     log(`serving on port ${port}`);
 
     // Run database checks in background AFTER server is listening
+    // This prevents Railway 502 errors caused by slow Neon cold starts
     (async () => {
       try {
         log("🔧 [SCHEMA] Ensuring database schema is up to date...");
 
-        // Add timeout to prevent startup hangs if DB is slow (e.g., Neon cold start)
+        // Add timeout to prevent indefinite hangs
         const schemaCheckPromise = db.execute(sql`
           ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
           ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
@@ -180,7 +181,7 @@ app.get('/article/:slugOrId', async (req, res, next) => {
         `);
 
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Schema check timeout after 10s')), 10000)
+          setTimeout(() => reject(new Error('Schema check timeout after 30s')), 30000)
         );
 
         await Promise.race([schemaCheckPromise, timeoutPromise]);
