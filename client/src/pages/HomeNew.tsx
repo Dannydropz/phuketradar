@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Search, Menu, Bell, Clock, MapPin, Share2, Bookmark } from "lucide-react";
+import { Search, Menu, Clock, MapPin, Share2, Bookmark } from "lucide-react";
+import { SearchDialog } from "@/components/SearchDialog";
 import { formatDistanceToNow } from "date-fns";
 import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
@@ -30,6 +31,7 @@ export default function HomeNew() {
     const category = params?.category?.toLowerCase();
     const [activeTab, setActiveTab] = useState("all");
     const [displayCount, setDisplayCount] = useState(12);
+    const [searchOpen, setSearchOpen] = useState(false);
 
     // Validate category
     if (category && !VALID_CATEGORIES.includes(category)) {
@@ -133,15 +135,12 @@ export default function HomeNew() {
 
                         {/* Actions */}
                         <div className="flex items-center gap-4">
-                            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+                            <button
+                                onClick={() => setSearchOpen(true)}
+                                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Search articles"
+                            >
                                 <Search className="w-5 h-5" />
-                            </button>
-                            <button className="p-2 text-zinc-400 hover:text-white transition-colors relative">
-                                <Bell className="w-5 h-5" />
-                                {/* Show dot if there are high interest stories */}
-                                {articles.some(a => (a.interestScore ?? 0) >= 4) && (
-                                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[#050505]" />
-                                )}
                             </button>
                             <button className="md:hidden p-2 text-zinc-400 hover:text-white">
                                 <Menu className="w-5 h-5" />
@@ -327,6 +326,9 @@ export default function HomeNew() {
                 </section>
 
             </main>
+
+            {/* Search Dialog */}
+            <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
         </div>
     );
 }

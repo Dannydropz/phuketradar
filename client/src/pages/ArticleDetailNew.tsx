@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Menu, Bell, Clock, Share2, ChevronLeft } from "lucide-react";
+import { Search, Menu, Clock, Share2, ChevronLeft } from "lucide-react";
+import { SearchDialog } from "@/components/SearchDialog";
 import { SiFacebook } from "react-icons/si";
 import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem, Journalist } from "@shared/schema";
@@ -32,6 +33,7 @@ export default function ArticleDetailNew() {
     const category = params?.category?.toLowerCase();
     const [api, setApi] = useState<CarouselApi>();
     const [current, setCurrent] = useState(0);
+    const [searchOpen, setSearchOpen] = useState(false);
 
     const { data: article, isLoading, error, isError } = useQuery<Article>({
         queryKey: ["/api/articles", slugOrId],
@@ -142,11 +144,12 @@ export default function ArticleDetailNew() {
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+                            <button
+                                onClick={() => setSearchOpen(true)}
+                                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Search articles"
+                            >
                                 <Search className="w-5 h-5" />
-                            </button>
-                            <button className="p-2 text-zinc-400 hover:text-white transition-colors relative">
-                                <Bell className="w-5 h-5" />
                             </button>
                             <button className="md:hidden p-2 text-zinc-400 hover:text-white">
                                 <Menu className="w-5 h-5" />
@@ -388,6 +391,9 @@ export default function ArticleDetailNew() {
                     </section>
                 )}
             </main>
+
+            {/* Search Dialog */}
+            <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
         </div>
     );
 }
