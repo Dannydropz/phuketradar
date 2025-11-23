@@ -138,25 +138,25 @@ export class DuplicateDetectionService {
     }
 
     try {
-      // EMERGENCY FALLBACK: If embedding search fails, just return empty array
-      // This prevents the entire scrape from crashing
+      // ALTERNATIVE APPROACH: Avoid unnest() entirely - use simpler array similarity
+      // This works on all PostgreSQL versions including Supabase
       try {
-        // Find articles from the last 24 hours with similar embeddings
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-        // OPTIMIZED: Use simple dot product instead of full cosine similarity
-        // This is 10x faster and good enough for duplicate detection
-        // We normalize embeddings before storage, so dot product ≈ cosine similarity
-        const embeddingStr = `ARRAY[${embedding.join(',')}]::real[]`;
-
+        // ALTERNATIVE: Use custom similarity function that avoids unnest()
+        // Calculate dot product directly in PostgreSQL without unnest()
         const similarArticles = await db.execute(sql`
-          SELECT a.*,
+          WITH query_embedding AS (
+            SELECT ${embedding}::real[] as vec
+          )
+          SELECT 
+            a.*,
+            -- Simple array-based similarity (no unnest needed)
             (
-              SELECT SUM(a_val * q_val)
-              FROM unnest(a.embedding::real[]) WITH ORDINALITY AS t1(a_val, idx)
-              JOIN unnest(${sql.raw(embeddingStr)}) WITH ORDINALITY AS t2(q_val, idx2) ON t1.idx = t2.idx2
+              SELECT COALESCE(SUM(a.embedding[i] * qe.vec[i]), 0)
+              FROM generate_series(1, array_length(a.embedding, 1)) i, query_embedding qe
             ) AS similarity
-          FROM articles a
+          FROM articles a, query_embedding qe
           WHERE a.embedding IS NOT NULL
             AND a.published_at >= ${twentyFourHoursAgo}
             AND a.merged_into_id IS NULL
@@ -165,16 +165,14 @@ export class DuplicateDetectionService {
           LIMIT 10
         `);
 
-        // Filter by threshold after fetching (faster than HAVING clause)
         const filtered = (similarArticles.rows as any[]).filter(row => row.similarity >= threshold);
-
         console.log(`[DUPLICATE DETECTION] Embedding search found ${filtered.length} matches (threshold: ${threshold})`);
         return filtered as Article[];
       } catch (innerError) {
-        // EMERGENCY: If query fails, log and continue - don't crash the scraper
+        // EMERGENCY: If query still fails, just skip embedding search
         console.error('[DUPLICATE DETECTION] Embedding search FAILED - continuing without it:', innerError?.message || innerError);
         console.error('[DUPLICATE DETECTION] This is non-fatal - scraper continues normally');
-        return []; // Return empty array to allow scraper to continue
+        return [];
       }
     } catch (error) {
       console.error('[DUPLICATE DETECTION] Error in embedding search:', error);
