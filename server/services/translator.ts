@@ -319,6 +319,17 @@ INTEREST SCORE GUIDE (1-5):
 - 2 = ROUTINE/ADMINISTRATIVE: **Government officials inspecting/visiting/tackling issues**, meetings (even about important topics), routine announcements, administrative updates, preparation meetings, cultural events, festivals, **officials "working to alleviate" or "looking into" problems**
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages
 
+LOCATION-BASED SCORING RULES (CRITICAL):
+1. **Phuket & Surrounding Areas (Phang Nga, Krabi, Surat Thani/Samui):**
+   - Score normally based on the urgency rules above.
+2. **Other Locations (Bangkok, Hat Yai, Chiang Mai, Pattaya, Isaan, etc.):**
+   - **MAX SCORE = 3** (Noteworthy), regardless of how big the story is.
+   - **Reason:** This is a HYPER-LOCAL news site for Phuket. Big stories from elsewhere are interesting but NOT "Breaking News" for our specific audience.
+   - **Exception:** Unless it is a NATIONAL event that *directly and immediately* impacts Phuket (e.g., "Thailand closes all airports", "Prime Minister announces new visa rules for all tourists").
+   - Example: "Major flood in Hat Yai leaves residents stranded" → Score 3 (Big story, but not Phuket).
+   - Example: "Explosion in Bangkok shopping mall" → Score 3 (Big story, but not Phuket).
+   - Example: "Chiang Mai suffers worst air pollution in world" → Score 3 (Big story, but not Phuket).
+
 CRITICAL SCORING RULES:
 1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
    - Example: "Governor tackles traffic issues" = 2 (inspection/meeting)
@@ -351,6 +362,7 @@ Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal a
 Example 8: Community meeting about flood relief → Category="Local", interestScore=2 (meeting, not actual flood)
 Example 9: Thailand Biennale art exhibition → Category="Tourism", interestScore=2 (cultural event)
 Example 10: **Governor and mayor tackle traffic congestion** → Category="Traffic", interestScore=2 (officials inspecting, not actual event)
+Example 11: **Hat Yai floods trap residents** → Category="Weather", interestScore=3 (Big story, but NOT Phuket)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
