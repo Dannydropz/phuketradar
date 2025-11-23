@@ -34,8 +34,16 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Health check endpoint (before any middleware/DB checks)
+// CRITICAL: Must respond instantly even during heavy scraping
+// Railway uses this to determine if the app is alive
+const startTime = Date.now();
 app.get('/health', (_req, res) => {
-  res.status(200).send('OK');
+  const uptime = Math.floor((Date.now() - startTime) / 1000);
+  res.status(200).json({
+    status: 'ok',
+    uptime: `${uptime}s`,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Serve static files from attached_assets folder at /assets route
