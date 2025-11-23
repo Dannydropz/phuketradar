@@ -206,20 +206,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // EMERGENCY DISABLE: Auto-scraping is temporarily disabled due to server crashes
-  // This endpoint is called by GitHub Actions cron job
-  // TODO: Move scraping to a separate Railway worker service
+  // Cron service endpoint for automated scraping
+  // Re-enabled after fixing Instagram/Threads timeout issues
   app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
-    console.log("⚠️ [SCRAPE] Auto-scraping is DISABLED - endpoint called but not executing");
-    console.log("   Reason: Automated scrapes cause Railway server crashes (502 errors)");
-    console.log("   Use /api/admin/scrape from admin dashboard for manual scraping only");
+    console.log("🔄 [CRON] Auto-scrape triggered");
 
-    return res.json({
-      success: false,
-      message: "Auto-scraping temporarily disabled due to server stability issues. Use admin dashboard for manual scraping.",
-      timestamp: new Date().toISOString(),
-      disabled: true
-    });
+    try {
+      const { acquireSchedulerLock } = await import("./lib/scheduler-lock");
+      const lockAcquired = await acquireSchedulerLock();
+
+      if (!lockAcquired) {
+        console.log("⏭️  Scrape skipped - another instance running");
+        return res.json({
+          success: true,
+          message: "Scrape skipped - another instance already running",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Scrape started in background",
+      });
+
+      setImmediate(async () => {
+        try {
+          console.log("🔄 Starting automated background scrape...");
+          const { runScheduledScrape } = await import("./scheduler");
+          const result = await runScheduledScrape();
+          console.log("✅ Auto-scrape completed:", result);
+        } catch (error) {
+          console.error("❌ Auto-scrape error (isolated):", error);
+        } finally {
+          const { releaseSchedulerLock } = await import("./lib/scheduler-lock");
+          await releaseSchedulerLock();
+        }
+      });
+    } catch (error) {
+      console.error("❌ Error starting auto-scrape:", error);
+      res.status(500).json({ success: false, message: "Failed to start scrape" });
+    }
   });
 
   // Enrichment endpoint - triggered by GitHub Actions
