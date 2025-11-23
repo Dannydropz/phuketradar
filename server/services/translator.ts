@@ -303,6 +303,9 @@ CATEGORY GUIDE - Read the FULL story, not just the headline:
 **Economy:** Market trends, trade, economic indicators, financial news
   Examples: "Baht strengthens against dollar", "Export figures rise"
 
+**National:** Major news from outside Phuket (Bangkok, Hat Yai, Chiang Mai, etc.) that is significant enough to report but is NOT local to Phuket.
+  Examples: "Flooding in Hat Yai", "Explosion in Bangkok", "National election results", "Prime Minister visits Chiang Mai"
+
 **WHEN UNCERTAIN:** If the story doesn't clearly fit any specific category above, use "Local" as the default fallback category.
 
 IMPORTANT DISTINCTIONS:
@@ -311,6 +314,7 @@ IMPORTANT DISTINCTIONS:
 - Car accident (no crime) → "Traffic" (NOT Crime)
 - Typhoon/flood/landslide/weather events → "Weather" (natural disasters only)
 - Criminal arrest/theft/assault → "Crime" (YES Crime)
+- **Story from Hat Yai, Bangkok, or other province** → "National" (unless it directly impacts Phuket)
 
 INTEREST SCORE GUIDE (1-5):
 - 5 = URGENT/LIFE-THREATENING: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime with injuries, natural disasters causing damage, severe weather with casualties
@@ -323,12 +327,13 @@ LOCATION-BASED SCORING RULES (CRITICAL):
 1. **Phuket & Surrounding Areas (Phang Nga, Krabi, Surat Thani/Samui):**
    - Score normally based on the urgency rules above.
 2. **Other Locations (Bangkok, Hat Yai, Chiang Mai, Pattaya, Isaan, etc.):**
+   - **Category MUST be "National"**
    - **MAX SCORE = 3** (Noteworthy), regardless of how big the story is.
    - **Reason:** This is a HYPER-LOCAL news site for Phuket. Big stories from elsewhere are interesting but NOT "Breaking News" for our specific audience.
    - **Exception:** Unless it is a NATIONAL event that *directly and immediately* impacts Phuket (e.g., "Thailand closes all airports", "Prime Minister announces new visa rules for all tourists").
-   - Example: "Major flood in Hat Yai leaves residents stranded" → Score 3 (Big story, but not Phuket).
-   - Example: "Explosion in Bangkok shopping mall" → Score 3 (Big story, but not Phuket).
-   - Example: "Chiang Mai suffers worst air pollution in world" → Score 3 (Big story, but not Phuket).
+   - Example: "Major flood in Hat Yai leaves residents stranded" → Category="National", Score 3.
+   - Example: "Explosion in Bangkok shopping mall" → Category="National", Score 3.
+   - Example: "Chiang Mai suffers worst air pollution in world" → Category="National", Score 3.
 
 CRITICAL SCORING RULES:
 1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
@@ -362,7 +367,7 @@ Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal a
 Example 8: Community meeting about flood relief → Category="Local", interestScore=2 (meeting, not actual flood)
 Example 9: Thailand Biennale art exhibition → Category="Tourism", interestScore=2 (cultural event)
 Example 10: **Governor and mayor tackle traffic congestion** → Category="Traffic", interestScore=2 (officials inspecting, not actual event)
-Example 11: **Hat Yai floods trap residents** → Category="Weather", interestScore=3 (Big story, but NOT Phuket)
+Example 11: **Hat Yai floods trap residents** → Category="National", interestScore=3 (Big story, but NOT Phuket)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
@@ -372,7 +377,7 @@ Respond in JSON format:
   "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
   "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar, natural Phuket context",
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
-  "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime",
+  "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime|National",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer),
   "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts),
@@ -405,7 +410,7 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
       }
 
       // Validate category - ensure it's one of the allowed values
-      const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime"];
+      const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime", "National"];
       const category = result.category && validCategories.includes(result.category)
         ? result.category
         : "Local";

@@ -24,7 +24,7 @@ const getJournalistImageUrl = (url?: string | null) => {
     return `/assets/${url}`;
 };
 
-const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather", "business", "events"];
+const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather", "business", "events", "national"];
 
 export default function HomeNew() {
     const [, params] = useRoute("/:category");
@@ -121,7 +121,7 @@ export default function HomeNew() {
 
                         {/* Desktop Menu */}
                         <div className="hidden md:flex items-center space-x-8">
-                            {["News", "Business", "Tourism", "Events", "Crime"].map((item) => (
+                            {["News", "Business", "Tourism", "Events", "Crime", "National"].map((item) => (
                                 <Link key={item} href={`/${item.toLowerCase()}`}>
                                     <a className={`text-sm font-medium transition-colors relative group ${category === item.toLowerCase() ? "text-white" : "text-zinc-400 hover:text-white"
                                         }`}>
