@@ -7,15 +7,21 @@ import path from "path";
 import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
 
-// CRITICAL: Add global error handlers immediately to catch startup crashes
+// CRITICAL: Global error handlers to prevent crashes
+// Note: We DON'T exit the process to keep the server running
+// Scraping errors should be isolated and not crash the entire app
 process.on('uncaughtException', (error) => {
-  console.error('❌ [FATAL] Uncaught Exception:', error);
-  // Don't exit immediately to allow logs to flush, but eventually exit
-  setTimeout(() => process.exit(1), 1000);
+  console.error('❌ [UNCAUGHT EXCEPTION]:', error);
+  console.error('   Stack:', error.stack);
+  console.error('   ⚠️  Process continuing - error logged but not fatal');
+  // Do NOT exit - keep server running for user requests
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ [FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('❌ [UNHANDLED REJECTION]:', reason);
+  console.error('   Promise:', promise);
+  console.error('   ⚠️  Process continuing - rejection logged but not fatal');
+  // Do NOT exit - keep server running
 });
 
 console.log("🚀 [STARTUP] Application starting...");
