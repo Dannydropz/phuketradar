@@ -323,22 +323,22 @@ LOCATION-BASED SCORING RULES (CRITICAL - READ CAREFULLY):
 
 3. **ALL OTHER LOCATIONS (Hat Yai, Songkhla, Bangkok, Chiang Mai, Pattaya, Surat Thani, Samui, Isaan, etc.):**
    - **Category = "National"** (mandatory)
-   - **MAX SCORE = 2** (Routine) - even for major disasters/deaths in those locations
+   - **MAX SCORE = 3** (Noteworthy) - even for major disasters/deaths in those locations
    - **Exception ONLY if:** National policy change DIRECTLY affecting Phuket (visa rules, nationwide airport closure, etc.)
-   - **Reasoning:** Our readers live in PHUKET. Floods in Hat Yai, explosions in Bangkok, elections in Chiang Mai are NOT their immediate concern.
+   - **Reasoning:** Our readers live in PHUKET. Floods in Hat Yai, explosions in Bangkok, elections in Chiang Mai are noteworthy but NOT urgent for Phuket residents.
    
    Examples:
-   - "Severe flooding in Hat Yai leaves residents stranded" → Category="National", Score 2 
-   - "Explosion in Bangkok shopping mall kills 5" → Category="National", Score 2
-   - "Chiang Mai air pollution reaches hazardous levels" → Category="National", Score 2
-   - "Surat Thani ferry disaster" → Category="National", Score 2 (unless it's Phuket-bound ferry)
+   - "Severe flooding in Hat Yai leaves residents stranded" → Category="National", Score 3 
+   - "Explosion in Bangkok shopping mall kills 5" → Category="National", Score 3
+   - "Chiang Mai air pollution reaches hazardous levels" → Category="National", Score 3
+   - "Surat Thani ferry disaster" → Category="National", Score 3 (unless it's Phuket-bound ferry)
    - "Prime Minister visits Phuket" → Category="Politics", Score 4-5 (HAPPENING IN PHUKET)
 
 4. **WHY THIS MATTERS:**
-   - Scores 4-5 get auto-published and posted to social media
-   - Scores 1-3 require manual review by editor
-   - National news from other provinces should NOT auto-publish
-   - We want LOCAL Phuket stories only for auto-publishing
+   - Scores 4-5 get auto-published AND auto-posted to Facebook
+   - Scores 1-3 get published but NO auto-posting to social media
+   - National news from other provinces = published but not promoted
+   - We want LOCAL Phuket stories only for social media auto-posting
 
 CRITICAL SCORING RULES:
 1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
