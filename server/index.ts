@@ -5,7 +5,7 @@ import { neon } from "@neondatabase/serverless";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
 
 const app = express();
@@ -35,7 +35,7 @@ if (!process.env.DATABASE_URL) {
 // PostgreSQL session store for production persistence
 const PgSession = connectPgSimple(session);
 const sessionStore = new PgSession({
-  conString: process.env.DATABASE_URL,
+  pool, // Use the shared pool with IPv4 fix
   createTableIfMissing: false, // Prevent startup DB query - table should exist
   errorLog: (error) => {
     console.error('[SESSION STORE] Error:', error);
