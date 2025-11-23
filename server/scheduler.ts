@@ -76,6 +76,11 @@ async function withTimeout<T>(
   }
 }
 
+// Helper to yield control to the event loop (prevents blocking)
+async function yieldToEventLoop(): Promise<void> {
+  return new Promise(resolve => setImmediate(resolve));
+}
+
 export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   const timestamp = new Date().toISOString();
   console.log("\n".repeat(3) + "=".repeat(80));
@@ -84,6 +89,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   console.log(`Trigger: AUTOMATED CRON SCHEDULE (every 4 hours)`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log("=".repeat(80) + "\n");
+
+  // Get batch size from environment (default: 15 posts per scrape)
+  const BATCH_SIZE = parseInt(process.env.SCRAPE_BATCH_SIZE || "15");
+  console.log(`📦 Batch mode: Processing max ${BATCH_SIZE} posts per scrape to prevent server blocking`);
 
   try {
     const sources = getEnabledSources();
@@ -156,10 +165,18 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         checkForDuplicate // stop early on duplicates (prevents unnecessary API calls)
       );
       console.log(`${source.name}: Found ${scrapedPosts.length} NEW posts`);
-      totalPosts += scrapedPosts.length;
+
+      // Limit posts to batch size to prevent event loop blocking
+      const postsToProcess = scrapedPosts.slice(0, BATCH_SIZE);
+      if (scrapedPosts.length > BATCH_SIZE) {
+        console.log(`   ⚠️  Limited to ${BATCH_SIZE} posts (${scrapedPosts.length - BATCH_SIZE} posts deferred to next scrape)`);
+      }
+
+      totalPosts += postsToProcess.length;
 
       // Process each scraped post from this source
-      for (const post of scrapedPosts) {
+      for (let postIndex = 0; postIndex < postsToProcess.length; postIndex++) {
+        const post = postsToProcess[postIndex];
         try {
           // Wrap entire post processing in timeout to prevent indefinite stalls (2 minutes max)
           await withTimeout(
@@ -1068,6 +1085,12 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
           // Continue to next post instead of stopping entire scrape
           continue;
+        }
+
+        // Yield to event loop every 3 posts to keep server responsive
+        if ((postIndex + 1) % 3 === 0) {
+          console.log(`   ⏸️  Yielding to event loop after ${postIndex + 1} posts (keeping server responsive)...`);
+          await yieldToEventLoop();
         }
 
         // Small delay between posts to prevent overwhelming database (especially on Neon free tier)
