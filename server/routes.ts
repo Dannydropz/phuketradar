@@ -206,17 +206,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Cron service endpoint for external automated scraping
-  // Protected by API key authentication (CRON_API_KEY environment variable)
-  // Re-enabled after fixing Supabase compatibility issues
+  // EMERGENCY DISABLE: Auto-scraping is temporarily disabled due to server crashes
+  // This endpoint is called by GitHub Actions cron job
+  // TODO: Move scraping to a separate Railway worker service
   app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
-    res.json({
+    console.log("⚠️ [SCRAPE] Auto-scraping is DISABLED - endpoint called but not executing");
+    console.log("   Reason: Automated scrapes cause Railway server crashes (502 errors)");
+    console.log("   Use /api/admin/scrape from admin dashboard for manual scraping only");
+
+    return res.json({
       success: false,
-      message: "Failed to start scrape",
-      error: errorMessage,
-      timestamp: timestamp,
+      message: "Auto-scraping temporarily disabled due to server stability issues. Use admin dashboard for manual scraping.",
+      timestamp: new Date().toISOString(),
+      disabled: true
     });
-  }
+  });
+
+} catch (error) {
+  console.error("❌ Error starting scrape:", error);
+  const errorMessage = error instanceof Error ? error.message : "Unknown error";
+  res.json({
+    success: false,
+    message: "Failed to start scrape",
+    error: errorMessage,
+    timestamp: timestamp,
+  });
+}
 });
 
 // Enrichment endpoint - triggered by GitHub Actions
