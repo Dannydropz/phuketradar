@@ -164,12 +164,29 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
         3, // max pages - ensures we catch all recent stories from fast-posting sources like Newshawk
         checkForDuplicate // stop early on duplicates (prevents unnecessary API calls)
       );
-      console.log(`${source.name}: Found ${scrapedPosts.length} NEW posts`);
+
+      // CRITICAL FIX: Deduplicate by sourceUrl in case Apify returns the same post twice
+      // This was causing the same Facebook post to be published twice with different translations
+      const seenUrls = new Set<string>();
+      const uniquePosts = scrapedPosts.filter(post => {
+        if (seenUrls.has(post.sourceUrl)) {
+          console.log(`🔁 DUPLICATE POST IN BATCH - Skipping: ${post.sourceUrl.substring(0, 80)}...`);
+          return false;
+        }
+        seenUrls.add(post.sourceUrl);
+        return true;
+      });
+
+      if (uniquePosts.length < scrapedPosts.length) {
+        console.log(`⚠️  Removed ${scrapedPosts.length - uniquePosts.length} duplicate URLs from scraper response`);
+      }
+
+      console.log(`${source.name}: Found ${uniquePosts.length} unique NEW posts`);
 
       // Limit posts to batch size to prevent event loop blocking
-      const postsToProcess = scrapedPosts.slice(0, BATCH_SIZE);
-      if (scrapedPosts.length > BATCH_SIZE) {
-        console.log(`   ⚠️  Limited to ${BATCH_SIZE} posts (${scrapedPosts.length - BATCH_SIZE} posts deferred to next scrape)`);
+      const postsToProcess = uniquePosts.slice(0, BATCH_SIZE);
+      if (uniquePosts.length > BATCH_SIZE) {
+        console.log(`   ⚠️  Limited to ${BATCH_SIZE} posts (${uniquePosts.length - BATCH_SIZE} posts deferred to next scrape)`);
       }
 
       totalPosts += postsToProcess.length;
