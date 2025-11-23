@@ -34,9 +34,9 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center hover-elevate rounded-lg px-3 py-2" data-testid="link-home">
-            <img 
-              src={logoDark} 
-              alt="Phuket Radar" 
+            <img
+              src={logoDark}
+              alt="Phuket Radar"
               className="h-16 w-auto"
             />
           </Link>
@@ -68,6 +68,16 @@ export function Header() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Link href="/crime">
+              <Button
+                variant="ghost"
+                className={`text-header-foreground hover:text-header-foreground ${location === "/crime" ? "bg-accent/50" : ""}`}
+                data-testid="nav-crime"
+              >
+                Crime
+              </Button>
+            </Link>
           </nav>
 
           <div className="flex items-center space-x-2">
