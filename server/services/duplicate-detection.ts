@@ -135,6 +135,12 @@ export class DuplicateDetectionService {
     embedding: number[],
     threshold: number = 0.85
   ): Promise<Article[]> {
+    // DISABLED: Embedding search still causes crashes on Railway + Supabase
+    // The generate_series() approach still has compatibility issues
+    console.log('[DUPLICATE DETECTION] Embedding search DISABLED - preventing crashes');
+    return [];
+
+    /* DISABLED CODE
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');
       return [];
@@ -172,6 +178,7 @@ export class DuplicateDetectionService {
       console.error('[DUPLICATE DETECTION] Embedding search failed - continuing without it:', error?.message || error);
       return [];
     }
+    */
   }
 
   /**
