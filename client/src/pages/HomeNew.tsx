@@ -63,13 +63,27 @@ export default function HomeNew() {
     }, [allArticles]);
 
     // Logic for "Breaking News" (Hero)
-    // Priority: Score 5 -> Score 4 -> Newest
+    // Priority:
+    // 1. Score 5 published within last 6 hours -> "Breaking News"
+    // 2. Most recent Score 4+ -> "Top Story"
+    // 3. Newest article
     const heroArticle = useMemo(() => {
         if (articles.length === 0) return null;
-        const breaking = articles.find(a => (a.interestScore ?? 0) >= 5);
-        if (breaking) return breaking;
+
+        const now = new Date();
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+
+        // Priority 1: Score 5 published within last 6 hours (fresh breaking news)
+        const recentBreaking = articles.find(a =>
+            (a.interestScore ?? 0) >= 5 && new Date(a.publishedAt) > sixHoursAgo
+        );
+        if (recentBreaking) return recentBreaking;
+
+        // Priority 2: Most recent Score 4+ (includes older Score 5 stories)
         const highInterest = articles.find(a => (a.interestScore ?? 0) >= 4);
         if (highInterest) return highInterest;
+
+        // Priority 3: Newest article if no high-interest stories
         return articles[0];
     }, [articles]);
 
