@@ -206,45 +206,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Cron service endpoint for automated scraping
-  // Re-enabled after fixing Instagram/Threads timeout issues
+  // EMERGENCY DISABLE: Auto-scraping disabled - persistent crashes
+  // Manual scraping from admin works, but automated scraping causes 502s
   app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
-    console.log("🔄 [CRON] Auto-scrape triggered");
+    console.log("⚠️ [SCRAPE] Auto-scraping DISABLED");
+    console.log("   Scraping must be done manually from admin dashboard");
 
-    try {
-      const { acquireSchedulerLock } = await import("./lib/scheduler-lock");
-      const lockAcquired = await acquireSchedulerLock();
-
-      if (!lockAcquired) {
-        console.log("⏭️  Scrape skipped - another instance running");
-        return res.json({
-          success: true,
-          message: "Scrape skipped - another instance already running",
-        });
-      }
-
-      res.json({
-        success: true,
-        message: "Scrape started in background",
-      });
-
-      setImmediate(async () => {
-        try {
-          console.log("🔄 Starting automated background scrape...");
-          const { runScheduledScrape } = await import("./scheduler");
-          const result = await runScheduledScrape();
-          console.log("✅ Auto-scrape completed:", result);
-        } catch (error) {
-          console.error("❌ Auto-scrape error (isolated):", error);
-        } finally {
-          const { releaseSchedulerLock } = await import("./lib/scheduler-lock");
-          await releaseSchedulerLock();
-        }
-      });
-    } catch (error) {
-      console.error("❌ Error starting auto-scrape:", error);
-      res.status(500).json({ success: false, message: "Failed to start scrape" });
-    }
+    return res.json({
+      success: false,
+      message: "Auto-scraping disabled. Use admin dashboard for manual scraping only.",
+      timestamp: new Date().toISOString(),
+      disabled: true
+    });
   });
 
   // Enrichment endpoint - triggered by GitHub Actions
