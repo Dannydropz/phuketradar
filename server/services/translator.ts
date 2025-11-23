@@ -125,77 +125,63 @@ export class TranslatorService {
     excerpt: string;
     category: string;
   }): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
-    const prompt = `You are a premium news editor for Phuket Radar, tasked with taking a good news article and transforming it into an EXCEPTIONAL piece of journalism.
 
-CURRENT ARTICLE:
+    // Prepare context string from the map
+    const contextMapString = Object.entries(PHUKET_CONTEXT_MAP)
+      .map(([key, value]) => `- ${key}: ${value}`)
+      .join("\n");
+
+    const prompt = `You are a Senior International Correspondent for a major wire service (like AP, Reuters, or AFP) stationed in Phuket, Thailand.
+    
+YOUR MISSION:
+Take the provided local news report and rewrite it into a WORLD-CLASS PIECE OF JOURNALISM that rivals the quality of the New York Times or BBC.
+
+INPUT ARTICLE:
 Title: ${params.title}
 Category: ${params.category}
 Content: ${params.content}
 
-YOUR MISSION:
-Transform this article into a deeply engaging, journalistic masterpiece by adding:
+AVAILABLE LOCAL CONTEXT (Use this to add depth):
+${contextMapString}
 
-1. CONTEXTUAL BACKGROUND:
-   - Add relevant historical context about the location/venue/area
-   - Include brief background on recurring issues or patterns if applicable
-   - Mention relevant statistics or trends when they add depth
-   - Example: For Bangla Road incident → mention its reputation, typical challenges, patrol presence
+STRICT WRITING GUIDELINES:
+1. **DATELINE:** Start the article with a dateline in bold caps. E.g., "**PATONG, PHUKET –**" or "**PHUKET TOWN –**".
+2. **LEDE PARAGRAPH:** Write a powerful, summary lede that answers Who, What, Where, When, and Why in the first sentence.
+3. **TONE:** Professional, objective, and authoritative. Avoid "police speak" (e.g., change "proceeded to the scene" to "rushed to the scene"). Use active voice.
+4. **STRUCTURE:**
+   - **The Narrative:** Tell the story chronologically or by importance.
+   - **The "Context" Section:** You MUST end the article with a distinct section titled "<h3>Context: [Topic]</h3>". In this section, explain the broader background (e.g., "Bangla Road's History of Incidents", "Phuket's Struggle with Flooding"). Use the provided context map or general knowledge to explain *why* this matters.
+5. **FACTUALITY:** Do NOT invent quotes or specific numbers. You MAY add general context (e.g., "The area is popular with tourists") but not specifics ("5,000 people were there") unless in the source.
 
-2. AREA-SPECIFIC ENRICHMENT:
-   - Weave in details about landmarks, venues, or geographic significance
-   - Add tourism context when relevant (visitor numbers, economic impact, area reputation)
-   - Include local color that helps international readers visualize the setting
-   - Example: "Bangla Road, which attracts thousands of visitors nightly to its bars and clubs"
+EXAMPLE OUTPUT FORMAT:
+"**PATONG, PHUKET –** A violent altercation between American tourists turned one of Phuket's most famous nightlife strips into a scene of chaos Saturday night...
 
-3. PROFESSIONAL DEPTH:
-   - Expand thin sections with journalistic context
-   - Add "why this matters" framing for readers
-   - Include broader implications or patterns when relevant
-   - Structure with subheadings (<h2>) for longer pieces to improve readability
+The incident unfolded on Bangla Road... [Story continues]...
 
-4. ENGAGING NARRATIVE:
-   - Use vivid, professional language that draws readers in
-   - Employ strong verbs and active voice
-   - Create smooth transitions between ideas
-   - Build narrative arc: incident → context → implications
-
-CRITICAL REQUIREMENTS:
-- NEVER invent facts, quotes, or statistics
-- Maintain 100% factual accuracy from the original article
-- Only add verifiable general context (e.g., "Bangla Road is known for nightlife" not "5,000 people visit daily" unless stated)
-- Keep the same category and core story
-- Preserve all names, times, numbers, and specific details exactly as provided
-- Write in HTML with <p> tags and <h2> subheadings for structure
-- Use AP Style for the headline
-
-EXAMPLES OF GOOD ENRICHMENT:
-✓ Adding: "Bangla Road, the heart of Patong's entertainment district, which generates substantial tourism revenue"
-✓ Adding: "This incident highlights ongoing public safety concerns in the area"
-✓ Adding: "Local authorities have increased patrols in recent months"
-✗ BAD: "5,000 tourists visit nightly" (specific number not in original)
-✗ BAD: "The victim said he was upset" (quote not in original)
+<h3>Context: Bangla Road's Ongoing Challenge</h3>
+This incident highlights ongoing public safety concerns along Bangla Road, which attracts thousands of international visitors nightly..."
 
 Respond in JSON format:
 {
-  "enrichedTitle": "compelling headline with perfect AP Style",
-  "enrichedContent": "deeply enriched HTML article with context, background, and journalistic depth",
-  "enrichedExcerpt": "2-3 sentence summary that captures the enriched story's significance"
+  "enrichedTitle": "Compelling, AP-Style Headline (Title Case)",
+  "enrichedContent": "Full HTML article starting with DATELINE and ending with CONTEXT SECTION",
+  "enrichedExcerpt": "2-3 sentence professional summary"
 }`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Use 4o-mini for speed and reliability, avoiding 400 errors
+      model: "gpt-4o", // UPGRADE: Using GPT-4o for maximum reasoning and writing quality
       messages: [
         {
           role: "system",
-          content: "You are an expert news editor who transforms good articles into exceptional journalism by adding rich context, background, and professional depth while maintaining strict factual accuracy. You MUST respond with valid JSON only.",
+          content: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. You always output valid JSON.",
         },
         {
           role: "user",
           content: prompt,
         },
       ],
-      temperature: 0.4, // Slightly higher for creative enrichment while staying factual
-      // response_format: { type: "json_object" }, // REMOVED: Causing 400 errors with some models/proxies
+      temperature: 0.5, // Balanced for creativity and accuracy
+      response_format: { type: "json_object" }, // Enabled for GPT-4o
     });
 
     const result = JSON.parse(completion.choices[0].message.content || "{}");
