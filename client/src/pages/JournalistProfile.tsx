@@ -7,7 +7,7 @@ import type { Journalist } from "@shared/schema";
 import { ArticleCard } from "@/components/ArticleCard";
 import { SEO } from "@/components/SEO";
 import { Sparkles, Search } from "lucide-react";
-import logoWhite from "@assets/PhuketRadar_1763798086294.png";
+import logoWhite from "@assets/PhuketRadar_1759933943849.png";
 import { useState } from "react";
 import { SearchDialog } from "@/components/SearchDialog";
 
