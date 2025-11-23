@@ -964,6 +964,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   console.log(`⏭️  Skipping auto-post to Facebook (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
                 }
 
+                /* DISABLED: Instagram and Threads Graph API not configured
                 // Auto-post to Instagram after Facebook (only for high-interest stories score >= 4)
                 // Manually created articles are NEVER auto-posted regardless of interest score
                 const isReallyPostedToInstagram = article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:');
@@ -1037,6 +1038,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
                   console.log(`⏭️  Skipping auto-post to Threads (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
                 }
+                */
               } else {
                 // Not classified as actual news - skip regardless of interest score
                 const interestScore = translation.interestScore || 0;
