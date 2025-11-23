@@ -135,59 +135,43 @@ export class DuplicateDetectionService {
     embedding: number[],
     threshold: number = 0.85
   ): Promise<Article[]> {
-    // TEMPORARY DISABLE: Embedding search causes crashes on Railway + Supabase
-    // TODO: Re-enable once we solve PostgreSQL compatibility issues
-    console.log('[DUPLICATE DETECTION] Embedding search DISABLED temporarily - skipping');
-    return [];
-
-    /* DISABLED CODE - DO NOT DELETE
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');
       return [];
     }
 
     try {
-      // ALTERNATIVE APPROACH: Avoid unnest() entirely - use simpler array similarity
-      // This works on all PostgreSQL versions including Supabase
-      try {
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-        // ALTERNATIVE: Use custom similarity function that avoids unnest()
-        // Calculate dot product directly in PostgreSQL without unnest()
-        const similarArticles = await db.execute(sql`
-          WITH query_embedding AS (
-            SELECT ${embedding}::real[] as vec
-          )
-          SELECT 
-            a.*,
-            -- Simple array-based similarity (no unnest needed)
-            (
-              SELECT COALESCE(SUM(a.embedding[i] * qe.vec[i]), 0)
-              FROM generate_series(1, array_length(a.embedding, 1)) i, query_embedding qe
-            ) AS similarity
-          FROM articles a, query_embedding qe
-          WHERE a.embedding IS NOT NULL
-            AND a.published_at >= ${twentyFourHoursAgo}
-            AND a.merged_into_id IS NULL
-            AND array_length(a.embedding, 1) = ${embedding.length}
-          ORDER BY similarity DESC
-          LIMIT 10
-        `);
+      // Supabase-compatible query using generate_series() instead of unnest()
+      // This avoids PostgreSQL function overload ambiguity issues
+      const similarArticles = await db.execute(sql`
+        WITH query_embedding AS (
+          SELECT ${embedding}::real[] as vec
+        )
+        SELECT 
+          a.*,
+          (
+            SELECT COALESCE(SUM(a.embedding[i] * qe.vec[i]), 0)
+            FROM generate_series(1, array_length(a.embedding, 1)) i, query_embedding qe
+          ) AS similarity
+        FROM articles a, query_embedding qe
+        WHERE a.embedding IS NOT NULL
+          AND a.published_at >= ${twentyFourHoursAgo}
+          AND a.merged_into_id IS NULL
+          AND array_length(a.embedding, 1) = ${embedding.length}
+        ORDER BY similarity DESC
+        LIMIT 10
+      `);
 
-        const filtered = (similarArticles.rows as any[]).filter(row => row.similarity >= threshold);
-        console.log(`[DUPLICATE DETECTION] Embedding search found ${filtered.length} matches (threshold: ${threshold})`);
-        return filtered as Article[];
-      } catch (innerError) {
-        // EMERGENCY: If query still fails, just skip embedding search
-        console.error('[DUPLICATE DETECTION] Embedding search FAILED - continuing without it:', innerError?.message || innerError);
-        console.error('[DUPLICATE DETECTION] This is non-fatal - scraper continues normally');
-        return [];
-      }
+      const filtered = (similarArticles.rows as any[]).filter(row => row.similarity >= threshold);
+      console.log(`[DUPLICATE DETECTION] Embedding search found ${filtered.length} matches (threshold: ${threshold})`);
+      return filtered as Article[];
     } catch (error) {
-      console.error('[DUPLICATE DETECTION] Error in embedding search:', error);
+      // Non-fatal: If embedding search fails, log and continue without it
+      console.error('[DUPLICATE DETECTION] Embedding search failed - continuing without it:', error?.message || error);
       return [];
     }
-    */
   }
 
   /**

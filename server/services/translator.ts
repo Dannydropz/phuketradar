@@ -309,17 +309,36 @@ INTEREST SCORE GUIDE (1-5):
 - 2 = ROUTINE/ADMINISTRATIVE: **Government officials inspecting/visiting/tackling issues**, meetings (even about important topics), routine announcements, administrative updates, preparation meetings, cultural events, festivals, **officials "working to alleviate" or "looking into" problems**
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages
 
-LOCATION-BASED SCORING RULES (CRITICAL):
-1. **Phuket & Surrounding Areas (Phang Nga, Krabi, Surat Thani/Samui):**
-   - Score normally based on the urgency rules above.
-2. **Other Locations (Bangkok, Hat Yai, Chiang Mai, Pattaya, Isaan, etc.):**
-   - **Category MUST be "National"**
-   - **MAX SCORE = 3** (Noteworthy), regardless of how big the story is.
-   - **Reason:** This is a HYPER-LOCAL news site for Phuket. Big stories from elsewhere are interesting but NOT "Breaking News" for our specific audience.
-   - **Exception:** Unless it is a NATIONAL event that *directly and immediately* impacts Phuket (e.g., "Thailand closes all airports", "Prime Minister announces new visa rules for all tourists").
-   - Example: "Major flood in Hat Yai leaves residents stranded" → Category="National", Score 3.
-   - Example: "Explosion in Bangkok shopping mall" → Category="National", Score 3.
-   - Example: "Chiang Mai suffers worst air pollution in world" → Category="National", Score 3.
+LOCATION-BASED SCORING RULES (CRITICAL - READ CAREFULLY):
+**THIS IS A HYPER-LOCAL PHUKET NEWS SITE. Stories from other provinces/cities are NOT priority news for our readers.**
+
+1. **Phuket ONLY (Phuket Town, Patong, Kata, Karon, Rawai, Chalong, Kamala, etc.):**
+   - Score normally (1-5) based on urgency rules above.
+   - Can achieve score 4 or 5 if truly urgent/life-threatening.
+
+2. **Nearby Provinces with Phuket Tourist Connections (Phang Nga, Krabi):**
+   - Score normally (1-5) if directly relevant to Phuket tourism/residents.
+   - Category depends on topic (Weather, Tourism, etc.).
+   Example: "Ferry service disrupted Phuket-Phi Phi" → Score 4 (affects Phuket tourists)
+
+3. **ALL OTHER LOCATIONS (Hat Yai, Songkhla, Bangkok, Chiang Mai, Pattaya, Surat Thani, Samui, Isaan, etc.):**
+   - **Category = "National"** (mandatory)
+   - **MAX SCORE = 2** (Routine) - even for major disasters/deaths in those locations
+   - **Exception ONLY if:** National policy change DIRECTLY affecting Phuket (visa rules, nationwide airport closure, etc.)
+   - **Reasoning:** Our readers live in PHUKET. Floods in Hat Yai, explosions in Bangkok, elections in Chiang Mai are NOT their immediate concern.
+   
+   Examples:
+   - "Severe flooding in Hat Yai leaves residents stranded" → Category="National", Score 2 
+   - "Explosion in Bangkok shopping mall kills 5" → Category="National", Score 2
+   - "Chiang Mai air pollution reaches hazardous levels" → Category="National", Score 2
+   - "Surat Thani ferry disaster" → Category="National", Score 2 (unless it's Phuket-bound ferry)
+   - "Prime Minister visits Phuket" → Category="Politics", Score 4-5 (HAPPENING IN PHUKET)
+
+4. **WHY THIS MATTERS:**
+   - Scores 4-5 get auto-published and posted to social media
+   - Scores 1-3 require manual review by editor
+   - National news from other provinces should NOT auto-publish
+   - We want LOCAL Phuket stories only for auto-publishing
 
 CRITICAL SCORING RULES:
 1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
