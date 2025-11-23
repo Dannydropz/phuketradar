@@ -150,6 +150,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SEO: Dynamic Sitemap
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const articles = await storage.getPublishedArticles();
+      const baseUrl = "https://phuketradar.com";
+
+      // Static pages
+      const staticPages = [
+        { url: baseUrl, priority: "1.0", changefreq: "hourly" },
+        { url: `${baseUrl}/crime`, priority: "0.9", changefreq: "hourly" },
+        { url: `${baseUrl}/local`, priority: "0.9", changefreq: "hourly" },
+        { url: `${baseUrl}/tourism`, priority: "0.8", changefreq: "daily" },
+        { url: `${baseUrl}/politics`, priority: "0.8", changefreq: "daily" },
+        { url: `${baseUrl}/economy`, priority: "0.8", changefreq: "daily" },
+        { url: `${baseUrl}/traffic`, priority: "0.8", changefreq: "daily" },
+        { url: `${baseUrl}/weather`, priority: "0.8", changefreq: "daily" },
+      ];
+
+      // Generate XML
+      let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+      // Add static pages
+      staticPages.forEach(page => {
+        xml += "  <url>\n";
+        xml += `    <loc>${page.url}</loc>\n`;
+        xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
+        xml += `    <priority>${page.priority}</priority>\n`;
+        xml += "  </url>\n";
+      });
+
+      // Add article pages
+      articles.forEach(article => {
+        const articleUrl = buildArticleUrl(article);
+        const lastmod = new Date(article.publishedAt).toISOString();
+
+        xml += "  <url>\n";
+        xml += `    <loc>${baseUrl}${articleUrl}</loc>\n`;
+        xml += `    <lastmod>${lastmod}</lastmod>\n`;
+        xml += `    <changefreq>weekly</changefreq>\n`;
+        xml += `    <priority>0.7</priority>\n`;
+        xml += "  </url>\n";
+      });
+
+      xml += "</urlset>";
+
+      res.header("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating sitemap:", error);
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
+
   // Cron service endpoint for external automated scraping
   // Protected by API key authentication (CRON_API_KEY environment variable)
   app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
