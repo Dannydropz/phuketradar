@@ -183,11 +183,11 @@ Respond in JSON format:
 }`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini", // Use 4o-mini for speed and reliability, avoiding 400 errors
       messages: [
         {
           role: "system",
-          content: "You are an expert news editor who transforms good articles into exceptional journalism by adding rich context, background, and professional depth while maintaining strict factual accuracy.",
+          content: "You are an expert news editor who transforms good articles into exceptional journalism by adding rich context, background, and professional depth while maintaining strict factual accuracy. You MUST respond with valid JSON only.",
         },
         {
           role: "user",
@@ -195,7 +195,7 @@ Respond in JSON format:
         },
       ],
       temperature: 0.4, // Slightly higher for creative enrichment while staying factual
-      response_format: { type: "json_object" },
+      // response_format: { type: "json_object" }, // REMOVED: Causing 400 errors with some models/proxies
     });
 
     const result = JSON.parse(completion.choices[0].message.content || "{}");
