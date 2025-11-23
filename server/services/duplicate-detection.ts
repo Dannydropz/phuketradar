@@ -131,7 +131,16 @@ export class DuplicateDetectionService {
   /**
    * Layer 1: Find articles with similar embeddings
    */
-  private async findByEmbedding(embedding?: number[] | null, threshold = 0.4): Promise<Article[]> {
+  private async findByEmbedding(
+    embedding: number[],
+    threshold: number = 0.85
+  ): Promise<Article[]> {
+    // TEMPORARY DISABLE: Embedding search causes crashes on Railway + Supabase
+    // TODO: Re-enable once we solve PostgreSQL compatibility issues
+    console.log('[DUPLICATE DETECTION] Embedding search DISABLED temporarily - skipping');
+    return [];
+
+    /* DISABLED CODE - DO NOT DELETE
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');
       return [];
@@ -178,6 +187,7 @@ export class DuplicateDetectionService {
       console.error('[DUPLICATE DETECTION] Error in embedding search:', error);
       return [];
     }
+    */
   }
 
   /**
