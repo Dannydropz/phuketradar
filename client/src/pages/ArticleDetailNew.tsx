@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem, Journalist } from "@shared/schema";
 import { ArticleImage } from "@/components/ArticleImage";
 import { SEO } from "@/components/SEO";
+import { JsonLd } from "@/components/JsonLd";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleUrl } from "@shared/category-map";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
@@ -120,6 +122,33 @@ export default function ArticleDetailNew() {
                 author={journalist ? `${journalist.nickname} ${journalist.surname}` : undefined}
             />
 
+            {/* JSON-LD Structured Data */}
+            <JsonLd data={{
+                "@context": "https://schema.org",
+                "@type": "NewsArticle",
+                "headline": article.title,
+                "image": article.imageUrl || (article.imageUrls && article.imageUrls[0]) || undefined,
+                "datePublished": article.publishedAt.toString(),
+                "dateModified": article.publishedAt.toString(),
+                "author": journalist ? {
+                    "@type": "Person",
+                    "name": `${journalist.nickname} ${journalist.surname}`
+                } : undefined,
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Phuket Radar",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": "https://phuketradar.com/logo-white.png"
+                    }
+                },
+                "description": article.excerpt,
+                "mainEntityOfPage": {
+                    "@type": "WebPage",
+                    "@id": canonicalUrl
+                }
+            }} />
+
             {/* Navigation Bar - Glass Effect */}
             <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -171,6 +200,13 @@ export default function ArticleDetailNew() {
                                 Back to Home
                             </a>
                         </Link>
+
+                        {/* Breadcrumbs */}
+                        <Breadcrumbs items={[
+                            { label: "Home", href: "/" },
+                            { label: article.category.charAt(0).toUpperCase() + article.category.slice(1), href: `/${article.category.toLowerCase()}` },
+                            { label: article.title, href: `/${article.category.toLowerCase()}/${article.slug || article.id}` }
+                        ]} />
 
                         {/* Article Header */}
                         <div className="mb-8">

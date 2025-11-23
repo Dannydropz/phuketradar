@@ -12,9 +12,9 @@ interface ArticleImageProps {
 // Category-based placeholder colors for when images fail to load
 const getCategoryPlaceholder = (category?: string) => {
   if (!category) return "bg-muted";
-  
+
   const categoryLower = category.toLowerCase();
-  
+
   switch (categoryLower) {
     case "breaking":
       return "bg-red-50 dark:bg-red-950/20";
@@ -36,7 +36,7 @@ export function ArticleImage({ src, alt, className = "", category, testId }: Art
   // If no src provided or image failed to load, show placeholder
   if (!src || imageError) {
     return (
-      <div 
+      <div
         className={`${className} ${getCategoryPlaceholder(category)} flex items-center justify-center`}
         data-testid={testId}
       >
@@ -52,7 +52,7 @@ export function ArticleImage({ src, alt, className = "", category, testId }: Art
   return (
     <>
       {isLoading && (
-        <div 
+        <div
           className={`${className} ${getCategoryPlaceholder(category)} flex items-center justify-center`}
         >
           <img
@@ -66,6 +66,7 @@ export function ArticleImage({ src, alt, className = "", category, testId }: Art
         src={src}
         alt={alt}
         className={`${className} ${isLoading ? 'hidden' : ''}`}
+        loading="lazy"
         onError={() => {
           setImageError(true);
           setIsLoading(false);
