@@ -222,708 +222,696 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-} catch (error) {
-  console.error("❌ Error starting scrape:", error);
-  const errorMessage = error instanceof Error ? error.message : "Unknown error";
-  res.json({
-    success: false,
-    message: "Failed to start scrape",
-    error: errorMessage,
-    timestamp: timestamp,
-  });
-}
-});
+  // Enrichment endpoint - triggered by GitHub Actions
+  app.post("/api/cron/enrich", requireCronAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🔄 ENRICHMENT TRIGGERED 🔄");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: EXTERNAL CRON SERVICE (GitHub Actions)`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log("=".repeat(80) + "\n");
 
-// Enrichment endpoint - triggered by GitHub Actions
-app.post("/api/cron/enrich", requireCronAuth, async (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log("\n".repeat(3) + "=".repeat(80));
-  console.log("🔄 ENRICHMENT TRIGGERED 🔄");
-  console.log(`Time: ${timestamp}`);
-  console.log(`Trigger: EXTERNAL CRON SERVICE (GitHub Actions)`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log("=".repeat(80) + "\n");
-
-  try {
-    console.log("🔄 Starting enrichment pass...");
-    const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
-    const coordinator = new StoryEnrichmentCoordinator();
-
-    const result = await coordinator.enrichDevelopingStories(storage);
-
-    console.log("✅ Enrichment completed successfully");
-    console.log("Result:", JSON.stringify(result, null, 2));
-
-    res.json({
-      success: true,
-      message: "Enrichment completed successfully",
-      timestamp: timestamp,
-      result: result,
-    });
-  } catch (error) {
-    console.error("❌ Error during enrichment:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    // Always return 200 OK for GitHub Actions (even on errors)
-    res.json({
-      success: false,
-      message: "Enrichment completed with errors",
-      error: errorMessage,
-      timestamp: timestamp,
-    });
-  }
-});
-
-// Admin routes
-
-// Admin authentication
-app.post("/api/admin/auth", async (req, res) => {
-  try {
-    const { password } = req.body;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-
-    if (!adminPassword) {
-      console.error("ADMIN_PASSWORD not set in environment variables");
-      return res.status(500).json({ error: "Server configuration error" });
-    }
-
-    if (password === adminPassword) {
-      req.session.isAdminAuthenticated = true;
-      return res.json({ success: true });
-    }
-
-    return res.status(401).json({ error: "Invalid password" });
-  } catch (error) {
-    console.error("Auth error:", error);
-    res.status(500).json({ error: "Authentication failed" });
-  }
-});
-
-// Admin logout
-app.post("/api/admin/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: "Logout failed" });
-    }
-    res.json({ success: true });
-  });
-});
-
-// Get all articles (including unpublished) - PROTECTED
-app.get("/api/admin/articles", requireAdminAuth, async (req, res) => {
-  try {
-    const articles = await storage.getAllArticles();
-    res.json(articles);
-  } catch (error) {
-    console.error("Error fetching all articles:", error);
-    res.status(500).json({ error: "Failed to fetch articles" });
-  }
-});
-
-// Get pending articles - PROTECTED
-app.get("/api/admin/articles/pending", requireAdminAuth, async (req, res) => {
-  try {
-    const articles = await storage.getPendingArticles();
-    res.json(articles);
-  } catch (error) {
-    console.error("Error fetching pending articles:", error);
-    res.status(500).json({ error: "Failed to fetch pending articles" });
-  }
-});
-
-// Get articles needing review - PROTECTED
-app.get("/api/admin/articles/needs-review", requireAdminAuth, async (req, res) => {
-  try {
-    const articles = await storage.getArticlesNeedingReview();
-    res.json(articles);
-  } catch (error) {
-    console.error("Error fetching articles needing review:", error);
-    res.status(500).json({ error: "Failed to fetch articles needing review" });
-  }
-});
-
-// Create new article - PROTECTED
-app.post("/api/admin/articles", requireAdminAuth, async (req, res) => {
-  try {
-    const articleData = req.body;
-
-    // Generate slug from title if not provided
-    if (!articleData.slug && articleData.title) {
-      articleData.slug = articleData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-    }
-
-    // Mark manually created articles
-    articleData.isManuallyCreated = true;
-
-    // Set sourceUrl to our domain if not provided (since it's manually created)
-    if (!articleData.sourceUrl) {
-      articleData.sourceUrl = 'https://phuketradar.com';
-    }
-
-    const article = await storage.createArticle(articleData);
-    res.json(article);
-  } catch (error) {
-    console.error("Error creating article:", error);
-    res.status(500).json({ error: "Failed to create article" });
-  }
-});
-
-// Get all categories - PROTECTED
-app.get("/api/admin/categories", requireAdminAuth, async (req, res) => {
-  try {
-    const categories = await storage.getAllCategories();
-    res.json(categories);
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    res.status(500).json({ error: "Failed to fetch categories" });
-  }
-});
-
-// Create new category - PROTECTED
-app.post("/api/admin/categories", requireAdminAuth, async (req, res) => {
-  try {
-    const { name, color, icon } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: "Category name is required" });
-    }
-
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-    const category = await storage.createCategory({
-      name,
-      slug,
-      color: color || '#3b82f6',
-      icon: icon || null,
-      isDefault: false,
-    });
-
-    res.json(category);
-  } catch (error) {
-    console.error("Error creating category:", error);
-    res.status(500).json({ error: "Failed to create category" });
-  }
-});
-
-// Seed default categories - PROTECTED
-app.post("/api/admin/categories/seed", requireAdminAuth, async (req, res) => {
-  try {
-    const defaultCategories = [
-      { name: "Crime", slug: "crime", color: "#ef4444", icon: null },
-      { name: "Local News", slug: "local-news", color: "#3b82f6", icon: null },
-      { name: "Tourism", slug: "tourism", color: "#10b981", icon: null },
-      { name: "Politics", slug: "politics", color: "#8b5cf6", icon: null },
-      { name: "Economy", slug: "economy", color: "#f59e0b", icon: null },
-      { name: "Traffic", slug: "traffic", color: "#ec4899", icon: null },
-      { name: "Weather", slug: "weather", color: "#06b6d4", icon: null },
-      { name: "Guides", slug: "guides", color: "#84cc16", icon: null },
-      { name: "Lifestyle", slug: "lifestyle", color: "#f97316", icon: null },
-      { name: "Environment", slug: "environment", color: "#22c55e", icon: null },
-      { name: "Health", slug: "health", color: "#14b8a6", icon: null },
-      { name: "Entertainment", slug: "entertainment", color: "#a855f7", icon: null },
-      { name: "Sports", slug: "sports", color: "#f43f5e", icon: null },
-    ];
-
-    const existingCategories = await storage.getAllCategories();
-    const existingSlugs = new Set(existingCategories.map(c => c.slug));
-
-    const created = [];
-    for (const cat of defaultCategories) {
-      if (!existingSlugs.has(cat.slug)) {
-        const category = await storage.createCategory({
-          ...cat,
-          isDefault: true,
-        });
-        created.push(category);
-      }
-    }
-
-    res.json({
-      success: true,
-      created: created.length,
-      total: defaultCategories.length,
-      categories: created,
-    });
-  } catch (error) {
-    console.error("Error seeding categories:", error);
-    res.status(500).json({ error: "Failed to seed categories" });
-  }
-});
-
-// Scrape and process articles - PROTECTED (async with job tracking)
-app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log("\n".repeat(3) + "=".repeat(80));
-  console.log("🚨 SCRAPE TRIGGERED 🚨");
-  console.log(`Time: ${timestamp}`);
-  console.log(`Trigger: MANUAL (Admin Dashboard)`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log("=".repeat(80) + "\n");
-
-  // Create job and respond immediately
-  const job = scrapeJobManager.createJob();
-  console.log(`Created scrape job: ${job.id}`);
-
-  res.json({
-    success: true,
-    jobId: job.id,
-    message: "Scraping started in background",
-  });
-
-  // Process in background (no await) - use the same runScheduledScrape function as automated scraping
-  (async () => {
     try {
-      scrapeJobManager.updateJob(job.id, { status: 'processing' });
+      console.log("🔄 Starting enrichment pass...");
+      const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
+      const coordinator = new StoryEnrichmentCoordinator();
 
-      console.log(`[Job ${job.id}] Starting scrape using runScheduledScrape() with job tracking`);
+      const result = await coordinator.enrichDevelopingStories(storage);
 
-      // Import and run the scheduled scrape function with progress callbacks
-      const { runScheduledScrape } = await import("./scheduler");
+      console.log("✅ Enrichment completed successfully");
+      console.log("Result:", JSON.stringify(result, null, 2));
 
-      const result = await runScheduledScrape({
-        onProgress: (stats) => {
-          scrapeJobManager.updateProgress(job.id, {
-            totalPosts: stats.totalPosts,
-            processedPosts: stats.processedPosts,
-            createdArticles: stats.createdArticles,
-            skippedNotNews: stats.skippedNotNews,
-          });
-        },
+      res.json({
+        success: true,
+        message: "Enrichment completed successfully",
+        timestamp: timestamp,
+        result: result,
+      });
+    } catch (error) {
+      console.error("❌ Error during enrichment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      // Always return 200 OK for GitHub Actions (even on errors)
+      res.json({
+        success: false,
+        message: "Enrichment completed with errors",
+        error: errorMessage,
+        timestamp: timestamp,
+      });
+    }
+  });
+
+  // Admin routes
+
+  // Admin authentication
+  app.post("/api/admin/auth", async (req, res) => {
+    try {
+      const { password } = req.body;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+
+      if (!adminPassword) {
+        console.error("ADMIN_PASSWORD not set in environment variables");
+        return res.status(500).json({ error: "Server configuration error" });
+      }
+
+      if (password === adminPassword) {
+        req.session.isAdminAuthenticated = true;
+        return res.json({ success: true });
+      }
+
+      return res.status(401).json({ error: "Invalid password" });
+    } catch (error) {
+      console.error("Auth error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  // Admin logout
+  app.post("/api/admin/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  // Get all articles (including unpublished) - PROTECTED
+  app.get("/api/admin/articles", requireAdminAuth, async (req, res) => {
+    try {
+      const articles = await storage.getAllArticles();
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching all articles:", error);
+      res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
+  // Get pending articles - PROTECTED
+  app.get("/api/admin/articles/pending", requireAdminAuth, async (req, res) => {
+    try {
+      const articles = await storage.getPendingArticles();
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching pending articles:", error);
+      res.status(500).json({ error: "Failed to fetch pending articles" });
+    }
+  });
+
+  // Get articles needing review - PROTECTED
+  app.get("/api/admin/articles/needs-review", requireAdminAuth, async (req, res) => {
+    try {
+      const articles = await storage.getArticlesNeedingReview();
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching articles needing review:", error);
+      res.status(500).json({ error: "Failed to fetch articles needing review" });
+    }
+  });
+
+  // Create new article - PROTECTED
+  app.post("/api/admin/articles", requireAdminAuth, async (req, res) => {
+    try {
+      const articleData = req.body;
+
+      // Generate slug from title if not provided
+      if (!articleData.slug && articleData.title) {
+        articleData.slug = articleData.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+      }
+
+      // Mark manually created articles
+      articleData.isManuallyCreated = true;
+
+      // Set sourceUrl to our domain if not provided (since it's manually created)
+      if (!articleData.sourceUrl) {
+        articleData.sourceUrl = 'https://phuketradar.com';
+      }
+
+      const article = await storage.createArticle(articleData);
+      res.json(article);
+    } catch (error) {
+      console.error("Error creating article:", error);
+      res.status(500).json({ error: "Failed to create article" });
+    }
+  });
+
+  // Get all categories - PROTECTED
+  app.get("/api/admin/categories", requireAdminAuth, async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  // Create new category - PROTECTED
+  app.post("/api/admin/categories", requireAdminAuth, async (req, res) => {
+    try {
+      const { name, color, icon } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const category = await storage.createCategory({
+        name,
+        slug,
+        color: color || '#3b82f6',
+        icon: icon || null,
+        isDefault: false,
       });
 
-      if (result) {
-        console.log(`[Job ${job.id}] Scrape completed successfully`);
-        console.log(`[Job ${job.id}] Total posts: ${result.totalPosts}`);
-        console.log(`[Job ${job.id}] Articles created: ${result.articlesCreated}`);
-        console.log(`[Job ${job.id}] Skipped (duplicates): ${result.skippedSemanticDuplicates}`);
-        console.log(`[Job ${job.id}] Skipped (not news/text graphics): ${result.skippedNotNews}`);
-
-        scrapeJobManager.markCompleted(job.id);
-      } else {
-        console.error(`[Job ${job.id}] Scrape returned null result`);
-        scrapeJobManager.markFailed(job.id, "Scrape returned no result");
-      }
+      res.json(category);
     } catch (error) {
-      console.error(`[Job ${job.id}] SCRAPING ERROR:`, error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      scrapeJobManager.markFailed(job.id, errorMessage);
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category" });
     }
-  })();
-});
+  });
 
-// Get scrape job status - PROTECTED
-app.get("/api/admin/scrape/status/:id", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const job = scrapeJobManager.getJob(id);
+  // Seed default categories - PROTECTED
+  app.post("/api/admin/categories/seed", requireAdminAuth, async (req, res) => {
+    try {
+      const defaultCategories = [
+        { name: "Crime", slug: "crime", color: "#ef4444", icon: null },
+        { name: "Local News", slug: "local-news", color: "#3b82f6", icon: null },
+        { name: "Tourism", slug: "tourism", color: "#10b981", icon: null },
+        { name: "Politics", slug: "politics", color: "#8b5cf6", icon: null },
+        { name: "Economy", slug: "economy", color: "#f59e0b", icon: null },
+        { name: "Traffic", slug: "traffic", color: "#ec4899", icon: null },
+        { name: "Weather", slug: "weather", color: "#06b6d4", icon: null },
+        { name: "Guides", slug: "guides", color: "#84cc16", icon: null },
+        { name: "Lifestyle", slug: "lifestyle", color: "#f97316", icon: null },
+        { name: "Environment", slug: "environment", color: "#22c55e", icon: null },
+        { name: "Health", slug: "health", color: "#14b8a6", icon: null },
+        { name: "Entertainment", slug: "entertainment", color: "#a855f7", icon: null },
+        { name: "Sports", slug: "sports", color: "#f43f5e", icon: null },
+      ];
 
-    if (!job) {
-      return res.status(404).json({ error: "Job not found" });
+      const existingCategories = await storage.getAllCategories();
+      const existingSlugs = new Set(existingCategories.map(c => c.slug));
+
+      const created = [];
+      for (const cat of defaultCategories) {
+        if (!existingSlugs.has(cat.slug)) {
+          const category = await storage.createCategory({
+            ...cat,
+            isDefault: true,
+          });
+          created.push(category);
+        }
+      }
+
+      res.json({
+        success: true,
+        created: created.length,
+        total: defaultCategories.length,
+        categories: created,
+      });
+    } catch (error) {
+      console.error("Error seeding categories:", error);
+      res.status(500).json({ error: "Failed to seed categories" });
     }
+  });
 
-    res.json(job);
-  } catch (error) {
-    console.error("Error fetching job status:", error);
-    res.status(500).json({ error: "Failed to fetch job status" });
-  }
-});
+  // Scrape and process articles - PROTECTED (async with job tracking)
+  app.post("/api/admin/scrape", requireAdminAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🚨 SCRAPE TRIGGERED 🚨");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: MANUAL (Admin Dashboard)`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log("=".repeat(80) + "\n");
 
-// Update article (approve/reject/edit) - PROTECTED
-app.patch("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    const article = await storage.updateArticle(id, updates);
-
-    if (!article) {
-      return res.status(404).json({ error: "Article not found" });
-    }
-
-    res.json(article);
-  } catch (error) {
-    console.error("Error updating article:", error);
-    res.status(500).json({ error: "Failed to update article" });
-  }
-});
-
-// Delete article - PROTECTED
-app.delete("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const success = await storage.deleteArticle(id);
-
-    if (!success) {
-      return res.status(404).json({ error: "Article not found" });
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting article:", error);
-    res.status(500).json({ error: "Failed to delete article" });
-  }
-});
-
-// Publish article - PROTECTED
-app.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const article = await storage.updateArticle(id, {
-      isPublished: true,
-      facebookPostId: null // Clear any previous posting attempts so button appears
-    });
-
-    if (!article) {
-      return res.status(404).json({ error: "Article not found" });
-    }
-
-    // Manual publishes do NOT auto-post to Facebook
-    // Use the dedicated POST /api/admin/articles/:id/facebook endpoint to manually post to Facebook
-    console.log(`📰 [PUBLISH] Article published manually (not auto-posted to Facebook): ${article.title.substring(0, 60)}...`);
-
-    res.json(article);
-  } catch (error) {
-    console.error("Error publishing article:", error);
-    res.status(500).json({ error: "Failed to publish article" });
-  }
-});
-
-// Post article to Facebook - PROTECTED
-app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const article = await storage.getArticleById(id);
-
-    if (!article) {
-      return res.status(404).json({ error: "Article not found" });
-    }
-
-    if (!article.isPublished) {
-      return res.status(400).json({ error: "Only published articles can be posted to Facebook" });
-    }
-
-    if (article.facebookPostId) {
-      return res.status(400).json({ error: "Article already posted to Facebook" });
-    }
-
-    const fbResult = await postArticleToFacebook(article, storage);
-
-    if (!fbResult) {
-      return res.status(500).json({ error: "Failed to post to Facebook" });
-    }
-
-    // Reload article to get updated state (service handles DB update)
-    const updatedArticle = await storage.getArticleById(id);
+    // Create job and respond immediately
+    const job = scrapeJobManager.createJob();
+    console.log(`Created scrape job: ${job.id}`);
 
     res.json({
-      ...updatedArticle,
-      status: fbResult.status,
+      success: true,
+      jobId: job.id,
+      message: "Scraping started in background",
     });
-  } catch (error) {
-    console.error("Error posting to Facebook:", error);
-    res.status(500).json({ error: "Failed to post to Facebook" });
-  }
-});
 
-// Batch post articles to Facebook - PROTECTED
-app.post("/api/admin/facebook/batch-post", requireAdminAuth, async (req, res) => {
-  try {
-    // Find all published articles with images that haven't been posted to Facebook
-    const allArticles = await storage.getPublishedArticles();
-    const articlesToPost = allArticles.filter(
-      (article) => (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && !article.facebookPostId
-    );
-
-    console.log(`📘 Batch posting ${articlesToPost.length} articles to Facebook`);
-
-    const results = {
-      total: articlesToPost.length,
-      successful: 0,
-      failed: 0,
-      errors: [] as string[],
-    };
-
-    for (const articleListItem of articlesToPost) {
+    // Process in background (no await) - use the same runScheduledScrape function as automated scraping
+    (async () => {
       try {
-        console.log(`📘 Posting: ${articleListItem.title.substring(0, 60)}...`);
+        scrapeJobManager.updateJob(job.id, { status: 'processing' });
 
-        // Fetch full article with content for Facebook posting
-        const fullArticle = await storage.getArticleById(articleListItem.id);
-        if (!fullArticle) {
-          results.failed++;
-          results.errors.push(`${articleListItem.title}: Article not found`);
-          continue;
-        }
+        console.log(`[Job ${job.id}] Starting scrape using runScheduledScrape() with job tracking`);
 
-        const fbResult = await postArticleToFacebook(fullArticle, storage);
+        // Import and run the scheduled scrape function with progress callbacks
+        const { runScheduledScrape } = await import("./scheduler");
 
-        if (fbResult) {
-          results.successful++;
-          if (fbResult.status === 'posted') {
-            console.log(`✅ Posted successfully: ${fbResult.postUrl}`);
-          } else {
-            console.log(`ℹ️  Already posted: ${fbResult.postUrl}`);
-          }
+        const result = await runScheduledScrape({
+          onProgress: (stats) => {
+            scrapeJobManager.updateProgress(job.id, {
+              totalPosts: stats.totalPosts,
+              processedPosts: stats.processedPosts,
+              createdArticles: stats.createdArticles,
+              skippedNotNews: stats.skippedNotNews,
+            });
+          },
+        });
+
+        if (result) {
+          console.log(`[Job ${job.id}] Scrape completed successfully`);
+          console.log(`[Job ${job.id}] Total posts: ${result.totalPosts}`);
+          console.log(`[Job ${job.id}] Articles created: ${result.articlesCreated}`);
+          console.log(`[Job ${job.id}] Skipped (duplicates): ${result.skippedSemanticDuplicates}`);
+          console.log(`[Job ${job.id}] Skipped (not news/text graphics): ${result.skippedNotNews}`);
+
+          scrapeJobManager.markCompleted(job.id);
         } else {
-          results.failed++;
-          results.errors.push(`${fullArticle.title}: Failed to post (no result)`);
-          console.log(`❌ Failed to post: ${fullArticle.title.substring(0, 60)}...`);
+          console.error(`[Job ${job.id}] Scrape returned null result`);
+          scrapeJobManager.markFailed(job.id, "Scrape returned no result");
         }
       } catch (error) {
-        results.failed++;
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        results.errors.push(`${articleListItem.title}: ${errorMsg}`);
-        console.error(`❌ Error posting ${articleListItem.title}:`, error);
+        console.error(`[Job ${job.id}] SCRAPING ERROR:`, error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        scrapeJobManager.markFailed(job.id, errorMessage);
       }
+    })();
+  });
+
+  // Get scrape job status - PROTECTED
+  app.get("/api/admin/scrape/status/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const job = scrapeJobManager.getJob(id);
+
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      res.json(job);
+    } catch (error) {
+      console.error("Error fetching job status:", error);
+      res.status(500).json({ error: "Failed to fetch job status" });
     }
+  });
 
-    console.log(`📘 Batch post complete: ${results.successful} successful, ${results.failed} failed`);
-    res.json(results);
-  } catch (error) {
-    console.error("Error in batch Facebook posting:", error);
-    res.status(500).json({ error: "Failed to batch post to Facebook" });
-  }
-});
+  // Update article (approve/reject/edit) - PROTECTED
+  app.patch("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
 
-// Post article to Instagram - PROTECTED
-app.post("/api/admin/articles/:id/instagram", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const article = await storage.getArticleById(id);
+      const article = await storage.updateArticle(id, updates);
 
-    if (!article) {
-      return res.status(404).json({ error: "Article not found" });
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      res.json(article);
+    } catch (error) {
+      console.error("Error updating article:", error);
+      res.status(500).json({ error: "Failed to update article" });
     }
+  });
 
-    if (!article.isPublished) {
-      return res.status(400).json({ error: "Only published articles can be posted to Instagram" });
+  // Delete article - PROTECTED
+  app.delete("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteArticle(id);
+
+      if (!success) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting article:", error);
+      res.status(500).json({ error: "Failed to delete article" });
     }
+  });
 
-    if (article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:')) {
-      return res.status(400).json({ error: "Article already posted to Instagram" });
-    }
-
-    const igResult = await postArticleToInstagram(article, storage);
-
-    if (!igResult) {
-      return res.status(500).json({ error: "Failed to post to Instagram" });
-    }
-
-    // Reload article to get updated state (service handles DB update)
-    const updatedArticle = await storage.getArticleById(id);
-
-    res.json({
-      ...updatedArticle,
-      status: igResult.status,
-    });
-  } catch (error) {
-    console.error("Error posting to Instagram:", error);
-    res.status(500).json({ error: "Failed to post to Instagram" });
-  }
-});
-
-// Post article to Threads - PROTECTED
-app.post("/api/admin/articles/:id/threads", requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const article = await storage.getArticleById(id);
-
-    if (!article) {
-      return res.status(404).json({ error: "Article not found" });
-    }
-
-    if (!article.isPublished) {
-      return res.status(400).json({ error: "Only published articles can be posted to Threads" });
-    }
-
-    if (article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:')) {
-      return res.status(400).json({ error: "Article already posted to Threads" });
-    }
-
-    const threadsResult = await postArticleToThreads(article, storage);
-
-    if (!threadsResult) {
-      return res.status(500).json({ error: "Failed to post to Threads" });
-    }
-
-    // Reload article to get updated state (service handles DB update)
-    const updatedArticle = await storage.getArticleById(id);
-
-    res.json({
-      ...updatedArticle,
-      status: threadsResult.status,
-    });
-  } catch (error) {
-    console.error("Error posting to Threads:", error);
-    res.status(500).json({ error: "Failed to post to Threads" });
-  }
-});
-
-// Clear stuck Facebook posting locks - PROTECTED
-app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
-  try {
-    console.log(`🔧 [ADMIN] Manually clearing stuck Facebook posting locks...`);
-
-    const stuckLocks = await storage.getArticlesWithStuckLocks();
-
-    if (stuckLocks.length === 0) {
-      console.log(`✅ [ADMIN] No stuck locks found`);
-      return res.json({
-        cleared: 0,
-        articles: [],
+  // Publish article - PROTECTED
+  app.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.updateArticle(id, {
+        isPublished: true,
+        facebookPostId: null // Clear any previous posting attempts so button appears
       });
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      // Manual publishes do NOT auto-post to Facebook
+      // Use the dedicated POST /api/admin/articles/:id/facebook endpoint to manually post to Facebook
+      console.log(`📰 [PUBLISH] Article published manually (not auto-posted to Facebook): ${article.title.substring(0, 60)}...`);
+
+      res.json(article);
+    } catch (error) {
+      console.error("Error publishing article:", error);
+      res.status(500).json({ error: "Failed to publish article" });
     }
+  });
 
-    console.warn(`⚠️  [ADMIN] Found ${stuckLocks.length} articles with stuck LOCK tokens`);
+  // Post article to Facebook - PROTECTED
+  app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
 
-    const clearedArticles = [];
-    for (const article of stuckLocks) {
-      console.warn(`   - Clearing lock for: ${article.title.substring(0, 60)}... (ID: ${article.id})`);
-      await storage.clearStuckFacebookLock(article.id);
-      clearedArticles.push({
-        id: article.id,
-        title: article.title,
-        lockToken: article.facebookPostId,
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can be posted to Facebook" });
+      }
+
+      if (article.facebookPostId) {
+        return res.status(400).json({ error: "Article already posted to Facebook" });
+      }
+
+      const fbResult = await postArticleToFacebook(article, storage);
+
+      if (!fbResult) {
+        return res.status(500).json({ error: "Failed to post to Facebook" });
+      }
+
+      // Reload article to get updated state (service handles DB update)
+      const updatedArticle = await storage.getArticleById(id);
+
+      res.json({
+        ...updatedArticle,
+        status: fbResult.status,
       });
+    } catch (error) {
+      console.error("Error posting to Facebook:", error);
+      res.status(500).json({ error: "Failed to post to Facebook" });
     }
+  });
 
-    console.log(`✅ [ADMIN] Cleared ${stuckLocks.length} stuck locks`);
+  // Batch post articles to Facebook - PROTECTED
+  app.post("/api/admin/facebook/batch-post", requireAdminAuth, async (req, res) => {
+    try {
+      // Find all published articles with images that haven't been posted to Facebook
+      const allArticles = await storage.getPublishedArticles();
+      const articlesToPost = allArticles.filter(
+        (article) => (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && !article.facebookPostId
+      );
 
-    res.json({
-      cleared: stuckLocks.length,
-      articles: clearedArticles,
-    });
-  } catch (error) {
-    console.error("Error clearing stuck Facebook locks:", error);
-    res.status(500).json({ error: "Failed to clear stuck locks" });
-  }
-});
+      console.log(`📘 Batch posting ${articlesToPost.length} articles to Facebook`);
 
-// Cron endpoint for daily newsletter
-app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log("\n".repeat(3) + "=".repeat(80));
-  console.log("📧 NEWSLETTER TRIGGERED 📧");
-  console.log(`Time: ${timestamp}`);
-  console.log(`Trigger: EXTERNAL CRON SERVICE`);
-  console.log("=".repeat(80) + "\n");
-
-  try {
-    // Get active subscribers
-    const subscribers = await storage.getAllActiveSubscribers();
-
-    if (subscribers.length === 0) {
-      console.log("ℹ️  No active subscribers - skipping newsletter");
-      return res.json({
-        success: true,
-        message: "No active subscribers",
-        sent: 0,
+      const results = {
+        total: articlesToPost.length,
+        successful: 0,
         failed: 0,
+        errors: [] as string[],
+      };
+
+      for (const articleListItem of articlesToPost) {
+        try {
+          console.log(`📘 Posting: ${articleListItem.title.substring(0, 60)}...`);
+
+          // Fetch full article with content for Facebook posting
+          const fullArticle = await storage.getArticleById(articleListItem.id);
+          if (!fullArticle) {
+            results.failed++;
+            results.errors.push(`${articleListItem.title}: Article not found`);
+            continue;
+          }
+
+          const fbResult = await postArticleToFacebook(fullArticle, storage);
+
+          if (fbResult) {
+            results.successful++;
+            if (fbResult.status === 'posted') {
+              console.log(`✅ Posted successfully: ${fbResult.postUrl}`);
+            } else {
+              console.log(`ℹ️  Already posted: ${fbResult.postUrl}`);
+            }
+          } else {
+            results.failed++;
+            results.errors.push(`${fullArticle.title}: Failed to post (no result)`);
+            console.log(`❌ Failed to post: ${fullArticle.title.substring(0, 60)}...`);
+          }
+        } catch (error) {
+          results.failed++;
+          const errorMsg = error instanceof Error ? error.message : "Unknown error";
+          results.errors.push(`${articleListItem.title}: ${errorMsg}`);
+          console.error(`❌ Error posting ${articleListItem.title}:`, error);
+        }
+      }
+
+      console.log(`📘 Batch post complete: ${results.successful} successful, ${results.failed} failed`);
+      res.json(results);
+    } catch (error) {
+      console.error("Error in batch Facebook posting:", error);
+      res.status(500).json({ error: "Failed to batch post to Facebook" });
+    }
+  });
+
+  // Post article to Instagram - PROTECTED
+  app.post("/api/admin/articles/:id/instagram", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can be posted to Instagram" });
+      }
+
+      if (article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:')) {
+        return res.status(400).json({ error: "Article already posted to Instagram" });
+      }
+
+      const igResult = await postArticleToInstagram(article, storage);
+
+      if (!igResult) {
+        return res.status(500).json({ error: "Failed to post to Instagram" });
+      }
+
+      // Reload article to get updated state (service handles DB update)
+      const updatedArticle = await storage.getArticleById(id);
+
+      res.json({
+        ...updatedArticle,
+        status: igResult.status,
       });
+    } catch (error) {
+      console.error("Error posting to Instagram:", error);
+      res.status(500).json({ error: "Failed to post to Instagram" });
     }
+  });
 
-    // Get articles from the last 24 hours, published only
-    const allArticles = await storage.getPublishedArticles();
-    const cutoff = subHours(new Date(), 24);
+  // Post article to Threads - PROTECTED
+  app.post("/api/admin/articles/:id/threads", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
 
-    const recentArticles = allArticles
-      .filter(article => new Date(article.publishedAt) >= cutoff)
-      .slice(0, 10); // Limit to 10 most recent articles
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
 
-    console.log(`📊 Filtered articles: ${recentArticles.length} from last 24 hours (cutoff: ${cutoff.toISOString()})`);
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can be posted to Threads" });
+      }
 
-    if (recentArticles.length === 0) {
-      console.log("ℹ️  No articles from the last 24 hours - skipping newsletter");
-      return res.json({
-        success: true,
-        message: "No recent articles to send",
-        sent: 0,
-        failed: 0,
+      if (article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:')) {
+        return res.status(400).json({ error: "Article already posted to Threads" });
+      }
+
+      const threadsResult = await postArticleToThreads(article, storage);
+
+      if (!threadsResult) {
+        return res.status(500).json({ error: "Failed to post to Threads" });
+      }
+
+      // Reload article to get updated state (service handles DB update)
+      const updatedArticle = await storage.getArticleById(id);
+
+      res.json({
+        ...updatedArticle,
+        status: threadsResult.status,
       });
+    } catch (error) {
+      console.error("Error posting to Threads:", error);
+      res.status(500).json({ error: "Failed to post to Threads" });
     }
+  });
 
-    console.log(`📧 Sending newsletter with ${recentArticles.length} articles to ${subscribers.length} subscribers`);
+  // Clear stuck Facebook posting locks - PROTECTED
+  app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
+    try {
+      console.log(`🔧 [ADMIN] Manually clearing stuck Facebook posting locks...`);
 
-    // Send newsletter to all subscribers
-    const result = await sendBulkNewsletter(
-      subscribers.map(s => ({ email: s.email, unsubscribeToken: s.unsubscribeToken })),
-      recentArticles
-    );
+      const stuckLocks = await storage.getArticlesWithStuckLocks();
 
-    console.log(`✅ Newsletter campaign complete: ${result.sent} sent, ${result.failed} failed`);
-
-    res.json({
-      success: true,
-      message: "Newsletter sent successfully",
-      timestamp,
-      ...result,
-      articles: recentArticles.length,
-      subscribers: subscribers.length,
-    });
-  } catch (error) {
-    console.error("❌ Error sending newsletter:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-    res.json({
-      success: false,
-      message: "Newsletter sending failed",
-      error: errorMessage,
-      timestamp,
-    });
-  }
-});
-
-// Newsletter subscription routes
-
-// Subscribe to newsletter
-app.post("/api/subscribe", async (req, res) => {
-  try {
-    const result = insertSubscriberSchema.safeParse(req.body);
-
-    if (!result.success) {
-      return res.status(400).json({ error: "Invalid email address" });
-    }
-
-    // Check if already subscribed
-    const existing = await storage.getSubscriberByEmail(result.data.email);
-    if (existing) {
-      if (existing.isActive) {
-        return res.status(200).json({
-          message: "You're already subscribed to Phuket Radar!",
-          alreadySubscribed: true
-        });
-      } else {
-        // Reactivate subscription
-        await storage.unsubscribeByToken(existing.unsubscribeToken);
-        const reactivated = await storage.createSubscriber(result.data);
-        return res.status(200).json({
-          message: "Welcome back! Your subscription has been reactivated.",
-          subscriber: { email: reactivated.email }
+      if (stuckLocks.length === 0) {
+        console.log(`✅ [ADMIN] No stuck locks found`);
+        return res.json({
+          cleared: 0,
+          articles: [],
         });
       }
+
+      console.warn(`⚠️  [ADMIN] Found ${stuckLocks.length} articles with stuck LOCK tokens`);
+
+      const clearedArticles = [];
+      for (const article of stuckLocks) {
+        console.warn(`   - Clearing lock for: ${article.title.substring(0, 60)}... (ID: ${article.id})`);
+        await storage.clearStuckFacebookLock(article.id);
+        clearedArticles.push({
+          id: article.id,
+          title: article.title,
+          lockToken: article.facebookPostId,
+        });
+      }
+
+      console.log(`✅ [ADMIN] Cleared ${stuckLocks.length} stuck locks`);
+
+      res.json({
+        cleared: stuckLocks.length,
+        articles: clearedArticles,
+      });
+    } catch (error) {
+      console.error("Error clearing stuck Facebook locks:", error);
+      res.status(500).json({ error: "Failed to clear stuck locks" });
     }
+  });
 
-    const subscriber = await storage.createSubscriber(result.data);
-    res.status(201).json({
-      message: "Successfully subscribed to Phuket Radar!",
-      subscriber: { email: subscriber.email }
-    });
-  } catch (error) {
-    console.error("Error subscribing:", error);
-    res.status(500).json({ error: "Failed to subscribe" });
-  }
-});
+  // Cron endpoint for daily newsletter
+  app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("📧 NEWSLETTER TRIGGERED 📧");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: EXTERNAL CRON SERVICE`);
+    console.log("=".repeat(80) + "\n");
 
-// Unsubscribe from newsletter
-app.get("/api/unsubscribe/:token", async (req, res) => {
-  try {
-    const { token } = req.params;
-    const success = await storage.unsubscribeByToken(token);
+    try {
+      // Get active subscribers
+      const subscribers = await storage.getAllActiveSubscribers();
 
-    if (!success) {
-      return res.status(404).send(`
+      if (subscribers.length === 0) {
+        console.log("ℹ️  No active subscribers - skipping newsletter");
+        return res.json({
+          success: true,
+          message: "No active subscribers",
+          sent: 0,
+          failed: 0,
+        });
+      }
+
+      // Get articles from the last 24 hours, published only
+      const allArticles = await storage.getPublishedArticles();
+      const cutoff = subHours(new Date(), 24);
+
+      const recentArticles = allArticles
+        .filter(article => new Date(article.publishedAt) >= cutoff)
+        .slice(0, 10); // Limit to 10 most recent articles
+
+      console.log(`📊 Filtered articles: ${recentArticles.length} from last 24 hours (cutoff: ${cutoff.toISOString()})`);
+
+      if (recentArticles.length === 0) {
+        console.log("ℹ️  No articles from the last 24 hours - skipping newsletter");
+        return res.json({
+          success: true,
+          message: "No recent articles to send",
+          sent: 0,
+          failed: 0,
+        });
+      }
+
+      console.log(`📧 Sending newsletter with ${recentArticles.length} articles to ${subscribers.length} subscribers`);
+
+      // Send newsletter to all subscribers
+      const result = await sendBulkNewsletter(
+        subscribers.map(s => ({ email: s.email, unsubscribeToken: s.unsubscribeToken })),
+        recentArticles
+      );
+
+      console.log(`✅ Newsletter campaign complete: ${result.sent} sent, ${result.failed} failed`);
+
+      res.json({
+        success: true,
+        message: "Newsletter sent successfully",
+        timestamp,
+        ...result,
+        articles: recentArticles.length,
+        subscribers: subscribers.length,
+      });
+    } catch (error) {
+      console.error("❌ Error sending newsletter:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      res.json({
+        success: false,
+        message: "Newsletter sending failed",
+        error: errorMessage,
+        timestamp,
+      });
+    }
+  });
+
+  // Newsletter subscription routes
+
+  // Subscribe to newsletter
+  app.post("/api/subscribe", async (req, res) => {
+    try {
+      const result = insertSubscriberSchema.safeParse(req.body);
+
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+
+      // Check if already subscribed
+      const existing = await storage.getSubscriberByEmail(result.data.email);
+      if (existing) {
+        if (existing.isActive) {
+          return res.status(200).json({
+            message: "You're already subscribed to Phuket Radar!",
+            alreadySubscribed: true
+          });
+        } else {
+          // Reactivate subscription
+          await storage.unsubscribeByToken(existing.unsubscribeToken);
+          const reactivated = await storage.createSubscriber(result.data);
+          return res.status(200).json({
+            message: "Welcome back! Your subscription has been reactivated.",
+            subscriber: { email: reactivated.email }
+          });
+        }
+      }
+
+      const subscriber = await storage.createSubscriber(result.data);
+      res.status(201).json({
+        message: "Successfully subscribed to Phuket Radar!",
+        subscriber: { email: subscriber.email }
+      });
+    } catch (error) {
+      console.error("Error subscribing:", error);
+      res.status(500).json({ error: "Failed to subscribe" });
+    }
+  });
+
+  // Unsubscribe from newsletter
+  app.get("/api/unsubscribe/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const success = await storage.unsubscribeByToken(token);
+
+      if (!success) {
+        return res.status(404).send(`
           <!DOCTYPE html>
           <html>
             <head><title>Unsubscribe - Phuket Radar</title></head>
@@ -933,9 +921,9 @@ app.get("/api/unsubscribe/:token", async (req, res) => {
             </body>
           </html>
         `);
-    }
+      }
 
-    res.send(`
+      res.send(`
         <!DOCTYPE html>
         <html>
           <head><title>Unsubscribed - Phuket Radar</title></head>
@@ -946,198 +934,198 @@ app.get("/api/unsubscribe/:token", async (req, res) => {
           </body>
         </html>
       `);
-  } catch (error) {
-    console.error("Error unsubscribing:", error);
-    res.status(500).send("Failed to unsubscribe");
-  }
-});
-
-// Insight Generation routes - PROTECTED
-
-// Generate Insight from breaking news articles
-app.post("/api/admin/insights/generate", requireAdminAuth, async (req, res) => {
-  try {
-    const { topic, sourceArticleIds, eventType } = req.body;
-
-    if (!topic || !sourceArticleIds || sourceArticleIds.length === 0) {
-      return res.status(400).json({ error: "Topic and source articles are required" });
+    } catch (error) {
+      console.error("Error unsubscribing:", error);
+      res.status(500).send("Failed to unsubscribe");
     }
+  });
 
-    console.log(`\n=== INSIGHT GENERATION REQUESTED ===`);
-    console.log(`Topic: ${topic}`);
-    console.log(`Source articles: ${sourceArticleIds.length}`);
+  // Insight Generation routes - PROTECTED
 
-    // Fetch source articles
-    const sourceArticles = await Promise.all(
-      sourceArticleIds.map((id: string) => storage.getArticleById(id))
-    );
+  // Generate Insight from breaking news articles
+  app.post("/api/admin/insights/generate", requireAdminAuth, async (req, res) => {
+    try {
+      const { topic, sourceArticleIds, eventType } = req.body;
 
-    const validArticles = sourceArticles.filter(a => a !== null);
+      if (!topic || !sourceArticleIds || sourceArticleIds.length === 0) {
+        return res.status(400).json({ error: "Topic and source articles are required" });
+      }
 
-    if (validArticles.length === 0) {
-      return res.status(404).json({ error: "No valid source articles found" });
+      console.log(`\n=== INSIGHT GENERATION REQUESTED ===`);
+      console.log(`Topic: ${topic}`);
+      console.log(`Source articles: ${sourceArticleIds.length}`);
+
+      // Fetch source articles
+      const sourceArticles = await Promise.all(
+        sourceArticleIds.map((id: string) => storage.getArticleById(id))
+      );
+
+      const validArticles = sourceArticles.filter(a => a !== null);
+
+      if (validArticles.length === 0) {
+        return res.status(404).json({ error: "No valid source articles found" });
+      }
+
+      // Generate the Insight
+      const insight = await insightService.generateInsight({
+        sourceArticles: validArticles,
+        topic,
+        eventType,
+      });
+
+      console.log(`✅ Insight generated: ${insight.title}`);
+
+      res.json({
+        success: true,
+        insight,
+      });
+    } catch (error) {
+      console.error("Error generating Insight:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to generate Insight", message: errorMessage });
     }
+  });
 
-    // Generate the Insight
-    const insight = await insightService.generateInsight({
-      sourceArticles: validArticles,
-      topic,
-      eventType,
-    });
+  // Publish an Insight article
+  app.post("/api/admin/insights/publish", requireAdminAuth, async (req, res) => {
+    try {
+      const { title, content, excerpt, relatedArticleIds, sources } = req.body;
 
-    console.log(`✅ Insight generated: ${insight.title}`);
+      if (!title || !content || !excerpt) {
+        return res.status(400).json({ error: "Title, content, and excerpt are required" });
+      }
 
-    res.json({
-      success: true,
-      insight,
-    });
-  } catch (error) {
-    console.error("Error generating Insight:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ error: "Failed to generate Insight", message: errorMessage });
-  }
-});
+      // Create the Insight article
+      const article = await storage.createArticle({
+        title,
+        content,
+        excerpt,
+        category: "Insight",
+        sourceUrl: `https://phuketradar.com/insight-${Date.now()}`,
+        isPublished: true,
+        originalLanguage: "en",
+        translatedBy: "gpt-4",
+        imageUrl: null,
+        articleType: "insight",
+        relatedArticleIds: relatedArticleIds || [],
+      });
 
-// Publish an Insight article
-app.post("/api/admin/insights/publish", requireAdminAuth, async (req, res) => {
-  try {
-    const { title, content, excerpt, relatedArticleIds, sources } = req.body;
+      console.log(`✅ Published Insight: ${article.title}`);
 
-    if (!title || !content || !excerpt) {
-      return res.status(400).json({ error: "Title, content, and excerpt are required" });
+      res.json({
+        success: true,
+        article,
+      });
+    } catch (error) {
+      console.error("Error publishing Insight:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to publish Insight", message: errorMessage });
     }
+  });
 
-    // Create the Insight article
-    const article = await storage.createArticle({
-      title,
-      content,
-      excerpt,
-      category: "Insight",
-      sourceUrl: `https://phuketradar.com/insight-${Date.now()}`,
-      isPublished: true,
-      originalLanguage: "en",
-      translatedBy: "gpt-4",
-      imageUrl: null,
-      articleType: "insight",
-      relatedArticleIds: relatedArticleIds || [],
-    });
+  // XML Sitemap endpoint for SEO
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'https://phuketradar.com';
 
-    console.log(`✅ Published Insight: ${article.title}`);
+      const articles = await storage.getPublishedArticles();
+      const categories = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
 
-    res.json({
-      success: true,
-      article,
-    });
-  } catch (error) {
-    console.error("Error publishing Insight:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ error: "Failed to publish Insight", message: errorMessage });
-  }
-});
+      // Build sitemap XML
+      let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
 
-// XML Sitemap endpoint for SEO
-app.get("/sitemap.xml", async (req, res) => {
-  try {
-    const baseUrl = process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : 'https://phuketradar.com';
-
-    const articles = await storage.getPublishedArticles();
-    const categories = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
-
-    // Build sitemap XML
-    let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-
-    // Homepage
-    sitemap += '  <url>\n';
-    sitemap += `    <loc>${baseUrl}/</loc>\n`;
-    sitemap += '    <changefreq>hourly</changefreq>\n';
-    sitemap += '    <priority>1.0</priority>\n';
-    sitemap += '  </url>\n';
-
-    // Category pages (using clean URLs)
-    for (const category of categories) {
+      // Homepage
       sitemap += '  <url>\n';
-      sitemap += `    <loc>${baseUrl}/${category}</loc>\n`;
+      sitemap += `    <loc>${baseUrl}/</loc>\n`;
       sitemap += '    <changefreq>hourly</changefreq>\n';
-      sitemap += '    <priority>0.8</priority>\n';
+      sitemap += '    <priority>1.0</priority>\n';
       sitemap += '  </url>\n';
+
+      // Category pages (using clean URLs)
+      for (const category of categories) {
+        sitemap += '  <url>\n';
+        sitemap += `    <loc>${baseUrl}/${category}</loc>\n`;
+        sitemap += '    <changefreq>hourly</changefreq>\n';
+        sitemap += '    <priority>0.8</priority>\n';
+        sitemap += '  </url>\n';
+      }
+
+      // Article pages
+      for (const article of articles) {
+        const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+        const url = `${baseUrl}${articlePath}`;
+        const lastmod = new Date(article.publishedAt).toISOString().split('T')[0];
+
+        sitemap += '  <url>\n';
+        sitemap += `    <loc>${url}</loc>\n`;
+        sitemap += `    <lastmod>${lastmod}</lastmod>\n`;
+        sitemap += '    <changefreq>weekly</changefreq>\n';
+        sitemap += '    <priority>0.6</priority>\n';
+        sitemap += '  </url>\n';
+      }
+
+      sitemap += '</urlset>';
+
+      res.header('Content-Type', 'application/xml');
+      res.send(sitemap);
+    } catch (error) {
+      console.error("Error generating sitemap:", error);
+      res.status(500).send('Error generating sitemap');
     }
+  });
 
-    // Article pages
-    for (const article of articles) {
-      const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
-      const url = `${baseUrl}${articlePath}`;
-      const lastmod = new Date(article.publishedAt).toISOString().split('T')[0];
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+  fs.mkdir(uploadsDir, { recursive: true }).catch(console.error);
 
-      sitemap += '  <url>\n';
-      sitemap += `    <loc>${url}</loc>\n`;
-      sitemap += `    <lastmod>${lastmod}</lastmod>\n`;
-      sitemap += '    <changefreq>weekly</changefreq>\n';
-      sitemap += '    <priority>0.6</priority>\n';
-      sitemap += '  </url>\n';
+  // Configure multer for image uploads
+  const storage_multer = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
     }
+  });
 
-    sitemap += '</urlset>';
+  const upload = multer({
+    storage: storage_multer,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
 
-    res.header('Content-Type', 'application/xml');
-    res.send(sitemap);
-  } catch (error) {
-    console.error("Error generating sitemap:", error);
-    res.status(500).send('Error generating sitemap');
-  }
-});
-
-// Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-fs.mkdir(uploadsDir, { recursive: true }).catch(console.error);
-
-// Configure multer for image uploads
-const storage_multer = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage_multer,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
     }
-  }
-});
+  });
 
-// Image upload endpoint - PROTECTED
-app.post("/api/admin/upload-image", requireAdminAuth, upload.single('image'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+  // Image upload endpoint - PROTECTED
+  app.post("/api/admin/upload-image", requireAdminAuth, upload.single('image'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Generate URL for uploaded image - use relative path for both dev and prod
+      const imageUrl = `/uploads/${req.file.filename}`;
+
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ error: "Failed to upload image" });
     }
+  });
 
-    // Generate URL for uploaded image - use relative path for both dev and prod
-    const imageUrl = `/uploads/${req.file.filename}`;
+  const httpServer = createServer(app);
 
-    res.json({ imageUrl });
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    res.status(500).json({ error: "Failed to upload image" });
-  }
-});
-
-const httpServer = createServer(app);
-
-return httpServer;
+  return httpServer;
 }
