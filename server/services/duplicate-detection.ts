@@ -150,8 +150,8 @@ export class DuplicateDetectionService {
         SELECT a.*,
           (
             SELECT SUM(a_val * q_val)
-            FROM unnest(a.embedding) WITH ORDINALITY AS t1(a_val, idx)
-            JOIN unnest(${embeddingStr}) WITH ORDINALITY AS t2(q_val, idx2) ON t1.idx = t2.idx2
+            FROM unnest(a.embedding::real[]) WITH ORDINALITY AS t1(a_val, idx)
+            JOIN unnest(${sql.raw(embeddingStr)}) WITH ORDINALITY AS t2(q_val, idx2) ON t1.idx = t2.idx2
           ) AS similarity
         FROM articles a
         WHERE a.embedding IS NOT NULL

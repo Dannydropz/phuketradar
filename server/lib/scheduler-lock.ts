@@ -13,9 +13,7 @@
  * - Stale locks (older than 1 hour) are auto-cleaned on acquisition attempts
  */
 
-import { neon } from "@neondatabase/serverless";
-
-const sql = neon(process.env.DATABASE_URL!);
+import { pool } from "../db";
 
 const LOCK_NAME = "scheduler_scrape";
 const STALE_LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
@@ -25,28 +23,28 @@ const STALE_LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
  */
 async function ensureLocksTable(): Promise<void> {
   try {
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS scheduler_locks (
         lock_name VARCHAR(255) PRIMARY KEY,
         acquired_at TIMESTAMP NOT NULL DEFAULT NOW(),
         instance_id VARCHAR(255)
       )
-    `;
+    `);
   } catch (error) {
     console.error("Error creating scheduler_locks table:", error);
   }
 }
 
 /**
- * Cleans up stale locks (older than 1 hour).
+ * Cleans up stale locks (older than 15 minutes).
  */
 async function cleanStaleLocks(): Promise<void> {
   try {
     const staleThreshold = new Date(Date.now() - STALE_LOCK_TIMEOUT_MS);
-    await sql`
-      DELETE FROM scheduler_locks
-      WHERE acquired_at < ${staleThreshold.toISOString()}
-    `;
+    await pool.query(
+      `DELETE FROM scheduler_locks WHERE acquired_at < $1`,
+      [staleThreshold]
+    );
   } catch (error) {
     console.error("Error cleaning stale locks:", error);
   }
@@ -63,14 +61,15 @@ export async function acquireSchedulerLock(): Promise<boolean> {
 
     const instanceId = `${process.pid}-${Date.now()}`;
 
-    const result = await sql`
-      INSERT INTO scheduler_locks (lock_name, instance_id, acquired_at)
-      VALUES (${LOCK_NAME}, ${instanceId}, NOW())
-      ON CONFLICT (lock_name) DO NOTHING
-      RETURNING lock_name
-    `;
+    const result = await pool.query(
+      `INSERT INTO scheduler_locks (lock_name, instance_id, acquired_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (lock_name) DO NOTHING
+       RETURNING lock_name`,
+      [LOCK_NAME, instanceId]
+    );
 
-    return result.length > 0;
+    return result.rowCount !== null && result.rowCount > 0;
   } catch (error) {
     console.error("Error acquiring scheduler lock:", error);
     return false;
@@ -83,10 +82,10 @@ export async function acquireSchedulerLock(): Promise<boolean> {
  */
 export async function releaseSchedulerLock(): Promise<void> {
   try {
-    await sql`
-      DELETE FROM scheduler_locks
-      WHERE lock_name = ${LOCK_NAME}
-    `;
+    await pool.query(
+      `DELETE FROM scheduler_locks WHERE lock_name = $1`,
+      [LOCK_NAME]
+    );
   } catch (error) {
     console.error("Error releasing scheduler lock:", error);
   }

@@ -90,8 +90,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log("=".repeat(80) + "\n");
 
-  // Get batch size from environment (default: 5 posts per scrape - CONSERVATIVE to prevent crashes)
-  const BATCH_SIZE = parseInt(process.env.SCRAPE_BATCH_SIZE || "5");
+  // Get batch size from environment (default: 12 posts per scrape - balanced for coverage + stability)
+  const BATCH_SIZE = parseInt(process.env.SCRAPE_BATCH_SIZE || "12");
   console.log(`📦 Batch mode: Processing max ${BATCH_SIZE} posts per scrape to prevent server blocking`);
 
   try {
