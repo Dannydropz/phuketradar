@@ -1,12 +1,26 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { neon } from "@neondatabase/serverless";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
+
+// CRITICAL: Add global error handlers immediately to catch startup crashes
+process.on('uncaughtException', (error) => {
+  console.error('❌ [FATAL] Uncaught Exception:', error);
+  // Don't exit immediately to allow logs to flush, but eventually exit
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ [FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+console.log("🚀 [STARTUP] Application starting...");
+console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`   PORT: ${process.env.PORT || '5000'}`);
 
 const app = express();
 
@@ -29,6 +43,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // Validate required environment variables
 if (!process.env.DATABASE_URL) {
+  console.error("❌ [FATAL] DATABASE_URL environment variable is missing");
   throw new Error("DATABASE_URL environment variable is required for database operations");
 }
 
@@ -44,12 +59,12 @@ const sessionStore = new PgSession({
 
 // Session middleware for admin authentication
 // Capture SESSION_SECRET at startup to prevent runtime issues
-const SESSION_SECRET = process.env.SESSION_SECRET;
+let SESSION_SECRET = process.env.SESSION_SECRET;
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
-  throw new Error(
-    "SESSION_SECRET environment variable is required and must be at least 32 characters for secure session management. " +
-    "Generate a secure random string using: openssl rand -base64 32"
-  );
+  console.warn("⚠️  [WARNING] SESSION_SECRET is missing or too short. Using a temporary random secret.");
+  console.warn("   Sessions will be invalidated on restart. Set SESSION_SECRET in environment variables.");
+  // Generate a temporary secret if missing (prevents crash, but sessions won't persist across restarts)
+  SESSION_SECRET = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
 log(`Session configured with ${SESSION_SECRET.length}-character secret`);
@@ -133,81 +148,87 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 });
 
 (async () => {
-  // Register routes first
-  const server = await registerRoutes(app);
+  try {
+    // Register routes first
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
-  });
+      console.error(`❌ [EXPRESS ERROR] ${status} ${message}`, err);
+      res.status(status).json({ message });
+      // Don't throw here, let Express handle it or just log it
+    });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = parseInt(process.env.PORT || '5000', 10);
 
-  // CRITICAL: Start server IMMEDIATELY to satisfy Railway health checks
-  // Do NOT wait for database checks before listening
-  server.listen({
-    port,
-    host: "0.0.0.0",
-  }, () => {
-    log(`serving on port ${port}`);
+    // CRITICAL: Start server IMMEDIATELY to satisfy Railway health checks
+    // Do NOT wait for database checks before listening
+    server.listen({
+      port,
+      host: "0.0.0.0",
+    }, () => {
+      log(`✅ Server serving on port ${port}`);
 
-    // Run database checks in background AFTER server is listening
-    // This prevents Railway 502 errors caused by slow Neon cold starts
-    (async () => {
-      try {
-        log("🔧 [SCHEMA] Ensuring database schema is up to date...");
+      // Run database checks in background AFTER server is listening
+      // This prevents Railway 502 errors caused by slow Neon cold starts
+      (async () => {
+        try {
+          log("🔧 [SCHEMA] Ensuring database schema is up to date...");
 
-        // Add timeout to prevent indefinite hangs
-        const schemaCheckPromise = db.execute(sql`
-          ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
-          ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
-          ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
-        `);
+          // Add timeout to prevent indefinite hangs
+          const schemaCheckPromise = db.execute(sql`
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
+            ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
+          `);
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Schema check timeout after 30s')), 30000)
-        );
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Schema check timeout after 30s')), 30000)
+          );
 
-        await Promise.race([schemaCheckPromise, timeoutPromise]);
-        log("✅ [SCHEMA] Database schema verified");
-      } catch (error: any) {
-        if (error.message?.includes('timeout')) {
-          log("⚠️  [SCHEMA] Schema check timed out - database may be cold starting");
-          log("   Server is running, schema will be checked on first query");
-        } else {
-          log("❌ [SCHEMA] Error ensuring schema:");
-          console.error(error);
+          await Promise.race([schemaCheckPromise, timeoutPromise]);
+          log("✅ [SCHEMA] Database schema verified");
+        } catch (error: any) {
+          if (error.message?.includes('timeout')) {
+            log("⚠️  [SCHEMA] Schema check timed out - database may be cold starting");
+            log("   Server is running, schema will be checked on first query");
+          } else {
+            log("❌ [SCHEMA] Error ensuring schema:");
+            console.error(error);
+          }
+          // Don't throw - server is already running
         }
-        // Don't throw - server is already running
-      }
-    })();
-  });
+      })();
+    });
 
-  // Automated scraping DISABLED - Use external cron service instead
-  // Internal cron scheduling had issues with unpredictable firing times
-  // Use cron-job.org or similar service to trigger scraping via API endpoint
-  // API endpoint: POST https://your-replit-url.replit.app/api/cron/scrape
-  // Authentication: Add header "Authorization: Bearer YOUR_CRON_API_KEY"
-  // Recommended schedule: Every 4 hours (0:00, 4:00, 8:00, 12:00, 16:00, 20:00 Bangkok time)
-  // See EXTERNAL_CRON_SETUP.md for complete setup instructions
-  log('📅 Automated internal scraping DISABLED');
-  log(`📅 CRON_API_KEY loaded: ${process.env.CRON_API_KEY ? 'YES (' + process.env.CRON_API_KEY.substring(0, 3) + '...)' : 'NO'}`);
-  log('📅 External cron endpoint: POST /api/cron/scrape (requires CRON_API_KEY)');
-  log('📅 Manual scraping available at: /api/admin/scrape (requires admin session)');
+    server.on('error', (error: any) => {
+      console.error('❌ [SERVER ERROR] Server failed to start:', error);
+      process.exit(1);
+    });
+
+    // Automated scraping DISABLED - Use external cron service instead
+    log('📅 Automated internal scraping DISABLED');
+    log(`📅 CRON_API_KEY loaded: ${process.env.CRON_API_KEY ? 'YES (' + process.env.CRON_API_KEY.substring(0, 3) + '...)' : 'NO'}`);
+    log('📅 External cron endpoint: POST /api/cron/scrape (requires CRON_API_KEY)');
+    log('📅 Manual scraping available at: /api/admin/scrape (requires admin session)');
+
+  } catch (error) {
+    console.error('❌ [FATAL] Failed to initialize application:', error);
+    process.exit(1);
+  }
 })();
