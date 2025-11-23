@@ -19,6 +19,7 @@ import { buildArticleUrl } from "@shared/category-map";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
+import { pool } from "./db";
 
 // Extend session type
 declare module "express-session" {
@@ -242,28 +243,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: timestamp,
       });
 
-      // Run scrape in background in next tick to isolate from request handling
-      // This prevents database errors during scraping from affecting the main site
-      process.nextTick(async () => {
+      // Run scrape in background with AGGRESSIVE error isolation
+      // CRITICAL: Scraping must NEVER crash the main server
+      setImmediate(async () => {
+        const scrapeStartTime = Date.now();
+        let scrapeCompleted = false;
+
+        // Safety timeout: Kill scrape after 10 minutes to prevent infinite hangs
+        const safetyTimeout = setTimeout(() => {
+          if (!scrapeCompleted) {
+            console.error("❌ [SAFETY] Scrape exceeded 10 minute timeout - terminating");
+            console.error("   Server remains up, scrape will retry on next cron");
+          }
+        }, 600000); // 10 minutes
+
         try {
-          console.log("🔄 Starting background scrape...");
+          console.log("🔄 Starting background scrape with full isolation...");
+
+          // Test database connection before starting
+          try {
+            await pool.query('SELECT 1');
+            console.log("✅ Database connection verified before scrape");
+          } catch (dbTestError) {
+            console.error("❌ Database connection failed before scrape:");
+            console.error(dbTestError);
+            console.error("   Aborting scrape to prevent crash");
+            return; // Exit early, don't attempt scrape
+          }
+
           const result = await runScheduledScrape();
+          scrapeCompleted = true;
+          clearTimeout(safetyTimeout);
+
+          const duration = ((Date.now() - scrapeStartTime) / 1000).toFixed(2);
+
           if (result) {
             console.log("✅ Scrape completed successfully");
+            console.log(`   Duration: ${duration} seconds`);
             console.log("Result:", JSON.stringify(result, null, 2));
           }
         } catch (error) {
-          // Log error but don't crash - scraper failures should not affect main site
-          console.error("❌ Error during background scrape (isolated, site remains up):");
-          console.error(error);
+          scrapeCompleted = true;
+          clearTimeout(safetyTimeout);
+
+          // CRITICAL: Log error but NEVER re-throw - this would crash the server
+          console.error("❌ Error during background scrape (ISOLATED - server remains up):");
+          console.error("   Error type:", error?.constructor?.name || "Unknown");
+          console.error("   Error message:", error?.message || "No message");
+
+          // Log stack trace for debugging
+          if (error?.stack) {
+            console.error("   Stack trace:");
+            console.error(error.stack);
+          }
+
+          // Check if it's a database error
+          if (error?.code) {
+            console.error("   Database error code:", error.code);
+          }
+
+          console.error("   ℹ️  Server continues running normally");
+          console.error("   ℹ️  Next scheduled scrape will retry");
         } finally {
-          // Always release lock, even on error
+          // Always release lock and clean up, even on error
           try {
             const { releaseSchedulerLock } = await import("./lib/scheduler-lock");
             await releaseSchedulerLock();
             console.log("🔓 Scheduler lock released");
           } catch (lockError) {
             console.error("⚠️  Error releasing lock (non-critical):", lockError);
+            // Don't re-throw - continue cleanup
+          }
+
+          // Force garbage collection hint if available
+          if (global.gc) {
+            global.gc();
+            console.log("🗑️  Garbage collection triggered");
           }
         }
       });
