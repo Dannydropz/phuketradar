@@ -258,7 +258,7 @@ HEADLINE EXAMPLES (Bad):
 ✗ "government announce new initiative" (wrong capitalization, grammar)
 ✗ "Beach vendors to face regulations" (passive voice)
 
-4. Extract a concise excerpt (2-3 sentences) with perfect grammar
+4. Extract a concise excerpt (2-3 sentences) written from a THIRD-PERSON NEWS REPORTING perspective with perfect grammar. CRITICAL: Never use first-person ('we', 'our', 'join us') or make it sound like the news site is organizing events. Report objectively.
 5. Categorize the article by TOPIC (not urgency) - READ CAREFULLY
 6. Rate reader interest (1-5 scale)
 
@@ -386,7 +386,7 @@ Respond in JSON format:
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer),
   "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts),
-  "facebookHeadline": "A short, punchy, high-CTR headline specifically for Facebook. Focus on emotion, urgency, and impact. Example: 'Tragedy at Bang Tao: Two family members drown despite red-flag warnings' instead of 'Two people drown at Bang Tao Beach'. Max 15 words."
+  "facebookHeadline": "A short, punchy, high-CTR headline specifically for Facebook written from a THIRD-PERSON NEWS REPORTING perspective. CRITICAL: Never use first-person ('Join Us', 'We', 'Our') or calls-to-action that make it sound like the news site is organizing the event. Instead, report the news objectively. Focus on emotion, urgency, location, and impact. Examples: 'Tragedy at Bang Tao: Two family members drown despite red-flag warnings' (GOOD), 'Phuket Community Rallies to Aid Trang Flood Victims' (GOOD), 'Join Us to Help Flood Victims' (BAD - sounds like we're organizing it). Max 15 words."
 }
 
 If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
