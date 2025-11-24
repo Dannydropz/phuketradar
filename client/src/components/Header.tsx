@@ -1,27 +1,10 @@
-import { Moon, Sun, Menu, Search, ChevronDown } from "lucide-react";
+import { Moon, Sun, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import logoDark from "@assets/logo-white-transparent.png";
 import { SearchDialog } from "./SearchDialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-const newsCategories = [
-  { name: "All News", path: "/" },
-  { name: "Crime", path: "/crime" },
-  { name: "Local", path: "/local" },
-  { name: "Tourism", path: "/tourism" },
-  { name: "Politics", path: "/politics" },
-  { name: "Economy", path: "/economy" },
-  { name: "Traffic", path: "/traffic" },
-  { name: "Weather", path: "/weather" },
-];
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -43,32 +26,15 @@ export function Header() {
 
           {!location.startsWith('/admin') && (
             <nav className="hidden md:flex items-center space-x-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="text-header-foreground hover:text-header-foreground"
-                    data-testid="button-news-dropdown"
-                  >
-                    News
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  {newsCategories.map((cat) => (
-                    <DropdownMenuItem key={cat.path} asChild>
-                      <Link href={cat.path}>
-                        <button
-                          className={`w-full text-left ${location === cat.path ? "font-semibold" : ""}`}
-                          data-testid={`link-${cat.name.toLowerCase().replace(" ", "-")}`}
-                        >
-                          {cat.name}
-                        </button>
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Link href="/">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-home"
+                >
+                  Home
+                </Button>
+              </Link>
 
               <Link href="/crime">
                 <Button
@@ -77,6 +43,16 @@ export function Header() {
                   data-testid="nav-crime"
                 >
                   Crime
+                </Button>
+              </Link>
+
+              <Link href="/local">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/local" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-local"
+                >
+                  Local
                 </Button>
               </Link>
             </nav>
@@ -117,18 +93,36 @@ export function Header() {
 
         {mobileMenuOpen && !location.startsWith('/admin') && (
           <nav className="md:hidden py-4 space-y-2" data-testid="nav-mobile-menu">
-            {newsCategories.map((cat) => (
-              <Link key={cat.path} href={cat.path}>
-                <Button
-                  variant="ghost"
-                  className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === cat.path ? "bg-black/20" : ""}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  data-testid={`link-mobile-${cat.name.toLowerCase().replace(" ", "-")}`}
-                >
-                  {cat.name}
-                </Button>
-              </Link>
-            ))}
+            <Link href="/">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-home"
+              >
+                Home
+              </Button>
+            </Link>
+            <Link href="/crime">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/crime" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-crime"
+              >
+                Crime
+              </Button>
+            </Link>
+            <Link href="/local">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/local" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-local"
+              >
+                Local
+              </Button>
+            </Link>
           </nav>
         )}
       </div>
