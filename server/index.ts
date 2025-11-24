@@ -46,6 +46,16 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Fallback health check on root for Railway
+app.get('/', (_req, res, next) => {
+  // If this is a health check request (no accept header or health check user agent)
+  if (!_req.headers.accept || _req.headers['user-agent']?.includes('Health')) {
+    return res.status(200).send('OK');
+  }
+  // Otherwise, let it fall through to the SPA handler
+  next();
+});
+
 // Serve static files from attached_assets folder at /assets route
 app.use('/assets', express.static(path.join(process.cwd(), 'attached_assets')));
 
