@@ -1179,7 +1179,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   }
 }
 
-// If this file is run directly (via npm run scrape), execute the scrape
+// DISABLED: Auto-execution on direct run
+// This was causing duplicate scrapes when the module was dynamically imported
+// If you need to run the scraper directly, use: node -e "import('./dist/scheduler.js').then(m => m.runScheduledScrape())"
+/*
 if (import.meta.url === `file://${process.argv[1]}`) {
   runScheduledScrape()
     .then((result) => {
@@ -1191,3 +1194,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(1);
     });
 }
+*/
+```
