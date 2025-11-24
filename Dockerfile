@@ -33,4 +33,6 @@ COPY --from=builder /app/attached_assets ./attached_assets
 EXPOSE 5000
 
 # Start the application
-CMD ["npm", "run", "start"]
+# CRITICAL: Use node directly instead of npm to properly handle SIGTERM
+# Railway issue: npm doesn't forward SIGTERM correctly, causing abrupt kills
+CMD ["node", "dist/index.js"]
