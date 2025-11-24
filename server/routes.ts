@@ -206,18 +206,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // EMERGENCY DISABLE: Auto-scraping disabled - persistent crashes
-  // Manual scraping from admin works, but automated scraping causes 502s
+  // Auto-scraping endpoint - triggered by GitHub Actions every 2 hours
   app.post("/api/cron/scrape", requireCronAuth, async (req, res) => {
-    console.log("⚠️ [SCRAPE] Auto-scraping DISABLED");
-    console.log("   Scraping must be done manually from admin dashboard");
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🚨 AUTO-SCRAPE TRIGGERED 🚨");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: AUTOMATED CRON (GitHub Actions)`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log("=".repeat(80) + "\n");
 
-    return res.json({
-      success: false,
-      message: "Auto-scraping disabled. Use admin dashboard for manual scraping only.",
-      timestamp: new Date().toISOString(),
-      disabled: true
+    // Respond immediately
+    res.json({
+      success: true,
+      message: "Auto-scrape started in background",
+      timestamp,
     });
+
+    // Process in background (same logic as manual scraping)
+    (async () => {
+      try {
+        // CRITICAL: Acquire scheduler lock to prevent parallel scrapes
+        const { acquireSchedulerLock, releaseSchedulerLock } = await import("./lib/scheduler-lock");
+        const lockAcquired = await acquireSchedulerLock();
+
+        if (!lockAcquired) {
+          console.error(`[AUTO-SCRAPE] ❌ Could not acquire lock - another scrape is already running`);
+          return;
+        }
+
+        console.log(`[AUTO-SCRAPE] 🔒 Scheduler lock acquired`);
+        console.log(`[AUTO-SCRAPE] Starting scrape using runScheduledScrape()`);
+
+        // Import and run the scheduled scrape function
+        const { runScheduledScrape } = await import("./scheduler");
+
+        const result = await runScheduledScrape();
+
+        if (result) {
+          console.log(`[AUTO-SCRAPE] ✅ Scrape completed successfully`);
+          console.log(`[AUTO-SCRAPE] Total posts: ${result.totalPosts}`);
+          console.log(`[AUTO-SCRAPE] Articles created: ${result.articlesCreated}`);
+          console.log(`[AUTO-SCRAPE] Skipped (duplicates): ${result.skippedSemanticDuplicates}`);
+          console.log(`[AUTO-SCRAPE] Skipped (not news/text graphics): ${result.skippedNotNews}`);
+        } else {
+          console.error(`[AUTO-SCRAPE] ❌ Scrape returned null result`);
+        }
+      } catch (error) {
+        console.error(`[AUTO-SCRAPE] ❌ SCRAPING ERROR:`, error);
+      } finally {
+        // CRITICAL: Always release the lock
+        try {
+          const { releaseSchedulerLock } = await import("./lib/scheduler-lock");
+          await releaseSchedulerLock();
+          console.log(`[AUTO-SCRAPE] 🔓 Scheduler lock released`);
+        } catch (lockError) {
+          console.error(`[AUTO-SCRAPE] ❌ Error releasing lock:`, lockError);
+        }
+      }
+    })();
   });
 
   // Enrichment endpoint - triggered by GitHub Actions
