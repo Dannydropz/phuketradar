@@ -41,44 +41,46 @@ export function Header() {
             />
           </Link>
 
-          <nav className="hidden md:flex items-center space-x-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+          {!location.startsWith('/admin') && (
+            <nav className="hidden md:flex items-center space-x-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-header-foreground hover:text-header-foreground"
+                    data-testid="button-news-dropdown"
+                  >
+                    News
+                    <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {newsCategories.map((cat) => (
+                    <DropdownMenuItem key={cat.path} asChild>
+                      <Link href={cat.path}>
+                        <button
+                          className={`w-full text-left ${location === cat.path ? "font-semibold" : ""}`}
+                          data-testid={`link-${cat.name.toLowerCase().replace(" ", "-")}`}
+                        >
+                          {cat.name}
+                        </button>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Link href="/crime">
                 <Button
                   variant="ghost"
-                  className="text-header-foreground hover:text-header-foreground"
-                  data-testid="button-news-dropdown"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/crime" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-crime"
                 >
-                  News
-                  <ChevronDown className="ml-1 h-4 w-4" />
+                  Crime
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {newsCategories.map((cat) => (
-                  <DropdownMenuItem key={cat.path} asChild>
-                    <Link href={cat.path}>
-                      <button
-                        className={`w-full text-left ${location === cat.path ? "font-semibold" : ""}`}
-                        data-testid={`link-${cat.name.toLowerCase().replace(" ", "-")}`}
-                      >
-                        {cat.name}
-                      </button>
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Link href="/crime">
-              <Button
-                variant="ghost"
-                className={`text-header-foreground hover:text-header-foreground ${location === "/crime" ? "bg-accent/50" : ""}`}
-                data-testid="nav-crime"
-              >
-                Crime
-              </Button>
-            </Link>
-          </nav>
+              </Link>
+            </nav>
+          )}
 
           <div className="flex items-center space-x-2">
             <Button
@@ -99,19 +101,21 @@ export function Header() {
             >
               {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden text-header-foreground hover:text-header-foreground"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              data-testid="button-mobile-menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+            {!location.startsWith('/admin') && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden text-header-foreground hover:text-header-foreground"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                data-testid="button-mobile-menu"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         </div>
 
-        {mobileMenuOpen && (
+        {mobileMenuOpen && !location.startsWith('/admin') && (
           <nav className="md:hidden py-4 space-y-2" data-testid="nav-mobile-menu">
             {newsCategories.map((cat) => (
               <Link key={cat.path} href={cat.path}>
