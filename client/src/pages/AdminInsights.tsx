@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, Check, FileText } from "lucide-react";
 import type { Article } from "@shared/schema";
 
+import { Header } from "@/components/Header";
+
 export default function AdminInsights() {
   const { toast } = useToast();
   const [topic, setTopic] = useState("");
@@ -107,192 +109,195 @@ export default function AdminInsights() {
   const canGenerate = topic.trim().length > 0 && selectedArticles.size > 0;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-          <Sparkles className="w-8 h-8 text-primary" />
-          Generate Phuket Radar Insight
-        </h1>
-        <p className="text-muted-foreground">
-          Create a 300-400 word analytical piece combining your breaking news with context from English sources
-        </p>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left Column: Input Form */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Topic & Source Selection</CardTitle>
-              <CardDescription>
-                Choose your topic and select related breaking news articles
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="topic">Topic</Label>
-                <Input
-                  id="topic"
-                  data-testid="input-insight-topic"
-                  placeholder="e.g., Road accidents in Patong"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label>Select Source Articles ({selectedArticles.size} selected)</Label>
-                <div className="mt-2 border rounded-md max-h-96 overflow-y-auto">
-                  {loadingArticles ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
-                    </div>
-                  ) : recentBreakingNews.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      No recent breaking news articles found
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {recentBreakingNews.map((article) => (
-                        <div
-                          key={article.id}
-                          className="p-3 hover-elevate cursor-pointer"
-                          onClick={() => toggleArticle(article.id)}
-                          data-testid={`article-select-${article.id}`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              checked={selectedArticles.has(article.id)}
-                              onCheckedChange={() => toggleArticle(article.id)}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm line-clamp-2">
-                                {article.title}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {new Date(article.publishedAt).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                onClick={() => generateMutation.mutate()}
-                disabled={!canGenerate || generateMutation.isPending}
-                className="w-full"
-                data-testid="button-generate-insight"
-              >
-                {generateMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Insight...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Insight
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="container mx-auto px-4 py-8 max-w-6xl flex-1">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <Sparkles className="w-8 h-8 text-primary" />
+            Generate Phuket Radar Insight
+          </h1>
+          <p className="text-muted-foreground">
+            Create a 300-400 word analytical piece combining your breaking news with context from English sources
+          </p>
         </div>
 
-        {/* Right Column: Preview/Edit */}
-        <div>
-          {generatedInsight ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Left Column: Input Form */}
+          <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Preview & Edit
-                </CardTitle>
+                <CardTitle>Topic & Source Selection</CardTitle>
                 <CardDescription>
-                  Review and edit before publishing
+                  Choose your topic and select related breaking news articles
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="edit-title">Title</Label>
+                  <Label htmlFor="topic">Topic</Label>
                   <Input
-                    id="edit-title"
-                    data-testid="input-edit-title"
-                    value={editedTitle}
-                    onChange={(e) => setEditedTitle(e.target.value)}
+                    id="topic"
+                    data-testid="input-insight-topic"
+                    placeholder="e.g., Road accidents in Patong"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
                     className="mt-1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="edit-excerpt">Excerpt</Label>
-                  <Textarea
-                    id="edit-excerpt"
-                    data-testid="textarea-edit-excerpt"
-                    value={editedExcerpt}
-                    onChange={(e) => setEditedExcerpt(e.target.value)}
-                    rows={3}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="edit-content">Content (Markdown)</Label>
-                  <Textarea
-                    id="edit-content"
-                    data-testid="textarea-edit-content"
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    rows={15}
-                    className="mt-1 font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Word count: {editedContent.split(/\s+/).length}
-                  </p>
-                </div>
-
-                <div className="pt-4 space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Related Articles:</strong> {generatedInsight.relatedArticleIds.length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>English Sources:</strong> {generatedInsight.sources.length}
-                  </p>
+                  <Label>Select Source Articles ({selectedArticles.size} selected)</Label>
+                  <div className="mt-2 border rounded-md max-h-96 overflow-y-auto">
+                    {loadingArticles ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                      </div>
+                    ) : recentBreakingNews.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        No recent breaking news articles found
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {recentBreakingNews.map((article) => (
+                          <div
+                            key={article.id}
+                            className="p-3 hover-elevate cursor-pointer"
+                            onClick={() => toggleArticle(article.id)}
+                            data-testid={`article-select-${article.id}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                checked={selectedArticles.has(article.id)}
+                                onCheckedChange={() => toggleArticle(article.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm line-clamp-2">
+                                  {article.title}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {new Date(article.publishedAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <Button
-                  onClick={() => publishMutation.mutate()}
-                  disabled={publishMutation.isPending}
+                  onClick={() => generateMutation.mutate()}
+                  disabled={!canGenerate || generateMutation.isPending}
                   className="w-full"
-                  data-testid="button-publish-insight"
+                  data-testid="button-generate-insight"
                 >
-                  {publishMutation.isPending ? (
+                  {generateMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Publishing...
+                      Generating Insight...
                     </>
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Publish Insight
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Insight
                     </>
                   )}
                 </Button>
               </CardContent>
             </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-20 text-center text-muted-foreground">
-                <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Generate an Insight to preview it here</p>
-              </CardContent>
-            </Card>
-          )}
+          </div>
+
+          {/* Right Column: Preview/Edit */}
+          <div>
+            {generatedInsight ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Preview & Edit
+                  </CardTitle>
+                  <CardDescription>
+                    Review and edit before publishing
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-title">Title</Label>
+                    <Input
+                      id="edit-title"
+                      data-testid="input-edit-title"
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-excerpt">Excerpt</Label>
+                    <Textarea
+                      id="edit-excerpt"
+                      data-testid="textarea-edit-excerpt"
+                      value={editedExcerpt}
+                      onChange={(e) => setEditedExcerpt(e.target.value)}
+                      rows={3}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-content">Content (Markdown)</Label>
+                    <Textarea
+                      id="edit-content"
+                      data-testid="textarea-edit-content"
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      rows={15}
+                      className="mt-1 font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Word count: {editedContent.split(/\s+/).length}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Related Articles:</strong> {generatedInsight.relatedArticleIds.length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      <strong>English Sources:</strong> {generatedInsight.sources.length}
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={() => publishMutation.mutate()}
+                    disabled={publishMutation.isPending}
+                    className="w-full"
+                    data-testid="button-publish-insight"
+                  >
+                    {publishMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Publish Insight
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-20 text-center text-muted-foreground">
+                  <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Generate an Insight to preview it here</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+import logoWhite from "@assets/logo-white-transparent.png";
+
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,13 +37,18 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+      {/* Premium Background Effect */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background pointer-events-none" />
+
+      <Card className="w-full max-w-md border-white/10 bg-card/40 backdrop-blur-xl shadow-2xl relative z-10">
         <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-primary/10 rounded-full">
-              <Lock className="h-6 w-6 text-primary" />
-            </div>
+          <div className="flex items-center justify-center mb-6">
+            <img
+              src={logoWhite}
+              alt="Phuket Radar"
+              className="h-20 w-auto drop-shadow-lg"
+            />
           </div>
           <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
           <CardDescription className="text-center">
