@@ -76,9 +76,9 @@ export default function AdminDashboard() {
 
   // Debug logging for categories
   useEffect(() => {
-    console.log('[CATEGORIES] Query state:', { 
-      isAuthenticated, 
-      categoriesLoading, 
+    console.log('[CATEGORIES] Query state:', {
+      isAuthenticated,
+      categoriesLoading,
       categoriesCount: categories.length,
       categoriesData: categories,
       hasError: !!categoriesError,
@@ -136,7 +136,17 @@ export default function AdminDashboard() {
           });
         }
       } catch (error) {
-        console.error("Error polling job status:", error);
+        // If 404, the job is gone from memory, which means it completed successfully
+        if (error instanceof Error && error.message.includes('404')) {
+          setCurrentJob(prev => prev ? { ...prev, status: 'completed', progress: { ...prev.progress, processedPosts: prev.progress.totalPosts } } : null);
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+          toast({
+            title: "Scraping Complete",
+            description: "The scraping job has finished.",
+          });
+        } else {
+          console.error("Error polling job status:", error);
+        }
       }
     }, 2000); // Poll every 2 seconds
 
@@ -194,7 +204,7 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
       toast({
         title: "Article Published",
-        description: article.facebookPostId 
+        description: article.facebookPostId
           ? "The article is now live on the site and has been posted to Facebook"
           : "The article is now live on the site. Use the Facebook button to post to social media.",
       });
@@ -583,8 +593,11 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 bg-muted/30">
-        <div className="container mx-auto px-4 py-8">
+      <main className="flex-1 bg-background relative min-h-screen overflow-hidden">
+        {/* Premium Background Effect */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background pointer-events-none" />
+
+        <div className="container mx-auto px-4 py-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-2">Admin Dashboard</h1>
@@ -642,7 +655,7 @@ export default function AdminDashboard() {
                   onClick={handleScrape}
                   disabled={scrapeMutation.isPending || !!(currentJob && currentJob.status !== 'completed' && currentJob.status !== 'failed')}
                   data-testid="button-scrape"
-                  className="flex-1 md:flex-none h-11 px-8 py-2"
+                  className="flex-1 md:flex-none h-11 px-8 py-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all duration-300"
                   aria-label="Scrape New Articles"
                 >
                   {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') ? (
@@ -673,70 +686,44 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Stats Cards with Glassmorphism */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card 
-              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
-                activeFilter === 'all' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
+            <Card
+              className={`p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] border-white/10 bg-white/5 backdrop-blur-md shadow-xl ${activeFilter === 'all' ? 'ring-1 ring-primary/50 bg-primary/10' : 'hover:bg-white/10'
+                }`}
               onClick={() => setActiveFilter('all')}
               data-testid="filter-all"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">All Articles</p>
-                  <p className="text-3xl font-bold" data-testid="stat-total">{stats.total}</p>
+                  <p className="text-sm text-muted-foreground mb-1 font-medium">All Articles</p>
+                  <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60" data-testid="stat-total">{stats.total}</p>
                 </div>
-                <Badge variant="secondary" className="text-lg px-4 py-2">
-                  {stats.total}
-                </Badge>
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${activeFilter === 'all' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-muted-foreground'}`}>
+                  <Download className="w-5 h-5" />
+                </div>
               </div>
             </Card>
 
-            <Card 
-              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
-                activeFilter === 'pending' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
+            <Card
+              className={`p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] border-white/10 bg-white/5 backdrop-blur-md shadow-xl ${activeFilter === 'pending' ? 'ring-1 ring-orange-500/50 bg-orange-500/10' : 'hover:bg-white/10'
+                }`}
               onClick={() => setActiveFilter('pending')}
               data-testid="filter-pending"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Pending</p>
-                  <p className="text-3xl font-bold" data-testid="stat-pending">{stats.pending}</p>
+                  <p className="text-sm text-muted-foreground mb-1 font-medium">Pending Review</p>
+                  <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-200" data-testid="stat-pending">{stats.pending}</p>
                 </div>
-                <Badge variant="secondary" className="text-lg px-4 py-2">
-                  {stats.pending}
-                </Badge>
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${activeFilter === 'pending' ? 'bg-orange-500/20 text-orange-400' : 'bg-white/5 text-muted-foreground'}`}>
+                  <EyeOff className="w-5 h-5" />
+                </div>
               </div>
             </Card>
-
-            {/* TODO: Re-enable once database columns are added
-            <Card 
-              className={`p-6 cursor-pointer transition-all hover-elevate active-elevate-2 ${
-                activeFilter === 'needsReview' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
-              onClick={() => setActiveFilter('needsReview')}
-              data-testid="filter-needs-review"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Needs Review</p>
-                    <p className="text-3xl font-bold" data-testid="stat-needs-review">{stats.needsReview}</p>
-                  </div>
-                  {stats.needsReview > 0 && (
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                  )}
-                </div>
-                <Badge variant={stats.needsReview > 0 ? "destructive" : "secondary"} className="text-lg px-4 py-2">
-                  {stats.needsReview}
-                </Badge>
-              </div>
-            </Card>
-            */}
           </div>
 
-          <Card>
+          <Card className="border-white/10 bg-card/40 backdrop-blur-xl shadow-2xl">
             <div className="p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
@@ -776,46 +763,46 @@ export default function AdminDashboard() {
                   )}
                   {filteredArticles.some((a) => !a.isPublished) && (
                     <>
-                    {selectedArticles.size > 0 && (
-                      <>
-                        <span className="text-xs md:text-sm text-muted-foreground">
-                          {selectedArticles.size} selected
-                        </span>
-                        <Button
-                          variant="outline"
-                          size={undefined}
-                          onClick={handleBulkHide}
-                          data-testid="button-bulk-hide"
-                          className="h-11 px-4 py-2"
-                          aria-label="Hide Selected"
-                        >
-                          <EyeOff className="w-4 h-4 md:mr-2" />
-                          <span className="hidden md:inline">Hide Selected</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size={undefined}
-                          onClick={handleBulkDelete}
-                          className="border-destructive text-destructive h-11 px-4 py-2"
-                          data-testid="button-bulk-delete"
-                          aria-label="Delete Selected"
-                        >
-                          <Trash2 className="w-4 h-4 md:mr-2" />
-                          <span className="hidden md:inline">Delete Selected</span>
-                        </Button>
-                      </>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={
-                          selectedArticles.size > 0 &&
-                          selectedArticles.size === filteredArticles.filter((a) => !a.isPublished).length
-                        }
-                        onCheckedChange={handleSelectAll}
-                        data-testid="checkbox-select-all"
-                      />
-                      <label className="text-xs md:text-sm font-medium whitespace-nowrap">Select All</label>
-                    </div>
+                      {selectedArticles.size > 0 && (
+                        <>
+                          <span className="text-xs md:text-sm text-muted-foreground">
+                            {selectedArticles.size} selected
+                          </span>
+                          <Button
+                            variant="outline"
+                            size={undefined}
+                            onClick={handleBulkHide}
+                            data-testid="button-bulk-hide"
+                            className="h-11 px-4 py-2"
+                            aria-label="Hide Selected"
+                          >
+                            <EyeOff className="w-4 h-4 md:mr-2" />
+                            <span className="hidden md:inline">Hide Selected</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size={undefined}
+                            onClick={handleBulkDelete}
+                            className="border-destructive text-destructive h-11 px-4 py-2"
+                            data-testid="button-bulk-delete"
+                            aria-label="Delete Selected"
+                          >
+                            <Trash2 className="w-4 h-4 md:mr-2" />
+                            <span className="hidden md:inline">Delete Selected</span>
+                          </Button>
+                        </>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={
+                            selectedArticles.size > 0 &&
+                            selectedArticles.size === filteredArticles.filter((a) => !a.isPublished).length
+                          }
+                          onCheckedChange={handleSelectAll}
+                          data-testid="checkbox-select-all"
+                        />
+                        <label className="text-xs md:text-sm font-medium whitespace-nowrap">Select All</label>
+                      </div>
                     </>
                   )}
                 </div>
@@ -861,13 +848,13 @@ export default function AdminDashboard() {
                             {article.interestScore !== null && article.interestScore !== undefined && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Badge 
+                                  <Badge
                                     className={
-                                      article.interestScore >= 4 
-                                        ? "bg-orange-500 text-white" 
-                                        : article.interestScore === 3 
-                                        ? "bg-yellow-500 text-white" 
-                                        : "bg-gray-500 text-white"
+                                      article.interestScore >= 4
+                                        ? "bg-orange-500 text-white"
+                                        : article.interestScore === 3
+                                          ? "bg-yellow-500 text-white"
+                                          : "bg-gray-500 text-white"
                                     }
                                     data-testid={`badge-interest-${article.id}`}
                                   >
@@ -968,11 +955,11 @@ export default function AdminDashboard() {
                                   disabled={facebookPostMutation.isPending}
                                   data-testid={`button-facebook-${article.id}`}
                                   aria-label={
-                                    article.facebookPostId?.startsWith('LOCK:') 
-                                      ? "Retry posting to Facebook" 
-                                      : article.facebookPostId 
-                                      ? "Post again to Facebook" 
-                                      : "Post to Facebook"
+                                    article.facebookPostId?.startsWith('LOCK:')
+                                      ? "Retry posting to Facebook"
+                                      : article.facebookPostId
+                                        ? "Post again to Facebook"
+                                        : "Post to Facebook"
                                   }
                                 >
                                   <Facebook className="w-4 h-4" />
@@ -980,11 +967,11 @@ export default function AdminDashboard() {
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>
-                                  {article.facebookPostId?.startsWith('LOCK:') 
-                                    ? "Retry posting to Facebook (previous attempt failed)" 
-                                    : article.facebookPostId 
-                                    ? "Post again to Facebook (already posted)" 
-                                    : "Post to Facebook"}
+                                  {article.facebookPostId?.startsWith('LOCK:')
+                                    ? "Retry posting to Facebook (previous attempt failed)"
+                                    : article.facebookPostId
+                                      ? "Post again to Facebook (already posted)"
+                                      : "Post to Facebook"}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
@@ -997,11 +984,11 @@ export default function AdminDashboard() {
                                   disabled={instagramPostMutation.isPending}
                                   data-testid={`button-instagram-${article.id}`}
                                   aria-label={
-                                    article.instagramPostId?.startsWith('IG-LOCK:') 
-                                      ? "Retry posting to Instagram" 
-                                      : article.instagramPostId 
-                                      ? "Post again to Instagram" 
-                                      : "Post to Instagram"
+                                    article.instagramPostId?.startsWith('IG-LOCK:')
+                                      ? "Retry posting to Instagram"
+                                      : article.instagramPostId
+                                        ? "Post again to Instagram"
+                                        : "Post to Instagram"
                                   }
                                 >
                                   <Instagram className="w-4 h-4" />
@@ -1009,11 +996,11 @@ export default function AdminDashboard() {
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>
-                                  {article.instagramPostId?.startsWith('IG-LOCK:') 
-                                    ? "Retry posting to Instagram (previous attempt failed)" 
-                                    : article.instagramPostId 
-                                    ? "Post again to Instagram (already posted)" 
-                                    : "Post to Instagram"}
+                                  {article.instagramPostId?.startsWith('IG-LOCK:')
+                                    ? "Retry posting to Instagram (previous attempt failed)"
+                                    : article.instagramPostId
+                                      ? "Post again to Instagram (already posted)"
+                                      : "Post to Instagram"}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
@@ -1026,11 +1013,11 @@ export default function AdminDashboard() {
                                   disabled={threadsPostMutation.isPending}
                                   data-testid={`button-threads-${article.id}`}
                                   aria-label={
-                                    article.threadsPostId?.startsWith('THREADS-LOCK:') 
-                                      ? "Retry posting to Threads" 
-                                      : article.threadsPostId 
-                                      ? "Post again to Threads" 
-                                      : "Post to Threads"
+                                    article.threadsPostId?.startsWith('THREADS-LOCK:')
+                                      ? "Retry posting to Threads"
+                                      : article.threadsPostId
+                                        ? "Post again to Threads"
+                                        : "Post to Threads"
                                   }
                                 >
                                   <MessageCircle className="w-4 h-4" />
@@ -1038,11 +1025,11 @@ export default function AdminDashboard() {
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>
-                                  {article.threadsPostId?.startsWith('THREADS-LOCK:') 
-                                    ? "Retry posting to Threads (previous attempt failed)" 
-                                    : article.threadsPostId 
-                                    ? "Post again to Threads (already posted)" 
-                                    : "Post to Threads"}
+                                  {article.threadsPostId?.startsWith('THREADS-LOCK:')
+                                    ? "Retry posting to Threads (previous attempt failed)"
+                                    : article.threadsPostId
+                                      ? "Post again to Threads (already posted)"
+                                      : "Post to Threads"}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
@@ -1093,7 +1080,7 @@ export default function AdminDashboard() {
                   <Badge variant="secondary" data-testid="badge-preview-category">
                     {previewArticle.category}
                   </Badge>
-                  <Badge 
+                  <Badge
                     className={previewArticle.isPublished ? "bg-primary text-primary-foreground" : ""}
                     data-testid="badge-preview-status"
                   >
