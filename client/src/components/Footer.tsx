@@ -2,20 +2,20 @@ import { Link } from "wouter";
 import { Facebook } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import logoDark from "@assets/PhuketRadar_1759933943849.png";
-import logoLight from "@assets/PhuketRadar (2)_1759934227696.png";
+import logoWhite from "@assets/logo-white-transparent.png";
 
 export function Footer() {
   const { theme } = useTheme();
-  
+
   return (
     <footer className="border-t bg-card mt-20">
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col items-center md:items-start gap-3">
             <div>
-              <img 
-                src={theme === "light" ? logoDark : logoLight} 
-                alt="Phuket Radar" 
+              <img
+                src={theme === "light" ? logoDark : logoWhite}
+                alt="Phuket Radar"
                 className="h-16 w-auto"
               />
             </div>
