@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
-import logoDark from "@assets/PhuketRadar_1759933943849.png";
+import logoDark from "@assets/logo-white-transparent.png";
 import { SearchDialog } from "./SearchDialog";
 import {
   DropdownMenu,
