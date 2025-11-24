@@ -495,6 +495,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error(`[Job ${job.id}] SCRAPING ERROR:`, error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         scrapeJobManager.markFailed(job.id, errorMessage);
+      } finally {
+        // CRITICAL: Always release the scheduler lock to prevent database timeout
+        try {
+          const { releaseSchedulerLock } = await import("./lib/scheduler-lock");
+          await releaseSchedulerLock();
+          console.log(`[Job ${job.id}] 🔓 Scheduler lock released`);
+        } catch (lockError) {
+          console.error(`[Job ${job.id}] Error releasing lock:`, lockError);
+        }
       }
     })();
   });
