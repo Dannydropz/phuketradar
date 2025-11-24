@@ -55,6 +55,66 @@ export function Header() {
                   Local
                 </Button>
               </Link>
+
+              <Link href="/business">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/business" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-business"
+                >
+                  Business
+                </Button>
+              </Link>
+
+              <Link href="/tourism">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/tourism" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-tourism"
+                >
+                  Tourism
+                </Button>
+              </Link>
+
+              <Link href="/politics">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/politics" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-politics"
+                >
+                  Politics
+                </Button>
+              </Link>
+
+              <Link href="/economy">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/economy" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-economy"
+                >
+                  Economy
+                </Button>
+              </Link>
+
+              <Link href="/traffic">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/traffic" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-traffic"
+                >
+                  Traffic
+                </Button>
+              </Link>
+
+              <Link href="/weather">
+                <Button
+                  variant="ghost"
+                  className={`text-header-foreground hover:text-header-foreground ${location === "/weather" ? "bg-accent/50" : ""}`}
+                  data-testid="nav-weather"
+                >
+                  Weather
+                </Button>
+              </Link>
             </nav>
           )}
 
@@ -121,6 +181,66 @@ export function Header() {
                 data-testid="link-mobile-local"
               >
                 Local
+              </Button>
+            </Link>
+            <Link href="/business">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/business" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-business"
+              >
+                Business
+              </Button>
+            </Link>
+            <Link href="/tourism">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/tourism" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-tourism"
+              >
+                Tourism
+              </Button>
+            </Link>
+            <Link href="/politics">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/politics" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-politics"
+              >
+                Politics
+              </Button>
+            </Link>
+            <Link href="/economy">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/economy" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-economy"
+              >
+                Economy
+              </Button>
+            </Link>
+            <Link href="/traffic">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/traffic" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-traffic"
+              >
+                Traffic
+              </Button>
+            </Link>
+            <Link href="/weather">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start text-header-foreground hover:text-header-foreground ${location === "/weather" ? "bg-black/20" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="link-mobile-weather"
+              >
+                Weather
               </Button>
             </Link>
           </nav>
