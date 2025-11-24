@@ -461,6 +461,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Process in background (no await) - use the same runScheduledScrape function as automated scraping
     (async () => {
       try {
+        // CRITICAL: Acquire scheduler lock to prevent parallel scrapes
+        const { acquireSchedulerLock, releaseSchedulerLock } = await import("./lib/scheduler-lock");
+        const lockAcquired = await acquireSchedulerLock();
+
+        if (!lockAcquired) {
+          console.error(`[Job ${job.id}] ❌ Could not acquire lock - another scrape is already running`);
+          scrapeJobManager.markFailed(job.id, "Another scrape is already in progress");
+          return;
+        }
+
+        console.log(`[Job ${job.id}] 🔒 Scheduler lock acquired`);
+
         scrapeJobManager.updateJob(job.id, { status: 'processing' });
 
         console.log(`[Job ${job.id}] Starting scrape using runScheduledScrape() with job tracking`);
