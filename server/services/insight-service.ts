@@ -29,19 +29,19 @@ class InsightService {
     console.log(`\n=== GENERATING PHUKET RADAR INSIGHT ===`);
     console.log(`Topic: ${request.topic}`);
     console.log(`Source articles: ${request.sourceArticles.length}`);
-    
+
     // Step 1: Scrape English news sources for related coverage
     console.log(`Scraping English news sources for related coverage...`);
     const englishArticles = await englishNewsScraper.scrapeAll(15);
-    
+
     // Step 2: Filter English articles that match the topic using semantic matching
     const relevantEnglishArticles = await this.findRelevantEnglishArticles(
       request.topic,
       englishArticles
     );
-    
+
     console.log(`Found ${relevantEnglishArticles.length} relevant English articles`);
-    
+
     // Step 3: Use GPT-4 to synthesize the Insight piece
     const insight = await this.synthesizeInsight(
       request.topic,
@@ -49,7 +49,7 @@ class InsightService {
       relevantEnglishArticles,
       request.eventType
     );
-    
+
     return {
       ...insight,
       relatedArticleIds: request.sourceArticles.map(a => a.id),
@@ -68,7 +68,7 @@ class InsightService {
     // Simple keyword-based filtering for now
     // Can be enhanced with GPT-based relevance scoring later
     const keywords = topic.toLowerCase().split(/\s+/);
-    
+
     return articles.filter(article => {
       const text = `${article.title} ${article.excerpt}`.toLowerCase();
       return keywords.some(keyword => text.includes(keyword));
@@ -86,7 +86,7 @@ class InsightService {
     eventType?: string
   ): Promise<Omit<InsightResult, 'relatedArticleIds' | 'sources'>> {
     // Prepare context from breaking news
-    const breakingNewsContext = breakingNewsArticles.map((article, idx) => 
+    const breakingNewsContext = breakingNewsArticles.map((article, idx) =>
       `[Breaking News ${idx + 1}]\nTitle: ${article.title}\nExcerpt: ${article.excerpt}\nPublished: ${article.publishedAt.toISOString()}`
     ).join('\n\n');
 
@@ -134,7 +134,7 @@ Format your response as JSON:
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o-mini", // Cost optimization: mini is sufficient for insight generation
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -144,10 +144,10 @@ Format your response as JSON:
       });
 
       const result = JSON.parse(completion.choices[0].message.content || '{}');
-      
+
       console.log(`Generated Insight: ${result.title}`);
       console.log(`Word count: ${result.content.split(/\s+/).length}`);
-      
+
       return {
         title: result.title,
         content: result.content,

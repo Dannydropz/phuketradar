@@ -60,7 +60,7 @@ Metadata:
 Add context, background, and depth to make this story more comprehensive. If it's still developing (missing names, exact times, or full details), mark shouldContinueDeveloping as true.`;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for enrichment updates
         messages: [
           {
             role: 'system',

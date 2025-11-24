@@ -115,7 +115,7 @@ export class DuplicateDetectionService {
     const userPrompt = `Article 1: "${article1.title}"\n${article1.content.substring(0, 500)}\n\nArticle 2: "${article2.title}"\n${article2.content.substring(0, 500)}`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for duplicate detection
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -314,7 +314,7 @@ Content: ${article2Content}
 Are these about the same incident?`;
 
         const response = await openai.chat.completions.create({
-          model: 'gpt-4o',
+          model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for duplicate verification
           messages: [
             {
               role: 'system',

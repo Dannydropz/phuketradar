@@ -70,7 +70,7 @@ ${storiesText}
 Create a single, complete article that includes all unique details from each report.`;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for merging stories
         messages: [
           {
             role: 'system',
