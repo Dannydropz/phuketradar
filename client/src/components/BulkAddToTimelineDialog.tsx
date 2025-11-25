@@ -13,14 +13,14 @@ import type { Article } from "@shared/schema";
 interface BulkAddToTimelineDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    selectedArticleIds: string[];
+    selectedArticles: Article[];
     onSuccess: () => void;
 }
 
 export function BulkAddToTimelineDialog({
     open,
     onOpenChange,
-    selectedArticleIds,
+    selectedArticles,
     onSuccess,
 }: BulkAddToTimelineDialogProps) {
     const { toast } = useToast();
@@ -28,6 +28,17 @@ export function BulkAddToTimelineDialog({
     const [mode, setMode] = useState<"existing" | "new">("existing");
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>("");
     const [newSeriesTitle, setNewSeriesTitle] = useState<string>("");
+    const [selectedCoverImage, setSelectedCoverImage] = useState<string | null>(null);
+
+    // Set default cover image when opening or changing selection
+    if (open && !selectedCoverImage && selectedArticles.length > 0) {
+        // Default to the most recent article's image (assuming sorted by date, or just first)
+        // Better: Find the first one with an image
+        const firstWithImage = selectedArticles.find(a => a.imageUrl);
+        if (firstWithImage) {
+            setSelectedCoverImage(firstWithImage.imageUrl);
+        }
+    }
 
     // Fetch active timelines (parent stories)
     const { data: timelines = [], isLoading: timelinesLoading } = useQuery<Article[]>({
@@ -48,7 +59,7 @@ export function BulkAddToTimelineDialog({
             queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
             toast({
                 title: "Articles Added",
-                description: `Successfully added ${selectedArticleIds.length} stories to the timeline.`,
+                description: `Successfully added ${selectedArticles.length} stories to the timeline.`,
             });
             onSuccess();
             onOpenChange(false);
@@ -80,7 +91,7 @@ export function BulkAddToTimelineDialog({
     // and add selected articles to it.
 
     const createTimelineMutation = useMutation({
-        mutationFn: async ({ title, articleIds }: { title: string; articleIds: string[] }) => {
+        mutationFn: async ({ title, articleIds, imageUrl }: { title: string; articleIds: string[], imageUrl?: string | null }) => {
             // 1. Create a new parent article
             const res = await apiRequest("POST", "/api/admin/articles", {
                 title: title,
@@ -89,6 +100,7 @@ export function BulkAddToTimelineDialog({
                 category: "Local", // Default, maybe let user pick?
                 isPublished: true,
                 sourceUrl: "manual-timeline",
+                imageUrl: imageUrl, // Use selected cover image
             });
             const parentArticle = await res.json();
 
@@ -111,12 +123,13 @@ export function BulkAddToTimelineDialog({
             queryClient.invalidateQueries({ queryKey: ["/api/admin/timelines"] });
             toast({
                 title: "Timeline Created",
-                description: `Created "${newSeriesTitle}" and added ${selectedArticleIds.length} stories.`,
+                description: `Created "${newSeriesTitle}" and added ${selectedArticles.length} stories.`,
             });
             onSuccess();
             onOpenChange(false);
             setSelectedSeriesId("");
             setNewSeriesTitle("");
+            setSelectedCoverImage(null);
             setMode("existing");
         },
         onError: (error: Error) => {
@@ -133,13 +146,14 @@ export function BulkAddToTimelineDialog({
             if (!selectedSeriesId) return;
             addToTimelineMutation.mutate({
                 seriesId: selectedSeriesId,
-                articleIds: selectedArticleIds,
+                articleIds: selectedArticles.map(a => a.id),
             });
         } else {
             if (!newSeriesTitle) return;
             createTimelineMutation.mutate({
                 title: newSeriesTitle,
-                articleIds: selectedArticleIds,
+                articleIds: selectedArticles.map(a => a.id),
+                imageUrl: selectedCoverImage,
             });
         }
     };
@@ -152,7 +166,7 @@ export function BulkAddToTimelineDialog({
                 <DialogHeader>
                     <DialogTitle>Add to Timeline</DialogTitle>
                     <DialogDescription>
-                        Add {selectedArticleIds.length} selected stories to a timeline.
+                        Add {selectedArticles.length} selected stories to a timeline.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -206,6 +220,37 @@ export function BulkAddToTimelineDialog({
                             />
                             <p className="text-xs text-muted-foreground">
                                 This will create a new parent story and add the selected articles to it.
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                This will create a new parent story and add the selected articles to it.
+                            </p>
+
+                            <Label className="mt-2">Cover Image</Label>
+                            <div className="grid grid-cols-4 gap-2 max-h-[120px] overflow-y-auto p-1">
+                                {selectedArticles.filter(a => a.imageUrl).map((article) => (
+                                    <div
+                                        key={article.id}
+                                        className={`relative aspect-video cursor-pointer rounded-md overflow-hidden border-2 ${selectedCoverImage === article.imageUrl ? "border-primary" : "border-transparent"
+                                            }`}
+                                        onClick={() => setSelectedCoverImage(article.imageUrl)}
+                                    >
+                                        <img
+                                            src={article.imageUrl!}
+                                            alt={article.title}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        {selectedCoverImage === article.imageUrl && (
+                                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                                <div className="bg-primary text-primary-foreground rounded-full p-0.5">
+                                                    <Plus className="w-3 h-3" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                                Select an image from the stories to use as the timeline cover.
                             </p>
                         </div>
                     )}

@@ -976,7 +976,7 @@ export default function AdminDashboard() {
       <BulkAddToTimelineDialog
         open={bulkTimelineOpen}
         onOpenChange={setBulkTimelineOpen}
-        selectedArticleIds={Array.from(selectedArticles)}
+        selectedArticles={articles.filter(a => selectedArticles.has(a.id))}
         onSuccess={() => setSelectedArticles(new Set())}
       />
     </div>
