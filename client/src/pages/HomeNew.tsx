@@ -135,7 +135,13 @@ export default function HomeNew() {
 
                         {/* Desktop Menu */}
                         <div className="hidden md:flex items-center space-x-8">
-                            {["News", "Business", "Tourism", "Events", "Crime", "National"].map((item) => (
+                            <Link href="/">
+                                <a className={`text-sm font-medium transition-colors relative group ${!category ? "text-white" : "text-zinc-400 hover:text-white"}`}>
+                                    Home
+                                    <span className={`absolute -bottom-5 left-0 w-full h-0.5 bg-blue-500 transition-transform duration-300 ${!category ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`} />
+                                </a>
+                            </Link>
+                            {["Crime", "Local", "Business", "Tourism", "Politics", "Economy", "Traffic", "Weather"].map((item) => (
                                 <Link key={item} href={`/${item.toLowerCase()}`}>
                                     <a className={`text-sm font-medium transition-colors relative group ${category === item.toLowerCase() ? "text-white" : "text-zinc-400 hover:text-white"
                                         }`}>
