@@ -8,10 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Clock, Share2, ArrowLeft, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, differenceInHours } from "date-fns";
 import type { Article } from "@shared/schema";
 import { useState } from "react";
 import { Helmet } from "react-helmet";
+
+// Format time for articles older than 24 hours
+const formatTimeAgo = (date: Date) => {
+    const hoursDifference = differenceInHours(new Date(), date);
+    if (hoursDifference >= 24) {
+        return `${hoursDifference} hours ago`;
+    }
+    return formatDistanceToNow(date, { addSuffix: true });
+};
 
 interface TimelineResponse {
     seriesId: string;
@@ -126,12 +135,6 @@ export function TimelineStory() {
                                         alt={parentStory.title}
                                         className="w-full h-full object-cover"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                                        <p className="text-white/90 text-sm font-medium">
-                                            {parentStory.title}
-                                        </p>
-                                    </div>
                                 </div>
                             )}
                         </div>
@@ -146,13 +149,13 @@ export function TimelineStory() {
 
                         <div className="space-y-8">
                             {timelineUpdates.map((update, index) => (
-                                <div key={update.id} className="relative pl-12 md:pl-20">
+                                <div key={update.id} className="relative pl-12 md:pl-24">
                                     {/* Timeline Dot */}
-                                    <div className="absolute left-[11px] md:left-[27px] top-6 w-3 h-3 rounded-full bg-primary border-4 border-background shadow-sm z-10" />
+                                    <div className="absolute left-2.5 md:left-[43px] top-6 w-3 h-3 rounded-full bg-primary border-4 border-background shadow-sm z-10" />
 
-                                    {/* Time Label */}
-                                    <div className="absolute left-0 top-5 -ml-2 md:-ml-0 w-24 text-right hidden md:block">
-                                        <span className="text-sm font-bold text-muted-foreground">
+                                    {/* Time Label - Desktop Only */}
+                                    <div className="absolute left-0 top-5 w-20 text-right hidden md:block pr-4">
+                                        <span className="text-xs font-bold text-muted-foreground">
                                             {format(new Date(update.publishedAt), "HH:mm")}
                                         </span>
                                     </div>
@@ -160,13 +163,13 @@ export function TimelineStory() {
                                     <Card className={`overflow-hidden transition-all duration-300 hover:shadow-md border-l-4 ${index === 0 ? 'border-l-primary' : 'border-l-transparent'}`}>
                                         <div className="p-5">
                                             <div className="flex items-start justify-between gap-4 mb-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1 md:hidden">
-                                                        <span className="text-sm font-bold text-muted-foreground">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2 md:hidden">
+                                                        <span className="text-xs font-bold text-muted-foreground">
                                                             {format(new Date(update.publishedAt), "HH:mm")}
                                                         </span>
                                                         <span className="text-xs text-muted-foreground">
-                                                            {format(new Date(update.publishedAt), "MMM d")}
+                                                            · {format(new Date(update.publishedAt), "MMM d")}
                                                         </span>
                                                     </div>
                                                     <h3 className="text-xl font-bold leading-snug hover:text-primary transition-colors">
@@ -201,7 +204,7 @@ export function TimelineStory() {
                                                 </Button>
                                             )}
 
-                                            {update.imageUrl && expandedUpdates.has(update.id) && (
+                                            {update.imageUrl && (
                                                 <div className="mt-4 rounded-lg overflow-hidden">
                                                     <ArticleImage
                                                         src={update.imageUrl}
@@ -213,7 +216,7 @@ export function TimelineStory() {
 
                                             <div className="mt-4 pt-4 border-t flex items-center justify-between">
                                                 <span className="text-xs text-muted-foreground">
-                                                    {formatDistanceToNow(new Date(update.publishedAt), { addSuffix: true })}
+                                                    {formatTimeAgo(new Date(update.publishedAt))}
                                                 </span>
                                                 <Button variant="ghost" size="sm" className="h-8 text-xs">
                                                     <Share2 className="w-3 h-3 mr-2" />

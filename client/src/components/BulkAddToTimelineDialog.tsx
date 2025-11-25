@@ -29,6 +29,7 @@ export function BulkAddToTimelineDialog({
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>("");
     const [newSeriesTitle, setNewSeriesTitle] = useState<string>("");
     const [timelineTags, setTimelineTags] = useState<string>("");
+    const [interestScore, setInterestScore] = useState<number>(4);
     const [selectedCoverImage, setSelectedCoverImage] = useState<string | null>(null);
 
     // Set default cover image when opening or changing selection
@@ -92,7 +93,7 @@ export function BulkAddToTimelineDialog({
     // and add selected articles to it.
 
     const createTimelineMutation = useMutation({
-        mutationFn: async ({ title, articleIds, imageUrl, tags }: { title: string; articleIds: string[], imageUrl?: string | null, tags?: string[] }) => {
+        mutationFn: async ({ title, articleIds, imageUrl, tags, interestScore }: { title: string; articleIds: string[], imageUrl?: string | null, tags?: string[], interestScore?: number }) => {
             // 1. Create a new parent article
             const res = await apiRequest("POST", "/api/admin/articles", {
                 title: title,
@@ -104,6 +105,7 @@ export function BulkAddToTimelineDialog({
                 imageUrl: imageUrl, // Use selected cover image
                 timelineTags: tags, // Save tags
                 autoMatchEnabled: !!tags?.length, // Enable auto-match if tags provided
+                interestScore: interestScore || 4, // Set interest score
             });
             const parentArticle = await res.json();
 
@@ -133,6 +135,7 @@ export function BulkAddToTimelineDialog({
             setSelectedSeriesId("");
             setNewSeriesTitle("");
             setTimelineTags("");
+            setInterestScore(4);
             setSelectedCoverImage(null);
             setMode("existing");
         },
@@ -159,6 +162,7 @@ export function BulkAddToTimelineDialog({
                 articleIds: selectedArticles.map(a => a.id),
                 imageUrl: selectedCoverImage,
                 tags: timelineTags.split(",").map(t => t.trim()).filter(Boolean),
+                interestScore,
             });
         }
     };
@@ -272,6 +276,25 @@ export function BulkAddToTimelineDialog({
                             <p className="text-[10px] text-muted-foreground">
                                 Select an image from the stories to use as the timeline cover.
                             </p>
+
+                            <div className="grid gap-2">
+                                <Label>Interest Score</Label>
+                                <Select value={interestScore.toString()} onValueChange={(v) => setInterestScore(parseInt(v))}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="5">5 - Critical (Auto-post to Facebook)</SelectItem>
+                                        <SelectItem value="4">4 - High (Auto-post to Facebook)</SelectItem>
+                                        <SelectItem value="3">3 - Medium (Publish only)</SelectItem>
+                                        <SelectItem value="2">2 - Low (Draft)</SelectItem>
+                                        <SelectItem value="1">1 - Very Low (Draft)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    Scores 4-5 will auto-post to Facebook when published.
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

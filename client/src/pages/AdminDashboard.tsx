@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -158,6 +158,30 @@ export default function AdminDashboard() {
 
     return () => clearInterval(pollInterval);
   }, [currentJob?.id, currentJob?.status, toast]);
+
+  // Facebook posting mutation
+  const postToFacebookMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${id}/facebook`);
+      return await res.json();
+    },
+    onSuccess: (data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Posted to Facebook",
+        description: data.facebookPostUrl
+          ? "The article has been posted to Facebook"
+          : "The article is being processed for Facebook",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Post",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const scrapeMutation = useMutation({
     mutationFn: async () => {
@@ -833,6 +857,24 @@ export default function AdminDashboard() {
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-1">
+                                        {child.isPublished && !child.facebookPostId && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                                                onClick={() => postToFacebookMutation.mutate(child.id)}
+                                                disabled={postToFacebookMutation.isPending}
+                                              >
+                                                <Facebook className="w-3 h-3" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              Post to Facebook
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
                                         <Button
                                           variant="ghost"
                                           size="icon"
