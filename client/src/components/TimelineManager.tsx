@@ -43,6 +43,7 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
     const [seriesTitle, setSeriesTitle] = useState("");
     const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState("");
+    const [keywordInput, setKeywordInput] = useState("");
 
     // Fetch AI suggestions for this article
     const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery<TimelineSuggestion[]>({
@@ -304,26 +305,49 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
                                     </div>
                                     <div className="flex gap-2">
                                         <Input
+                                            value={keywordInput}
+                                            onChange={(e) => setKeywordInput(e.target.value)}
                                             placeholder="Add keyword (e.g., 'flood', 'storm')"
-                                            className="h-8 text-sm"
+                                            className="h-8 text-sm flex-1"
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
-                                                    const input = e.currentTarget;
-                                                    const val = input.value.trim();
+                                                    e.preventDefault();
+                                                    const val = keywordInput.trim();
                                                     if (val && !article.timelineTags?.includes(val)) {
                                                         const newTags = [...(article.timelineTags || []), val];
                                                         updateTimelineSettingsMutation.mutate({
                                                             timelineTags: newTags,
                                                             autoMatchEnabled: article.autoMatchEnabled || false
                                                         });
-                                                        input.value = '';
+                                                        setKeywordInput('');
                                                     }
                                                 }
                                             }}
                                         />
+                                        <Button
+                                            size="sm"
+                                            className="h-8"
+                                            onClick={() => {
+                                                const val = keywordInput.trim();
+                                                if (val && !article.timelineTags?.includes(val)) {
+                                                    const newTags = [...(article.timelineTags || []), val];
+                                                    updateTimelineSettingsMutation.mutate({
+                                                        timelineTags: newTags,
+                                                        autoMatchEnabled: article.autoMatchEnabled || false
+                                                    });
+                                                    setKeywordInput('');
+                                                }
+                                            }}
+                                            disabled={!keywordInput.trim() || article.timelineTags?.includes(keywordInput.trim())}
+                                        >
+                                            <Plus className="w-3 h-3 mr-1" />
+                                            Add
+                                        </Button>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground">
-                                        New stories containing these keywords will be flagged for review.
+                                        {article.timelineTags && article.timelineTags.length > 0
+                                            ? `New stories containing ${article.timelineTags.map(t => `"${t}"`).join(", ")} will be flagged for review.`
+                                            : "Add keywords to automatically flag matching stories for review."}
                                     </p>
                                 </div>
                             </div>
