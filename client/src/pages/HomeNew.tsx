@@ -255,7 +255,13 @@ export default function HomeNew() {
                 {/* The "Radar" Feed - Mixed Density */}
                 <section>
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b border-white/10 pb-4 gap-4">
-                        <h2 className="text-2xl font-bold text-white">On the Radar</h2>
+                        <div className="flex items-center gap-3">
+                            <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-blue-400"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                            </span>
+                            <h2 className="text-2xl font-bold text-blue-500 uppercase tracking-wide">On the Radar</h2>
+                        </div>
                         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
                             {["All", "Local", "Crime", "Tourism", "Business"].map((tab) => (
                                 <button
