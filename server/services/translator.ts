@@ -231,6 +231,12 @@ Your task:
    - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
 3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style
 
+CRITICAL LOCATION VERIFICATION (MUST READ):
+- **VERIFY THE LOCATION:** Before writing, determine EXACTLY where the event happened.
+- **DO NOT HALLUCINATE PHUKET:** If the story mentions "Hat Yai", "Songkhla", "Bangkok", "Chiang Mai", or other provinces, **DO NOT** change the location to Phuket. Report it as happening in that city.
+- **PHUKET SOURCE ≠ PHUKET STORY:** Just because the source is "Phuket Info Center" does NOT mean the story is in Phuket. They often report on Southern Thailand floods (Hat Yai, Trang, Narathiwat).
+- **CHECK LANDMARKS:** "Pholphichai Road", "Wat Plakrim", "Wat Phutthikaram" are in **HAT YAI**, not Phuket. If you see these, the story is in HAT YAI.
+
 CONTEXT & ENRICHMENT REQUIREMENTS:
 - If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally
 - Add brief LOCAL CONTEXT about Phuket locations when relevant to help international readers understand the setting
