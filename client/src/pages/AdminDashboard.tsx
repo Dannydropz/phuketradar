@@ -27,6 +27,7 @@ import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { ArticleImage } from "@/components/ArticleImage";
 import { ArticleEditor } from "@/components/ArticleEditor";
 import { TimelineManager } from "@/components/TimelineManager";
+import { BulkAddToTimelineDialog } from "@/components/BulkAddToTimelineDialog";
 
 type ScrapeJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -45,7 +46,7 @@ interface ScrapeJob {
 }
 
 // TODO: Re-enable 'needsReview' once database columns are added
-type FilterType = 'all' | 'pending'; // | 'needsReview';
+type FilterType = 'all' | 'pending' | 'timelines'; // | 'needsReview';
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -58,12 +59,15 @@ export default function AdminDashboard() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [timelineArticle, setTimelineArticle] = useState<Article | null>(null);
+  const [bulkTimelineOpen, setBulkTimelineOpen] = useState(false);
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
     enabled: isAuthenticated,
     retry: 1,
   });
+
+
 
   // Debug: Log authentication state immediately
   console.log('[AUTH DEBUG] isAuthenticated:', isAuthenticated);
@@ -478,6 +482,7 @@ export default function AdminDashboard() {
   // Filter articles based on active filter
   const filteredArticles = articles.filter((article) => {
     if (activeFilter === 'pending') return !article.isPublished;
+    if (activeFilter === 'timelines') return article.isParentStory;
     // TODO: Re-enable once database columns are added
     // if (activeFilter === 'needsReview') return article.needsReview;
     return true; // 'all'
@@ -665,6 +670,17 @@ export default function AdminDashboard() {
                           >
                             <Trash2 className="w-4 h-4 md:mr-2" />
                             <span className="hidden md:inline">Delete Selected</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size={undefined}
+                            onClick={() => setBulkTimelineOpen(true)}
+                            className="h-11 px-4 py-2"
+                            data-testid="button-bulk-timeline"
+                            aria-label="Add to Timeline"
+                          >
+                            <Clock className="w-4 h-4 md:mr-2" />
+                            <span className="hidden md:inline">Add to Timeline</span>
                           </Button>
                         </>
                       )}
@@ -960,6 +976,13 @@ export default function AdminDashboard() {
       {timelineArticle && (
         <TimelineManager article={timelineArticle} onClose={handleCloseTimeline} />
       )}
+      <BulkAddToTimelineDialog
+        open={bulkTimelineOpen}
+        onOpenChange={setBulkTimelineOpen}
+        selectedArticleIds={Array.from(selectedArticles)}
+        onSuccess={() => setSelectedArticles(new Set())}
+      />
     </div>
   );
 }
+
