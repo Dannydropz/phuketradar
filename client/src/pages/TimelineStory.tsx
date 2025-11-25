@@ -21,7 +21,7 @@ interface TimelineResponse {
 }
 
 export function TimelineStory() {
-    const [, params] = useRoute("/timeline/:seriesId");
+    const [, params] = useRoute("/story/:seriesId");
     const seriesId = params?.seriesId;
     const [expandedUpdates, setExpandedUpdates] = useState<Set<string>>(new Set());
 

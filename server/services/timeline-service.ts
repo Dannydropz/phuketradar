@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, desc } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, or, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import { articles } from "@shared/schema";
 import type { Article } from "@shared/schema";
@@ -159,7 +159,10 @@ export class TimelineService {
             .from(articles)
             .where(
                 and(
-                    eq(articles.seriesId, seriesId),
+                    or(
+                        eq(articles.seriesId, seriesId),
+                        eq(articles.slug, seriesId) // Also check slug
+                    ),
                     eq(articles.isParentStory, true)
                 )
             );

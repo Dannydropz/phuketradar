@@ -118,7 +118,7 @@ export function ArticleCard({
 
   // Build article URL with category, or timeline URL if it's a series
   const articleUrl = seriesId
-    ? `/story/${seriesId}`
+    ? `/story/${isParentStory && slug ? slug : seriesId}`
     : buildArticleUrl({ category, slug: slug || null, id });
 
   // Map legacy categories to new topics
