@@ -1,6 +1,7 @@
 {
   "name": "rest-express",
   "version": "1.0.0",
+  "description": "Phuket Radar News Platform",
   "type": "module",
   "license": "MIT",
   "scripts": {
