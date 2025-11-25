@@ -260,7 +260,7 @@ export default function HomeNew() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-blue-400"></span>
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
                             </span>
-                            <h2 className="text-2xl font-bold text-blue-500 uppercase tracking-wide">On the Radar</h2>
+                            <h2 className="text-xs font-bold text-blue-500 uppercase tracking-widest">On the Radar</h2>
                         </div>
                         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
                             {["All", "Local", "Crime", "Tourism", "Business"].map((tab) => (
