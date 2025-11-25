@@ -219,6 +219,12 @@ app.get('/article/:slugOrId', async (req, res, next) => {
             ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
             ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
             ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
+            
+            -- Auto-match and review columns
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS timeline_tags text[] DEFAULT ARRAY[]::text[];
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS auto_match_enabled boolean DEFAULT false;
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS needs_review boolean DEFAULT false;
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS review_reason text;
           `);
 
           const timeoutPromise = new Promise((_, reject) =>
