@@ -149,12 +149,12 @@ export function TimelineStory() {
 
                         <div className="space-y-8">
                             {timelineUpdates.map((update, index) => (
-                                <div key={update.id} className="relative pl-12 md:pl-24">
+                                <div key={update.id} className="relative pl-12 md:pl-28">
                                     {/* Timeline Dot */}
-                                    <div className="absolute left-2.5 md:left-[43px] top-6 w-3 h-3 rounded-full bg-primary border-4 border-background shadow-sm z-10" />
+                                    <div className="absolute left-2.5 md:left-[55px] top-6 w-3 h-3 rounded-full bg-primary border-4 border-background shadow-sm z-10" />
 
-                                    {/* Time Label - Desktop Only */}
-                                    <div className="absolute left-0 top-5 w-20 text-right hidden md:block pr-4">
+                                    {/* Time Label - Desktop Only, moved further left */}
+                                    <div className="absolute left-[-50px] top-5 w-16 text-right hidden md:block pr-6">
                                         <span className="text-xs font-bold text-muted-foreground">
                                             {format(new Date(update.publishedAt), "HH:mm")}
                                         </span>
@@ -205,11 +205,15 @@ export function TimelineStory() {
                                             )}
 
                                             {update.imageUrl && (
-                                                <div className="mt-4 rounded-lg overflow-hidden">
-                                                    <ArticleImage
+                                                <div className="mt-4 rounded-lg overflow-hidden bg-muted">
+                                                    <img
                                                         src={update.imageUrl}
                                                         alt={update.title}
                                                         className="w-full h-auto object-cover max-h-96"
+                                                        loading="lazy"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                        }}
                                                     />
                                                 </div>
                                             )}
