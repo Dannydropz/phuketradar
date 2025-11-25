@@ -23,6 +23,7 @@ import { pool } from "./db";
 import { autoLinkContent } from "./lib/auto-link-content";
 import { getSmartContextStories } from "./services/smart-context";
 import { detectTags } from "./lib/tag-detector";
+import { TAG_DEFINITIONS } from "@shared/core-tags";
 
 // Extend session type
 declare module "express-session" {
@@ -113,7 +114,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Apply auto-linking to article content before sending to client
       if (article.tags && article.tags.length > 0) {
-        article.content = autoLinkContent(article.content, article.tags);
+        // Filter tags for linking: Select Top 1 Location and Top 1 Topic
+        // Since tags are already sorted by relevance (score) from detectTags,
+        // we just need to find the first one of each type.
+
+        const tagsToLink: string[] = [];
+        let locationFound = false;
+        let topicFound = false;
+
+        for (const tagName of article.tags) {
+          const def = TAG_DEFINITIONS.find(t => t.name === tagName);
+          if (!def) continue;
+
+          if (!locationFound && def.type === 'location') {
+            tagsToLink.push(tagName);
+            locationFound = true;
+          } else if (!topicFound && (def.type !== 'location' && def.type !== 'person')) {
+            // Treat everything else (topic, event, crime, etc.) as a topic for linking
+            // Exclude 'person' to avoid linking generic terms like "Tourists" unless requested
+            tagsToLink.push(tagName);
+            topicFound = true;
+          }
+
+          if (locationFound && topicFound) break;
+        }
+
+        if (tagsToLink.length > 0) {
+          article.content = autoLinkContent(article.content, tagsToLink);
+        }
       }
 
       res.json(article);

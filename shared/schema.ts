@@ -61,10 +61,6 @@ export const articles = pgTable("articles", {
   mergedIntoId: varchar("merged_into_id"), // If this story was merged into another, points to the merged story
   lastEnrichedAt: timestamp("last_enriched_at"), // When the last enrichment pass was done
   enrichmentCount: integer("enrichment_count").default(0), // Number of times this story has been enriched
-  seriesId: varchar("series_id"), // Groups related articles that are part of a developing story
-  storySeriesTitle: text("story_series_title"), // Human-readable title for the timeline (e.g., "Southern Thailand Flooding Crisis")
-  isParentStory: boolean("is_parent_story").default(false), // TRUE for main story shown on homepage, FALSE for timeline updates
-  seriesUpdateCount: integer("series_update_count").default(0), // Number of updates in this series (only for parent stories)
   tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Auto-detected location/topic tags
   viewCount: integer("view_count").default(0), // Tracks article popularity for trending logic
   // TODO: Add these columns once ALTER TABLE completes on production database
@@ -142,4 +138,9 @@ export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
-export type ArticleListItem = Omit<Article, 'content' | 'embedding'>;
+export type ArticleListItem = Omit<Article, 'content' | 'embedding' | 'seriesId' | 'storySeriesTitle' | 'isParentStory' | 'seriesUpdateCount'> & {
+  seriesId?: string | null;
+  storySeriesTitle?: string | null;
+  isParentStory?: boolean | null;
+  seriesUpdateCount?: number | null;
+};

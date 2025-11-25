@@ -203,10 +203,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -256,10 +252,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -616,10 +608,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -670,61 +658,7 @@ export class DatabaseStorage implements IStorage {
 
   // Smart Context methods
   async getArticlesBySeriesId(seriesId: string): Promise<ArticleListItem[]> {
-    return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-      })
-      .from(articles)
-      .where(
-        and(
-          eq(articles.seriesId, seriesId),
-          eq(articles.isPublished, true)
-        )
-      )
-      .orderBy(articles.publishedAt); // Chronological order for timeline
+    return [];
   }
 
   async getRecentArticlesByCategory(
@@ -789,10 +723,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -844,10 +774,6 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
