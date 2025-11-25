@@ -6,6 +6,7 @@ import { useState } from "react";
 import logoDark from "@assets/logo-white-transparent.png";
 import { SearchDialog } from "./SearchDialog";
 
+// Navigation header component - Updated 2025-11-25
 export function Header() {
   const { theme, toggleTheme } = useTheme();
   const [location] = useLocation();
