@@ -11,6 +11,7 @@ import { SEO } from "@/components/SEO";
 import { JsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleUrl } from "@shared/category-map";
+import { TagPills } from "@/components/TagPills";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
     Carousel,
@@ -349,6 +350,11 @@ export default function ArticleDetailNew() {
                             className="prose prose-lg prose-invert max-w-none prose-headings:text-white prose-p:text-zinc-300 prose-a:text-blue-400 prose-strong:text-white prose-code:text-blue-400"
                             dangerouslySetInnerHTML={{ __html: article.content }}
                         />
+
+                        {/* Tags */}
+                        {article.tags && article.tags.length > 0 && (
+                            <TagPills tags={article.tags} />
+                        )}
 
                         {/* Source */}
                         <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-2 text-sm text-zinc-500">
