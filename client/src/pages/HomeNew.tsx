@@ -62,45 +62,50 @@ export default function HomeNew() {
         });
     }, [allArticles]);
 
+    // Filter out child stories (updates) from the main feed
+    const filteredArticles = useMemo(() => {
+        return articles.filter(a => !a.mergedIntoId && (!a.seriesId || a.isParentStory));
+    }, [articles]);
+
     // Logic for "Breaking News" (Hero)
     // Priority:
     // 1. Score 5 published within last 6 hours -> "Breaking News"
     // 2. Most recent Score 4+ -> "Top Story"
     // 3. Newest article
     const heroArticle = useMemo(() => {
-        if (articles.length === 0) return null;
+        if (filteredArticles.length === 0) return null;
 
         const now = new Date();
         const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
         // Priority 1: Score 5 published within last 6 hours (fresh breaking news)
-        const recentBreaking = articles.find(a =>
+        const recentBreaking = filteredArticles.find(a =>
             (a.interestScore ?? 0) >= 5 && new Date(a.publishedAt) > sixHoursAgo
         );
         if (recentBreaking) return recentBreaking;
 
         // Priority 2: Most recent Score 4+ (includes older Score 5 stories)
-        const highInterest = articles.find(a => (a.interestScore ?? 0) >= 4);
+        const highInterest = filteredArticles.find(a => (a.interestScore ?? 0) >= 4);
         if (highInterest) return highInterest;
 
         // Priority 3: Newest article if no high-interest stories
-        return articles[0];
-    }, [articles]);
+        return filteredArticles[0];
+    }, [filteredArticles]);
 
     // Logic for "Side Stories" (Next 3 important stories)
     const sideStories = useMemo(() => {
         if (!heroArticle) return [];
-        return articles
+        return filteredArticles
             .filter(a => a.id !== heroArticle.id)
             .slice(0, 3);
-    }, [articles, heroArticle]);
+    }, [filteredArticles, heroArticle]);
 
     // Logic for "On the Radar" (The main feed)
     const radarArticles = useMemo(() => {
         if (!heroArticle) return [];
         const excludeIds = new Set([heroArticle.id, ...sideStories.map(a => a.id)]);
 
-        let filtered = articles.filter(a => !excludeIds.has(a.id));
+        let filtered = filteredArticles.filter(a => !excludeIds.has(a.id));
 
         // Client-side tab filtering
         if (activeTab !== "all") {
@@ -108,9 +113,17 @@ export default function HomeNew() {
         }
 
         return filtered.slice(0, displayCount);
-    }, [articles, heroArticle, sideStories, activeTab, displayCount]);
+    }, [filteredArticles, heroArticle, sideStories, activeTab, displayCount]);
 
-    const hasMore = articles.length > (1 + 3 + radarArticles.length);
+    const hasMore = filteredArticles.length > (1 + 3 + radarArticles.length);
+
+    // Helper to get article URL
+    const getArticleUrl = (article: ArticleListItem) => {
+        if (article.seriesId && article.isParentStory) {
+            return `/story/${article.seriesId}`;
+        }
+        return `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+    };
 
     if (isLoading) {
         return (
@@ -192,7 +205,7 @@ export default function HomeNew() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                             {/* Main Hero Card */}
                             <div className="lg:col-span-8 h-full">
-                                <Link href={`/${heroArticle.category.toLowerCase()}/${heroArticle.slug || heroArticle.id}`}>
+                                <Link href={getArticleUrl(heroArticle)}>
                                     <a className="block h-full group cursor-pointer">
                                         <div className="relative aspect-[16/9] rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-2xl shadow-blue-900/10 h-full">
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
@@ -206,12 +219,17 @@ export default function HomeNew() {
                                                     <span className="bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 backdrop-blur-md uppercase text-xs">
                                                         {heroArticle.category}
                                                     </span>
+                                                    {heroArticle.isDeveloping && (
+                                                        <span className="bg-red-500/10 px-2 py-1 rounded border border-red-500/20 backdrop-blur-md uppercase text-xs text-red-500 animate-pulse">
+                                                            Live Updates
+                                                        </span>
+                                                    )}
                                                     <span className="flex items-center gap-1 text-zinc-400">
                                                         <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(heroArticle.publishedAt), { addSuffix: true })}
                                                     </span>
                                                 </div>
                                                 <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight mb-3 group-hover:text-blue-100 transition-colors">
-                                                    {heroArticle.title}
+                                                    {heroArticle.storySeriesTitle || heroArticle.title}
                                                 </h1>
                                                 <p className="text-base md:text-lg text-zinc-300 line-clamp-2 max-w-3xl">
                                                     {heroArticle.excerpt}
@@ -225,7 +243,7 @@ export default function HomeNew() {
                             {/* Side Stories - Compact List */}
                             <div className="lg:col-span-4 flex flex-col gap-6">
                                 {sideStories.map((article) => (
-                                    <Link key={article.id} href={`/${article.category.toLowerCase()}/${article.slug || article.id}`}>
+                                    <Link key={article.id} href={getArticleUrl(article)}>
                                         <a className="block group cursor-pointer flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
                                             <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800 border border-white/5">
                                                 <img
@@ -237,11 +255,14 @@ export default function HomeNew() {
                                             <div>
                                                 <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
                                                     <span className="text-blue-400 uppercase font-medium">{article.category}</span>
+                                                    {article.isDeveloping && (
+                                                        <span className="text-red-500 uppercase font-medium animate-pulse">Live</span>
+                                                    )}
                                                     <span>•</span>
                                                     <span>{formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}</span>
                                                 </div>
                                                 <h3 className="text-sm md:text-base font-semibold text-zinc-100 leading-snug group-hover:text-blue-400 transition-colors line-clamp-3">
-                                                    {article.title}
+                                                    {article.storySeriesTitle || article.title}
                                                 </h3>
                                             </div>
                                         </a>
@@ -282,14 +303,19 @@ export default function HomeNew() {
                         {radarArticles.map((article) => {
                             const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
                             return (
-                                <Link key={article.id} href={`/${article.category.toLowerCase()}/${article.slug || article.id}`}>
+                                <Link key={article.id} href={getArticleUrl(article)}>
                                     <a className="block h-full">
                                         <div className="group bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-300 flex flex-col h-full">
                                             <div className="aspect-[3/2] overflow-hidden relative">
-                                                <div className="absolute top-3 left-3 z-10">
+                                                <div className="absolute top-3 left-3 z-10 flex gap-2">
                                                     <span className="bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border border-white/10">
                                                         {article.category}
                                                     </span>
+                                                    {article.isDeveloping && (
+                                                        <span className="bg-red-600/80 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border border-red-500/20 animate-pulse">
+                                                            Live
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <img
                                                     src={getImageUrl(article.imageUrl)}
@@ -305,7 +331,7 @@ export default function HomeNew() {
                                                     </span>
                                                 </div>
                                                 <h3 className="text-lg font-bold text-zinc-100 mb-2 leading-snug group-hover:text-blue-400 transition-colors line-clamp-2">
-                                                    {article.title}
+                                                    {article.storySeriesTitle || article.title}
                                                 </h3>
                                                 <p className="text-sm text-zinc-400 line-clamp-2 mb-4 flex-grow">
                                                     {article.excerpt}

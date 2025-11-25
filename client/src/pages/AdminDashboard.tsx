@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, Facebook, Instagram, MessageCircle, Sparkles, AlertTriangle, Plus, Edit } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { ArticleImage } from "@/components/ArticleImage";
 import { ArticleEditor } from "@/components/ArticleEditor";
+import { TimelineManager } from "@/components/TimelineManager";
 
 type ScrapeJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -56,6 +57,7 @@ export default function AdminDashboard() {
   const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
+  const [timelineArticle, setTimelineArticle] = useState<Article | null>(null);
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
@@ -241,93 +243,7 @@ export default function AdminDashboard() {
     },
   });
 
-  const facebookPostMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/admin/articles/${id}/facebook`);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
-      toast({
-        title: "Posted to Facebook",
-        description: "The article has been shared on your Facebook page",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Facebook Post Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  const batchFacebookPostMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/admin/facebook/batch-post");
-      return await res.json();
-    },
-    onSuccess: (data: { total: number; successful: number; failed: number; errors: string[] }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
-      toast({
-        title: "Batch Facebook Posting Complete",
-        description: `Successfully posted ${data.successful} of ${data.total} articles to Facebook`,
-      });
-      if (data.failed > 0) {
-        console.error("Failed posts:", data.errors);
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Batch Facebook Post Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const instagramPostMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/admin/articles/${id}/instagram`);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
-      toast({
-        title: "Posted to Instagram",
-        description: "The article has been shared on your Instagram account",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Instagram Post Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const threadsPostMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/admin/articles/${id}/threads`);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
-      toast({
-        title: "Posted to Threads",
-        description: "The article has been shared on your Threads account",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Threads Post Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const createArticleMutation = useMutation({
     mutationFn: async (data: {
@@ -420,20 +336,12 @@ export default function AdminDashboard() {
     setPreviewArticle(article);
   };
 
-  const handlePostToFacebook = (id: string) => {
-    facebookPostMutation.mutate(id);
+  const handleOpenTimeline = (article: Article) => {
+    setTimelineArticle(article);
   };
 
-  const handlePostToInstagram = (id: string) => {
-    instagramPostMutation.mutate(id);
-  };
-
-  const handlePostToThreads = (id: string) => {
-    threadsPostMutation.mutate(id);
-  };
-
-  const handleBatchFacebookPost = () => {
-    batchFacebookPostMutation.mutate();
+  const handleCloseTimeline = () => {
+    setTimelineArticle(null);
   };
 
   const seedCategoriesMutation = useMutation({
@@ -610,17 +518,6 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   size={undefined}
-                  onClick={() => setLocation("/admin/insights")}
-                  data-testid="button-insights"
-                  className="flex-1 md:flex-none h-11 px-4 py-2"
-                  aria-label="Generate Insight"
-                >
-                  <Sparkles className="w-4 h-4 md:mr-2" />
-                  <span className="hidden md:inline">Generate Insight</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size={undefined}
                   onClick={handleLogout}
                   data-testid="button-logout"
                   className="flex-1 md:flex-none h-11 px-4 py-2"
@@ -628,27 +525,6 @@ export default function AdminDashboard() {
                 >
                   <LogOut className="w-4 h-4 md:mr-2" />
                   <span className="hidden md:inline">Logout</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size={undefined}
-                  onClick={handleBatchFacebookPost}
-                  disabled={batchFacebookPostMutation.isPending}
-                  data-testid="button-batch-facebook"
-                  className="flex-1 md:flex-none h-11 px-4 py-2"
-                  aria-label="Post Missing to Facebook"
-                >
-                  {batchFacebookPostMutation.isPending ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 md:mr-2 animate-spin" />
-                      <span className="hidden md:inline">Posting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Facebook className="w-4 h-4 md:mr-2" />
-                      <span className="hidden md:inline">Post Missing to Facebook</span>
-                    </>
-                  )}
                 </Button>
                 <Button
                   size={undefined}
@@ -858,7 +734,6 @@ export default function AdminDashboard() {
                                     }
                                     data-testid={`badge-interest-${article.id}`}
                                   >
-                                    <Sparkles className="w-3 h-3 mr-1" />
                                     {article.interestScore}/5
                                   </Badge>
                                 </TooltipTrigger>
@@ -905,6 +780,15 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-2 justify-end md:justify-start">
                         <Button
                           variant="outline"
+                          onClick={() => handleOpenTimeline(article)}
+                          data-testid={`button-timeline-${article.id}`}
+                          className="h-11 w-11 p-0"
+                          aria-label="Manage timeline"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
                           onClick={() => handleEditArticle(article)}
                           data-testid={`button-edit-${article.id}`}
                           className="h-11 w-11 p-0"
@@ -946,93 +830,6 @@ export default function AdminDashboard() {
                           </>
                         ) : (
                           <>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handlePostToFacebook(article.id)}
-                                  className="border-blue-500 text-blue-500 h-11 w-11 p-0"
-                                  disabled={facebookPostMutation.isPending}
-                                  data-testid={`button-facebook-${article.id}`}
-                                  aria-label={
-                                    article.facebookPostId?.startsWith('LOCK:')
-                                      ? "Retry posting to Facebook"
-                                      : article.facebookPostId
-                                        ? "Post again to Facebook"
-                                        : "Post to Facebook"
-                                  }
-                                >
-                                  <Facebook className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {article.facebookPostId?.startsWith('LOCK:')
-                                    ? "Retry posting to Facebook (previous attempt failed)"
-                                    : article.facebookPostId
-                                      ? "Post again to Facebook (already posted)"
-                                      : "Post to Facebook"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handlePostToInstagram(article.id)}
-                                  className="border-pink-500 text-pink-500 h-11 w-11 p-0"
-                                  disabled={instagramPostMutation.isPending}
-                                  data-testid={`button-instagram-${article.id}`}
-                                  aria-label={
-                                    article.instagramPostId?.startsWith('IG-LOCK:')
-                                      ? "Retry posting to Instagram"
-                                      : article.instagramPostId
-                                        ? "Post again to Instagram"
-                                        : "Post to Instagram"
-                                  }
-                                >
-                                  <Instagram className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {article.instagramPostId?.startsWith('IG-LOCK:')
-                                    ? "Retry posting to Instagram (previous attempt failed)"
-                                    : article.instagramPostId
-                                      ? "Post again to Instagram (already posted)"
-                                      : "Post to Instagram"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handlePostToThreads(article.id)}
-                                  className="border-purple-500 text-purple-500 h-11 w-11 p-0"
-                                  disabled={threadsPostMutation.isPending}
-                                  data-testid={`button-threads-${article.id}`}
-                                  aria-label={
-                                    article.threadsPostId?.startsWith('THREADS-LOCK:')
-                                      ? "Retry posting to Threads"
-                                      : article.threadsPostId
-                                        ? "Post again to Threads"
-                                        : "Post to Threads"
-                                  }
-                                >
-                                  <MessageCircle className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {article.threadsPostId?.startsWith('THREADS-LOCK:')
-                                    ? "Retry posting to Threads (previous attempt failed)"
-                                    : article.threadsPostId
-                                      ? "Post again to Threads (already posted)"
-                                      : "Post to Threads"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
                             <Button
                               variant="outline"
                               onClick={() => handleUnpublish(article.id)}
@@ -1159,6 +956,10 @@ export default function AdminDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {timelineArticle && (
+        <TimelineManager article={timelineArticle} onClose={handleCloseTimeline} />
+      )}
     </div>
   );
 }

@@ -162,6 +162,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Timeline/Story Series routes
+
+  // Get all articles in a timeline/series (public)
+  app.get("/api/stories/:seriesId/timeline", async (req, res) => {
+    try {
+      const { seriesId } = req.params;
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      const timelineStories = await timelineService.getTimelineStories(seriesId);
+      const parentStory = await timelineService.getParentStory(seriesId);
+
+      res.json({
+        seriesId,
+        parentStory,
+        updates: timelineStories,
+        updateCount: timelineStories.length,
+      });
+    } catch (error) {
+      console.error("Error fetching timeline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to fetch timeline", details: errorMessage });
+    }
+  });
+
+  // Get all timelines (parent stories only) - PROTECTED
+  app.get("/api/admin/timelines", requireAdminAuth, async (req, res) => {
+    try {
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      const timelines = await timelineService.getAllTimelines();
+      res.json(timelines);
+    } catch (error) {
+      console.error("Error fetching timelines:", error);
+      res.status(500).json({ error: "Failed to fetch timelines" });
+    }
+  });
+
+  // Create a new timeline from an article - PROTECTED
+  app.post("/api/admin/stories/timeline", requireAdminAuth, async (req, res) => {
+    try {
+      const { parentArticleId, seriesTitle, seriesId } = req.body;
+
+      if (!parentArticleId || !seriesTitle) {
+        return res.status(400).json({ error: "parentArticleId and seriesTitle are required" });
+      }
+
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      const result = await timelineService.createStoryTimeline({
+        parentArticleId,
+        seriesTitle,
+        seriesId,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating timeline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to create timeline", details: errorMessage });
+    }
+  });
+
+  // Add article to existing timeline - PROTECTED
+  app.patch("/api/admin/stories/:id/add-to-timeline", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { seriesId } = req.body;
+
+      if (!seriesId) {
+        return res.status(400).json({ error: "seriesId is required" });
+      }
+
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      await timelineService.addArticleToTimeline(id, seriesId);
+
+      // Return updated article
+      const updatedArticle = await storage.getArticleById(id);
+      res.json(updatedArticle);
+    } catch (error) {
+      console.error("Error adding article to timeline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to add to timeline", details: errorMessage });
+    }
+  });
+
+  // Remove article from timeline - PROTECTED
+  app.delete("/api/admin/stories/:id/remove-from-timeline", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      await timelineService.removeArticleFromTimeline(id);
+
+      // Return updated article
+      const updatedArticle = await storage.getArticleById(id);
+      res.json(updatedArticle);
+    } catch (error) {
+      console.error("Error removing article from timeline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to remove from timeline", details: errorMessage });
+    }
+  });
+
+  // Get AI-suggested articles for timeline - PROTECTED
+  app.get("/api/admin/stories/:id/suggest-related", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const minSimilarity = req.query.minSimilarity ? parseFloat(req.query.minSimilarity as string) : undefined;
+      const maxSuggestions = req.query.maxSuggestions ? parseInt(req.query.maxSuggestions as string, 10) : undefined;
+
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      const suggestions = await timelineService.suggestRelatedArticles(id, {
+        minSimilarity,
+        maxSuggestions,
+      });
+
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error getting timeline suggestions:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to get suggestions", details: errorMessage });
+    }
+  });
+
+  // Delete entire timeline - PROTECTED
+  app.delete("/api/admin/timelines/:seriesId", requireAdminAuth, async (req, res) => {
+    try {
+      const { seriesId } = req.params;
+
+      const { getTimelineService } = await import("./services/timeline-service");
+      const timelineService = getTimelineService(storage);
+
+      await timelineService.deleteTimeline(seriesId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting timeline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to delete timeline", details: errorMessage });
+    }
+  });
+
   // Journalist routes
 
   // Get all journalists

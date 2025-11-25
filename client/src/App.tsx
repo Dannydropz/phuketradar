@@ -14,6 +14,7 @@ import AdminInsights from "@/pages/AdminInsights";
 import AdminLogin from "@/pages/AdminLogin";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
+import { TimelineStory } from "@/pages/TimelineStory";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function Router() {
           <AdminInsights />
         </ProtectedRoute>
       </Route>
+      <Route path="/story/:seriesId" component={TimelineStory} />
       <Route path="/journalist/:id" component={JournalistProfile} />
       <Route path="/:category/:slugOrId" component={ArticleDetail} />
       <Route path="/:category" component={Home} />

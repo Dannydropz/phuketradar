@@ -204,6 +204,9 @@ export class DatabaseStorage implements IStorage {
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
         seriesId: articles.seriesId,
+        storySeriesTitle: articles.storySeriesTitle,
+        isParentStory: articles.isParentStory,
+        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -254,6 +257,9 @@ export class DatabaseStorage implements IStorage {
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
         seriesId: articles.seriesId,
+        storySeriesTitle: articles.storySeriesTitle,
+        isParentStory: articles.isParentStory,
+        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -611,6 +617,9 @@ export class DatabaseStorage implements IStorage {
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
         seriesId: articles.seriesId,
+        storySeriesTitle: articles.storySeriesTitle,
+        isParentStory: articles.isParentStory,
+        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -702,6 +711,9 @@ export class DatabaseStorage implements IStorage {
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
         seriesId: articles.seriesId,
+        storySeriesTitle: articles.storySeriesTitle,
+        isParentStory: articles.isParentStory,
+        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -778,6 +790,9 @@ export class DatabaseStorage implements IStorage {
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
         seriesId: articles.seriesId,
+        storySeriesTitle: articles.storySeriesTitle,
+        isParentStory: articles.isParentStory,
+        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })
@@ -830,6 +845,9 @@ export class DatabaseStorage implements IStorage {
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
         seriesId: articles.seriesId,
+        storySeriesTitle: articles.storySeriesTitle,
+        isParentStory: articles.isParentStory,
+        seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
       })

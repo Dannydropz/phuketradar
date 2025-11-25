@@ -29,12 +29,14 @@ interface ArticleCardProps {
     surname: string;
     headshot: string;
   };
+  seriesId?: string | null;
+  isParentStory?: boolean | null;
 }
 
 // Helper function to get event type icon
 function getEventIcon(eventType?: string | null): LucideIcon | null {
   if (!eventType) return null;
-  
+
   switch (eventType.toLowerCase()) {
     case "accident":
       return Car;
@@ -62,7 +64,7 @@ function getEventIcon(eventType?: string | null): LucideIcon | null {
 // Helper function to get severity badge styling
 function getSeverityStyle(severity?: string | null): { variant: "default" | "destructive" | "secondary" | "outline", className: string } {
   if (!severity) return { variant: "secondary", className: "" };
-  
+
   switch (severity.toLowerCase()) {
     case "critical":
       return { variant: "destructive", className: "bg-red-600 hover:bg-red-700 text-white font-semibold" };
@@ -81,7 +83,7 @@ function getSeverityStyle(severity?: string | null): { variant: "default" | "des
 // Helper function to get severity icon
 function getSeverityIcon(severity?: string | null): LucideIcon | null {
   if (!severity) return null;
-  
+
   switch (severity.toLowerCase()) {
     case "critical":
       return AlertTriangle;
@@ -109,27 +111,31 @@ export function ArticleCard({
   isDeveloping,
   lastEnrichedAt,
   journalist,
+  seriesId,
+  isParentStory,
 }: ArticleCardProps) {
   const [, setLocation] = useLocation();
-  
-  // Build article URL with category
-  const articleUrl = buildArticleUrl({ category, slug: slug || null, id });
-  
+
+  // Build article URL with category, or timeline URL if it's a series
+  const articleUrl = seriesId
+    ? `/story/${seriesId}`
+    : buildArticleUrl({ category, slug: slug || null, id });
+
   // Map legacy categories to new topics
   const mappedCategory = mapLegacyCategory(category);
-  
+
   // Get category-based badge variant
   const categoryVariant = getCategoryBadgeVariant(mappedCategory);
-  
+
   // Determine breaking news badge state based on time and interest score
   const breakingBadgeState = getBreakingBadgeState(publishedAt, interestScore);
-  
+
   const handleCategoryClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setLocation(`/${mappedCategory.toLowerCase()}`);
   };
-  
+
   return (
     <Link href={articleUrl}>
       <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
@@ -145,7 +151,7 @@ export function ArticleCard({
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {breakingBadgeState === "red" && (
-              <Badge 
+              <Badge
                 variant="destructive"
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold animate-pulse"
                 data-testid={`badge-breaking-${id}`}
@@ -154,7 +160,7 @@ export function ArticleCard({
               </Badge>
             )}
             {breakingBadgeState === "grey" && (
-              <Badge 
+              <Badge
                 variant="secondary"
                 className="bg-gray-500 dark:bg-gray-600 text-white font-semibold"
                 data-testid={`badge-breaking-${id}`}
@@ -163,18 +169,18 @@ export function ArticleCard({
               </Badge>
             )}
             {isDeveloping && (
-              <Badge 
+              <Badge
                 variant="default"
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold animate-pulse"
                 data-testid={`badge-developing-${id}`}
               >
-                Developing
+                Live Updates
               </Badge>
             )}
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-3 h-3 mr-1" />
               <span data-testid={`text-time-${id}`}>
-                {isDeveloping && lastEnrichedAt 
+                {isDeveloping && lastEnrichedAt
                   ? `Updated ${formatDistanceToNow(new Date(lastEnrichedAt), { addSuffix: true })}`
                   : formatDistanceToNow(publishedAt, { addSuffix: true })}
               </span>
