@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -708,169 +708,316 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredArticles.map((article) => (
-                    <div
-                      key={article.id}
-                      className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border border-border rounded-lg hover-elevate"
-                      data-testid={`article-row-${article.id}`}
-                    >
-                      <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
-                        <div className="flex items-center pt-1">
-                          <Checkbox
-                            checked={selectedArticles.has(article.id)}
-                            onCheckedChange={() => handleToggleSelect(article.id)}
-                            data-testid={`checkbox-article-${article.id}`}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <Badge
-                              className={
-                                article.isPublished
-                                  ? "bg-primary text-primary-foreground"
-                                  : ""
-                              }
-                              data-testid={`badge-status-${article.id}`}
-                            >
-                              {article.isPublished ? "published" : "pending"}
-                            </Badge>
-                            {article.interestScore !== null && article.interestScore !== undefined && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
+                  {(() => {
+                    // Group articles by seriesId
+                    const parentStories = filteredArticles.filter(a => a.isParentStory);
+                    const childStories = filteredArticles.filter(a => !a.isParentStory && a.seriesId);
+                    const orphanStories = filteredArticles.filter(a => !a.isParentStory && !a.seriesId);
+
+                    // Map seriesId to child stories
+                    const childrenBySeries = new Map<string, typeof filteredArticles>();
+                    childStories.forEach(child => {
+                      if (child.seriesId) {
+                        const existing = childrenBySeries.get(child.seriesId) || [];
+                        existing.push(child);
+                        childrenBySeries.set(child.seriesId, existing);
+                      }
+                    });
+
+                    // Identify child stories whose parents are NOT in the current list (orphans effectively)
+                    const parentIds = new Set(parentStories.map(p => p.seriesId));
+                    const trueOrphans = [...orphanStories];
+                    childStories.forEach(child => {
+                      if (child.seriesId && !parentIds.has(child.seriesId)) {
+                        trueOrphans.push(child);
+                      }
+                    });
+
+                    // Sort orphans by date
+                    trueOrphans.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+                    return (
+                      <>
+                        {/* Render Parent Stories with Children */}
+                        {parentStories.map(parent => {
+                          const children = parent.seriesId ? childrenBySeries.get(parent.seriesId) || [] : [];
+                          return (
+                            <div key={parent.id} className="space-y-2">
+                              {/* Parent Article Card */}
+                              <div
+                                className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border-2 border-primary/20 bg-primary/5 rounded-lg hover-elevate relative"
+                                data-testid={`article-row-${parent.id}`}
+                              >
+                                <div className="absolute top-4 right-4">
+                                  <Badge variant="outline" className="border-primary text-primary font-semibold bg-background">
+                                    Timeline Parent
+                                  </Badge>
+                                </div>
+                                <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
+                                  <div className="flex items-center pt-1">
+                                    <Checkbox
+                                      checked={selectedArticles.has(parent.id)}
+                                      onCheckedChange={() => handleToggleSelect(parent.id)}
+                                      data-testid={`checkbox-article-${parent.id}`}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap pr-24">
+                                      <Badge
+                                        className={
+                                          parent.isPublished
+                                            ? "bg-primary text-primary-foreground"
+                                            : ""
+                                        }
+                                      >
+                                        {parent.isPublished ? "published" : "pending"}
+                                      </Badge>
+                                      <span className="text-xs md:text-sm text-muted-foreground">
+                                        {formatDistanceToNow(new Date(parent.publishedAt), { addSuffix: true })}
+                                      </span>
+                                    </div>
+                                    <h3 className="font-semibold mb-1 text-base md:text-lg">
+                                      {parent.title}
+                                    </h3>
+                                    <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mb-2">
+                                      {parent.excerpt}
+                                    </p>
+                                    <div className="flex items-center gap-4 mt-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleOpenTimeline(parent)}
+                                        className="h-8"
+                                      >
+                                        <Clock className="w-3 h-3 mr-2" />
+                                        Manage Timeline ({children.length} updates)
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 justify-end md:justify-start mt-4 md:mt-0">
+                                  {/* Actions for parent */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEditArticle(parent)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Children (Indented) */}
+                              {children.length > 0 && (
+                                <div className="ml-8 md:ml-12 space-y-2 border-l-2 border-muted pl-4">
+                                  {children.map(child => (
+                                    <div
+                                      key={child.id}
+                                      className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-3 border border-border rounded-lg hover:bg-muted/30"
+                                    >
+                                      <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
+                                        <div className="flex items-center pt-1">
+                                          <Checkbox
+                                            checked={selectedArticles.has(child.id)}
+                                            onCheckedChange={() => handleToggleSelect(child.id)}
+                                          />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <Badge variant="secondary" className="text-[10px] h-5">Update</Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                              {formatDistanceToNow(new Date(child.publishedAt), { addSuffix: true })}
+                                            </span>
+                                          </div>
+                                          <h4 className="font-medium text-sm mb-1">{child.title}</h4>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8"
+                                          onClick={() => handleEditArticle(child)}
+                                        >
+                                          <Edit className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Render Orphan Stories */}
+                        {trueOrphans.map(article => (
+                          <div
+                            key={article.id}
+                            className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border border-border rounded-lg hover-elevate"
+                            data-testid={`article-row-${article.id}`}
+                          >
+                            {/* Standard Article Rendering (Copied from original loop) */}
+                            <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
+                              <div className="flex items-center pt-1">
+                                <Checkbox
+                                  checked={selectedArticles.has(article.id)}
+                                  onCheckedChange={() => handleToggleSelect(article.id)}
+                                  data-testid={`checkbox-article-${article.id}`}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
                                   <Badge
                                     className={
-                                      article.interestScore >= 4
-                                        ? "bg-orange-500 text-white"
-                                        : article.interestScore === 3
-                                          ? "bg-yellow-500 text-white"
-                                          : "bg-gray-500 text-white"
+                                      article.isPublished
+                                        ? "bg-primary text-primary-foreground"
+                                        : ""
                                     }
-                                    data-testid={`badge-interest-${article.id}`}
+                                    data-testid={`badge-status-${article.id}`}
                                   >
-                                    {article.interestScore}/5
+                                    {article.isPublished ? "published" : "pending"}
                                   </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Interest Score: {article.interestScore}/5 {article.interestScore >= 4 ? "(Auto-posted to Facebook)" : article.interestScore === 3 ? "(Published, manual post)" : "(Draft only)"}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {/* TODO: Re-enable once database columns are added
-                            {article.needsReview && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center" data-testid={`icon-needs-review-${article.id}`}>
-                                    <AlertTriangle className="w-4 h-4 text-destructive" />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{article.reviewReason || "This article needs manual review"}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            */}
-                            <span className="text-xs md:text-sm text-muted-foreground">
-                              {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
-                            </span>
+                                  {article.interestScore !== null && article.interestScore !== undefined && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge
+                                          className={
+                                            article.interestScore >= 4
+                                              ? "bg-orange-500 text-white"
+                                              : article.interestScore === 3
+                                                ? "bg-yellow-500 text-white"
+                                                : "bg-gray-500 text-white"
+                                          }
+                                          data-testid={`badge-interest-${article.id}`}
+                                        >
+                                          {article.interestScore}/5
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Interest Score: {article.interestScore}/5 {article.interestScore >= 4 ? "(Auto-posted to Facebook)" : article.interestScore === 3 ? "(Published, manual post)" : "(Draft only)"}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {/* TODO: Re-enable once database columns are added
+                                  {article.needsReview && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center" data-testid={`icon-needs-review-${article.id}`}>
+                                          <AlertTriangle className="w-4 h-4 text-destructive" />
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{article.reviewReason || "This article needs manual review"}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  */}
+                                  <span className="text-xs md:text-sm text-muted-foreground">
+                                    {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
+                                  </span>
+                                </div>
+                                <h3 className="font-semibold mb-1 text-base md:text-lg" data-testid={`text-title-${article.id}`}>
+                                  {article.title}
+                                </h3>
+                                <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mb-2">
+                                  {article.excerpt}
+                                </p>
+                                <a
+                                  href={article.sourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                  data-testid={`link-source-${article.id}`}
+                                >
+                                  View original source
+                                </a>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 justify-end md:justify-start">
+                              <Button
+                                variant="outline"
+                                onClick={() => handleOpenTimeline(article)}
+                                data-testid={`button-timeline-${article.id}`}
+                                className="h-11 w-11 p-0"
+                                aria-label="Manage timeline"
+                              >
+                                <Clock className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handleEditArticle(article)}
+                                data-testid={`button-edit-${article.id}`}
+                                className="h-11 w-11 p-0"
+                                aria-label="Edit article"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handlePreview(article)}
+                                data-testid={`button-preview-${article.id}`}
+                                className="h-11 w-11 p-0"
+                                aria-label="Preview article"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              {!article.isPublished ? (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleApprove(article.id)}
+                                    className="border-primary text-primary h-11 w-11 p-0"
+                                    disabled={publishMutation.isPending}
+                                    data-testid={`button-approve-${article.id}`}
+                                    aria-label="Publish article"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleReject(article.id)}
+                                    className="border-destructive text-destructive h-11 w-11 p-0"
+                                    disabled={deleteMutation.isPending}
+                                    data-testid={`button-reject-${article.id}`}
+                                    aria-label="Reject and delete article"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleUnpublish(article.id)}
+                                    className="border-orange-500 text-orange-500 h-11 w-11 p-0"
+                                    disabled={unpublishMutation.isPending}
+                                    data-testid={`button-unpublish-${article.id}`}
+                                    aria-label="Unpublish article"
+                                  >
+                                    <EyeOff className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleDelete(article.id)}
+                                    className="border-destructive text-destructive h-11 w-11 p-0"
+                                    disabled={deleteMutation.isPending}
+                                    data-testid={`button-delete-${article.id}`}
+                                    aria-label="Delete article"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <h3 className="font-semibold mb-1 text-base md:text-lg" data-testid={`text-title-${article.id}`}>
-                            {article.title}
-                          </h3>
-                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mb-2">
-                            {article.excerpt}
-                          </p>
-                          <a
-                            href={article.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline"
-                            data-testid={`link-source-${article.id}`}
-                          >
-                            View original source
-                          </a>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 justify-end md:justify-start">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleOpenTimeline(article)}
-                          data-testid={`button-timeline-${article.id}`}
-                          className="h-11 w-11 p-0"
-                          aria-label="Manage timeline"
-                        >
-                          <Clock className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEditArticle(article)}
-                          data-testid={`button-edit-${article.id}`}
-                          className="h-11 w-11 p-0"
-                          aria-label="Edit article"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handlePreview(article)}
-                          data-testid={`button-preview-${article.id}`}
-                          className="h-11 w-11 p-0"
-                          aria-label="Preview article"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {!article.isPublished ? (
-                          <>
-                            <Button
-                              variant="outline"
-                              onClick={() => handleApprove(article.id)}
-                              className="border-primary text-primary h-11 w-11 p-0"
-                              disabled={publishMutation.isPending}
-                              data-testid={`button-approve-${article.id}`}
-                              aria-label="Publish article"
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => handleReject(article.id)}
-                              className="border-destructive text-destructive h-11 w-11 p-0"
-                              disabled={deleteMutation.isPending}
-                              data-testid={`button-reject-${article.id}`}
-                              aria-label="Reject and delete article"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              variant="outline"
-                              onClick={() => handleUnpublish(article.id)}
-                              className="border-orange-500 text-orange-500 h-11 w-11 p-0"
-                              disabled={unpublishMutation.isPending}
-                              data-testid={`button-unpublish-${article.id}`}
-                              aria-label="Unpublish article"
-                            >
-                              <EyeOff className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => handleDelete(article.id)}
-                              className="border-destructive text-destructive h-11 w-11 p-0"
-                              disabled={deleteMutation.isPending}
-                              data-testid={`button-delete-${article.id}`}
-                              aria-label="Delete article"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
-            </div>
+            </CardContent>
           </Card>
         </div>
       </main>
@@ -970,16 +1117,18 @@ export default function AdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {timelineArticle && (
-        <TimelineManager article={timelineArticle} onClose={handleCloseTimeline} />
-      )}
+      {
+        timelineArticle && (
+          <TimelineManager article={timelineArticle} onClose={handleCloseTimeline} />
+        )
+      }
       <BulkAddToTimelineDialog
         open={bulkTimelineOpen}
         onOpenChange={setBulkTimelineOpen}
         selectedArticles={articles.filter(a => selectedArticles.has(a.id))}
         onSuccess={() => setSelectedArticles(new Set())}
       />
-    </div>
+    </div >
   );
 }
 

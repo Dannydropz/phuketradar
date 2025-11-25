@@ -28,6 +28,7 @@ export function BulkAddToTimelineDialog({
     const [mode, setMode] = useState<"existing" | "new">("existing");
     const [selectedSeriesId, setSelectedSeriesId] = useState<string>("");
     const [newSeriesTitle, setNewSeriesTitle] = useState<string>("");
+    const [timelineTags, setTimelineTags] = useState<string>("");
     const [selectedCoverImage, setSelectedCoverImage] = useState<string | null>(null);
 
     // Set default cover image when opening or changing selection
@@ -91,7 +92,7 @@ export function BulkAddToTimelineDialog({
     // and add selected articles to it.
 
     const createTimelineMutation = useMutation({
-        mutationFn: async ({ title, articleIds, imageUrl }: { title: string; articleIds: string[], imageUrl?: string | null }) => {
+        mutationFn: async ({ title, articleIds, imageUrl, tags }: { title: string; articleIds: string[], imageUrl?: string | null, tags?: string[] }) => {
             // 1. Create a new parent article
             const res = await apiRequest("POST", "/api/admin/articles", {
                 title: title,
@@ -101,6 +102,8 @@ export function BulkAddToTimelineDialog({
                 isPublished: true,
                 sourceUrl: "manual-timeline",
                 imageUrl: imageUrl, // Use selected cover image
+                timelineTags: tags, // Save tags
+                autoMatchEnabled: !!tags?.length, // Enable auto-match if tags provided
             });
             const parentArticle = await res.json();
 
@@ -129,6 +132,7 @@ export function BulkAddToTimelineDialog({
             onOpenChange(false);
             setSelectedSeriesId("");
             setNewSeriesTitle("");
+            setTimelineTags("");
             setSelectedCoverImage(null);
             setMode("existing");
         },
@@ -154,6 +158,7 @@ export function BulkAddToTimelineDialog({
                 title: newSeriesTitle,
                 articleIds: selectedArticles.map(a => a.id),
                 imageUrl: selectedCoverImage,
+                tags: timelineTags.split(",").map(t => t.trim()).filter(Boolean),
             });
         }
     };
@@ -225,12 +230,24 @@ export function BulkAddToTimelineDialog({
                                 This will create a new parent story and add the selected articles to it.
                             </p>
 
+                            <div className="grid gap-2">
+                                <Label>Keywords (for Auto-Match)</Label>
+                                <Input
+                                    placeholder="e.g., flood, storm, heavy rain"
+                                    value={timelineTags}
+                                    onChange={(e) => setTimelineTags(e.target.value)}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Comma-separated keywords. New stories matching these will be auto-flagged for review.
+                                </p>
+                            </div>
+
                             <Label className="mt-2">Cover Image</Label>
-                            <div className="grid grid-cols-4 gap-2 max-h-[120px] overflow-y-auto p-1">
+                            <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto p-1">
                                 {selectedArticles.filter(a => a.imageUrl).map((article) => (
                                     <div
                                         key={article.id}
-                                        className={`relative aspect-video cursor-pointer rounded-md overflow-hidden border-2 ${selectedCoverImage === article.imageUrl ? "border-primary" : "border-transparent"
+                                        className={`relative aspect-video cursor-pointer rounded-md overflow-hidden border-4 transition-all ${selectedCoverImage === article.imageUrl ? "border-primary ring-2 ring-primary ring-offset-2" : "border-transparent hover:border-muted"
                                             }`}
                                         onClick={() => setSelectedCoverImage(article.imageUrl)}
                                     >
@@ -241,11 +258,14 @@ export function BulkAddToTimelineDialog({
                                         />
                                         {selectedCoverImage === article.imageUrl && (
                                             <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                                                <div className="bg-primary text-primary-foreground rounded-full p-0.5">
-                                                    <Plus className="w-3 h-3" />
+                                                <div className="bg-primary text-primary-foreground rounded-full p-1">
+                                                    <Plus className="w-6 h-6" />
                                                 </div>
                                             </div>
                                         )}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2">
+                                            <p className="text-white text-xs truncate">{article.title}</p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

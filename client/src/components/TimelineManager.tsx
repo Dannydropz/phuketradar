@@ -243,26 +243,41 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
                     {article.isParentStory && (
                         <Card className="p-4 border-primary/20">
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-purple-500" />
-                                        <div>
-                                            <h3 className="font-semibold text-sm">Auto-Match Settings</h3>
-                                            <p className="text-xs text-muted-foreground">Automatically flag new stories for this timeline</p>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-purple-500" />
+                                            <div>
+                                                <h3 className="font-semibold text-sm">Auto-Match Settings</h3>
+                                                <p className="text-xs text-muted-foreground">Automatically flag new stories for this timeline</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Label htmlFor="auto-match" className="text-sm">Enable Auto-Match</Label>
-                                        <input
-                                            id="auto-match"
-                                            type="checkbox"
-                                            className="toggle toggle-primary"
-                                            checked={article.autoMatchEnabled || false}
-                                            onChange={(e) => updateTimelineSettingsMutation.mutate({
-                                                timelineTags: article.timelineTags || [],
-                                                autoMatchEnabled: e.target.checked
-                                            })}
-                                        />
+                                        <div className="flex items-center gap-2">
+                                            {article.autoMatchEnabled && (
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    className="h-7 text-xs"
+                                                    onClick={() => updateTimelineSettingsMutation.mutate({
+                                                        timelineTags: article.timelineTags || [],
+                                                        autoMatchEnabled: false
+                                                    })}
+                                                >
+                                                    Close Timeline
+                                                </Button>
+                                            )}
+                                            <Label htmlFor="auto-match" className="text-sm">Enable Auto-Match</Label>
+                                            <input
+                                                id="auto-match"
+                                                type="checkbox"
+                                                className="toggle toggle-primary"
+                                                checked={article.autoMatchEnabled || false}
+                                                onChange={(e) => updateTimelineSettingsMutation.mutate({
+                                                    timelineTags: article.timelineTags || [],
+                                                    autoMatchEnabled: e.target.checked
+                                                })}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -540,6 +555,6 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
                     </Button>
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
