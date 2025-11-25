@@ -323,6 +323,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search articles for timeline manual addition - PROTECTED
+  app.get("/api/admin/articles/search", requireAdminAuth, async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query) {
+        return res.json([]);
+      }
+
+      const results = await storage.searchArticles(query);
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching articles:", error);
+      res.status(500).json({ error: "Failed to search articles" });
+    }
+  });
+
   // Delete entire timeline - PROTECTED
   app.delete("/api/admin/timelines/:seriesId", requireAdminAuth, async (req, res) => {
     try {

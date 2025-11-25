@@ -16,7 +16,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Clock, Sparkles, Plus, X, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, Sparkles, Plus, X, Check, AlertCircle, Loader2, Search } from "lucide-react";
 import { useState } from "react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -42,6 +42,7 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
     const [createMode, setCreateMode] = useState(false);
     const [seriesTitle, setSeriesTitle] = useState("");
     const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
+    const [searchQuery, setSearchQuery] = useState("");
 
     // Fetch AI suggestions for this article
     const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery<TimelineSuggestion[]>({
@@ -51,6 +52,17 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
             return await res.json();
         },
         enabled: !!article.id,
+    });
+
+    // Search articles
+    const { data: searchResults = [], isLoading: isSearching } = useQuery<Article[]>({
+        queryKey: ["/api/admin/articles/search", searchQuery],
+        queryFn: async () => {
+            if (!searchQuery.trim()) return [];
+            const res = await apiRequest("GET", `/api/admin/articles/search?q=${encodeURIComponent(searchQuery)}`);
+            return await res.json();
+        },
+        enabled: searchQuery.trim().length > 2,
     });
 
     // Create new timeline mutation
@@ -268,12 +280,12 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
                         </div>
                     )}
 
-                    {/* AI Suggestions */}
+                    {/* AI Suggestions & Manual Search */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-primary" />
-                                <h3 className="font-semibold">AI-Suggested Related Articles</h3>
+                                <h3 className="font-semibold">Add Related Articles</h3>
                             </div>
                             {selectedSuggestions.size > 0 && article.seriesId && (
                                 <Button
@@ -286,68 +298,139 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
                             )}
                         </div>
 
-                        {suggestionsLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                                <span className="ml-2 text-muted-foreground">Finding related articles...</span>
+                        {/* Search Input */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                            <Input
+                                placeholder="Search for articles to add..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+
+                        {/* Search Results */}
+                        {searchQuery.trim().length > 0 && (
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Search Results</h4>
+                                {isSearching ? (
+                                    <div className="flex items-center justify-center py-4">
+                                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : searchResults.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-4">No articles found matching "{searchQuery}"</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {searchResults.map((result) => (
+                                            <Card
+                                                key={result.id}
+                                                className={`p-3 transition-all hover:border-primary/50 ${selectedSuggestions.has(result.id) ? "border-primary bg-primary/5" : ""}`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    {article.seriesId && (
+                                                        <div className="pt-1">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSuggestions.has(result.id)}
+                                                                onChange={() => toggleSuggestionSelection(result.id)}
+                                                                className="w-4 h-4 rounded border-gray-300"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-medium text-sm mb-1 line-clamp-1">{result.title}</h4>
+                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                            <span>{formatDistanceToNow(new Date(result.publishedAt), { addSuffix: true })}</span>
+                                                            {result.seriesId && <Badge variant="outline" className="text-[10px] h-5">Already in timeline</Badge>}
+                                                        </div>
+                                                    </div>
+                                                    {article.seriesId && !result.seriesId && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-8 w-8 p-0"
+                                                            onClick={() => handleAddSuggestion(result.id)}
+                                                            disabled={addToTimelineMutation.isPending}
+                                                        >
+                                                            <Plus className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        ) : suggestions.length === 0 ? (
-                            <Card className="p-8 text-center bg-muted/20">
-                                <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                                <p className="text-sm text-muted-foreground">
-                                    No related articles found. Articles will appear here when the AI detects similar content.
-                                </p>
-                            </Card>
-                        ) : (
-                            <div className="space-y-3">
-                                {suggestions.map((suggestion) => (
-                                    <Card
-                                        key={suggestion.articleId}
-                                        className={`p-4 transition-all hover:border-primary/50 ${selectedSuggestions.has(suggestion.articleId) ? "border-primary bg-primary/5" : ""
-                                            }`}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            {article.seriesId && (
-                                                <div className="pt-1">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedSuggestions.has(suggestion.articleId)}
-                                                        onChange={() => toggleSuggestionSelection(suggestion.articleId)}
-                                                        className="w-4 h-4 rounded border-gray-300"
-                                                    />
-                                                </div>
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium text-sm mb-1 line-clamp-2">{suggestion.title}</h4>
-                                                <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                                                    <span>{formatDistanceToNow(new Date(suggestion.publishedAt), { addSuffix: true })}</span>
-                                                    <span>•</span>
-                                                    <Tooltip>
-                                                        <TooltipTrigger>
-                                                            <Badge variant="secondary" className="text-xs">
-                                                                {Math.round(suggestion.similarityScore * 100)}% similar
-                                                            </Badge>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p className="max-w-xs text-xs">{suggestion.reasoning}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            </div>
-                                            {article.seriesId && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => handleAddSuggestion(suggestion.articleId)}
-                                                    disabled={addToTimelineMutation.isPending}
-                                                >
-                                                    <Plus className="w-4 h-4 mr-1" />
-                                                    Add
-                                                </Button>
-                                            )}
-                                        </div>
+                        )}
+
+                        {/* AI Suggestions */}
+                        {!searchQuery && (
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Suggestions</h4>
+                                {suggestionsLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                        <span className="ml-2 text-muted-foreground">Finding related articles...</span>
+                                    </div>
+                                ) : suggestions.length === 0 ? (
+                                    <Card className="p-8 text-center bg-muted/20">
+                                        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                                        <p className="text-sm text-muted-foreground">
+                                            No related articles found. Use search to find articles manually.
+                                        </p>
                                     </Card>
-                                ))}
+                                ) : (
+                                    <div className="space-y-3">
+                                        {suggestions.map((suggestion) => (
+                                            <Card
+                                                key={suggestion.articleId}
+                                                className={`p-4 transition-all hover:border-primary/50 ${selectedSuggestions.has(suggestion.articleId) ? "border-primary bg-primary/5" : ""
+                                                    }`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    {article.seriesId && (
+                                                        <div className="pt-1">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSuggestions.has(suggestion.articleId)}
+                                                                onChange={() => toggleSuggestionSelection(suggestion.articleId)}
+                                                                className="w-4 h-4 rounded border-gray-300"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-medium text-sm mb-1 line-clamp-2">{suggestion.title}</h4>
+                                                        <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                                                            <span>{formatDistanceToNow(new Date(suggestion.publishedAt), { addSuffix: true })}</span>
+                                                            <span>•</span>
+                                                            <Tooltip>
+                                                                <TooltipTrigger>
+                                                                    <Badge variant="secondary" className="text-xs">
+                                                                        {Math.round(suggestion.similarityScore * 100)}% similar
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p className="max-w-xs text-xs">{suggestion.reasoning}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </div>
+                                                    </div>
+                                                    {article.seriesId && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleAddSuggestion(suggestion.articleId)}
+                                                            disabled={addToTimelineMutation.isPending}
+                                                        >
+                                                            <Plus className="w-4 h-4 mr-1" />
+                                                            Add
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
