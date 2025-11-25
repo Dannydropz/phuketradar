@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Clock, Share2, ArrowLeft, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDistanceToNow, format, differenceInHours } from "date-fns";
+import { formatDistanceToNow, format, differenceInHours, isToday, isYesterday } from "date-fns";
 import type { Article } from "@shared/schema";
 import { useState } from "react";
 import { Helmet } from "react-helmet";
@@ -20,6 +20,22 @@ const formatTimeAgo = (date: Date) => {
         return `${hoursDifference} hours ago`;
     }
     return formatDistanceToNow(date, { addSuffix: true });
+};
+
+// Format time label for timeline (left side)
+const formatTimeLabel = (date: Date) => {
+    const hoursDifference = differenceInHours(new Date(), date);
+
+    if (hoursDifference < 24) {
+        // Less than 24 hours: show time
+        return format(date, "HH:mm");
+    } else if (hoursDifference < 48) {
+        // 24-48 hours: show "Yesterday"
+        return "Yesterday";
+    } else {
+        // Older: show date
+        return format(date, "MMM d");
+    }
 };
 
 interface TimelineResponse {
@@ -155,8 +171,8 @@ export function TimelineStory() {
 
                                     {/* Time Label - Desktop Only, moved further left */}
                                     <div className="absolute left-[-50px] top-5 w-16 text-right hidden md:block pr-6">
-                                        <span className="text-xs font-bold text-muted-foreground">
-                                            {format(new Date(update.publishedAt), "HH:mm")}
+                                        <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">
+                                            {formatTimeLabel(new Date(update.publishedAt))}
                                         </span>
                                     </div>
 
