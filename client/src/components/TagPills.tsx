@@ -1,5 +1,5 @@
 import { Badge } from "./ui/badge";
-import { tagToSlug, getTagUrl } from "@server/lib/core-tags";
+import { tagToSlug, getTagUrl } from "@shared/core-tags";
 
 interface TagPillsProps {
     tags: string[];

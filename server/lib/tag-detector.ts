@@ -1,4 +1,4 @@
-import { ALL_TAGS } from './core-tags';
+import { ALL_TAGS } from '@shared/core-tags';
 
 /**
  * Detect tags from article title and content

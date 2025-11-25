@@ -1,4 +1,4 @@
-import { getTagUrl } from './core-tags';
+import { getTagUrl } from '@shared/core-tags';
 
 /**
  * Auto-link content with internal tag links
