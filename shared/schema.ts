@@ -67,9 +67,11 @@ export const articles = pgTable("articles", {
   seriesUpdateCount: integer("series_update_count").default(0), // Number of updates in this series (only for parent stories)
   tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Auto-detected location/topic tags
   viewCount: integer("view_count").default(0), // Tracks article popularity for trending logic
+  timelineTags: text("timeline_tags").array().default(sql`ARRAY[]::text[]`), // Keywords for auto-matching new stories
+  autoMatchEnabled: boolean("auto_match_enabled").default(false), // Whether to auto-match stories to this timeline
   // TODO: Add these columns once ALTER TABLE completes on production database
-  // needsReview: boolean("needs_review").default(false), // Flagged for manual review
-  // reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
+  needsReview: boolean("needs_review").default(false), // Flagged for manual review
+  reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
 });
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts

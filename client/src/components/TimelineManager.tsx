@@ -113,6 +113,28 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
         },
     });
 
+    // Update timeline settings mutation
+    const updateTimelineSettingsMutation = useMutation({
+        mutationFn: async (data: { timelineTags: string[]; autoMatchEnabled: boolean }) => {
+            const res = await apiRequest("PATCH", `/api/admin/articles/${article.id}`, data);
+            return await res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+            toast({
+                title: "Settings Updated",
+                description: "Timeline auto-match settings updated",
+            });
+        },
+        onError: (error: Error) => {
+            toast({
+                title: "Update Failed",
+                description: error.message,
+                variant: "destructive",
+            });
+        },
+    });
+
     const handleCreateTimeline = () => {
         if (!seriesTitle.trim()) {
             toast({
@@ -216,6 +238,82 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
                             </div>
                         </div>
                     </Card>
+
+                    {/* Auto-Match Settings (Parent Story Only) */}
+                    {article.isParentStory && (
+                        <Card className="p-4 border-primary/20">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-5 h-5 text-purple-500" />
+                                        <div>
+                                            <h3 className="font-semibold text-sm">Auto-Match Settings</h3>
+                                            <p className="text-xs text-muted-foreground">Automatically flag new stories for this timeline</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="auto-match" className="text-sm">Enable Auto-Match</Label>
+                                        <input
+                                            id="auto-match"
+                                            type="checkbox"
+                                            className="toggle toggle-primary"
+                                            checked={article.autoMatchEnabled || false}
+                                            onChange={(e) => updateTimelineSettingsMutation.mutate({
+                                                timelineTags: article.timelineTags || [],
+                                                autoMatchEnabled: e.target.checked
+                                            })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase text-muted-foreground font-semibold">Match Keywords (Tags)</Label>
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {article.timelineTags?.map((tag, idx) => (
+                                            <Badge key={idx} variant="secondary" className="gap-1 pr-1">
+                                                {tag}
+                                                <button
+                                                    onClick={() => {
+                                                        const newTags = article.timelineTags?.filter((_, i) => i !== idx) || [];
+                                                        updateTimelineSettingsMutation.mutate({
+                                                            timelineTags: newTags,
+                                                            autoMatchEnabled: article.autoMatchEnabled || false
+                                                        });
+                                                    }}
+                                                    className="hover:bg-muted rounded-full p-0.5"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="Add keyword (e.g., 'flood', 'storm')"
+                                            className="h-8 text-sm"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const input = e.currentTarget;
+                                                    const val = input.value.trim();
+                                                    if (val && !article.timelineTags?.includes(val)) {
+                                                        const newTags = [...(article.timelineTags || []), val];
+                                                        updateTimelineSettingsMutation.mutate({
+                                                            timelineTags: newTags,
+                                                            autoMatchEnabled: article.autoMatchEnabled || false
+                                                        });
+                                                        input.value = '';
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        New stories containing these keywords will be flagged for review.
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    )}
 
                     {/* Create Timeline Section */}
                     {!article.seriesId && (

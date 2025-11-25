@@ -421,11 +421,10 @@ export default function AdminDashboard() {
   };
 
   const handleSelectAll = () => {
-    const unpublishedArticles = filteredArticles.filter((a) => !a.isPublished);
-    if (selectedArticles.size === unpublishedArticles.length && unpublishedArticles.length > 0) {
+    if (selectedArticles.size === filteredArticles.length && filteredArticles.length > 0) {
       setSelectedArticles(new Set());
     } else {
-      setSelectedArticles(new Set(unpublishedArticles.map((a) => a.id)));
+      setSelectedArticles(new Set(filteredArticles.map((a) => a.id)));
     }
   };
 
@@ -642,7 +641,7 @@ export default function AdminDashboard() {
                       )}
                     </Button>
                   )}
-                  {filteredArticles.some((a) => !a.isPublished) && (
+                  {filteredArticles.length > 0 && (
                     <>
                       {selectedArticles.size > 0 && (
                         <>
@@ -688,7 +687,7 @@ export default function AdminDashboard() {
                         <Checkbox
                           checked={
                             selectedArticles.size > 0 &&
-                            selectedArticles.size === filteredArticles.filter((a) => !a.isPublished).length
+                            selectedArticles.size === filteredArticles.length
                           }
                           onCheckedChange={handleSelectAll}
                           data-testid="checkbox-select-all"
@@ -716,15 +715,13 @@ export default function AdminDashboard() {
                       data-testid={`article-row-${article.id}`}
                     >
                       <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
-                        {!article.isPublished && (
-                          <div className="flex items-center pt-1">
-                            <Checkbox
-                              checked={selectedArticles.has(article.id)}
-                              onCheckedChange={() => handleToggleSelect(article.id)}
-                              data-testid={`checkbox-article-${article.id}`}
-                            />
-                          </div>
-                        )}
+                        <div className="flex items-center pt-1">
+                          <Checkbox
+                            checked={selectedArticles.has(article.id)}
+                            onCheckedChange={() => handleToggleSelect(article.id)}
+                            data-testid={`checkbox-article-${article.id}`}
+                          />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <Badge

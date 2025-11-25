@@ -293,6 +293,49 @@ export class TimelineService {
     }
 
     /**
+     * Find a matching timeline for a new article based on tags
+     */
+    async findMatchingTimeline(article: Article): Promise<string | null> {
+        // Get all active timelines that have auto-match enabled
+        const activeTimelines = await db
+            .select()
+            .from(articles)
+            .where(
+                and(
+                    eq(articles.isParentStory, true),
+                    eq(articles.autoMatchEnabled, true),
+                    isNotNull(articles.seriesId)
+                )
+            );
+
+        if (activeTimelines.length === 0) {
+            return null;
+        }
+
+        const titleLower = article.title.toLowerCase();
+        const contentLower = article.content.toLowerCase();
+
+        for (const timeline of activeTimelines) {
+            if (!timeline.timelineTags || timeline.timelineTags.length === 0) {
+                continue;
+            }
+
+            // Check if any tag matches
+            const hasMatch = timeline.timelineTags.some(tag => {
+                const tagLower = tag.toLowerCase();
+                return titleLower.includes(tagLower) || contentLower.includes(tagLower);
+            });
+
+            if (hasMatch && timeline.seriesId) {
+                console.log(`🤖 [TIMELINE-AUTO] Matched article "${article.title}" to timeline "${timeline.storySeriesTitle}" via tags: ${timeline.timelineTags.join(", ")}`);
+                return timeline.seriesId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Delete an entire timeline (removes all articles from series)
      */
     async deleteTimeline(seriesId: string): Promise<void> {

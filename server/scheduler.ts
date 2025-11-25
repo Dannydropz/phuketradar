@@ -907,6 +907,35 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   }
 
                   createdCount++;
+
+                  // STEP 6: Check for timeline auto-match
+                  try {
+                    const { getTimelineService } = await import("./services/timeline-service");
+                    const timelineService = getTimelineService(storage);
+                    const matchingSeriesId = await timelineService.findMatchingTimeline(article);
+
+                    if (matchingSeriesId) {
+                      // Add to timeline and flag for review
+                      await timelineService.addArticleToTimeline(article.id, matchingSeriesId);
+
+                      // Flag for review as requested by user
+                      await storage.updateArticle(article.id, {
+                        needsReview: true,
+                        reviewReason: `Auto-matched to timeline via tags`,
+                        isPublished: false // Draft until reviewed
+                      });
+
+                      console.log(`🔗 AUTO-MATCHED to timeline: ${matchingSeriesId}`);
+                      console.log(`   ⚠️  Flagged for review (saved as draft)`);
+
+                      // If it was counted as published, correct the count
+                      if (article.isPublished) {
+                        publishedCount--;
+                      }
+                    }
+                  } catch (timelineError) {
+                    console.error("Error checking timeline auto-match:", timelineError);
+                  }
                 } catch (createError: any) {
                   // Comprehensive error logging
                   console.error(`\n❌ ERROR: Failed to create article in database`);
