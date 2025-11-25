@@ -59,6 +59,12 @@ export interface IStorage {
 
   // Enrichment methods
   getDevelopingArticles(): Promise<Article[]>;
+
+  // Smart Context methods
+  getArticlesBySeriesId(seriesId: string): Promise<ArticleListItem[]>;
+  getRecentArticlesByCategory(category: string, hoursAgo: number, excludeId?: string): Promise<ArticleListItem[]>;
+  getTrendingArticles(hoursAgo: number, limit: number): Promise<ArticleListItem[]>;
+  incrementArticleViewCount(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -197,6 +203,9 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
+        seriesId: articles.seriesId,
+        tags: articles.tags,
+        viewCount: articles.viewCount,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -244,6 +253,9 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
+        seriesId: articles.seriesId,
+        tags: articles.tags,
+        viewCount: articles.viewCount,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -598,6 +610,9 @@ export class DatabaseStorage implements IStorage {
         mergedIntoId: articles.mergedIntoId,
         lastEnrichedAt: articles.lastEnrichedAt,
         enrichmentCount: articles.enrichmentCount,
+        seriesId: articles.seriesId,
+        tags: articles.tags,
+        viewCount: articles.viewCount,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
@@ -642,6 +657,201 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(articles.interestScore), desc(articles.publishedAt));
+  }
+
+  // Smart Context methods
+  async getArticlesBySeriesId(seriesId: string): Promise<ArticleListItem[]> {
+    return await db
+      .select({
+        id: articles.id,
+        slug: articles.slug,
+        title: articles.title,
+        excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
+        imageUrl: articles.imageUrl,
+        imageUrls: articles.imageUrls,
+        imageHash: articles.imageHash,
+        category: articles.category,
+        author: articles.author,
+        journalistId: articles.journalistId,
+        sourceUrl: articles.sourceUrl,
+        publishedAt: articles.publishedAt,
+        isPublished: articles.isPublished,
+        originalLanguage: articles.originalLanguage,
+        translatedBy: articles.translatedBy,
+        facebookHeadline: articles.facebookHeadline,
+        facebookPostId: articles.facebookPostId,
+        facebookPostUrl: articles.facebookPostUrl,
+        sourceFacebookPostId: articles.sourceFacebookPostId,
+        instagramPostId: articles.instagramPostId,
+        instagramPostUrl: articles.instagramPostUrl,
+        threadsPostId: articles.threadsPostId,
+        threadsPostUrl: articles.threadsPostUrl,
+        eventType: articles.eventType,
+        severity: articles.severity,
+        articleType: articles.articleType,
+        interestScore: articles.interestScore,
+        relatedArticleIds: articles.relatedArticleIds,
+        entities: articles.entities,
+        sourceName: articles.sourceName,
+        isDeveloping: articles.isDeveloping,
+        isManuallyCreated: articles.isManuallyCreated,
+        parentStoryId: articles.parentStoryId,
+        mergedIntoId: articles.mergedIntoId,
+        lastEnrichedAt: articles.lastEnrichedAt,
+        enrichmentCount: articles.enrichmentCount,
+        seriesId: articles.seriesId,
+        tags: articles.tags,
+        viewCount: articles.viewCount,
+      })
+      .from(articles)
+      .where(
+        and(
+          eq(articles.seriesId, seriesId),
+          eq(articles.isPublished, true)
+        )
+      )
+      .orderBy(articles.publishedAt); // Chronological order for timeline
+  }
+
+  async getRecentArticlesByCategory(
+    category: string,
+    hoursAgo: number,
+    excludeId?: string
+  ): Promise<ArticleListItem[]> {
+    const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+    const dbCategories = [...resolveDbCategories(category)];
+
+    if (dbCategories.length === 0) {
+      return [];
+    }
+
+    const conditions = [
+      inArray(articles.category, dbCategories),
+      eq(articles.isPublished, true),
+      gte(articles.publishedAt, cutoffTime),
+    ];
+
+    if (excludeId) {
+      conditions.push(sql`${articles.id} != ${excludeId}`);
+    }
+
+    return await db
+      .select({
+        id: articles.id,
+        slug: articles.slug,
+        title: articles.title,
+        excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
+        imageUrl: articles.imageUrl,
+        imageUrls: articles.imageUrls,
+        imageHash: articles.imageHash,
+        category: articles.category,
+        author: articles.author,
+        journalistId: articles.journalistId,
+        sourceUrl: articles.sourceUrl,
+        publishedAt: articles.publishedAt,
+        isPublished: articles.isPublished,
+        originalLanguage: articles.originalLanguage,
+        translatedBy: articles.translatedBy,
+        facebookHeadline: articles.facebookHeadline,
+        facebookPostId: articles.facebookPostId,
+        facebookPostUrl: articles.facebookPostUrl,
+        sourceFacebookPostId: articles.sourceFacebookPostId,
+        instagramPostId: articles.instagramPostId,
+        instagramPostUrl: articles.instagramPostUrl,
+        threadsPostId: articles.threadsPostId,
+        threadsPostUrl: articles.threadsPostUrl,
+        eventType: articles.eventType,
+        severity: articles.severity,
+        articleType: articles.articleType,
+        interestScore: articles.interestScore,
+        relatedArticleIds: articles.relatedArticleIds,
+        entities: articles.entities,
+        sourceName: articles.sourceName,
+        isDeveloping: articles.isDeveloping,
+        isManuallyCreated: articles.isManuallyCreated,
+        parentStoryId: articles.parentStoryId,
+        mergedIntoId: articles.mergedIntoId,
+        lastEnrichedAt: articles.lastEnrichedAt,
+        enrichmentCount: articles.enrichmentCount,
+        seriesId: articles.seriesId,
+        tags: articles.tags,
+        viewCount: articles.viewCount,
+      })
+      .from(articles)
+      .where(and(...conditions))
+      .orderBy(desc(articles.publishedAt)); // Newest first
+  }
+
+  async getTrendingArticles(hoursAgo: number, limit: number): Promise<ArticleListItem[]> {
+    const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+
+    return await db
+      .select({
+        id: articles.id,
+        slug: articles.slug,
+        title: articles.title,
+        excerpt: articles.excerpt,
+        originalTitle: articles.originalTitle,
+        originalContent: articles.originalContent,
+        imageUrl: articles.imageUrl,
+        imageUrls: articles.imageUrls,
+        imageHash: articles.imageHash,
+        category: articles.category,
+        author: articles.author,
+        journalistId: articles.journalistId,
+        sourceUrl: articles.sourceUrl,
+        publishedAt: articles.publishedAt,
+        isPublished: articles.isPublished,
+        originalLanguage: articles.originalLanguage,
+        translatedBy: articles.translatedBy,
+        facebookHeadline: articles.facebookHeadline,
+        facebookPostId: articles.facebookPostId,
+        facebookPostUrl: articles.facebookPostUrl,
+        sourceFacebookPostId: articles.sourceFacebookPostId,
+        instagramPostId: articles.instagramPostId,
+        instagramPostUrl: articles.instagramPostUrl,
+        threadsPostId: articles.threadsPostId,
+        threadsPostUrl: articles.threadsPostUrl,
+        eventType: articles.eventType,
+        severity: articles.severity,
+        articleType: articles.articleType,
+        interestScore: articles.interestScore,
+        relatedArticleIds: articles.relatedArticleIds,
+        entities: articles.entities,
+        sourceName: articles.sourceName,
+        isDeveloping: articles.isDeveloping,
+        isManuallyCreated: articles.isManuallyCreated,
+        parentStoryId: articles.parentStoryId,
+        mergedIntoId: articles.mergedIntoId,
+        lastEnrichedAt: articles.lastEnrichedAt,
+        enrichmentCount: articles.enrichmentCount,
+        seriesId: articles.seriesId,
+        tags: articles.tags,
+        viewCount: articles.viewCount,
+      })
+      .from(articles)
+      .where(
+        and(
+          eq(articles.isPublished, true),
+          gte(articles.publishedAt, cutoffTime),
+          sql`${articles.viewCount} > 0` // Only include articles with views
+        )
+      )
+      .orderBy(desc(articles.viewCount), desc(articles.publishedAt))
+      .limit(limit);
+  }
+
+  async incrementArticleViewCount(id: string): Promise<void> {
+    await db
+      .update(articles)
+      .set({
+        viewCount: sql`${articles.viewCount} + 1`,
+      })
+      .where(eq(articles.id, id));
   }
 }
 

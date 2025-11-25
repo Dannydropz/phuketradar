@@ -31,6 +31,7 @@ import { imageHashService } from "./services/image-hash";
 import { imageAnalysisService } from "./services/image-analysis";
 import { DuplicateVerifierService } from "./services/duplicate-verifier";
 import { imageDownloaderService } from "./services/image-downloader";
+import { detectTags } from "./lib/tag-detector";
 import type { InsertArticle } from "@shared/schema";
 
 // Optional callback for progress updates (used by admin UI)
@@ -852,6 +853,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     isDeveloping: translation.isDeveloping || false, // Story has limited details
                     entities: extractedEntities as any, // Store extracted entities for future duplicate detection
                   };
+
+                  // Auto-detect tags from translated title and content
+                  articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent);
 
                   // STEP 5.7: Check for duplicates and merge if found (NEW Second Pass Enrichment System)
                   const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");

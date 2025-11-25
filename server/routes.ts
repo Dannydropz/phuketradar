@@ -20,6 +20,9 @@ import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
 import { pool } from "./db";
+import { autoLinkContent } from "./lib/auto-link-content";
+import { getSmartContextStories } from "./services/smart-context";
+import { detectTags } from "./lib/tag-detector";
 
 // Extend session type
 declare module "express-session" {
@@ -108,11 +111,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Article not found" });
       }
 
+      // Apply auto-linking to article content before sending to client
+      if (article.tags && article.tags.length > 0) {
+        article.content = autoLinkContent(article.content, article.tags);
+      }
+
       res.json(article);
     } catch (error) {
       console.error("Error fetching article:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ error: "Failed to fetch article", details: errorMessage });
+    }
+  });
+
+  // Get smart context for an article
+  app.get("/api/articles/:id/smart-context", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get the current article
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      // Get smart context stories
+      const contextResult = await getSmartContextStories(article, storage);
+
+      res.json(contextResult);
+    } catch (error) {
+      console.error("Error fetching smart context:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to fetch smart context", details: errorMessage });
+    }
+  });
+
+  // Track article view (increments view count for trending logic)
+  app.post("/api/articles/:id/view", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      await storage.incrementArticleViewCount(id);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking article view:", error);
+      // Don't fail the request if view tracking fails
+      res.json({ success: false });
     }
   });
 
@@ -393,6 +439,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set sourceUrl to our domain if not provided (since it's manually created)
       if (!articleData.sourceUrl) {
         articleData.sourceUrl = 'https://phuketradar.com';
+      }
+
+      // Auto-detect tags from title and content
+      if (articleData.title && articleData.content) {
+        articleData.tags = detectTags(articleData.title, articleData.content);
       }
 
       const article = await storage.createArticle(articleData);

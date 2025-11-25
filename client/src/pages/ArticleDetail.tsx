@@ -24,6 +24,8 @@ import { ArticleImage } from "@/components/ArticleImage";
 import { SEO } from "@/components/SEO";
 import { JournalistByline } from "@/components/JournalistByline";
 import { buildArticleUrl } from "@shared/category-map";
+import { TagPills } from "@/components/TagPills";
+import { SmartContextWidget } from "@/components/SmartContextWidget";
 
 // Helper functions for event icons and severity styling
 function getEventIcon(eventType?: string | null): LucideIcon | null {
@@ -129,6 +131,18 @@ export default function ArticleDetail() {
     });
   }, [api]);
 
+  // Track article view for trending logic
+  useEffect(() => {
+    if (article?.id) {
+      fetch(`/api/articles/${article.id}/view`, {
+        method: 'POST',
+      }).catch(err => {
+        // Silently fail - view tracking is not critical
+        console.warn('Failed to track article view:', err);
+      });
+    }
+  }, [article?.id]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -181,10 +195,7 @@ export default function ArticleDetail() {
     );
   }
 
-  const relatedArticles = allArticles
-    .filter((a) => a.id !== article.id && a.category === article.category)
-    .slice(0, 3);
-
+  // Latest articles for sidebar (kept for "Latest" section)
   const latestArticles = allArticles
     .filter((a) => a.id !== article.id)
     .slice(0, 5);
@@ -363,6 +374,11 @@ export default function ArticleDetail() {
                 data-testid="content-article-body"
               />
 
+              {/* Tag Pills */}
+              {article.tags && article.tags.length > 0 && (
+                <TagPills tags={article.tags} />
+              )}
+
               <div className="mt-8 pt-4 border-t flex items-center gap-2 text-sm text-muted-foreground">
                 <SiFacebook className="w-5 h-5 text-[#1877F2]" />
                 <span data-testid="text-article-source">
@@ -409,28 +425,11 @@ export default function ArticleDetail() {
           </div>
         </div>
 
-        {relatedArticles.length > 0 && (
-          <section className="bg-card border-y mt-12 py-12">
-            <div className="container mx-auto px-4 max-w-6xl">
-              <h2 className="text-3xl font-bold mb-6">Related Articles</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {relatedArticles.map((relatedArticle) => (
-                  <ArticleCard
-                    key={relatedArticle.id}
-                    id={relatedArticle.id}
-                    slug={relatedArticle.slug}
-                    title={relatedArticle.title}
-                    excerpt={relatedArticle.excerpt}
-                    imageUrl={relatedArticle.imageUrl || undefined}
-                    category={relatedArticle.category}
-                    publishedAt={new Date(relatedArticle.publishedAt)}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
+        {/* Smart Context Widget - replaces generic Related Articles */}
+        <SmartContextWidget
+          articleId={article.id}
+          currentArticleId={article.id}
+        />
 
       </main>
       <Footer />
