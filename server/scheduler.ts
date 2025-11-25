@@ -766,19 +766,29 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
               // STEP 5: Only create article if it's actual news
               if (translation.isActualNews) {
-                // STEP 5.5: Check interest score for auto-publish decision
+                // STEP 5.5: Check interest score and review flag for auto-publish decision
                 // Auto-publish stories with interest score >= 3 (moderate interest and above)
-                // Lower-scored stories (1-2) are saved as drafts for review
-                const shouldAutoPublish = translation.interestScore >= 3;
+                // Lower-scored stories (1-2) OR stories flagged for review are saved as drafts
+                const shouldAutoPublish = translation.interestScore >= 3 && !translation.needsReview;
 
                 if (!shouldAutoPublish) {
+                  const reason = translation.needsReview
+                    ? "Flagged for review (AI uncertainty)"
+                    : "Low interest (draft)";
+
                   skipReasons.push({
-                    reason: "Low interest (draft)",
+                    reason: reason,
                     postTitle: post.title.substring(0, 60),
                     sourceUrl: post.sourceUrl,
                     facebookPostId: post.facebookPostId,
-                    details: `Score: ${translation.interestScore}/5`
+                    details: translation.needsReview
+                      ? `Reason: ${translation.reviewReason || 'Unspecified uncertainty'}`
+                      : `Score: ${translation.interestScore}/5`
                   });
+
+                  if (translation.needsReview) {
+                    console.log(`⚠️  ARTICLE FLAGGED FOR REVIEW: ${translation.reviewReason}`);
+                  }
                 }
 
                 let article;

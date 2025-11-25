@@ -15,6 +15,8 @@ export interface TranslationResult {
   isDeveloping: boolean;
   embedding?: number[];
   facebookHeadline?: string;
+  needsReview?: boolean;
+  reviewReason?: string;
 }
 
 // High-priority keywords that boost interest scores (urgent/dramatic news)
@@ -397,6 +399,8 @@ Respond in JSON format:
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer),
   "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts),
+  "needsReview": true/false (Set to TRUE if: 1. You are unsure about the location 2. The story seems like a rumor 3. You had to guess any details 4. It mentions a province outside Phuket but you aren't 100% sure if it's relevant 5. The source text is very short or ambiguous),
+  "reviewReason": "Explanation of why this needs human review (required if needsReview is true)",
   "facebookHeadline": "A short, punchy, high-CTR headline specifically for Facebook written from a THIRD-PERSON NEWS REPORTING perspective. CRITICAL: Never use first-person ('Join Us', 'We', 'Our') or calls-to-action that make it sound like the news site is organizing the event. Instead, report the news objectively. Focus on emotion, urgency, location, and impact. Examples: 'Tragedy at Bang Tao: Two family members drown despite red-flag warnings' (GOOD), 'Phuket Community Rallies to Aid Trang Flood Victims' (GOOD), 'Join Us to Help Flood Victims' (BAD - sounds like we're organizing it). Max 15 words."
 }
 
@@ -501,6 +505,8 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
         isDeveloping: result.isDeveloping || false,
+        needsReview: result.needsReview || false,
+        reviewReason: result.reviewReason,
         embedding,
         facebookHeadline: result.facebookHeadline,
       };
