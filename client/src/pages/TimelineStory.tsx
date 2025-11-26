@@ -97,7 +97,7 @@ export function TimelineStory() {
         );
     }
 
-    const { parentStory, updates } = timeline;
+    const { parentStory, updates, updateCount } = timeline;
 
     // Filter out the parent story from updates if it's included (it shouldn't be, but safety first)
     const timelineUpdates = updates.filter(u => u.id !== parentStory.id);
