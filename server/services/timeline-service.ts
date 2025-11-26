@@ -299,6 +299,8 @@ export class TimelineService {
      * Find a matching timeline for a new article based on tags
      */
     async findMatchingTimeline(article: Article): Promise<string | null> {
+        console.log(`🔍 [AUTO-MATCH BEGIN] Checking article: "${article.title.substring(0, 60)}..."`);
+
         // Get all active timelines that have auto-match enabled
         const activeTimelines = await db
             .select()
@@ -311,7 +313,10 @@ export class TimelineService {
                 )
             );
 
+        console.log(`🔍 [AUTO-MATCH] Found ${activeTimelines.length} timelines with auto-match enabled`);
+
         if (activeTimelines.length === 0) {
+            console.log(`⚠️ [AUTO-MATCH] No timelines with auto-match enabled - skipping`);
             return null;
         }
 
@@ -320,8 +325,11 @@ export class TimelineService {
 
         for (const timeline of activeTimelines) {
             if (!timeline.timelineTags || timeline.timelineTags.length === 0) {
+                console.log(`⚠️ [AUTO-MATCH] Timeline "${timeline.storySeriesTitle}" has no tags - skipping`);
                 continue;
             }
+
+            console.log(`🔍 [AUTO-MATCH] Checking timeline: "${timeline.storySeriesTitle}" with tags: [${timeline.timelineTags.join(", ")}]`);
 
             // Check if any tag matches
             const hasMatch = timeline.timelineTags.some(tag => {
@@ -330,11 +338,12 @@ export class TimelineService {
             });
 
             if (hasMatch && timeline.seriesId) {
-                console.log(`🤖 [TIMELINE-AUTO] Matched article "${article.title}" to timeline "${timeline.storySeriesTitle}" via tags: ${timeline.timelineTags.join(", ")}`);
+                console.log(`✅ [AUTO-MATCH SUCCESS] Matched to timeline "${timeline.storySeriesTitle}" via tags: ${timeline.timelineTags.join(", ")}`);
                 return timeline.seriesId;
             }
         }
 
+        console.log(`❌ [AUTO-MATCH] No matching timeline found for: "${article.title.substring(0, 60)}..."`);
         return null;
     }
 
