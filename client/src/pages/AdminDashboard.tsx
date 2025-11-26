@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -52,7 +52,6 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { logout, isAuthenticated } = useAdminAuth();
-  const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
@@ -60,6 +59,8 @@ export default function AdminDashboard() {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [timelineArticle, setTimelineArticle] = useState<Article | null>(null);
   const [bulkTimelineOpen, setBulkTimelineOpen] = useState(false);
+  const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
+  const [collapsedTimelines, setCollapsedTimelines] = useState<Set<string>>(new Set());
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
@@ -625,6 +626,25 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </Card>
+            {/* Timeline Articles Filter Card */}
+            <Card
+              className={`p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] border-white/10 bg-white/5 backdrop-blur-md shadow-xl ${activeFilter === 'timelines' ? 'ring-1 ring-orange-500/50 bg-orange-500/10' : 'hover:bg-white/10'
+                }`}
+              onClick={() => setActiveFilter('timelines')}
+              data-testid="filter-timelines"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-orange-500/20 rounded-xl">
+                  <Clock className="w-6 h-6 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {articles.filter(a => a.isParentStory && a.seriesId).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Timeline Articles</p>
+                </div>
+              </div>
+            </Card>
           </div>
 
           <Card className="border-white/10 bg-card/40 backdrop-blur-xl shadow-2xl">
@@ -765,15 +785,27 @@ export default function AdminDashboard() {
                         {/* Render Parent Stories with Children */}
                         {parentStories.map(parent => {
                           const children = parent.seriesId ? childrenBySeries.get(parent.seriesId) || [] : [];
+                          const isCollapsed = collapsedTimelines.has(parent.id);
+
+                          const toggleCollapse = () => {
+                            const newCollapsed = new Set(collapsedTimelines);
+                            if (isCollapsed) {
+                              newCollapsed.delete(parent.id);
+                            } else {
+                              newCollapsed.add(parent.id);
+                            }
+                            setCollapsedTimelines(newCollapsed);
+                          };
+
                           return (
                             <div key={parent.id} className="space-y-2">
-                              {/* Parent Article Card */}
+                              {/* Parent Article Card with Orange Glow */}
                               <div
-                                className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border-2 border-primary/20 bg-primary/5 rounded-lg hover-elevate relative"
+                                className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border-2 border-orange-500/30 bg-orange-500/5 rounded-lg hover-elevate relative ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10"
                                 data-testid={`article-row-${parent.id}`}
                               >
-                                <div className="absolute top-4 right-4">
-                                  <Badge variant="outline" className="border-primary text-primary font-semibold bg-background">
+                                <div className="absolute top-4 right-20">
+                                  <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-background">
                                     Timeline Parent
                                   </Badge>
                                 </div>
@@ -829,10 +861,23 @@ export default function AdminDashboard() {
                                     <Edit className="w-4 h-4" />
                                   </Button>
                                 </div>
+
+                                {/* Collapse/Expand Button for Children */}
+                                {children.length > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={toggleCollapse}
+                                    className="absolute top-2 left-2 h-7 px-2 text-orange-500 hover:bg-orange-500/10"
+                                  >
+                                    <span className="text-xs mr-1">{children.length}</span>
+                                    {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                                  </Button>
+                                )}
                               </div>
 
-                              {/* Children (Indented) */}
-                              {children.length > 0 && (
+                              {/* Children (Indented) - Hidden when collapsed */}
+                              {!isCollapsed && children.length > 0 && (
                                 <div className="ml-8 md:ml-12 space-y-2 border-l-2 border-muted pl-4">
                                   {children.map(child => (
                                     <div
