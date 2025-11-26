@@ -790,14 +790,17 @@ export default function AdminDashboard() {
                         {/* Render Parent Stories with Children */}
                         {parentStories.map(parent => {
                           const children = parent.seriesId ? childrenBySeries.get(parent.seriesId) || [] : [];
-                          const isCollapsed = collapsedTimelines.has(parent.id);
+                          // Default to collapsed (true), only expand if explicitly opened
+                          const isCollapsed = !collapsedTimelines.has(parent.id);
 
                           const toggleCollapse = () => {
                             const newCollapsed = new Set(collapsedTimelines);
                             if (isCollapsed) {
-                              newCollapsed.delete(parent.id);
-                            } else {
+                              // Was collapsed, now expand - add to set to mark as "opened"
                               newCollapsed.add(parent.id);
+                            } else {
+                              // Was expanded, now collapse - remove from set
+                              newCollapsed.delete(parent.id);
                             }
                             setCollapsedTimelines(newCollapsed);
                           };
