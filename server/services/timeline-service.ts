@@ -332,11 +332,25 @@ export class TimelineService {
                 continue;
             }
 
-            console.log(`🔍 [AUTO-MATCH] Checking timeline: "${timeline.storySeriesTitle}" with tags: [${timeline.timelineTags.join(", ")}]`);
+            // CRITICAL FIX: Handle tags stored as string instead of array
+            let tagsArray: string[];
+            if (typeof timeline.timelineTags === 'string') {
+                console.log(`⚠️ [AUTO-MATCH] Tags stored as STRING, not array! Converting...`);
+                console.log(`   Raw value: "${timeline.timelineTags}"`);
+                // Split by comma and trim
+                tagsArray = timeline.timelineTags.split(',').map(t => t.trim());
+            } else if (Array.isArray(timeline.timelineTags)) {
+                tagsArray = timeline.timelineTags;
+            } else {
+                console.log(`❌ [AUTO-MATCH] Invalid tag type: ${typeof timeline.timelineTags}`);
+                continue;
+            }
+
+            console.log(`🔍 [AUTO-MATCH] Checking timeline: "${timeline.storySeriesTitle}" with ${tagsArray.length} tags: [${tagsArray.join(", ")}]`);
 
             // Check if any tag matches
             const matchResults: string[] = [];
-            const hasMatch = timeline.timelineTags.some(tag => {
+            const hasMatch = tagsArray.some(tag => {
                 const tagLower = tag.toLowerCase();
                 const inTitle = titleLower.includes(tagLower);
                 const inContent = contentLower.includes(tagLower);

@@ -231,161 +231,19 @@ Your task:
 2. REJECT and mark as NOT news if the content is about:
    - The Thai royal family, monarchy, or king (sensitive political content)
    - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
-3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style
-
-CRITICAL LOCATION VERIFICATION (MUST READ):
-- **VERIFY THE LOCATION:** Before writing, determine EXACTLY where the event happened.
-- **DO NOT HALLUCINATE PHUKET:** If the story mentions "Hat Yai", "Songkhla", "Bangkok", "Chiang Mai", or other provinces, **DO NOT** change the location to Phuket. Report it as happening in that city.
-- **PHUKET SOURCE ≠ PHUKET STORY:** Just because the source is "Phuket Info Center" does NOT mean the story is in Phuket. They often report on Southern Thailand floods (Hat Yai, Trang, Narathiwat).
-- **CHECK LANDMARKS:** "Pholphichai Road", "Wat Plakrim", "Wat Phutthikaram" are in **HAT YAI**, not Phuket. If you see these, the story is in HAT YAI.
-
-CRITICAL FACTUALITY RULES (ZERO TOLERANCE):
-- **DO NOT INVENT FACTS:** You are a reporter, not a fiction writer. Do not add details, numbers, quotes, or events that are not in the source text.
-- **NO GUESSING:** If the source says "several people", do NOT change it to "five people". If the source doesn't mention a specific cause, do NOT invent one.
-- **CONTEXT VS. FICTION:** You MAY add context (e.g., "Hat Yai is a major city in Songkhla province"), but you MUST NOT add specific details about the event itself (e.g., "The floodwaters reached 2 meters" if the source doesn't say that).
+3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style.
 
 CONTEXT & ENRICHMENT REQUIREMENTS:
-- If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally
-- Add brief LOCAL CONTEXT about Phuket locations when relevant to help international readers understand the setting
-- Include BACKGROUND INFORMATION when it adds depth (e.g., "Bangla Road, Patong's famous nightlife strip", "the island's main tourist beach")
-- Weave in AREA-SPECIFIC DETAILS naturally (known landmarks, popular venues, geographic context)
-- Use an ENGAGING NEWS STYLE that goes beyond basic facts - help readers understand WHY this matters
-- Maintain all factual details, names, times, and numbers exactly as provided
-
-GRAMMAR & STYLE REQUIREMENTS:
-- Follow AP Style for headlines: capitalize main words, use title case
-- ALWAYS include company suffixes: Co., Ltd., Inc., Corp., Plc., etc.
-- Use proper articles (a, an, the) - never skip them
-- Ensure subject-verb agreement and perfect grammar
-- Write in active voice when possible
-- Use specific numbers and dates, not vague terms
-- Keep paragraphs concise and readable
-
-HEADLINE EXAMPLES (Good):
-✓ "Thai Seaplane Co. Hosts Community Meeting in Phuket to Discuss Proposed Water Airport Project"
-✓ "Local Government Officials Announce New Tourism Initiative for Old Phuket Town"
-✓ "Patong Beach Vendors Face New Regulations Under City Cleanup Plan"
-
-HEADLINE EXAMPLES (Bad):
-✗ "Thai Seaplane Hosts Community Meeting" (missing "Co.")
-✗ "government announce new initiative" (wrong capitalization, grammar)
-✗ "Beach vendors to face regulations" (passive voice)
+- If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally.
+- Add brief LOCAL CONTEXT about Phuket locations when relevant to help international readers understand the setting.
+- Include BACKGROUND INFORMATION when it adds depth (e.g., "Bangla Road, Patong's famous nightlife strip").
+- Use an ENGAGING NEWS STYLE that goes beyond basic facts - help readers understand WHY this matters.
+- Maintain all factual details, names, times, and numbers exactly as provided.
 
 4. Extract a concise excerpt (2-3 sentences) written from a THIRD-PERSON NEWS REPORTING perspective with perfect grammar. CRITICAL: Never use first-person ('we', 'our', 'join us') or make it sound like the news site is organizing events. Report objectively.
-5. Categorize the article by TOPIC (not urgency) - READ CAREFULLY
-6. Rate reader interest (1-5 scale)
+5. Categorize the article by TOPIC (not urgency).
+6. Rate reader interest (1-5 scale).
 
-CATEGORY GUIDE - Read the FULL story, not just the headline:
-
-**Weather:** Natural disasters, typhoons, monsoons, flooding, landslides, heat waves, storms, weather warnings, climate events
-  Examples: "Typhoon approaching Phuket", "Heavy flooding in Patong", "Landslide blocks road"
-
-**Local:** Community news, missing persons, search/rescue operations, drownings, boat/sea accidents, water-related incidents, local government, general incidents
-  Examples: "Search for missing tourist", "Rescue operation saves swimmers", "Tourist drowns at beach", "Boat capsizes off Phuket coast", "Missing swimmer found", "Community meeting held"
-
-**Traffic:** Road accidents (non-criminal), road closures, construction, transportation disruptions
-  Examples: "Car crashes on bypass road", "Road closed for repairs", "Traffic jam near airport"
-
-**Crime:** ONLY intentional criminal activity - arrests, theft, assault, scams, police investigations of crimes
-  Examples: "Police arrest theft suspect", "Scam targets tourists", "Assault investigation underway"
-  NOT Crime: Accidents, drownings, missing persons, natural disasters, rescues
-
-**Tourism:** Hotel openings, tourist attractions, travel advisories, visitor statistics, tourism developments
-  Examples: "New resort opens in Kata", "Tourist arrivals increase", "Travel warning issued"
-
-**Business:** Company news, openings/closings, economic developments, real estate
-  Examples: "Restaurant chain expands to Phuket", "Mall announces new tenants"
-
-**Politics:** Government decisions, elections, political meetings, policy changes
-  Examples: "Governor announces new policy", "City council votes on budget"
-
-**Economy:** Market trends, trade, economic indicators, financial news
-  Examples: "Baht strengthens against dollar", "Export figures rise"
-
-**National:** Major news from outside Phuket (Bangkok, Hat Yai, Chiang Mai, etc.) that is significant enough to report but is NOT local to Phuket.
-  Examples: "Flooding in Hat Yai", "Explosion in Bangkok", "National election results", "Prime Minister visits Chiang Mai"
-
-**WHEN UNCERTAIN:** If the story doesn't clearly fit any specific category above, use "Local" as the default fallback category.
-
-IMPORTANT DISTINCTIONS:
-- Drowning/boat accident/sea incident/missing swimmer → "Local" (water-related incidents are local news)
-- Missing person/search operation → "Local" (NOT Crime)
-- Car accident (no crime) → "Traffic" (NOT Crime)
-- Typhoon/flood/landslide/weather events → "Weather" (natural disasters only)
-- Criminal arrest/theft/assault → "Crime" (YES Crime)
-- **Story from Hat Yai, Bangkok, or other province** → "National" (unless it directly impacts Phuket)
-
-INTEREST SCORE GUIDE (1-5):
-- 5 = URGENT/LIFE-THREATENING: Deaths, MAJOR structural failures (road collapse, sinkhole, building collapse), violent crime with injuries, natural disasters causing damage, severe weather with casualties
-- 4 = SERIOUS/ACTIONABLE: **ACTUAL accidents with injuries** (crashes, collisions with victims), arrests for serious crimes, active rescue operations, major service disruptions affecting many people
-- 3 = NOTEWORTHY: MINOR infrastructure issues (damaged roads, potholes, routine repairs), tourism developments, business openings, policy changes, traffic warnings, community initiatives, **construction delays**
-- 2 = ROUTINE/ADMINISTRATIVE: **Government officials inspecting/visiting/tackling issues**, meetings (even about important topics), routine announcements, administrative updates, preparation meetings, cultural events, festivals, **officials "working to alleviate" or "looking into" problems**
-- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, minor celebrations, greeting messages
-
-LOCATION-BASED SCORING RULES (CRITICAL - READ CAREFULLY):
-**THIS IS A HYPER-LOCAL PHUKET NEWS SITE. Stories from other provinces/cities are NOT priority news for our readers.**
-
-1. **Phuket ONLY (Phuket Town, Patong, Kata, Karon, Rawai, Chalong, Kamala, etc.):**
-   - Score normally (1-5) based on urgency rules above.
-   - Can achieve score 4 or 5 if truly urgent/life-threatening.
-
-2. **Nearby Provinces with Phuket Tourist Connections (Phang Nga, Krabi):**
-   - Score normally (1-5) if directly relevant to Phuket tourism/residents.
-   - Category depends on topic (Weather, Tourism, etc.).
-   Example: "Ferry service disrupted Phuket-Phi Phi" → Score 4 (affects Phuket tourists)
-
-3. **ALL OTHER LOCATIONS (Hat Yai, Songkhla, Bangkok, Chiang Mai, Pattaya, Surat Thani, Samui, Isaan, etc.):**
-   - **Category = "National"** (mandatory)
-   - **MAX SCORE = 3** (Noteworthy) - even for major disasters/deaths in those locations
-   - **Exception ONLY if:** National policy change DIRECTLY affecting Phuket (visa rules, nationwide airport closure, etc.)
-   - **Reasoning:** Our readers live in PHUKET. Floods in Hat Yai, explosions in Bangkok, elections in Chiang Mai are noteworthy but NOT urgent for Phuket residents.
-   
-   Examples:
-   - "Severe flooding in Hat Yai leaves residents stranded" → Category="National", Score 3 
-   - "Explosion in Bangkok shopping mall kills 5" → Category="National", Score 3
-   - "Chiang Mai air pollution reaches hazardous levels" → Category="National", Score 3
-   - "Surat Thani ferry disaster" → Category="National", Score 3 (unless it's Phuket-bound ferry)
-   - "Prime Minister visits Phuket" → Category="Politics", Score 4-5 (HAPPENING IN PHUKET)
-
-4. **WHY THIS MATTERS:**
-   - Scores 4-5 get auto-published AND auto-posted to Facebook
-   - Scores 1-3 get published but NO auto-posting to social media
-   - National news from other provinces = published but not promoted
-   - We want LOCAL Phuket stories only for social media auto-posting
-
-CRITICAL SCORING RULES:
-1. **"Officials tackle/address/work on/inspect" = Score 2** (it's just talk/inspection, not action)
-   - Example: "Governor tackles traffic issues" = 2 (inspection/meeting)
-   - Example: "Mayor visits flood area" = 2 (inspection visit)
-   
-2. **"Accident/crash/collision" = Score 4-5** (actual event with victims)
-   - Example: "Traffic accident at intersection" = 4 (real accident)
-   - Example: "Car crash with injuries" = 4-5 (accident with victims)
-   
-3. **Meetings ABOUT disasters ≠ disasters** → Score 2
-   - Example: "Flood relief meeting" = 2 (meeting, not flood)
-   
-4. **Cultural/arts events** → Score 2
-   - Example: "Biennale exhibition" = 2 (cultural event)
-   
-5. **Construction delays/complaints** → Score 3
-   - Example: "Bypass road delayed" = 3 (infrastructure issue)
-   
-6. **Hit-and-run with injuries** → Score 4-5
-   - Example: "Hit-and-run leaves victim injured" = 4-5 (crime + injuries)
-
-NOTE: Category = TOPIC (what type of story). Interest Score = URGENCY (how important).
-Example 1: Typhoon warning → Category="Weather", interestScore=5 (urgent weather event)
-Example 2: Tourist drowns at beach → Category="Local", interestScore=5 (death, high urgency)
-Example 3: Road collapse causes major sinkhole → Category="Traffic", interestScore=5 (major structural failure)
-Example 4: Damaged road with potholes, residents complain → Category="Traffic", interestScore=3 (minor infrastructure issue)
-Example 5: **Traffic accident at intersection** → Category="Traffic", interestScore=4 (actual accident)
-Example 6: Hit-and-run leaves motorcyclist injured → Category="Crime", interestScore=4-5 (crime + injuries)
-Example 7: Police arrest thief → Category="Crime", interestScore=4 (criminal activity)
-Example 8: Community meeting about flood relief → Category="Local", interestScore=2 (meeting, not actual flood)
-Example 9: Thailand Biennale art exhibition → Category="Tourism", interestScore=2 (cultural event)
-Example 10: **Governor and mayor tackle traffic congestion** → Category="Traffic", interestScore=2 (officials inspecting, not actual event)
-Example 11: **Hat Yai floods trap residents** → Category="National", interestScore=3 (Big story, but NOT Phuket)
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
 
@@ -411,7 +269,53 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
         messages: [
           {
             role: "system",
-            content: "You are a professional news editor and translator specializing in Thai to English translation for Phuket Radar, a news publication serving Phuket's international community.",
+            content: `You are a professional news editor and translator for Phuket Radar, an English-language news site covering Phuket, Thailand.
+
+CRITICAL LOCATION VERIFICATION:
+- VERIFY THE LOCATION: Determine EXACTLY where the event happened.
+- DO NOT HALLUCINATE PHUKET: If the story mentions Hat Yai, Songkhla, Bangkok, Chiang Mai, or other provinces, DO NOT change the location to Phuket.
+- PHUKET SOURCE ≠ PHUKET STORY: Sources like "Phuket Info Center" often report on Southern Thailand events (Hat Yai, Trang, Narathiwat).
+- CHECK LANDMARKS: "Pholphichai Road", "Wat Plakrim", "Wat Phutthikaram" are in HAT YAI, not Phuket.
+
+CRITICAL FACTUALITY RULES:
+- DO NOT INVENT FACTS: Do not add details, numbers, quotes, or events not in the source text.
+- NO GUESSING: If source says "several people", do NOT change to "five people".
+- CONTEXT VS. FICTION: You MAY add context (e.g., "Hat Yai is a major city") but MUST NOT add specific details about the event itself.
+
+GRAMMAR & STYLE:
+- Follow AP Style for headlines: capitalize main words
+- ALWAYS include company suffixes: Co., Ltd., Inc., Corp., Plc.
+- Use proper articles (a, an, the)
+- Write in active voice when possible
+
+CATEGORY GUIDE (read full story, not just headline):
+- Weather: Natural disasters, typhoons, flooding, landslides, storms
+- Local: Community news, missing persons, drownings, boat accidents, local government
+- Traffic: Road accidents (non-criminal), road closures, construction
+- Crime: ONLY intentional criminal activity - arrests, theft, assault, scams
+- National: Major news from outside Phuket (Bangkok, Hat Yai, etc.)
+- WHEN UNCERTAIN: Use "Local" as default
+
+INTEREST SCORE (1-5):
+- 5 = URGENT: Deaths, major structural failures, violent crime with injuries, natural disasters
+- 4 = SERIOUS: Accidents with injuries, arrests, active rescue operations
+- 3 = NOTEWORTHY: Minor infrastructure issues, tourism developments, business openings
+- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events
+- 1 = TRIVIAL: Ceremonial events, ribbon cuttings
+
+LOCATION-BASED SCORING:
+This is a HYPER-LOCAL PHUKET site.
+- Phuket stories: Score normally (1-5)
+- Nearby provinces (Phang Nga, Krabi): Score normally if relevant to Phuket
+- ALL OTHER LOCATIONS (Hat Yai, Bangkok, etc.): Category="National", MAX SCORE=3
+
+CRITICAL RULES:
+- Officials tackle/inspect = Score 2 (just talk, not action)
+- Accident/crash/collision = Score 4-5 (actual event with victims)
+- Meetings ABOUT disasters ≠ disasters = Score 2
+- Hat Yai floods, Bangkok explosions = Category="National", Score 3
+
+Always output valid JSON.`,
           },
           {
             role: "user",
