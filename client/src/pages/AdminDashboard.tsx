@@ -753,13 +753,15 @@ export default function AdminDashboard() {
               ) : (
                 <div className="space-y-4">
                   {(() => {
-                    // Group articles by seriesId
-                    const parentStories = filteredArticles.filter(a => a.isParentStory);
-                    const childStories = filteredArticles.filter(a => !a.isParentStory && a.seriesId);
-                    const orphanStories = filteredArticles.filter(a => !a.isParentStory && !a.seriesId);
+                    // Sort ALL articles by date FIRST to prevent timeline pinning
+                    const sortedArticles = [...filteredArticles].sort((a, b) =>
+                      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+                    );
 
-                    // Sort parent stories by date (newest first) - no special pinning
-                    parentStories.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+                    // Then group them
+                    const parentStories = sortedArticles.filter(a => a.isParentStory);
+                    const childStories = sortedArticles.filter(a => !a.isParentStory && a.seriesId);
+                    const orphanStories = sortedArticles.filter(a => !a.isParentStory && !a.seriesId);
 
                     // Map seriesId to child stories
                     const childrenBySeries = new Map<string, typeof filteredArticles>();
@@ -807,12 +809,6 @@ export default function AdminDashboard() {
                                 className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border-2 border-orange-500/30 bg-orange-500/5 rounded-lg hover-elevate relative ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10"
                                 data-testid={`article-row-${parent.id}`}
                               >
-                                {/* Timeline Badge - Right side with spacing from buttons */}
-                                <div className="absolute top-2 right-14 md:right-16">
-                                  <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-background text-xs">
-                                    Timeline
-                                  </Badge>
-                                </div>
                                 <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
                                   <div className="flex items-center pt-1">
                                     <Checkbox
@@ -823,14 +819,14 @@ export default function AdminDashboard() {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-2 flex-wrap pr-24">
-                                      <Badge
-                                        className={
-                                          parent.isPublished
-                                            ? "bg-primary text-primary-foreground"
-                                            : ""
-                                        }
-                                      >
-                                        {parent.isPublished ? "published" : "pending"}
+                                      {parent.isPublished ? (
+                                        <Badge className="bg-primary text-primary-foreground">published</Badge>
+                                      ) : (
+                                        <Badge variant="outline">draft</Badge>
+                                      )}
+                                      {/* Timeline badge inline with other badges */}
+                                      <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-orange-500/10">
+                                        Timeline
                                       </Badge>
                                       <span className="text-xs md:text-sm text-muted-foreground">
                                         {formatDistanceToNow(new Date(parent.publishedAt), { addSuffix: true })}
