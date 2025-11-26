@@ -115,6 +115,11 @@ export default function HomeNew() {
         return filtered.slice(0, displayCount);
     }, [filteredArticles, heroArticle, sideStories, activeTab, displayCount]);
 
+    // Timeline/Live Stories (parent stories with seriesId)
+    const liveStories = useMemo(() => {
+        return filteredArticles.filter(a => a.isParentStory && a.seriesId).slice(0, 6);
+    }, [filteredArticles]);
+
     const hasMore = filteredArticles.length > (1 + 3 + radarArticles.length);
 
     // Helper to get article URL
@@ -269,6 +274,46 @@ export default function HomeNew() {
                                     </Link>
                                 ))}
                             </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* LIVE Section - Timeline Stories */}
+                {liveStories.length > 0 && (
+                    <section className="mb-12">
+                        <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-4">
+                            <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-orange-400"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+                            </span>
+                            <h2 className="text-xs font-bold text-orange-500 uppercase tracking-widest">Live Updates</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {liveStories.map((article) => (
+                                <Link key={article.id} href={getArticleUrl(article)}>
+                                    <a className="group block h-full bg-zinc-900/40 hover:bg-zinc-900 border border-white/5 hover:border-orange-500/30 rounded-lg overflow-hidden transition-all duration-300 shadow-lg hover:shadow-orange-500/10">
+                                        {article.imageUrl && (
+                                            <div className="aspect-video overflow-hidden w-full">
+                                                <ArticleImage
+                                                    src={getImageUrl(article.imageUrl)}
+                                                    alt={article.title}
+                                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="p-4">
+                                            <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
+                                                <span className="text-orange-400 uppercase font-medium">Timeline</span>
+                                                <span>•</span>
+                                                <span>{article.seriesUpdateCount || 0} updates</span>
+                                            </div>
+                                            <h3 className="text-base font-semibold text-zinc-100 leading-snug group-hover:text-orange-400 transition-colors line-clamp-2">
+                                                {article.storySeriesTitle || article.title}
+                                            </h3>
+                                        </div>
+                                    </a>
+                                </Link>
+                            ))}
                         </div>
                     </section>
                 )}
