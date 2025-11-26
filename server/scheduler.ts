@@ -254,6 +254,32 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 return;
               }
 
+              // STEP -1.5: Reject video posts (video screen grabs have poor quality)
+              if (post.isVideo) {
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Video post (poor screen grab quality)",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                });
+
+                console.log(`\n⏭️  SKIPPED - VIDEO POST (screen grabs have poor quality)`);
+                console.log(`   Title: ${post.title.substring(0, 60)}...`);
+                console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+
+                // Update progress
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews,
+                  });
+                }
+                return;
+              }
+
               // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
               if (post.facebookPostId) {
                 const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);

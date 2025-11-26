@@ -8,6 +8,7 @@ export interface ScrapedPost {
   facebookPostId?: string; // Canonical Facebook post ID for deduplication
   publishedAt: Date;
   textFormatPresetId?: string; // Facebook's colored background text post indicator
+  isVideo?: boolean; // Video posts with screen grabs should be rejected
 }
 
 interface ScrapeCreatorsPost {
@@ -285,6 +286,9 @@ export class ScraperService {
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
 
+        // Detect if this is a video post (video screen grabs have poor quality)
+        const isVideo = !!(post.videoDetails?.sdUrl || post.videoDetails?.hdUrl);
+
         scrapedPosts.push({
           title: title.trim(),
           content: content.trim(),
@@ -294,6 +298,7 @@ export class ScraperService {
           facebookPostId: facebookPostId || undefined,
           publishedAt,
           textFormatPresetId: post.text_format_preset_id,
+          isVideo,
         });
       } catch (error) {
         console.error(`Error parsing post ${post.id}:`, error);
