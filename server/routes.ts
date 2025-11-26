@@ -855,7 +855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // CRITICAL FIX: Sanitize timeline tags to ensure they're separate array elements
       if (updates.timelineTags) {
-        console.log(`📝 [PATCH ARTICLE] Raw timelineTags received:`, updates.timeline Tags);
+        console.log(`📝 [PATCH ARTICLE] Raw timelineTags received:`, updates.timelineTags);
         console.log(`   Type: ${typeof updates.timelineTags}, isArray: ${Array.isArray(updates.timelineTags)}`);
 
         // Ensure each tag is trimmed and separate
