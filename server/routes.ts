@@ -95,6 +95,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get articles by tag
+  app.get("/api/articles/tag/:tag", async (req, res) => {
+    try {
+      const { tag } = req.params;
+      // Convert slug back to tag name (e.g., "patong-beach" -> "Patong Beach")
+      const tagName = tag
+        .split("-")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+      const articles = await storage.getArticlesByTag(tagName);
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching articles by tag:", error);
+      res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
   // Get single article by slug or ID
   app.get("/api/articles/:slugOrId", async (req, res) => {
     try {

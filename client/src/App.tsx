@@ -15,6 +15,7 @@ import AdminLogin from "@/pages/AdminLogin";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
 import { TimelineStory } from "@/pages/TimelineStory";
+import TagPage from "@/pages/TagPage";
 
 function Router() {
   return (
@@ -33,6 +34,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/story/:seriesId" component={TimelineStory} />
+      <Route path="/tag/:tag" component={TagPage} />
       <Route path="/journalist/:id" component={JournalistProfile} />
       <Route path="/:category/:slugOrId" component={ArticleDetail} />
       <Route path="/:category" component={Home} />

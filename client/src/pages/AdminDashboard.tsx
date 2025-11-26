@@ -758,6 +758,9 @@ export default function AdminDashboard() {
                     const childStories = filteredArticles.filter(a => !a.isParentStory && a.seriesId);
                     const orphanStories = filteredArticles.filter(a => !a.isParentStory && !a.seriesId);
 
+                    // Sort parent stories by date (newest first) - no special pinning
+                    parentStories.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
                     // Map seriesId to child stories
                     const childrenBySeries = new Map<string, typeof filteredArticles>();
                     childStories.forEach(child => {
@@ -804,9 +807,10 @@ export default function AdminDashboard() {
                                 className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border-2 border-orange-500/30 bg-orange-500/5 rounded-lg hover-elevate relative ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10"
                                 data-testid={`article-row-${parent.id}`}
                               >
-                                <div className="absolute top-4 right-20">
-                                  <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-background">
-                                    Timeline Parent
+                                {/* Timeline Badge - Moved to top-left to avoid overlap */}
+                                <div className="absolute top-2 left-2">
+                                  <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-background text-xs">
+                                    Timeline
                                   </Badge>
                                 </div>
                                 <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">

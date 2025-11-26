@@ -138,20 +138,16 @@ export const TAG_DEFINITIONS: TagDefinition[] = [
 
     // 3. News Topic Categories
     // 3.1 Core News Sections
+    // NOTE: Removed 'Tourism', 'Crime', 'Politics', 'Weather', 'Traffic', 'Business', 'Economy' tags
+    // to avoid overlap with categories per SEO best practices
     { name: 'Breaking News', keywords: ['breaking news'], type: 'topic' },
     { name: 'Local News', keywords: ['local news'], type: 'topic' },
     { name: 'Community', keywords: ['community', 'community news'], type: 'topic' },
-    { name: 'Business', keywords: ['business', 'business news'], type: 'topic' },
-    { name: 'Tourism', keywords: ['tourism', 'tourism news'], type: 'topic' },
     { name: 'Environment', keywords: ['environment', 'environment news'], type: 'topic' },
     { name: 'Health', keywords: ['health', 'health news'], type: 'topic' },
     { name: 'Education', keywords: ['education', 'education news'], type: 'topic' },
-    { name: 'Crime', keywords: ['crime', 'crime news'], type: 'topic', priority: 2 },
     { name: 'Court News', keywords: ['court news', 'court case'], type: 'topic' },
-    { name: 'Politics', keywords: ['politics'], type: 'topic' },
     { name: 'Infrastructure', keywords: ['infrastructure'], type: 'topic' },
-    { name: 'Weather', keywords: ['weather'], type: 'topic' },
-    { name: 'Traffic', keywords: ['traffic', 'transport'], type: 'topic' },
     { name: 'Immigration', keywords: ['immigration', 'visa'], type: 'topic' },
     { name: 'Marine', keywords: ['marine', 'maritime'], type: 'topic' },
 
@@ -170,12 +166,11 @@ export const TAG_DEFINITIONS: TagDefinition[] = [
     { name: 'Expats', keywords: ['expats', 'digital nomads', 'retirement'], type: 'topic' },
     { name: 'Cost of Living', keywords: ['cost of living'], type: 'topic' },
 
-    // 3.3 Business & Economy
+    // 3.3 Business & Economy (Note: removed 'Economy' tag as it duplicates category)
     { name: 'Real Estate', keywords: ['real estate', 'property market', 'condos', 'land'], type: 'topic' },
     { name: 'Construction', keywords: ['construction'], type: 'topic' },
     { name: 'Investment', keywords: ['investment'], type: 'topic' },
     { name: 'Aviation', keywords: ['aviation', 'airlines'], type: 'topic' },
-    { name: 'Economy', keywords: ['economy'], type: 'topic' },
     { name: 'Banking', keywords: ['banking', 'cryptocurrency'], type: 'topic' },
 
     // 3.4 Society & Community
