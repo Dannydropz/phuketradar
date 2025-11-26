@@ -387,6 +387,36 @@ export class TimelineService {
     }
 
     /**
+     * Group similar keywords to avoid counting "flood", "floods", "flooding" as 3 matches
+     * Returns array of groups with a representative keyword
+     */
+    private groupSimilarKeywords(tags: string[]): Array<{ representative: string; keywords: string[] }> {
+        const groups: Map<string, string[]> = new Map();
+
+        for (const tag of tags) {
+            const normalized = tag.toLowerCase().trim();
+
+            // Find root form (stem) by removing common suffixes
+            let stem = normalized
+                .replace(/s$/, '')        // floods → flood
+                .replace(/ing$/, '')      // flooding → flood
+                .replace(/ed$/, '');      // flooded → flood
+
+            // Group by stem
+            if (!groups.has(stem)) {
+                groups.set(stem, []);
+            }
+            groups.get(stem)!.push(tag);
+        }
+
+        // Convert to array format with representative (shortest) keyword
+        return Array.from(groups.entries()).map(([stem, keywords]) => ({
+            representative: keywords.sort((a, b) => a.length - b.length)[0], // Use shortest as representative
+            keywords
+        }));
+    }
+
+    /**
      * Delete an entire timeline (removes all articles from series)
      */
     async deleteTimeline(seriesId: string): Promise<void> {
