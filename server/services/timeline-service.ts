@@ -323,6 +323,9 @@ export class TimelineService {
         const titleLower = article.title.toLowerCase();
         const contentLower = article.content.toLowerCase();
 
+        console.log(`🔍 [AUTO-MATCH] Article title (lowercase): "${titleLower.substring(0, 80)}..."`);
+        console.log(`🔍 [AUTO-MATCH] Article content length: ${contentLower.length} chars`);
+
         for (const timeline of activeTimelines) {
             if (!timeline.timelineTags || timeline.timelineTags.length === 0) {
                 console.log(`⚠️ [AUTO-MATCH] Timeline "${timeline.storySeriesTitle}" has no tags - skipping`);
@@ -332,13 +335,26 @@ export class TimelineService {
             console.log(`🔍 [AUTO-MATCH] Checking timeline: "${timeline.storySeriesTitle}" with tags: [${timeline.timelineTags.join(", ")}]`);
 
             // Check if any tag matches
+            const matchResults: string[] = [];
             const hasMatch = timeline.timelineTags.some(tag => {
                 const tagLower = tag.toLowerCase();
-                return titleLower.includes(tagLower) || contentLower.includes(tagLower);
+                const inTitle = titleLower.includes(tagLower);
+                const inContent = contentLower.includes(tagLower);
+
+                if (inTitle || inContent) {
+                    matchResults.push(`✅ "${tag}" found in ${inTitle ? 'title' : 'content'}`);
+                } else {
+                    matchResults.push(`❌ "${tag}" not found`);
+                }
+
+                return inTitle || inContent;
             });
 
+            // Log all tag check results
+            matchResults.forEach(result => console.log(`     ${result}`));
+
             if (hasMatch && timeline.seriesId) {
-                console.log(`✅ [AUTO-MATCH SUCCESS] Matched to timeline "${timeline.storySeriesTitle}" via tags: ${timeline.timelineTags.join(", ")}`);
+                console.log(`✅ [AUTO-MATCH SUCCESS] Matched to timeline "${timeline.storySeriesTitle}"`);
                 return timeline.seriesId;
             }
         }

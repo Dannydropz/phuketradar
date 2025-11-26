@@ -541,10 +541,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 contentEmbedding = await translatorService.generateEmbeddingFromContent(post.title, post.content);
 
                 // STEP 2.5: Hybrid semantic duplicate detection (Option D)
-                // Stage 1: Fast embedding similarity check (50% threshold) - much lower to catch more potential duplicates
-                // Stage 2: GPT verification for ANY similarity ≥50%
-                // Stage 3: Safety net - GPT checks top 5 similar stories even if <50%
-                const initialThreshold = 0.50; // Lowered from 70% to catch duplicates with different wording
+                // Stage 1: Fast embedding similarity check (55% threshold) - optimized to reduce false positive GPT checks
+                // Stage 2: GPT verification for ANY similarity ≥55%
+                // Stage 3: Safety net - GPT checks top 2 similar stories if 35-55% (skips if <35%)
+                const initialThreshold = 0.55; // Optimized: 55% catches real duplicates, reduces false positive GPT checks
 
                 const duplicateCheck = checkSemanticDuplicate(contentEmbedding, existingEmbeddings, initialThreshold);
 
@@ -574,8 +574,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     return;
                   }
 
-                  // If similarity is >=85%, it's an obvious duplicate - skip immediately
-                  if (duplicateCheck.similarity >= 0.85) {
+                  // If similarity is >=80%, it's an obvious duplicate - skip immediately
+                  if (duplicateCheck.similarity >= 0.80) {
                     skippedSemanticDuplicates++;
                     skipReasons.push({
                       reason: "Duplicate: High semantic similarity (full content)",
@@ -600,7 +600,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     return;
                   }
 
-                  // If similarity is ≥50%, use GPT to verify (lowered from 70-85% to catch more duplicates)
+                  // If similarity is ≥55%, use GPT to verify (optimized threshold to reduce false positive checks)
                   // This catches duplicates with different headlines but similar content
                   console.log(`\n🤔 POTENTIAL DUPLICATE DETECTED (${similarityPercent.toFixed(1)}%) - Using GPT to analyze full content...`);
                   console.log(`   New title: ${post.title.substring(0, 60)}...`);
@@ -658,63 +658,66 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     // Fall through to translation
                   }
                 } else {
-                  // Similarity is <50% - run SAFETY NET
-                  // Check top 5 most similar articles with GPT to catch edge cases
-                  // where embeddings don't capture semantic similarity well
-                  console.log(`\n🛡️ SAFETY NET: Similarity below 50% (${(duplicateCheck.similarity * 100).toFixed(1)}%) - Checking top 5 similar stories...`);
+                  // Similarity is <55% - run SAFETY NET (only if worth checking)
+                  // Skip safety net if similarity is very low (<35%) - not worth the GPT cost
+                  if (duplicateCheck.similarity >= 0.35) {
+                    console.log(`\n🛡️ SAFETY NET: Similarity ${(duplicateCheck.similarity * 100).toFixed(1)}% - Checking top 2 similar stories...`);
 
-                  const topSimilar = getTopSimilarArticles(contentEmbedding, existingEmbeddings, 5);
+                    const topSimilar = getTopSimilarArticles(contentEmbedding, existingEmbeddings, 2);
 
-                  if (topSimilar.length > 0) {
-                    console.log(`   Found ${topSimilar.length} stories to check`);
+                    if (topSimilar.length > 0) {
+                      console.log(`   Found ${topSimilar.length} stories to check`);
 
-                    // Check each of the top 5 with GPT
-                    let duplicateFoundInSafetyNet = false;
-                    for (const similar of topSimilar) {
-                      const simPercent = (similar.similarity * 100).toFixed(1);
-                      console.log(`   Checking against story with ${simPercent}% similarity...`);
+                      // Check each of the top 5 with GPT
+                      let duplicateFoundInSafetyNet = false;
+                      for (const similar of topSimilar) {
+                        const simPercent = (similar.similarity * 100).toFixed(1);
+                        console.log(`   Checking against story with ${simPercent}% similarity...`);
 
-                      const safetyVerification = await duplicateVerifier.verifyDuplicate(
-                        post.title,
-                        post.content,
-                        similar.title,
-                        similar.content,
-                        similar.similarity
-                      );
+                        const safetyVerification = await duplicateVerifier.verifyDuplicate(
+                          post.title,
+                          post.content,
+                          similar.title,
+                          similar.content,
+                          similar.similarity
+                        );
 
-                      if (safetyVerification.isDuplicate) {
-                        skippedSemanticDuplicates++;
-                        skipReasons.push({
-                          reason: "Duplicate: Caught by safety net (GPT verification)",
-                          postTitle: post.title.substring(0, 60),
-                          sourceUrl: post.sourceUrl,
-                          facebookPostId: post.facebookPostId,
-                          details: `Embedding: ${simPercent}%, GPT confidence: ${(safetyVerification.confidence * 100).toFixed(0)}%`
-                        });
-                        console.log(`\n🚫 DUPLICATE CAUGHT BY SAFETY NET!`);
-                        console.log(`   GPT confidence: ${(safetyVerification.confidence * 100).toFixed(0)}%`);
-                        console.log(`   Reasoning: ${safetyVerification.reasoning}`);
-                        console.log(`   ✅ Skipped before translation (saved API credits)\n`);
-
-                        if (callbacks?.onProgress) {
-                          callbacks.onProgress({
-                            totalPosts,
-                            processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                            createdArticles: createdCount,
-                            skippedNotNews,
+                        if (safetyVerification.isDuplicate) {
+                          skippedSemanticDuplicates++;
+                          skipReasons.push({
+                            reason: "Duplicate: Caught by safety net (GPT verification)",
+                            postTitle: post.title.substring(0, 60),
+                            sourceUrl: post.sourceUrl,
+                            facebookPostId: post.facebookPostId,
+                            details: `Embedding: ${simPercent}%, GPT confidence: ${(safetyVerification.confidence * 100).toFixed(0)}%`
                           });
+                          console.log(`\n🚫 DUPLICATE CAUGHT BY SAFETY NET!`);
+                          console.log(`   GPT confidence: ${(safetyVerification.confidence * 100).toFixed(0)}%`);
+                          console.log(`   Reasoning: ${safetyVerification.reasoning}`);
+                          console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+
+                          if (callbacks?.onProgress) {
+                            callbacks.onProgress({
+                              totalPosts,
+                              processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                              createdArticles: createdCount,
+                              skippedNotNews,
+                            });
+                          }
+
+                          duplicateFoundInSafetyNet = true;
+                          break;
                         }
-
-                        duplicateFoundInSafetyNet = true;
-                        break;
                       }
-                    }
 
-                    if (duplicateFoundInSafetyNet) {
-                      return; // Skip this post, duplicate found by safety net
-                    }
+                      if (duplicateFoundInSafetyNet) {
+                        return; // Skip this post, duplicate found by safety net
+                      }
 
-                    console.log(`   ✅ Safety net passed - not a duplicate of top similar stories`);
+                      console.log(`   ✅ Safety net passed - not a duplicate of top similar stories`);
+                    }
+                  } else {
+                    console.log(`   ⚡ Similarity very low (${(duplicateCheck.similarity * 100).toFixed(1)}%) - skipping safety net (cost optimization)`);
                   }
                 }
               } catch (embeddingError) {
@@ -1034,7 +1037,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   !isReallyPostedToInstagram &&
                   hasImage &&
                   !article.isManuallyCreated; // Don't auto-post manually created articles
-
+ 
                 if (shouldAutoPostToInstagram) {
                   try {
                     const igResult = await postArticleToInstagram(article, storage);
@@ -1061,7 +1064,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
                   console.log(`⏭️  Skipping auto-post to Instagram (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
                 }
-
+ 
                 // Auto-post to Threads after Instagram (only for high-interest stories score >= 4)
                 // Manually created articles are NEVER auto-posted regardless of interest score
                 const isReallyPostedToThreads = article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:');
@@ -1071,7 +1074,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   !isReallyPostedToThreads &&
                   hasImage &&
                   !article.isManuallyCreated; // Don't auto-post manually created articles
-
+ 
                 if (shouldAutoPostToThreads) {
                   try {
                     const threadsResult = await postArticleToThreads(article, storage);
