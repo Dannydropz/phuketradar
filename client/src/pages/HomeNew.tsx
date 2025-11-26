@@ -6,6 +6,7 @@ import { SearchDialog } from "@/components/SearchDialog";
 import { formatDistanceToNow } from "date-fns";
 import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
+import { ArticleImage } from "@/components/ArticleImage";
 
 import logoWhite from "@assets/logo-white-transparent.png";
 
