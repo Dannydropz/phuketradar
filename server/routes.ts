@@ -853,6 +853,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
 
+      // CRITICAL FIX: Sanitize timeline tags to ensure they're separate array elements
+      if (updates.timelineTags) {
+        console.log(`📝 [PATCH ARTICLE] Raw timelineTags received:`, updates.timeline Tags);
+        console.log(`   Type: ${typeof updates.timelineTags}, isArray: ${Array.isArray(updates.timelineTags)}`);
+
+        // Ensure each tag is trimmed and separate
+        if (Array.isArray(updates.timelineTags)) {
+          updates.timelineTags = updates.timelineTags
+            .flatMap(tag => {
+              // If a tag contains commas, split it
+              if (typeof tag === 'string' && tag.includes(',')) {
+                return tag.split(',').map(t => t.trim()).filter(t => t.length > 0);
+              }
+              return typeof tag === 'string' ? tag.trim() : tag;
+            })
+            .filter(tag => tag && tag.length > 0);
+
+          console.log(`   Sanitized to: [${updates.timelineTags.join(', ')}] (${updates.timelineTags.length} separate tags)`);
+        }
+      }
+
       const article = await storage.updateArticle(id, updates);
 
       if (!article) {
