@@ -322,9 +322,13 @@ export class TimelineService {
 
         const titleLower = article.title.toLowerCase();
         const contentLower = article.content.toLowerCase();
+        // Also check original Thai text for better coverage
+        const originalTitleLower = (article.originalTitle || '').toLowerCase();
+        const originalContentLower = (article.originalContent || '').toLowerCase();
 
         console.log(`🔍 [AUTO-MATCH] Article title (lowercase): "${titleLower.substring(0, 80)}..."`);
         console.log(`🔍 [AUTO-MATCH] Article content length: ${contentLower.length} chars`);
+        console.log(`🔍 [AUTO-MATCH] Also checking original Thai text: ${originalTitleLower ? 'Yes' : 'No'}`);
 
         for (const timeline of activeTimelines) {
             if (!timeline.timelineTags || timeline.timelineTags.length === 0) {
@@ -338,7 +342,7 @@ export class TimelineService {
                 console.log(`⚠️ [AUTO-MATCH] Tags stored as STRING, not array! Converting...`);
                 console.log(`   Raw value: "${timeline.timelineTags}"`);
                 // Split by comma and trim
-                tagsArray = timeline.timelineTags.split(',').map(t => t.trim());
+                tagsArray = (timeline.timelineTags as string).split(',').map((t: string) => t.trim());
             } else if (Array.isArray(timeline.timelineTags)) {
                 tagsArray = timeline.timelineTags;
             } else {
@@ -348,20 +352,25 @@ export class TimelineService {
 
             console.log(`🔍 [AUTO-MATCH] Checking timeline: "${timeline.storySeriesTitle}" with ${tagsArray.length} tags: [${tagsArray.join(", ")}]`);
 
-            // Check if any tag matches
+            // Check if any tag matches (check both English and Thai/original text)
             const matchResults: string[] = [];
             const hasMatch = tagsArray.some(tag => {
                 const tagLower = tag.toLowerCase();
                 const inTitle = titleLower.includes(tagLower);
                 const inContent = contentLower.includes(tagLower);
+                const inOriginalTitle = originalTitleLower.includes(tagLower);
+                const inOriginalContent = originalContentLower.includes(tagLower);
 
-                if (inTitle || inContent) {
-                    matchResults.push(`✅ "${tag}" found in ${inTitle ? 'title' : 'content'}`);
+                const found = inTitle || inContent || inOriginalTitle || inOriginalContent;
+
+                if (found) {
+                    const location = inTitle ? 'title' : inContent ? 'content' : inOriginalTitle ? 'Thai title' : 'Thai content';
+                    matchResults.push(`✅ "${tag}" found in ${location}`);
                 } else {
                     matchResults.push(`❌ "${tag}" not found`);
                 }
 
-                return inTitle || inContent;
+                return found;
             });
 
             // Log all tag check results
