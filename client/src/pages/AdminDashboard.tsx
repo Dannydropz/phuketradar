@@ -160,19 +160,41 @@ export default function AdminDashboard() {
     return () => clearInterval(pollInterval);
   }, [currentJob?.id, currentJob?.status, toast]);
 
-  // Facebook posting mutation
+  // Post to Facebook mutation
   const postToFacebookMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/admin/articles/${id}/facebook`);
+    mutationFn: async (articleId: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${articleId}/facebook`);
       return await res.json();
     },
-    onSuccess: (data, id) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
       toast({
         title: "Posted to Facebook",
-        description: data.facebookPostUrl
-          ? "The article has been posted to Facebook"
-          : "The article is being processed for Facebook",
+        description: "Article has been posted to Facebook successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Post",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Post timeline child to Facebook with parent link
+  const postTimelineChildMutation = useMutation({
+    mutationFn: async ({ articleId, parentId }: { articleId: string; parentId: string }) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${articleId}/facebook-timeline`, {
+        parentStoryId: parentId,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Posted to Facebook",
+        description: "Timeline update posted with parent link",
       });
     },
     onError: (error: Error) => {
@@ -410,6 +432,13 @@ export default function AdminDashboard() {
     setEditorOpen(true);
     // Refetch categories to ensure they're loaded
     refetchCategories();
+  };
+
+  const handlePostTimelineChildToFacebook = (child: Article, parent: Article) => {
+    postTimelineChildMutation.mutate({
+      articleId: child.id,
+      parentId: parent.id,
+    });
   };
 
   const handleSaveArticle = async (data: {
@@ -897,6 +926,11 @@ export default function AdminDashboard() {
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 mb-1">
                                             <Badge variant="secondary" className="text-[10px] h-5">Update</Badge>
+                                            {child.interestScore && (
+                                              <Badge variant="outline" className="text-[10px] h-5">
+                                                {child.interestScore}/5
+                                              </Badge>
+                                            )}
                                             <span className="text-xs text-muted-foreground">
                                               {formatDistanceToNow(new Date(child.publishedAt), { addSuffix: true })}
                                             </span>
@@ -904,32 +938,25 @@ export default function AdminDashboard() {
                                           <h4 className="font-medium text-sm mb-1">{child.title}</h4>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-1">
-                                        {child.isPublished && !child.facebookPostId && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-blue-600 hover:text-blue-700"
-                                                onClick={() => postToFacebookMutation.mutate(child.id)}
-                                                disabled={postToFacebookMutation.isPending}
-                                              >
-                                                <Facebook className="w-3 h-3" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              Post to Facebook
-                                            </TooltipContent>
-                                          </Tooltip>
+                                      <div className="flex items-center gap-2 justify-end md:justify-start">
+                                        {/* Facebook Post Button for Timeline Child */}
+                                        {child.imageUrl && !child.facebookPostId && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePostTimelineChildToFacebook(child, parent)}
+                                            className="h-7 px-2 text-xs"
+                                          >
+                                            <Facebook className="w-3 h-3 mr-1" />
+                                            Post Update
+                                          </Button>
                                         )}
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8"
                                           onClick={() => handleEditArticle(child)}
                                         >
-                                          <Edit className="w-3 h-3" />
+                                          <Edit className="w-4 h-4" />
                                         </Button>
                                       </div>
                                     </div>
@@ -1108,7 +1135,7 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
-          </Card>
+          </Card >
         </div>
       </main>
       <Footer />

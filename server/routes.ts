@@ -666,6 +666,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post article to Facebook - PROTECTED
+  app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await postArticleToFacebook(id, storage);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error posting to Facebook:", error);
+      res.status(500).json({ error: error?.message || "Failed to post to Facebook" });
+    }
+  });
+
+  // Post timeline child article to Facebook with parent link - PROTECTED
+  app.post("/api/admin/articles/:id/facebook-timeline", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { parentStoryId } = req.body;
+
+      if (!parentStoryId) {
+        return res.status(400).json({ error: "parentStoryId is required" });
+      }
+
+      // Get parent story to build URL and title
+      const parent = await storage.getArticle(parentStoryId);
+      if (!parent) {
+        return res.status(404).json({ error: "Parent story not found" });
+      }
+
+      // Build parent URL
+      const baseUrl = "https://phuketradar.com";
+      const parentUrl = `${baseUrl}/${parent.category}/${parent.slug}`;
+
+      // Post the child article to Facebook
+      const result = await postArticleToFacebook(id, storage);
+
+      // Add first comment linking to parent timeline
+      if (result.facebookPostId && process.env.FACEBOOK_PAGE_ACCESS_TOKEN) {
+        try {
+          const commentText = `📰 Latest update in: ${parent.storySeriesTitle || parent.title}\n👉 ${parentUrl}`;
+
+          const commentResponse = await fetch(
+            `https://graph.facebook.com/v18.0/${result.facebookPostId}/comments`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                message: commentText,
+                access_token: process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
+              }),
+            }
+          );
+
+          if (!commentResponse.ok) {
+            console.error("Failed to add comment to Facebook post");
+          } else {
+            console.log(`✅ Added parent timeline link comment to Facebook post`);
+          }
+        } catch (commentError) {
+          console.error("Error adding comment:", commentError);
+          // Don't fail the whole request if comment fails
+        }
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error posting timeline child to Facebook:", error);
+      res.status(500).json({ error: error?.message || "Failed to post to Facebook" });
+    }
+  });
+
   // Get all categories - PROTECTED
   app.get("/api/admin/categories", requireAdminAuth, async (req, res) => {
     try {
