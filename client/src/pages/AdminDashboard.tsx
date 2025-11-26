@@ -807,8 +807,8 @@ export default function AdminDashboard() {
                                 className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4 p-4 border-2 border-orange-500/30 bg-orange-500/5 rounded-lg hover-elevate relative ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10"
                                 data-testid={`article-row-${parent.id}`}
                               >
-                                {/* Timeline Badge - Moved to top-left to avoid overlap */}
-                                <div className="absolute top-2 left-2">
+                                {/* Timeline Badge - Right side with spacing from buttons */}
+                                <div className="absolute top-2 right-14 md:right-16">
                                   <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-background text-xs">
                                     Timeline
                                   </Badge>
