@@ -146,8 +146,15 @@ Content: ${params.content}
 AVAILABLE LOCAL CONTEXT (Use this to add depth):
 ${contextMapString}
 
+CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
+- **DATELINE = EVENT LOCATION, NOT PERSON'S ORIGIN:** If "KB Jetski Phuket team helps in Songkhla floods", the dateline should be "**SONGKHLA –**" or "**HAT YAI, SONGKHLA –**" (where the event is), NOT "**PHUKET TOWN –**" (where the team is from).
+- **DO NOT HALLUCINATE PHUKET:** If the event is in Hat Yai, Bangkok, Songkhla, or any other location, DO NOT use a Phuket dateline.
+- **PERSON'S ORIGIN ≠ EVENT LOCATION:** Just because someone is FROM Phuket does not mean the event HAPPENED in Phuket.
+- **READ THE CATEGORY:** If the category is "National", the event is likely NOT in Phuket.
+- **VERIFY BEFORE WRITING:** Look at the content - does it mention specific non-Phuket cities, provinces, or landmarks? If yes, use THAT location in the dateline.
+
 STRICT WRITING GUIDELINES:
-1. **DATELINE:** Start the article with a dateline in bold caps. E.g., "**PATONG, PHUKET –**" or "**PHUKET TOWN –**".
+1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events.
 2. **LEDE PARAGRAPH:** Write a powerful, summary lede that answers Who, What, Where, When, and Why in the first sentence.
 3. **TONE:** Professional, objective, and authoritative. Avoid "police speak" (e.g., change "proceeded to the scene" to "rushed to the scene"). Use active voice.
 4. **STRUCTURE:**

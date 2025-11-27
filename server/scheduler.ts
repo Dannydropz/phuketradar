@@ -894,7 +894,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   };
 
                   // Auto-detect tags from translated title and content
-                  articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent);
+                  // Pass category to exclude Phuket location tags from National stories
+                  articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
 
                   // STEP 5.7: Check for duplicates and merge if found (NEW Second Pass Enrichment System)
                   const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
