@@ -937,25 +937,29 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
                   createdCount++;
 
-                  // STEP 6: Check for timeline auto-match
+                  // STEP 6: Check for timeline auto-match with smart keyword counting
                   try {
                     const { getTimelineService } = await import("./services/timeline-service");
                     const timelineService = getTimelineService(storage);
-                    const matchingSeriesId = await timelineService.findMatchingTimeline(article);
+                    const matchResult = await timelineService.findMatchingTimeline(article);
 
-                    if (matchingSeriesId) {
-                      // Add to timeline and flag for review
-                      await timelineService.addArticleToTimeline(article.id, matchingSeriesId);
+                    if (matchResult.matched && matchResult.seriesId) {
+                      // Add to timeline
+                      await timelineService.addArticleToTimeline(article.id, matchResult.seriesId);
 
-                      // Flag for review as requested by user
+                      // Smart publishing decision based on keyword count
+                      const isPublished = matchResult.shouldAutoPublish; // 2+ keywords = auto-publish, 1 = draft
+                      const needsReview = !matchResult.shouldAutoPublish; // Only flag review for 1-keyword matches
+
                       await storage.updateArticle(article.id, {
-                        needsReview: true,
-                        reviewReason: `Auto-matched to timeline via tags`,
-                        isPublished: false // Draft until reviewed
+                        needsReview,
+                        reviewReason: needsReview ? `Auto-matched to timeline with ${matchResult.matchCount} keyword (needs review)` : undefined,
+                        isPublished
                       });
 
-                      console.log(`🔗 AUTO-MATCHED to timeline: ${matchingSeriesId}`);
-                      console.log(`   ⚠️  Flagged for review (saved as draft)`);
+                      console.log(`🔗 AUTO-MATCHED to timeline: ${matchResult.seriesId}`);
+                      console.log(`   📊 Matched ${matchResult.matchCount} unique keyword(s): [${matchResult.matchedKeywords.join(', ')}]`);
+                      console.log(`   ${isPublished ? '\u2705 AUTO-PUBLISHED (2+ keywords)' : '\u26a0\ufe0f  DRAFT + REVIEW (1 keyword)'}\n`);
 
                       // If it was counted as published, correct the count
                       if (article.isPublished) {

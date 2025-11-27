@@ -27,6 +27,17 @@ export interface TimelineSuggestion {
     reasoning: string;
 }
 
+/**
+ * Result of timeline auto-match with smart keyword counting
+ */
+export interface AutoMatchResult {
+    matched: boolean;
+    seriesId: string | null;
+    matchedKeywords: string[];  // Which unique keyword groups matched
+    matchCount: number;          // Number of unique keyword groups
+    shouldAutoPublish: boolean;  // true if 2+, false if 1
+}
+
 export class TimelineService {
     constructor(private storage: IStorage) { }
 
@@ -297,8 +308,10 @@ export class TimelineService {
 
     /**
      * Find a matching timeline for a new article based on tags
+     * Uses smart keyword grouping to avoid counting variations (flood/floods/flooding) as multiple matches
+     * Returns detailed match information for publish vs draft decision
      */
-    async findMatchingTimeline(article: Article): Promise<string | null> {
+    async findMatchingTimeline(article: Article): Promise<AutoMatchResult> {
         console.log(`🔍 [AUTO-MATCH BEGIN] Checking article: "${article.title.substring(0, 60)}..."`);
 
         // Get all active timelines that have auto-match enabled
@@ -317,7 +330,13 @@ export class TimelineService {
 
         if (activeTimelines.length === 0) {
             console.log(`⚠️ [AUTO-MATCH] No timelines with auto-match enabled - skipping`);
-            return null;
+            return {
+                matched: false,
+                seriesId: null,
+                matchedKeywords: [],
+                matchCount: 0,
+                shouldAutoPublish: false
+            };
         }
 
         const titleLower = article.title.toLowerCase();
@@ -352,38 +371,70 @@ export class TimelineService {
 
             console.log(`🔍 [AUTO-MATCH] Checking timeline: "${timeline.storySeriesTitle}" with ${tagsArray.length} tags: [${tagsArray.join(", ")}]`);
 
-            // Check if any tag matches (check both English and Thai/original text)
+            // Group keywords to avoid counting flood/floods/flooding as 3 matches
+            const keywordGroups = this.groupSimilarKeywords(tagsArray);
+            console.log(`   Grouped into ${keywordGroups.length} unique keyword groups`);
+
+            // Track which UNIQUE keyword groups matched
+            const matchedGroups: string[] = [];
             const matchResults: string[] = [];
-            const hasMatch = tagsArray.some(tag => {
-                const tagLower = tag.toLowerCase();
-                const inTitle = titleLower.includes(tagLower);
-                const inContent = contentLower.includes(tagLower);
-                const inOriginalTitle = originalTitleLower.includes(tagLower);
-                const inOriginalContent = originalContentLower.includes(tagLower);
 
-                const found = inTitle || inContent || inOriginalTitle || inOriginalContent;
+            for (const group of keywordGroups) {
+                let groupMatched = false;
 
-                if (found) {
-                    const location = inTitle ? 'title' : inContent ? 'content' : inOriginalTitle ? 'Thai title' : 'Thai content';
-                    matchResults.push(`✅ "${tag}" found in ${location}`);
-                } else {
-                    matchResults.push(`❌ "${tag}" not found`);
+                // Check if ANY keyword in this group matches
+                for (const tag of group.keywords) {
+                    const tagLower = tag.toLowerCase();
+                    const inTitle = titleLower.includes(tagLower);
+                    const inContent = contentLower.includes(tagLower);
+                    const inOriginalTitle = originalTitleLower.includes(tagLower);
+                    const inOriginalContent = originalContentLower.includes(tagLower);
+
+                    if (inTitle || inContent || inOriginalTitle || inOriginalContent) {
+                        const location = inTitle ? 'title' : inContent ? 'content' : inOriginalTitle ? 'Thai title' : 'Thai content';
+                        matchResults.push(`✅ "${tag}" found in ${location}`);
+                        groupMatched = true;
+                        break; // Stop checking this group once we have a match
+                    }
                 }
 
-                return found;
-            });
+                if (groupMatched) {
+                    matchedGroups.push(group.representative);
+                } else {
+                    matchResults.push(`❌ "${group.representative}" group (${group.keywords.length} variations) not found`);
+                }
+            }
 
-            // Log all tag check results
+            // Log all match results
             matchResults.forEach(result => console.log(`     ${result}`));
 
-            if (hasMatch && timeline.seriesId) {
+            const uniqueMatchCount = matchedGroups.length;
+            console.log(`\n   📊 MATCH SUMMARY: ${uniqueMatchCount} unique keyword groups matched: [${matchedGroups.join(', ')}]`);
+
+            if (uniqueMatchCount > 0 && timeline.seriesId) {
+                const shouldAutoPublish = uniqueMatchCount >= 2;
+
                 console.log(`✅ [AUTO-MATCH SUCCESS] Matched to timeline "${timeline.storySeriesTitle}"`);
-                return timeline.seriesId;
+                console.log(`   Decision: ${shouldAutoPublish ? '✅ AUTO-PUBLISH (2+ keywords)' : '⚠️  DRAFT + REVIEW (1 keyword)'}\n`);
+
+                return {
+                    matched: true,
+                    seriesId: timeline.seriesId,
+                    matchedKeywords: matchedGroups,
+                    matchCount: uniqueMatchCount,
+                    shouldAutoPublish
+                };
             }
         }
 
         console.log(`❌ [AUTO-MATCH] No matching timeline found for: "${article.title.substring(0, 60)}..."`);
-        return null;
+        return {
+            matched: false,
+            seriesId: null,
+            matchedKeywords: [],
+            matchCount: 0,
+            shouldAutoPublish: false
+        };
     }
 
     /**
