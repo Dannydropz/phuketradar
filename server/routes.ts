@@ -666,17 +666,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Post article to Facebook - PROTECTED
-  app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const result = await postArticleToFacebook(id, storage);
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error posting to Facebook:", error);
-      res.status(500).json({ error: error?.message || "Failed to post to Facebook" });
-    }
-  });
 
   // Post timeline child article to Facebook with parent link - PROTECTED
   app.post("/api/admin/articles/:id/facebook-timeline", requireAdminAuth, async (req, res) => {
@@ -688,8 +677,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "parentStoryId is required" });
       }
 
+      // Get child article
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
       // Get parent story to build URL and title
-      const parent = await storage.getArticle(parentStoryId);
+      const parent = await storage.getArticleById(parentStoryId);
       if (!parent) {
         return res.status(404).json({ error: "Parent story not found" });
       }
@@ -699,15 +694,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parentUrl = `${baseUrl}/${parent.category}/${parent.slug}`;
 
       // Post the child article to Facebook
-      const result = await postArticleToFacebook(id, storage);
+      const result = await postArticleToFacebook(article, storage);
 
       // Add first comment linking to parent timeline
-      if (result.facebookPostId && process.env.FACEBOOK_PAGE_ACCESS_TOKEN) {
+      if (result?.postId && process.env.FACEBOOK_PAGE_ACCESS_TOKEN) {
         try {
           const commentText = `📰 Latest update in: ${parent.storySeriesTitle || parent.title}\n👉 ${parentUrl}`;
 
           const commentResponse = await fetch(
-            `https://graph.facebook.com/v18.0/${result.facebookPostId}/comments`,
+            `https://graph.facebook.com/v18.0/${result.postId}/comments`,
             {
               method: "POST",
               headers: {
