@@ -47,12 +47,28 @@ export async function postArticleToFacebook(
   // CRITICAL: Disable all Facebook posting in development environment
   if (process.env.NODE_ENV === "development") {
     console.log(`🚫 [FB-POST] Facebook posting DISABLED in development environment`);
-    console.log(`📘 [FB-POST] Article: ${article.title.substring(0, 60)}... (would post in production)`);
+    console.log(`📘 [FB-POST] Article: ${article.title?.substring(0, 60) ?? 'Untitled'}... (would post in production)`);
     return null;
   }
 
-  console.log(`📘 [FB-POST] Starting Facebook post attempt for article: ${article.title.substring(0, 60)}...`);
+  console.log(`📘 [FB-POST] Starting Facebook post attempt for article: ${article.title?.substring(0, 60) ?? 'Untitled'}...`);
   console.log(`📘 [FB-POST] Article ID: ${article.id}`);
+
+  // Validate required fields
+  if (!article.title) {
+    console.error(`❌ [FB-POST] Article ${article.id} has no title, cannot post to Facebook`);
+    return null;
+  }
+
+  if (!article.excerpt) {
+    console.error(`❌ [FB-POST] Article ${article.id} has no excerpt, cannot post to Facebook`);
+    return null;
+  }
+
+  if (!article.category) {
+    console.error(`❌ [FB-POST] Article ${article.id} has no category, cannot post to Facebook`);
+    return null;
+  }
 
   if (!FB_PAGE_ACCESS_TOKEN) {
     console.error("❌ [FB-POST] FB_PAGE_ACCESS_TOKEN not configured");
