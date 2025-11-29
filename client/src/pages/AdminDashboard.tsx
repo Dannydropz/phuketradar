@@ -1342,7 +1342,7 @@ export default function AdminDashboard() {
               </label>
               <Input
                 id="post-url"
-                placeholder="https://www.facebook.com/share/p/xxx or PhuketInfoCenter"
+                placeholder="PhuketTimeNews (page name works best)"
                 value={manualScrapeUrl}
                 onChange={(e) => setManualScrapeUrl(e.target.value)}
                 onKeyDown={(e) => {
@@ -1353,11 +1353,11 @@ export default function AdminDashboard() {
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground">
-                Enter either a <strong>Facebook page URL</strong> or <strong>share link</strong>. Share links will be automatically resolved.
+                Enter a <strong>Facebook page name</strong> like <code className="bg-muted px-1">PhuketTimeNews</code> or full URL like <code className="bg-muted px-1">facebook.com/PageName</code>
               </p>
               <p className="text-xs text-green-600 dark:text-green-500 flex items-start gap-1 mt-1">
                 <Check className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                <span>Both formats work: <code className="bg-muted px-1">facebook.com/share/p/xxx</code> or <code className="bg-muted px-1">facebook.com/PageName</code></span>
+                <span>Just the page name works! No need for full URLs</span>
               </p>
             </div>
 
@@ -1371,6 +1371,19 @@ export default function AdminDashboard() {
                   <li>Always saved as DRAFT for your review</li>
                   <li>Goes through translation & enrichment</li>
                 </ul>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
+              <div className="text-xs text-blue-900 dark:text-blue-100 space-y-2">
+                <p className="font-medium">💡 Can't find the page name from a share link?</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Open the share URL in your browser</li>
+                  <li>Click any photo to view it full-size</li>
+                  <li>Look at the URL - it will be: <code className="bg-blue-100 dark:bg-blue-900 px-1">facebook.com/<strong>PageName</strong>/posts/...</code></li>
+                  <li>Copy just the <strong>PageName</strong> and paste it here</li>
+                </ol>
+                <p className="text-xs opacity-80 mt-2">Example: <code className="bg-blue-100 dark:bg-blue-900 px-1">PhuketTimeNews</code> or <code className="bg-blue-100 dark:bg-blue-900 px-1">InfoCenterPhuket</code></p>
               </div>
             </div>
 
