@@ -1333,16 +1333,16 @@ export default function AdminDashboard() {
       <Dialog open={manualScrapeDialogOpen} onOpenChange={setManualScrapeDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Manual Post Scrape</DialogTitle>
+            <DialogTitle>Manual Page Scrape</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label htmlFor="post-url" className="text-sm font-medium">
-                Facebook Post URL
+                Facebook Page URL
               </label>
               <Input
                 id="post-url"
-                placeholder="https://www.facebook.com/share/p/..."
+                placeholder="https://www.facebook.com/share/p/xxx or PhuketInfoCenter"
                 value={manualScrapeUrl}
                 onChange={(e) => setManualScrapeUrl(e.target.value)}
                 onKeyDown={(e) => {
@@ -1353,15 +1353,20 @@ export default function AdminDashboard() {
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground">
-                Paste the Facebook post share URL. The post will be scraped, translated, and saved as a draft for review.
+                Enter either a <strong>Facebook page URL</strong> or <strong>share link</strong>. Share links will be automatically resolved.
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-500 flex items-start gap-1 mt-1">
+                <Check className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                <span>Both formats work: <code className="bg-muted px-1">facebook.com/share/p/xxx</code> or <code className="bg-muted px-1">facebook.com/PageName</code></span>
               </p>
             </div>
 
             <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
               <AlertTriangle className="w-4 h-4 mt-0.5 text-yellow-500" />
               <div className="text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Note:</p>
+                <p className="font-medium text-foreground">How it works:</p>
                 <ul className="list-disc list-inside space-y-0.5">
+                  <li>Scrapes latest posts from the page</li>
                   <li>Manual scrapes skip quality & duplicate checks</li>
                   <li>Always saved as DRAFT for your review</li>
                   <li>Goes through translation & enrichment</li>

@@ -135,27 +135,73 @@ export class ScraperService {
     }
   }
 
-  // Convert share URLs and other formats to scrapeable URLs
-  // Returns an array of URL variations to try
-  private normalizeShareUrl(url: string): string[] {
+  // Follow Facebook share URL redirects to get the canonical post URL
+  // Share URLs like /share/p/xxx redirect to the actual post with page name
+  private async resolveShareUrl(url: string): Promise<string[]> {
     const urls: string[] = [];
 
-    // Extract the post ID from share URLs like:
-    // https://www.facebook.com/share/p/1BkUiuMKhr/
-    // https://www.facebook.com/share/18ELbEq7yf/
+    // Check if this is a share URL
     const shareMatch = url.match(/\/share\/(?:p\/)?([A-Za-z0-9]+)/);
-    if (shareMatch) {
-      const shareId = shareMatch[1];
-      console.log(`📝 Detected share URL with ID: ${shareId}`);
-
-      // Try different URL formats for share links
-      urls.push(`https://www.facebook.com/${shareId}`); // Direct ID
-      urls.push(`https://www.facebook.com/permalink.php?story_fbid=${shareId}`); // Permalink format
-      urls.push(url); // Original share URL as fallback
-    } else {
+    if (!shareMatch) {
       // Not a share URL, just use as-is
       urls.push(url);
+      return urls;
     }
+
+    const shareId = shareMatch[1];
+    console.log(`📝 Detected share URL with ID: ${shareId}`);
+    console.log(`🔗 Following redirect to find canonical URL...`);
+
+    try {
+      // Follow the redirect to get the canonical URL
+      const response = await fetch(url, {
+        redirect: 'manual', // Don't auto-follow, we want to see the redirect
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+
+      // Get the redirect location
+      const location = response.headers.get('location');
+
+      if (location) {
+        console.log(`✅ Found redirect to: ${location}`);
+
+        // Extract page name from the canonical URL
+        // Format: https://www.facebook.com/PhuketTimeNews/posts/pfbid...
+        // Or: https://www.facebook.com/PhuketTimeNews/posts/1187471150170392
+        const pageMatch = location.match(/facebook\.com\/([^\/]+)\//);
+
+        if (pageMatch) {
+          const pageName = pageMatch[1];
+          console.log(`✅ Extracted page name: ${pageName}`);
+
+          // Try the page URL (this will scrape recent posts from the page)
+          urls.push(`https://www.facebook.com/${pageName}`);
+
+          // Also try the full canonical URL as fallback
+          urls.push(location);
+        } else {
+          // Couldn't extract page, just use the redirect URL
+          urls.push(location);
+        }
+      } else {
+        console.log(`⚠️  No redirect found, trying alternative formats...`);
+
+        // Fallback: try different URL formats
+        urls.push(`https://www.facebook.com/${shareId}`);
+        urls.push(`https://www.facebook.com/permalink.php?story_fbid=${shareId}`);
+      }
+
+    } catch (error) {
+      console.error(`Error following redirect:`, error);
+      // Fallback to trying different formats
+      urls.push(`https://www.facebook.com/${shareId}`);
+      urls.push(`https://www.facebook.com/permalink.php?story_fbid=${shareId}`);
+    }
+
+    // Always add original URL as last resort
+    urls.push(url);
 
     return urls;
   }
@@ -168,8 +214,8 @@ export class ScraperService {
 
       console.log(`Scraping Facebook page: ${pageUrl}`);
 
-      // Normalize URL - handle share links and other formats
-      const normalizedUrls = this.normalizeShareUrl(pageUrl);
+      // Resolve share URLs by following redirects to get the canonical URL
+      const normalizedUrls = await this.resolveShareUrl(pageUrl);
 
       // Try each URL format until we get results
       for (const url of normalizedUrls) {
