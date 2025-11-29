@@ -62,8 +62,8 @@ export class ImageDownloaderService {
             // Optimize with sharp before upload (optional, but good for bandwidth)
             // Cloudinary can also do this, but resizing locally saves upload time
             const optimizedBuffer = await sharp(buffer)
-                .resize({ width: 1200, withoutEnlargement: true })
-                .webp({ quality: 80 })
+                .resize({ width: 1000, withoutEnlargement: true })
+                .webp({ quality: 75 })
                 .toBuffer();
 
             // Upload to Cloudinary
@@ -120,8 +120,8 @@ export class ImageDownloaderService {
             const filepath = path.join(this.uploadDir, filename);
 
             await sharp(buffer)
-                .resize({ width: 1200, withoutEnlargement: true })
-                .webp({ quality: 80 })
+                .resize({ width: 1000, withoutEnlargement: true })
+                .webp({ quality: 75 })
                 .toFile(filepath);
 
             console.log(`✅ Image saved locally: ${filename}`);

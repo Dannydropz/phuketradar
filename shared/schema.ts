@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, vector } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, vector, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -52,6 +52,8 @@ export const articles = pgTable("articles", {
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),
   interestScore: real("interest_score"),
+  engagementScore: real("engagement_score").default(0),
+  isPostedToFacebook: boolean("is_posted_to_facebook").default(false),
   relatedArticleIds: text("related_article_ids").array(),
   entities: json("entities"),
   sourceName: text("source_name"), // Actual source (e.g., "Phuket Times", "Info Center")
@@ -109,6 +111,50 @@ export const categories = pgTable("categories", {
   isDefault: boolean("is_default").notNull().default(false), // Prevents deletion of core categories
 });
 
+export const articleMetrics = pgTable("article_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  articleId: text("article_id").notNull(),
+  source: text("source").notNull(), // 'google_analytics', 'search_console', 'facebook'
+  metricDate: date("metric_date").notNull(),
+
+  // Google Analytics metrics
+  gaViews: integer("ga_views").default(0),
+  gaAvgTimeOnPage: real("ga_avg_time_on_page").default(0),
+  gaBounceRate: real("ga_bounce_rate").default(0),
+  gaScrollDepth: real("ga_scroll_depth").default(0),
+
+  // Search Console metrics
+  scClicks: integer("sc_clicks").default(0),
+  scImpressions: integer("sc_impressions").default(0),
+  scCtr: real("sc_ctr").default(0),
+  scAvgPosition: real("sc_avg_position").default(0),
+
+  // Social media metrics (Facebook)
+  fbReach: integer("fb_reach").default(0),
+  fbClicks: integer("fb_clicks").default(0),
+  fbEngagement: integer("fb_engagement").default(0),
+  fbCtr: real("fb_ctr").default(0),
+
+  syncedAt: timestamp("synced_at").defaultNow(),
+}, (table) => ({
+  uniqueMetric: index("unique_metric_idx").on(table.articleId, table.source, table.metricDate),
+}));
+
+export const socialMediaAnalytics = pgTable("social_media_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  articleId: text("article_id").notNull(),
+  platform: text("platform").notNull(),
+  postId: text("post_id"),
+  headlineVariant: text("headline_variant"),
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  shares: integer("shares").default(0),
+  reactions: integer("reactions").default(0),
+  comments: integer("comments").default(0),
+  postedAt: timestamp("posted_at").notNull().defaultNow(),
+  lastUpdatedAt: timestamp("last_updated_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -142,6 +188,20 @@ export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
 export type Subscriber = typeof subscribers.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
+
+export const insertArticleMetricsSchema = createInsertSchema(articleMetrics).omit({
+  id: true,
+  syncedAt: true,
+});
+export type InsertArticleMetrics = z.infer<typeof insertArticleMetricsSchema>;
+export type ArticleMetrics = typeof articleMetrics.$inferSelect;
+
+export const insertSocialMediaAnalyticsSchema = createInsertSchema(socialMediaAnalytics).omit({
+  id: true,
+  lastUpdatedAt: true,
+});
+export type InsertSocialMediaAnalytics = z.infer<typeof insertSocialMediaAnalyticsSchema>;
+export type SocialMediaAnalytics = typeof socialMediaAnalytics.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
 export type ArticleListItem = Omit<Article, 'content' | 'embedding' | 'seriesId' | 'storySeriesTitle' | 'isParentStory' | 'seriesUpdateCount'> & {
