@@ -135,6 +135,31 @@ export class ScraperService {
     }
   }
 
+  // Convert share URLs and other formats to scrapeable URLs
+  // Returns an array of URL variations to try
+  private normalizeShareUrl(url: string): string[] {
+    const urls: string[] = [];
+
+    // Extract the post ID from share URLs like:
+    // https://www.facebook.com/share/p/1BkUiuMKhr/
+    // https://www.facebook.com/share/18ELbEq7yf/
+    const shareMatch = url.match(/\/share\/(?:p\/)?([A-Za-z0-9]+)/);
+    if (shareMatch) {
+      const shareId = shareMatch[1];
+      console.log(`📝 Detected share URL with ID: ${shareId}`);
+
+      // Try different URL formats for share links
+      urls.push(`https://www.facebook.com/${shareId}`); // Direct ID
+      urls.push(`https://www.facebook.com/permalink.php?story_fbid=${shareId}`); // Permalink format
+      urls.push(url); // Original share URL as fallback
+    } else {
+      // Not a share URL, just use as-is
+      urls.push(url);
+    }
+
+    return urls;
+  }
+
   async scrapeFacebookPage(pageUrl: string): Promise<ScrapedPost[]> {
     try {
       if (!this.apiKey) {
@@ -143,45 +168,64 @@ export class ScraperService {
 
       console.log(`Scraping Facebook page: ${pageUrl}`);
 
-      // Fetch posts from scrapecreators API
-      const response = await fetch(`${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(pageUrl)}`, {
-        headers: {
-          'x-api-key': this.apiKey
+      // Normalize URL - handle share links and other formats
+      const normalizedUrls = this.normalizeShareUrl(pageUrl);
+
+      // Try each URL format until we get results
+      for (const url of normalizedUrls) {
+        console.log(`Attempting to scrape: ${url}`);
+
+        try {
+          // Fetch posts from scrapecreators API
+          const response = await fetch(`${this.scrapeCreatorsApiUrl}?url=${encodeURIComponent(url)}`, {
+            headers: {
+              'x-api-key': this.apiKey
+            }
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`ScrapeCreators API error (${response.status}) for ${url}:`, errorText);
+            continue; // Try next URL format
+          }
+
+          const data: ScrapeCreatorsResponse = await response.json();
+
+          console.log(`ScrapeCreators returned ${data.posts?.length || 0} posts`);
+
+          // Log first post structure to understand the API response
+          if (data.posts && data.posts.length > 0) {
+            console.log("\n📋 FIRST POST STRUCTURE FROM API:");
+            console.log(JSON.stringify(data.posts[0], null, 2));
+
+            // Log attachment structure if it exists
+            if (data.posts[0].attachments?.data) {
+              console.log("\n📎 ATTACHMENTS STRUCTURE:");
+              console.log(JSON.stringify(data.posts[0].attachments, null, 2));
+            }
+            console.log("\n");
+          }
+
+          if (!data.success || !data.posts || data.posts.length === 0) {
+            console.log(`No posts found for URL format: ${url}`);
+            continue; // Try next URL format
+          }
+
+          // Success! Parse and return the posts
+          const scrapedPosts = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
+          console.log(`✅ Successfully parsed ${scrapedPosts.length} posts from ${url}`);
+          return scrapedPosts;
+
+        } catch (urlError) {
+          console.error(`Error with URL ${url}:`, urlError);
+          continue; // Try next URL format
         }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`ScrapeCreators API error (${response.status}):`, errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ScrapeCreatorsResponse = await response.json();
+      // If we tried all URL formats and got nothing
+      console.log("❌ No posts found with any URL format");
+      return [];
 
-      console.log(`ScrapeCreators returned ${data.posts?.length || 0} posts`);
-
-      // Log first post structure to understand the API response
-      if (data.posts && data.posts.length > 0) {
-        console.log("\n📋 FIRST POST STRUCTURE FROM API:");
-        console.log(JSON.stringify(data.posts[0], null, 2));
-
-        // Log attachment structure if it exists
-        if (data.posts[0].attachments?.data) {
-          console.log("\n📎 ATTACHMENTS STRUCTURE:");
-          console.log(JSON.stringify(data.posts[0].attachments, null, 2));
-        }
-        console.log("\n");
-      }
-
-      if (!data.success || !data.posts || data.posts.length === 0) {
-        console.log("No posts found in response");
-        return [];
-      }
-
-      const scrapedPosts = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
-      console.log(`Successfully parsed ${scrapedPosts.length} posts`);
-
-      return scrapedPosts;
     } catch (error) {
       console.error("Error scraping Facebook page:", error);
       throw new Error("Failed to scrape Facebook page");
