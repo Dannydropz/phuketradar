@@ -1256,6 +1256,274 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   }
 }
 
+/**
+ * Manual scrape of a single Facebook post by URL
+ * 
+ * IMPORTANT: Manual scrapes skip quality/duplicate checks since the admin user
+ * has already vetted the post. Always saves as DRAFT for admin review.
+ * 
+ * @param postUrl - The Facebook post URL to scrape
+ * @param callbacks - Optional progress callbacks
+ * @returns Result object with success status and article (if created)
+ */
+export async function runManualPostScrape(
+  postUrl: string,
+  callbacks?: ScrapeProgressCallback
+): Promise<{
+  success: boolean;
+  message: string;
+  article?: any;
+}> {
+  console.log(`\n🎯 MANUAL SCRAPE - User requested specific post\n`);
+  console.log(`   URL: ${postUrl}`);
+  console.log(`   Note: Skipping quality/duplicate checks (user-requested)\n`);
+
+  try {
+    // Get the scraper service
+    const scraperService = await getScraperService();
+
+    // Update progress - starting
+    if (callbacks?.onProgress) {
+      callbacks.onProgress({
+        totalPosts: 1,
+        processedPosts: 0,
+        createdArticles: 0,
+        skippedNotNews: 0,
+      });
+    }
+
+    // Scrape the individual post
+    let scrapedPosts;
+    try {
+      scrapedPosts = await scraperService.scrapeFacebookPage(postUrl);
+    } catch (scrapeError) {
+      console.error("❌ Error scraping post URL:", scrapeError);
+      return {
+        success: false,
+        message: "Failed to scrape the post. Please check the URL and try again."
+      };
+    }
+
+    if (!scrapedPosts || scrapedPosts.length === 0) {
+      console.log("❌ No posts found at the given URL");
+      return {
+        success: false,
+        message: "No posts found at the given URL. The post may be private or the URL may be incorrect."
+      };
+    }
+
+    // Take the first post (should be the only one for a direct post URL)
+    const post = scrapedPosts[0];
+    console.log(`✅ Post scraped successfully`);
+    console.log(`   Title: ${post.title.substring(0, 60)}...`);
+    console.log(`   Images: ${post.imageUrls?.length || (post.imageUrl ? 1 : 0)}`);
+
+    // Get journalists for assignment
+    const journalists = await storage.getAllJournalists();
+    const getRandomJournalist = () => {
+      return journalists[Math.floor(Math.random() * journalists.length)];
+    };
+
+    // Generate content embedding
+    let contentEmbedding: number[] | undefined;
+    try {
+      contentEmbedding = await translatorService.generateEmbeddingFromContent(post.title, post.content);
+    } catch (embeddingError) {
+      console.error("⚠️  Warning: Could not generate embedding:", embeddingError);
+    }
+
+    // Translate and rewrite the post
+    console.log(`\n📝 Translating content...`);
+    let translation;
+    try {
+      translation = await translatorService.translateAndRewrite(
+        post.title,
+        post.content,
+        contentEmbedding
+      );
+    } catch (translationError) {
+      console.error(`❌ TRANSLATION FAILED:`, translationError);
+      if (callbacks?.onProgress) {
+        callbacks.onProgress({
+          totalPosts: 1,
+          processedPosts: 1,
+          createdArticles: 0,
+          skippedNotNews: 1,
+        });
+      }
+      return {
+        success: false,
+        message: "Translation failed. Please try again."
+      };
+    }
+
+    console.log(`✅ Translation complete`);
+    console.log(`   Category: ${translation.category}`);
+    console.log(`   Interest Score: ${translation.interestScore}/5`);
+
+    // Classify the article
+    const classification = await classificationService.classifyArticle(
+      translation.translatedTitle,
+      translation.excerpt
+    );
+
+    // Download images
+    let localImageUrl = post.imageUrl;
+    let localImageUrls = post.imageUrls;
+
+    try {
+      if (post.imageUrl) {
+        console.log(`\n⬇️  Downloading primary image...`);
+        const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news");
+        if (savedPath) {
+          localImageUrl = savedPath;
+          console.log(`   ✅ Saved to: ${savedPath}`);
+        }
+      }
+
+      if (post.imageUrls && post.imageUrls.length > 0) {
+        console.log(`⬇️  Downloading ${post.imageUrls.length} additional images...`);
+        const savedUrls: string[] = [];
+        for (const url of post.imageUrls) {
+          const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery");
+          if (savedPath) {
+            savedUrls.push(savedPath);
+          } else {
+            savedUrls.push(url);
+          }
+        }
+        localImageUrls = savedUrls;
+        console.log(`   ✅ Downloaded ${savedUrls.length} images`);
+      }
+    } catch (downloadError) {
+      console.error("⚠️  Warning: Error downloading images:", downloadError);
+      console.log("   Continuing with original URLs...");
+    }
+
+    // Prepare article data - ALWAYS SAVE AS DRAFT for manual review
+    const assignedJournalist = getRandomJournalist();
+    const articleData: InsertArticle = {
+      title: translation.translatedTitle,
+      content: translation.translatedContent,
+      excerpt: translation.excerpt,
+      originalTitle: post.title,
+      originalContent: post.content,
+      facebookHeadline: translation.facebookHeadline,
+      imageUrl: localImageUrl || null,
+      imageUrls: localImageUrls || null,
+      imageHash: null,
+      category: translation.category,
+      sourceUrl: post.sourceUrl,
+      sourceName: "Manual Scrape", // Mark as manually scraped
+      sourceFacebookPostId: post.facebookPostId || null,
+      facebookPostId: null,
+      journalistId: assignedJournalist.id,
+      isPublished: false, // ALWAYS DRAFT - admin will review and publish
+      originalLanguage: "th",
+      translatedBy: "openai",
+      embedding: translation.embedding,
+      eventType: classification.eventType,
+      severity: classification.severity,
+      interestScore: translation.interestScore,
+      isDeveloping: translation.isDeveloping || false,
+      entities: null,
+    };
+
+    // Auto-detect tags
+    articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
+
+    // Run enrichment to check for timeline matches and merge opportunities
+    console.log(`\n🔍 Running enrichment check...`);
+    try {
+      const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");
+      const enrichmentCoordinator = new StoryEnrichmentCoordinator();
+      const enrichmentResult = await enrichmentCoordinator.processNewStory(articleData, storage);
+
+      if (enrichmentResult.action === 'merge') {
+        console.log(`🔄 MERGED: Story merged into existing article(s)`);
+        console.log(`   Reason: ${enrichmentResult.reason}`);
+        return {
+          success: true,
+          message: `Post merged into existing story: ${enrichmentResult.reason}`
+        };
+      }
+
+      // Use enriched article data if available
+      if (enrichmentResult.article) {
+        Object.assign(articleData, enrichmentResult.article);
+      }
+    } catch (enrichmentError) {
+      console.error("⚠️  Warning: Enrichment failed:", enrichmentError);
+      console.log("   Continuing without enrichment...");
+    }
+
+    // Create the article
+    let article;
+    try {
+      console.log(`\n💾 Creating article in database...`);
+      article = await storage.createArticle(articleData);
+
+      console.log(`\n✅ SUCCESS: Manual scrape complete!`);
+      console.log(`   Article ID: ${article.id}`);
+      console.log(`   Title: ${article.title}`);
+      console.log(`   Category: ${article.category}`);
+      console.log(`   Status: DRAFT (ready for admin review)`);
+
+      // Check for timeline auto-match
+      try {
+        const { getTimelineService } = await import("./services/timeline-service");
+        const timelineService = getTimelineService(storage);
+        const matchResult = await timelineService.findMatchingTimeline(article);
+
+        if (matchResult.matched && matchResult.seriesId) {
+          await timelineService.addArticleToTimeline(article.id, matchResult.seriesId);
+          console.log(`   🔗 Auto-matched to timeline: ${matchResult.seriesId}`);
+          console.log(`   📊 Matched ${matchResult.matchCount} keyword(s): [${matchResult.matchedKeywords.join(', ')}]`);
+        }
+      } catch (timelineError) {
+        console.error("⚠️  Warning: Timeline auto-match failed:", timelineError);
+      }
+
+      if (callbacks?.onProgress) {
+        callbacks.onProgress({
+          totalPosts: 1,
+          processedPosts: 1,
+          createdArticles: 1,
+          skippedNotNews: 0,
+        });
+      }
+
+      return {
+        success: true,
+        message: `Article created as draft: "${article.title}"`,
+        article
+      };
+    } catch (createError: any) {
+      console.error(`❌ ERROR: Failed to create article in database`, createError);
+
+      // Check for duplicate (even though we skipped the check, database constraint might catch it)
+      if (createError.code === '23505') {
+        return {
+          success: false,
+          message: "This post already exists in the database."
+        };
+      }
+
+      return {
+        success: false,
+        message: `Failed to create article: ${createError.message || 'Unknown error'}`
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error during manual post scrape:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
+
+
 // DISABLED: Auto-execution on direct run
 // This was causing duplicate scrapes when the module was dynamically imported
 // If you need to run the scraper directly, use: node -e "import('./dist/scheduler.js').then(m => m.runScheduledScrape())"

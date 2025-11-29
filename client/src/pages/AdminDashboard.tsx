@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp, Link } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -61,6 +62,8 @@ export default function AdminDashboard() {
   const [bulkTimelineOpen, setBulkTimelineOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [collapsedTimelines, setCollapsedTimelines] = useState<Set<string>>(new Set());
+  const [manualScrapeUrl, setManualScrapeUrl] = useState("");
+  const [manualScrapeDialogOpen, setManualScrapeDialogOpen] = useState(false);
 
   const { data: articles = [], isLoading, error } = useQuery<Article[]>({
     queryKey: ["/api/admin/articles"],
@@ -237,6 +240,39 @@ export default function AdminDashboard() {
     },
   });
 
+  const manualScrapeMutation = useMutation({
+    mutationFn: async (postUrl: string) => {
+      const res = await apiRequest("POST", "/api/admin/scrape/manual", { postUrl });
+      return await res.json();
+    },
+    onSuccess: (data: { jobId: string; message: string }) => {
+      setCurrentJob({
+        id: data.jobId,
+        status: 'pending',
+        startedAt: new Date().toISOString(),
+        progress: {
+          totalPosts: 1,
+          processedPosts: 0,
+          createdArticles: 0,
+          skippedNotNews: 0,
+        },
+      });
+      setManualScrapeDialogOpen(false);
+      setManualScrapeUrl("");
+      toast({
+        title: "Manual Scrape Started",
+        description: "Processing post in background...",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Manual Scrape Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Article> }) => {
       const res = await apiRequest("PATCH", `/api/admin/articles/${id}`, updates);
@@ -365,6 +401,28 @@ export default function AdminDashboard() {
 
   const handleScrape = () => {
     scrapeMutation.mutate();
+  };
+
+  const handleManualScrape = () => {
+    if (!manualScrapeUrl.trim()) {
+      toast({
+        title: "URL Required",
+        description: "Please enter a Facebook post URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!manualScrapeUrl.includes('facebook.com')) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Facebook post URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    manualScrapeMutation.mutate(manualScrapeUrl);
   };
 
   const handleApprove = (id: string) => {
@@ -603,6 +661,18 @@ export default function AdminDashboard() {
                       <span className="hidden md:inline">Scrape New Articles</span>
                     </>
                   )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size={undefined}
+                  onClick={() => setManualScrapeDialogOpen(true)}
+                  disabled={!!(currentJob && currentJob.status !== 'completed' && currentJob.status !== 'failed')}
+                  data-testid="button-manual-scrape"
+                  className="flex-1 md:flex-none h-11 px-4 py-2"
+                  aria-label="Manual Scrape Post"
+                >
+                  <Link className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Scrape Post URL</span>
                 </Button>
               </div>
               {currentJob && (currentJob.status === 'pending' || currentJob.status === 'processing') && (
@@ -1258,6 +1328,78 @@ export default function AdminDashboard() {
         selectedArticles={articles.filter(a => selectedArticles.has(a.id))}
         onSuccess={() => setSelectedArticles(new Set())}
       />
+
+      {/* Manual Scrape Dialog */}
+      <Dialog open={manualScrapeDialogOpen} onOpenChange={setManualScrapeDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Manual Post Scrape</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="post-url" className="text-sm font-medium">
+                Facebook Post URL
+              </label>
+              <Input
+                id="post-url"
+                placeholder="https://www.facebook.com/share/p/..."
+                value={manualScrapeUrl}
+                onChange={(e) => setManualScrapeUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleManualScrape();
+                  }
+                }}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the Facebook post share URL. The post will be scraped, translated, and saved as a draft for review.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
+              <AlertTriangle className="w-4 h-4 mt-0.5 text-yellow-500" />
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Note:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Manual scrapes skip quality & duplicate checks</li>
+                  <li>Always saved as DRAFT for your review</li>
+                  <li>Goes through translation & enrichment</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setManualScrapeDialogOpen(false);
+                  setManualScrapeUrl("");
+                }}
+                disabled={manualScrapeMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleManualScrape}
+                disabled={manualScrapeMutation.isPending || !manualScrapeUrl.trim()}
+              >
+                {manualScrapeMutation.isPending ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Scraping...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Scrape Post
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div >
   );
 }

@@ -24,6 +24,7 @@ import { autoLinkContent } from "./lib/auto-link-content";
 import { getSmartContextStories } from "./services/smart-context";
 import { detectTags } from "./lib/tag-detector";
 import { TAG_DEFINITIONS } from "@shared/core-tags";
+import sharp from "sharp";
 
 // Extend session type
 declare module "express-session" {
@@ -69,7 +70,45 @@ function requireCronAuth(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ error: "Invalid API key" });
 }
 
+import { metaBusinessSuiteService } from "./services/meta-business-suite-client";
+import { googleAnalyticsService } from "./services/google-analytics-client";
+import { googleSearchConsoleService } from "./services/google-search-console-client";
+
 export async function registerRoutes(app: Express): Promise<Server> {
+
+
+  // Sync Facebook Insights
+  app.post("/api/admin/sync-facebook-insights", requireAdminAuth, async (req, res) => {
+    try {
+      const result = await metaBusinessSuiteService.batchUpdatePostInsights(7);
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing Facebook insights:", error);
+      res.status(500).json({ error: "Failed to sync insights" });
+    }
+  });
+
+  // Sync Google Analytics
+  app.post("/api/admin/sync-google-analytics", requireAdminAuth, async (req, res) => {
+    try {
+      const result = await googleAnalyticsService.batchSyncArticleMetrics(7);
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing Google Analytics:", error);
+      res.status(500).json({ error: "Failed to sync analytics" });
+    }
+  });
+
+  // Sync Google Search Console
+  app.post("/api/admin/sync-google-search-console", requireAdminAuth, async (req, res) => {
+    try {
+      const result = await googleSearchConsoleService.batchSyncSearchMetrics(3);
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing Google Search Console:", error);
+      res.status(500).json({ error: "Failed to sync search console" });
+    }
+  });
   // Article routes
 
   // Get all published articles
@@ -914,6 +953,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual scrape of individual post by URL - PROTECTED
+  app.post("/api/admin/scrape/manual", requireAdminAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    const { postUrl } = req.body;
+
+    if (!postUrl) {
+      return res.status(400).json({ error: "Post URL is required" });
+    }
+
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("🎯 MANUAL SCRAPE TRIGGERED 🎯");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: MANUAL (Admin Dashboard)`);
+    console.log(`Post URL: ${postUrl}`);
+    console.log("=".repeat(80) + "\n");
+
+    // Validate URL is a Facebook post
+    if (!postUrl.includes('facebook.com')) {
+      return res.status(400).json({ error: "URL must be a Facebook post" });
+    }
+
+    // Create job and respond immediately
+    const job = scrapeJobManager.createJob();
+    console.log(`Created manual scrape job: ${job.id}`);
+
+    res.json({
+      success: true,
+      jobId: job.id,
+      message: "Manual scrape started in background",
+    });
+
+    // Process in background
+    (async () => {
+      try {
+        scrapeJobManager.updateJob(job.id, { status: 'processing' });
+
+        console.log(`[Job ${job.id}] Starting manual scrape for: ${postUrl}`);
+
+        // Import runManualPostScrape function
+        const { runManualPostScrape } = await import("./scheduler");
+
+        const result = await runManualPostScrape(postUrl, {
+          onProgress: (stats: {
+            totalPosts: number;
+            processedPosts: number;
+            createdArticles: number;
+            skippedNotNews: number;
+          }) => {
+            scrapeJobManager.updateProgress(job.id, {
+              totalPosts: stats.totalPosts,
+              processedPosts: stats.processedPosts,
+              createdArticles: stats.createdArticles,
+              skippedNotNews: stats.skippedNotNews,
+            });
+          },
+        });
+
+        if (result.success) {
+          console.log(`[Job ${job.id}] Manual scrape completed successfully`);
+          if (result.article) {
+            console.log(`[Job ${job.id}] Created article: ${result.article.title.substring(0, 60)}...`);
+          } else {
+            console.log(`[Job ${job.id}] Post was skipped: ${result.message}`);
+          }
+          scrapeJobManager.markCompleted(job.id);
+        } else {
+          console.error(`[Job ${job.id}] Manual scrape failed: ${result.message}`);
+          scrapeJobManager.markFailed(job.id, result.message || "Manual scrape failed");
+        }
+      } catch (error) {
+        console.error(`[Job ${job.id}] MANUAL SCRAPE ERROR:`, error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        scrapeJobManager.markFailed(job.id, errorMessage);
+      }
+    })();
+  });
+
   // Update article (approve/reject/edit) - PROTECTED
   app.patch("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
     try {
@@ -928,14 +1044,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Ensure each tag is trimmed and separate
         if (Array.isArray(updates.timelineTags)) {
           updates.timelineTags = updates.timelineTags
-            .flatMap(tag => {
+            .flatMap((tag: any) => {
               // If a tag contains commas, split it
               if (typeof tag === 'string' && tag.includes(',')) {
-                return tag.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                return tag.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0);
               }
               return typeof tag === 'string' ? tag.trim() : tag;
             })
-            .filter(tag => tag && tag.length > 0);
+            .filter((tag: any) => tag && tag.length > 0);
 
           console.log(`   Sanitized to: [${updates.timelineTags.join(', ')}] (${updates.timelineTags.length} separate tags)`);
         }
@@ -1526,18 +1642,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Image upload endpoint - PROTECTED
-  app.post("/api/admin/upload-image", requireAdminAuth, upload.single('image'), (req, res) => {
+  app.post("/api/admin/upload-image", requireAdminAuth, upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
+      const originalPath = req.file.path;
+      const filenameWithoutExt = path.parse(req.file.filename).name;
+      const newFilename = `${filenameWithoutExt}.webp`;
+      const newPath = path.join(path.dirname(originalPath), newFilename);
+
+      // Optimize image: Resize to max 1200px width and convert to WebP (quality 80)
+      await sharp(originalPath)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toFile(newPath);
+
+      // Delete original file if it's different from the new one
+      if (originalPath !== newPath) {
+        await fs.unlink(originalPath);
+      }
+
       // Generate URL for uploaded image - use relative path for both dev and prod
-      const imageUrl = `/uploads/${req.file.filename}`;
+      const imageUrl = `/uploads/${newFilename}`;
 
       res.json({ imageUrl });
     } catch (error) {
       console.error("Error uploading image:", error);
+      // Clean up file if processing failed
+      if (req.file) {
+        try {
+          await fs.unlink(req.file.path);
+        } catch (e) {
+          // Ignore cleanup error
+        }
+      }
       res.status(500).json({ error: "Failed to upload image" });
     }
   });
