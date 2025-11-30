@@ -1,0 +1,408 @@
+{
+    "name": "Phuket Radar - Facebook Auto-Poster",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 30
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Schedule (Every 30 min)",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT id, title, excerpt, \"facebookHeadline\", \"imageUrl\", \"imageUrls\", category, slug, \"interestScore\"\nFROM articles\nWHERE \"isPublished\" = true\n  AND \"facebookPostId\" IS NULL\n  AND \"interestScore\" >= 4\n  AND \"imageUrl\" IS NOT NULL\n  AND \"isManuallyCreated\" = false\nORDER BY \"publishedAt\" DESC\nLIMIT 5;",
+                "options": {}
+            },
+            "id": "get-articles",
+            "name": "Get Unposted Articles (Score 4-5)",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                470,
+                300
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+                    "name": "Phuket Radar Database"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.length }}",
+                            "operation": "larger",
+                            "value2": 0
+                        }
+                    ]
+                }
+            },
+            "id": "check-has-articles",
+            "name": "Has Articles?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                690,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop-articles",
+            "name": "Loop Over Articles",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                910,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Generate hashtags based on category\nconst item = $input.item.json;\nconst category = item.category || 'Other';\n\nconst categoryHashtags = {\n  'Breaking': ['#PhuketNews', '#ThailandNews', '#BreakingNews'],\n  'Tourism': ['#PhuketTourism', '#ThailandTravel', '#VisitPhuket'],\n  'Business': ['#PhuketBusiness', '#ThailandBusiness', '#PhuketEconomy'],\n  'Events': ['#PhuketEvents', '#ThingsToDoInPhuket', '#PhuketLife'],\n  'Other': ['#PhuketNews', '#Thailand', '#PhuketLife']\n};\n\nconst tags = categoryHashtags[category] || categoryHashtags['Other'];\nconst hashtags = `#Phuket ${tags.join(' ')}`;\n\n// Use facebookHeadline if available, otherwise use title\nconst headline = item.facebookHeadline || item.title;\n\n// Build the post message\nconst postMessage = `${headline}\\n\\n${item.excerpt}\\n\\nWant the full story? Click the link in the first comment below...\\n\\n${hashtags}`;\n\n// Build article URL\nconst baseUrl = 'https://phuketradar.com';\nconst articleUrl = `${baseUrl}/${category.toLowerCase()}/${item.slug}-${item.id}`;\n\n// Determine which images to use\nconst imageUrls = item.imageUrls && item.imageUrls.length > 0 \n  ? item.imageUrls \n  : (item.imageUrl ? [item.imageUrl] : []);\n\nreturn {\n  articleId: item.id,\n  postMessage: postMessage,\n  articleUrl: articleUrl,\n  imageUrls: imageUrls,\n  primaryImageUrl: item.imageUrl,\n  multiImage: imageUrls.length > 1\n};"
+            },
+            "id": "prepare-post-data",
+            "name": "Prepare Post Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1130,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.multiImage }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "check-multi-image",
+            "name": "Multi-Image Post?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1350,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "photo",
+                "operation": "create",
+                "pageId": "={{ $env.FB_PAGE_ID }}",
+                "photoUrl": "={{ $json.primaryImageUrl }}",
+                "additionalFields": {
+                    "message": "={{ $json.postMessage }}"
+                }
+            },
+            "id": "post-single-image",
+            "name": "Post Single Image to Facebook",
+            "type": "n8n-nodes-base.facebook",
+            "typeVersion": 1,
+            "position": [
+                1570,
+                80
+            ],
+            "credentials": {
+                "facebookGraphApi": {
+                    "id": "YOUR_FACEBOOK_CREDENTIAL_ID",
+                    "name": "Facebook Graph API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// For multi-image posts, we need to:\n// 1. Upload each image as unpublished\n// 2. Create a feed post with attached_media\n\nconst imageUrls = $json.imageUrls;\nconst pageId = $env.FB_PAGE_ID;\nconst accessToken = $env.FB_PAGE_ACCESS_TOKEN;\n\nconst photoIds = [];\n\n// Upload each photo unpublished\nfor (let i = 0; i < imageUrls.length; i++) {\n  const imageUrl = imageUrls[i];\n  \n  const response = await $http.request({\n    method: 'POST',\n    url: `https://graph.facebook.com/v18.0/${pageId}/photos`,\n    qs: {\n      access_token: accessToken\n    },\n    body: {\n      url: imageUrl,\n      published: false\n    },\n    json: true\n  });\n  \n  if (response.id) {\n    photoIds.push(response.id);\n  }\n}\n\n// If we have multiple photos, create feed post with attached media\nif (photoIds.length > 1) {\n  const attachedMedia = photoIds.map(id => ({ media_fbid: id }));\n  \n  const feedResponse = await $http.request({\n    method: 'POST',\n    url: `https://graph.facebook.com/v18.0/${pageId}/feed`,\n    qs: {\n      access_token: accessToken,\n      message: $json.postMessage\n    },\n    form: attachedMedia.reduce((acc, media, idx) => {\n      acc[`attached_media[${idx}]`] = JSON.stringify(media);\n      return acc;\n    }, {}),\n  });\n  \n  return {\n    postId: feedResponse.id,\n    articleId: $json.articleId,\n    articleUrl: $json.articleUrl,\n    multiImage: true\n  };\n} else {\n  // Fallback to single image\n  return {\n    ...($json),\n    multiImage: false,\n    shouldFallback: true\n  };\n}"
+            },
+            "id": "post-multi-image",
+            "name": "Post Multi-Image to Facebook",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1570,
+                280
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://graph.facebook.com/v18.0/{{ $json.id }}/comments",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpQueryAuth",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=Read the full story: {{ $('Prepare Post Data').item.json.articleUrl }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "add-comment",
+            "name": "Add Comment with Link",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1790,
+                180
+            ],
+            "credentials": {
+                "httpQueryAuth": {
+                    "id": "YOUR_FB_TOKEN_CREDENTIAL_ID",
+                    "name": "Facebook Access Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://graph.facebook.com/v18.0/{{ $json.id }}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpQueryAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "is_pinned",
+                            "value": "true"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "pin-comment",
+            "name": "Pin Comment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                2010,
+                180
+            ],
+            "credentials": {
+                "httpQueryAuth": {
+                    "id": "YOUR_FB_TOKEN_CREDENTIAL_ID",
+                    "name": "Facebook Access Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=UPDATE articles\nSET \"facebookPostId\" = '{{ $('Add Comment with Link').item.json.postId || $('Post Single Image to Facebook').item.json.post_id || $('Post Single Image to Facebook').item.json.id }}',\n    \"facebookPostUrl\" = 'https://www.facebook.com/{{ ($('Add Comment with Link').item.json.postId || $('Post Single Image to Facebook').item.json.post_id || $('Post Single Image to Facebook').item.json.id).replace('_', '/posts/') }}'\nWHERE id = {{ $('Prepare Post Data').item.json.articleId }};"
+            },
+            "id": "update-article",
+            "name": "Update Article in Database",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                2230,
+                180
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+                    "name": "Phuket Radar Database"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "amount": 5,
+                "unit": "seconds"
+            },
+            "id": "wait-between-posts",
+            "name": "Wait 5 Seconds",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1,
+            "position": [
+                2450,
+                180
+            ],
+            "webhookId": "wait-webhook-id"
+        }
+    ],
+    "connections": {
+        "Schedule (Every 30 min)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Unposted Articles (Score 4-5)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Unposted Articles (Score 4-5)": {
+            "main": [
+                [
+                    {
+                        "node": "Has Articles?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Articles?": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Over Articles": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Post Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Schedule (Every 30 min)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Post Data": {
+            "main": [
+                [
+                    {
+                        "node": "Multi-Image Post?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Multi-Image Post?": {
+            "main": [
+                [
+                    {
+                        "node": "Post Multi-Image to Facebook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Post Single Image to Facebook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post Single Image to Facebook": {
+            "main": [
+                [
+                    {
+                        "node": "Add Comment with Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post Multi-Image to Facebook": {
+            "main": [
+                [
+                    {
+                        "node": "Add Comment with Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Add Comment with Link": {
+            "main": [
+                [
+                    {
+                        "node": "Pin Comment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pin Comment": {
+            "main": [
+                [
+                    {
+                        "node": "Update Article in Database",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Article in Database": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 5 Seconds",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 5 Seconds": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2025-11-30T07:23:00.000Z",
+    "versionId": "1"
+}

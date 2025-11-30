@@ -1015,123 +1015,46 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
                 console.log(`✅ ${article.isPublished ? 'Created and published' : 'Created as draft'}: ${translation.translatedTitle.substring(0, 50)}...`);
 
-                // Auto-post to Facebook after publishing (only for high-interest stories score >= 4)
-                // Score 3 articles are published but NOT auto-posted to Facebook
-                // Manually created articles are NEVER auto-posted regardless of interest score
+                // INSTANT AUTO-POST: Trigger N8N Webhook
+                // This fires immediately when a high-interest story (score >= 4) is published.
+                // The N8N workflow will then fetch the article and post it to Facebook.
+
                 const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
                 const isReallyPosted = article.facebookPostId && !article.facebookPostId.startsWith('LOCK:');
-                const isStuckWithLock = article.facebookPostId && article.facebookPostId.startsWith('LOCK:');
-                const shouldAutoPostToFacebook = article.isPublished &&
+
+                // Check eligibility for auto-posting
+                const shouldTriggerAutoPost = article.isPublished &&
                   (article.interestScore ?? 0) >= 4 &&
                   !isReallyPosted &&
                   hasImage &&
-                  !article.isManuallyCreated; // Don't auto-post manually created articles
+                  !article.isManuallyCreated;
 
-                if (shouldAutoPostToFacebook) {
-                  try {
-                    const fbResult = await postArticleToFacebook(article, storage);
-                    if (fbResult) {
-                      if (fbResult.status === 'posted') {
-                        console.log(`✅ Posted to Facebook: ${fbResult.postUrl}`);
-                      } else {
-                        console.log(`ℹ️  Article already posted to Facebook: ${fbResult.postUrl}`);
-                      }
-                    } else {
-                      console.error(`❌ Failed to post to Facebook for ${article.title.substring(0, 60)}...`);
-                    }
-                  } catch (fbError) {
-                    console.error(`❌ Error posting to Facebook:`, fbError);
-                    // Don't fail the whole scrape if Facebook posting fails
-                  }
-                } else if (article.isPublished && isStuckWithLock) {
-                  console.warn(`⚠️  STUCK LOCK DETECTED - Article has lock token instead of real Facebook post ID`);
-                  console.warn(`   Article ID: ${article.id}`);
-                  console.warn(`   Title: ${article.title.substring(0, 60)}...`);
-                  console.warn(`   Lock token: ${article.facebookPostId}`);
-                  console.warn(`   This indicates a previous Facebook posting attempt failed without releasing the lock`);
-                  console.warn(`   The lock should have been cleared, but will retry on next scrape`);
-                } else if (article.isPublished && isReallyPosted) {
-                  console.log(`⏭️  Already posted to Facebook: ${article.title.substring(0, 60)}...`);
+                if (shouldTriggerAutoPost) {
+                  console.log(`🚀 Triggering N8N Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
+
+                  // Fire and forget - don't await the result to keep scheduler fast
+                  // Use the production webhook URL
+                  const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'https://n8n.optimisr.com/webhook/facebook-autopost-trigger';
+
+                  fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      articleId: article.id,
+                      trigger: 'instant-publish'
+                    })
+                  }).catch(err => {
+                    console.error('❌ Failed to trigger N8N webhook:', err);
+                  });
                 } else if (article.isPublished && !hasImage) {
                   console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
                 } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
                   console.log(`⏭️  Skipping auto-post to Facebook (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
                 }
 
-                /* DISABLED: Instagram and Threads Graph API not configured
-                // Auto-post to Instagram after Facebook (only for high-interest stories score >= 4)
-                // Manually created articles are NEVER auto-posted regardless of interest score
-                const isReallyPostedToInstagram = article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:');
-                const isStuckWithInstagramLock = article.instagramPostId && article.instagramPostId.startsWith('IG-LOCK:');
-                const shouldAutoPostToInstagram = article.isPublished &&
-                  (article.interestScore ?? 0) >= 4 &&
-                  !isReallyPostedToInstagram &&
-                  hasImage &&
-                  !article.isManuallyCreated; // Don't auto-post manually created articles
- 
-                if (shouldAutoPostToInstagram) {
-                  try {
-                    const igResult = await postArticleToInstagram(article, storage);
-                    if (igResult) {
-                      if (igResult.status === 'posted') {
-                        console.log(`📸 Posted to Instagram: ${igResult.postUrl}`);
-                      } else {
-                        console.log(`ℹ️  Article already posted to Instagram: ${igResult.postUrl}`);
-                      }
-                    } else {
-                      console.error(`❌ Failed to post to Instagram for ${article.title.substring(0, 60)}...`);
-                    }
-                  } catch (igError) {
-                    console.error(`❌ Error posting to Instagram:`, igError);
-                    // Don't fail the whole scrape if Instagram posting fails
-                  }
-                } else if (article.isPublished && isStuckWithInstagramLock) {
-                  console.warn(`⚠️  STUCK INSTAGRAM LOCK DETECTED - Article has lock token instead of real Instagram post ID`);
-                  console.warn(`   Article ID: ${article.id}`);
-                  console.warn(`   Title: ${article.title.substring(0, 60)}...`);
-                  console.warn(`   Lock token: ${article.instagramPostId}`);
-                } else if (article.isPublished && isReallyPostedToInstagram) {
-                  console.log(`⏭️  Already posted to Instagram: ${article.title.substring(0, 60)}...`);
-                } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
-                  console.log(`⏭️  Skipping auto-post to Instagram (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
-                }
- 
-                // Auto-post to Threads after Instagram (only for high-interest stories score >= 4)
-                // Manually created articles are NEVER auto-posted regardless of interest score
-                const isReallyPostedToThreads = article.threadsPostId && !article.threadsPostId.startsWith('THREADS-LOCK:');
-                const isStuckWithThreadsLock = article.threadsPostId && article.threadsPostId.startsWith('THREADS-LOCK:');
-                const shouldAutoPostToThreads = article.isPublished &&
-                  (article.interestScore ?? 0) >= 4 &&
-                  !isReallyPostedToThreads &&
-                  hasImage &&
-                  !article.isManuallyCreated; // Don't auto-post manually created articles
- 
-                if (shouldAutoPostToThreads) {
-                  try {
-                    const threadsResult = await postArticleToThreads(article, storage);
-                    if (threadsResult) {
-                      if (threadsResult.status === 'posted') {
-                        console.log(`🧵 Posted to Threads: ${threadsResult.postUrl}`);
-                      } else {
-                        console.log(`ℹ️  Article already posted to Threads: ${threadsResult.postUrl}`);
-                      }
-                    } else {
-                      console.error(`❌ Failed to post to Threads for ${article.title.substring(0, 60)}...`);
-                    }
-                  } catch (threadsError) {
-                    console.error(`❌ Error posting to Threads:`, threadsError);
-                    // Don't fail the whole scrape if Threads posting fails
-                  }
-                } else if (article.isPublished && isStuckWithThreadsLock) {
-                  console.warn(`⚠️  STUCK THREADS LOCK DETECTED - Article has lock token instead of real Threads post ID`);
-                  console.warn(`   Article ID: ${article.id}`);
-                  console.warn(`   Title: ${article.title.substring(0, 60)}...`);
-                  console.warn(`   Lock token: ${article.threadsPostId}`);
-                } else if (article.isPublished && isReallyPostedToThreads) {
-                  console.log(`⏭️  Already posted to Threads: ${article.title.substring(0, 60)}...`);
-                } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
-                  console.log(`⏭️  Skipping auto-post to Threads (score ${article.interestScore}/5 - manual post available in admin): ${article.title.substring(0, 60)}...`);
-                }
+                /* 
+                   DISABLED: Instagram and Threads Graph API not configured
+                   (Legacy code removed for brevity - see git history if needed)
                 */
               } else {
                 // Not classified as actual news - skip regardless of interest score

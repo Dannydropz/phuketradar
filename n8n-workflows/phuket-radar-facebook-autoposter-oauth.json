@@ -1,0 +1,407 @@
+{
+    "name": "Phuket Radar - Facebook Auto-Poster (OAuth)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 30
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Every 30 Minutes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT \n  id, \n  title, \n  excerpt, \n  \"facebookHeadline\", \n  \"imageUrl\", \n  \"imageUrls\", \n  category, \n  slug, \n  \"interestScore\"\nFROM articles\nWHERE \"isPublished\" = true\n  AND \"facebookPostId\" IS NULL\n  AND \"interestScore\" >= 4\n  AND \"imageUrl\" IS NOT NULL\n  AND \"isManuallyCreated\" = false\nORDER BY \"publishedAt\" DESC\nLIMIT 5;"
+            },
+            "id": "get-articles",
+            "name": "Get Unposted Articles",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                470,
+                300
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "{{POSTGRES_CREDENTIAL_ID}}",
+                    "name": "Phuket Radar Database"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.length }}",
+                            "operation": "larger",
+                            "value2": 0
+                        }
+                    ]
+                }
+            },
+            "id": "check-has-articles",
+            "name": "Has Articles?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                690,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop-articles",
+            "name": "Loop Over Articles",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                910,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.item.json;\n\n// Category-specific hashtags\nconst hashtagMap = {\n  'Breaking': ['#PhuketNews', '#ThailandNews', '#BreakingNews'],\n  'Tourism': ['#PhuketTourism', '#ThailandTravel', '#VisitPhuket'],\n  'Business': ['#PhuketBusiness', '#ThailandBusiness', '#PhuketEconomy'],\n  'Events': ['#PhuketEvents', '#ThingsToDoInPhuket', '#PhuketLife'],\n  'Crime': ['#PhuketNews', '#PhuketCrime', '#ThailandSafety'],\n  'Traffic': ['#PhuketTraffic', '#PhuketNews', '#ThailandTravel'],\n  'Weather': ['#PhuketWeather', '#ThailandWeather', '#TropicalWeather']\n};\n\nconst tags = hashtagMap[item.category] || ['#PhuketNews', '#Thailand', '#PhuketLife'];\nconst hashtags = `#Phuket ${tags.join(' ')}`;\n\n// Build post message\nconst headline = item.facebookHeadline || item.title;\nconst postMessage = `${headline}\\n\\n${item.excerpt}\\n\\nWant the full story? Click the link in the first comment below...\\n\\n${hashtags}`;\n\n// Build article URL\nconst categorySlug = item.category.toLowerCase();\nconst articleUrl = `https://phuketradar.com/${categorySlug}/${item.slug}-${item.id}`;\n\n// Image handling\nconst imageUrls = item.imageUrls && item.imageUrls.length > 0 \n  ? item.imageUrls \n  : (item.imageUrl ? [item.imageUrl] : []);\n\nreturn {\n  articleId: item.id,\n  postMessage: postMessage,\n  articleUrl: articleUrl,\n  imageUrl: item.imageUrl,\n  imageUrls: imageUrls,\n  isMultiImage: imageUrls.length > 1\n};"
+            },
+            "id": "prepare-post-data",
+            "name": "Prepare Post Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1130,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.isMultiImage }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "check-multi-image",
+            "name": "Multi-Image Post?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1350,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "photo",
+                "operation": "create",
+                "pageId": "786684811203574",
+                "photoUrl": "={{ $json.imageUrl }}",
+                "additionalFields": {
+                    "message": "={{ $('Prepare Post Data').item.json.postMessage }}"
+                }
+            },
+            "id": "post-single-image",
+            "name": "Post Single Image",
+            "type": "n8n-nodes-base.facebookGraphApi",
+            "typeVersion": 1,
+            "position": [
+                1570,
+                80
+            ],
+            "credentials": {
+                "facebookGraphApi": {
+                    "id": "{{FACEBOOK_OAUTH_CREDENTIAL_ID}}",
+                    "name": "Facebook Page Access"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Multi-image posting using N8N's authenticated connection\nconst item = $input.item.json;\nconst pageId = '786684811203574';\n\n// Get the access token from N8N's Facebook credential\n// This is automatically managed and refreshed by N8N\nconst credentials = await $credentials.facebookGraphApi;\nconst accessToken = credentials.accessToken;\n\nconst photoIds = [];\n\n// Upload each photo unpublished\nfor (const imageUrl of item.imageUrls) {\n  const uploadResponse = await $http.request({\n    method: 'POST',\n    url: `https://graph.facebook.com/v18.0/${pageId}/photos`,\n    qs: {\n      access_token: accessToken,\n      url: imageUrl,\n      published: 'false'\n    }\n  });\n  \n  if (uploadResponse.id) {\n    photoIds.push(uploadResponse.id);\n  }\n}\n\n// Create feed post with attached media\nif (photoIds.length > 1) {\n  const attachedMedia = photoIds.map(id => ({ media_fbid: id }));\n  \n  const feedParams = new URLSearchParams({\n    access_token: accessToken,\n    message: item.postMessage\n  });\n  \n  photoIds.forEach((id, idx) => {\n    feedParams.append(`attached_media[${idx}]`, JSON.stringify({ media_fbid: id }));\n  });\n  \n  const feedResponse = await $http.request({\n    method: 'POST',\n    url: `https://graph.facebook.com/v18.0/${pageId}/feed`,\n    body: feedParams.toString(),\n    headers: {\n      'Content-Type': 'application/x-www-form-urlencoded'\n    }\n  });\n  \n  return {\n    ...item,\n    postId: feedResponse.id,\n    post_id: feedResponse.id\n  };\n} else {\n  // Fallback to single image\n  return {\n    ...item,\n    shouldFallback: true\n  };\n}"
+            },
+            "id": "post-multi-image",
+            "name": "Post Multi-Image",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1570,
+                280
+            ],
+            "credentials": {
+                "facebookGraphApi": {
+                    "id": "{{FACEBOOK_OAUTH_CREDENTIAL_ID}}",
+                    "name": "Facebook Page Access"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://graph.facebook.com/v18.0/{{ $json.post_id || $json.id }}/comments",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "facebookGraphApi",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"message\": \"Read the full story: {{ $('Prepare Post Data').item.json.articleUrl }}\"\n}",
+                "options": {}
+            },
+            "id": "add-comment",
+            "name": "Add Comment with Link",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1790,
+                180
+            ],
+            "credentials": {
+                "facebookGraphApi": {
+                    "id": "{{FACEBOOK_OAUTH_CREDENTIAL_ID}}",
+                    "name": "Facebook Page Access"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://graph.facebook.com/v18.0/{{ $json.id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "facebookGraphApi",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "is_pinned",
+                            "value": "true"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "pin-comment",
+            "name": "Pin Comment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2010,
+                180
+            ],
+            "credentials": {
+                "facebookGraphApi": {
+                    "id": "{{FACEBOOK_OAUTH_CREDENTIAL_ID}}",
+                    "name": "Facebook Page Access"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=UPDATE articles\nSET \"facebookPostId\" = '{{ $('Post Single Image').item.json.post_id || $('Post Single Image').item.json.id || $('Post Multi-Image').item.json.post_id }}',\n    \"facebookPostUrl\" = 'https://www.facebook.com/{{ ($('Post Single Image').item.json.post_id || $('Post Single Image').item.json.id || $('Post Multi-Image').item.json.post_id).replace('_', '/posts/') }}'\nWHERE id = {{ $('Prepare Post Data').item.json.articleId }};"
+            },
+            "id": "update-database",
+            "name": "Update Database",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                2230,
+                180
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "{{POSTGRES_CREDENTIAL_ID}}",
+                    "name": "Phuket Radar Database"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "amount": 5,
+                "unit": "seconds"
+            },
+            "id": "wait-between-posts",
+            "name": "Wait 5 Seconds",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1,
+            "position": [
+                2450,
+                180
+            ],
+            "webhookId": "fb-poster-wait"
+        }
+    ],
+    "connections": {
+        "Every 30 Minutes": {
+            "main": [
+                [
+                    {
+                        "node": "Get Unposted Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Unposted Articles": {
+            "main": [
+                [
+                    {
+                        "node": "Has Articles?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Articles?": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Over Articles": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Post Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Every 30 Minutes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Post Data": {
+            "main": [
+                [
+                    {
+                        "node": "Multi-Image Post?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Multi-Image Post?": {
+            "main": [
+                [
+                    {
+                        "node": "Post Multi-Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Post Single Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post Single Image": {
+            "main": [
+                [
+                    {
+                        "node": "Add Comment with Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post Multi-Image": {
+            "main": [
+                [
+                    {
+                        "node": "Add Comment with Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Add Comment with Link": {
+            "main": [
+                [
+                    {
+                        "node": "Pin Comment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pin Comment": {
+            "main": [
+                [
+                    {
+                        "node": "Update Database",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Database": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 5 Seconds",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 5 Seconds": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2025-11-30T08:47:00.000Z",
+    "versionId": "1"
+}

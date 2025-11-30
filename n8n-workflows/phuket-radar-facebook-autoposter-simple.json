@@ -1,0 +1,309 @@
+{
+    "name": "Phuket Radar - Facebook Auto-Poster (Simple)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 60
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Every 60 Minutes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Fetch unposted articles from database\nconst { Client } = require('pg');\n\nconst client = new Client({\n  connectionString: $env.DATABASE_URL,\n  ssl: { rejectUnauthorized: false }\n});\n\nawait client.connect();\n\nconst query = `\n  SELECT \n    id, \n    title, \n    excerpt, \n    \"facebookHeadline\", \n    \"imageUrl\", \n    \"imageUrls\", \n    category, \n    slug, \n    \"interestScore\"\n  FROM articles\n  WHERE \"isPublished\" = true\n    AND \"facebookPostId\" IS NULL\n    AND \"interestScore\" >= 4\n    AND \"imageUrl\" IS NOT NULL\n    AND \"isManuallyCreated\" = false\n  ORDER BY \"publishedAt\" DESC\n  LIMIT 5\n`;\n\nconst result = await client.query(query);\nawait client.end();\n\nconsole.log(`Found ${result.rows.length} articles to post`);\n\nreturn result.rows;"
+            },
+            "id": "fetch-articles",
+            "name": "Fetch Unposted Articles",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                470,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.length }}",
+                            "operation": "larger",
+                            "value2": 0
+                        }
+                    ]
+                }
+            },
+            "id": "check-articles",
+            "name": "Any Articles?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                690,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop-articles",
+            "name": "Loop Articles",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                910,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.item.json;\n\n// Category-specific hashtags\nconst hashtagMap = {\n  'Breaking': ['#PhuketNews', '#ThailandNews', '#BreakingNews'],\n  'Tourism': ['#PhuketTourism', '#ThailandTravel', '#VisitPhuket'],\n  'Business': ['#PhuketBusiness', '#ThailandBusiness', '#PhuketEconomy'],\n  'Events': ['#PhuketEvents', '#ThingsToDoInPhuket', '#PhuketLife'],\n  'Crime': ['#PhuketNews', '#PhuketCrime', '#ThailandSafety'],\n  'Traffic': ['#PhuketTraffic', '#PhuketNews', '#ThailandTravel'],\n  'Weather': ['#PhuketWeather', '#ThailandWeather', '#TropicalWeather']\n};\n\nconst tags = hashtagMap[item.category] || ['#PhuketNews', '#Thailand', '#PhuketLife'];\nconst hashtags = `#Phuket ${tags.join(' ')}`;\n\n// Build post message\nconst headline = item.facebookHeadline || item.title;\nconst postMessage = `${headline}\\n\\n${item.excerpt}\\n\\nWant the full story? Click the link in the first comment below...\\n\\n${hashtags}`;\n\n// Build article URL\nconst categorySlug = item.category.toLowerCase();\nconst articleUrl = `${$env.SITE_BASE_URL}/${categorySlug}/${item.slug}-${item.id}`;\n\n// Image handling\nconst imageUrls = item.imageUrls && item.imageUrls.length > 0 \n  ? item.imageUrls \n  : (item.imageUrl ? [item.imageUrl] : []);\n\nreturn {\n  articleId: item.id,\n  postMessage: postMessage,\n  articleUrl: articleUrl,\n  imageUrl: item.imageUrl,\n  imageUrls: imageUrls,\n  isMultiImage: imageUrls.length > 1\n};"
+            },
+            "id": "prepare-data",
+            "name": "Prepare Post Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1130,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.item.json;\nconst pageId = $env.FB_PAGE_ID;\nconst accessToken = $env.FB_PAGE_ACCESS_TOKEN;\n\nconsole.log(`Posting article ${item.articleId} to Facebook...`);\n\nlet postId;\n\ntry {\n  if (item.isMultiImage && item.imageUrls.length > 1) {\n    // Multi-image post\n    console.log(`Creating multi-image post with ${item.imageUrls.length} images`);\n    \n    const photoIds = [];\n    \n    // Upload each photo unpublished\n    for (const imageUrl of item.imageUrls) {\n      const uploadUrl = `https://graph.facebook.com/v18.0/${pageId}/photos`;\n      const uploadParams = new URLSearchParams({\n        access_token: accessToken,\n        url: imageUrl,\n        published: 'false'\n      });\n      \n      const uploadResponse = await fetch(`${uploadUrl}?${uploadParams.toString()}`, {\n        method: 'POST'\n      });\n      \n      if (uploadResponse.ok) {\n        const uploadData = await uploadResponse.json();\n        photoIds.push(uploadData.id);\n        console.log(`Uploaded photo: ${uploadData.id}`);\n      } else {\n        const error = await uploadResponse.text();\n        console.error(`Failed to upload photo: ${error}`);\n      }\n    }\n    \n    // Create feed post with attached media\n    if (photoIds.length > 1) {\n      const feedUrl = `https://graph.facebook.com/v18.0/${pageId}/feed`;\n      const feedParams = new URLSearchParams({\n        access_token: accessToken,\n        message: item.postMessage\n      });\n      \n      // Add attached media\n      photoIds.forEach((id, idx) => {\n        feedParams.append(`attached_media[${idx}]`, JSON.stringify({ media_fbid: id }));\n      });\n      \n      const feedResponse = await fetch(feedUrl, {\n        method: 'POST',\n        body: feedParams\n      });\n      \n      if (feedResponse.ok) {\n        const feedData = await feedResponse.json();\n        postId = feedData.id;\n        console.log(`Created multi-image post: ${postId}`);\n      } else {\n        const error = await feedResponse.text();\n        console.error(`Failed to create feed post: ${error}`);\n        throw new Error(`Facebook API error: ${error}`);\n      }\n    } else {\n      // Fallback to single image\n      console.log('Not enough photos uploaded, falling back to single image');\n      item.isMultiImage = false;\n    }\n  }\n  \n  // Single image post (or fallback)\n  if (!item.isMultiImage) {\n    console.log('Creating single-image post');\n    \n    const photoUrl = `https://graph.facebook.com/v18.0/${pageId}/photos`;\n    const photoParams = new URLSearchParams({\n      access_token: accessToken,\n      url: item.imageUrl,\n      message: item.postMessage\n    });\n    \n    const photoResponse = await fetch(photoUrl, {\n      method: 'POST',\n      body: photoParams\n    });\n    \n    if (photoResponse.ok) {\n      const photoData = await photoResponse.json();\n      postId = photoData.post_id || photoData.id;\n      console.log(`Created single-image post: ${postId}`);\n    } else {\n      const error = await photoResponse.text();\n      console.error(`Failed to create photo post: ${error}`);\n      throw new Error(`Facebook API error: ${error}`);\n    }\n  }\n  \n  if (!postId) {\n    throw new Error('No post ID returned from Facebook');\n  }\n  \n  return {\n    ...item,\n    postId: postId,\n    postUrl: `https://www.facebook.com/${postId.replace('_', '/posts/')}`\n  };\n  \n} catch (error) {\n  console.error('Error posting to Facebook:', error);\n  throw error;\n}"
+            },
+            "id": "post-to-facebook",
+            "name": "Post to Facebook",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1350,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.item.json;\nconst accessToken = $env.FB_PAGE_ACCESS_TOKEN;\n\nconsole.log('Adding comment with article link...');\n\nconst commentUrl = `https://graph.facebook.com/v18.0/${item.postId}/comments`;\nconst commentParams = new URLSearchParams({\n  access_token: accessToken,\n  message: `Read the full story: ${item.articleUrl}`\n});\n\nconst commentResponse = await fetch(commentUrl, {\n  method: 'POST',\n  body: commentParams\n});\n\nif (commentResponse.ok) {\n  const commentData = await commentResponse.json();\n  console.log(`Comment added: ${commentData.id}`);\n  \n  return {\n    ...item,\n    commentId: commentData.id\n  };\n} else {\n  const error = await commentResponse.text();\n  console.error(`Failed to add comment: ${error}`);\n  \n  // Don't fail the whole process if comment fails\n  return {\n    ...item,\n    commentId: null,\n    commentError: error\n  };\n}"
+            },
+            "id": "add-comment",
+            "name": "Add Comment",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1570,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.item.json;\n\nif (!item.commentId) {\n  console.log('No comment ID, skipping pin');\n  return item;\n}\n\nconst accessToken = $env.FB_PAGE_ACCESS_TOKEN;\n\nconsole.log('Pinning comment...');\n\nconst pinUrl = `https://graph.facebook.com/v18.0/${item.commentId}`;\nconst pinParams = new URLSearchParams({\n  access_token: accessToken,\n  is_pinned: 'true'\n});\n\nconst pinResponse = await fetch(`${pinUrl}?${pinParams.toString()}`, {\n  method: 'POST'\n});\n\nif (pinResponse.ok) {\n  const pinData = await pinResponse.json();\n  console.log('Comment pinned successfully');\n  return {\n    ...item,\n    commentPinned: true\n  };\n} else {\n  const error = await pinResponse.text();\n  console.log(`Warning: Failed to pin comment: ${error}`);\n  return {\n    ...item,\n    commentPinned: false\n  };\n}"
+            },
+            "id": "pin-comment",
+            "name": "Pin Comment",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1790,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.item.json;\nconst { Client } = require('pg');\n\nconst client = new Client({\n  connectionString: $env.DATABASE_URL,\n  ssl: { rejectUnauthorized: false }\n});\n\nawait client.connect();\n\nconst query = `\n  UPDATE articles\n  SET \"facebookPostId\" = $1,\n      \"facebookPostUrl\" = $2\n  WHERE id = $3\n`;\n\nconst values = [item.postId, item.postUrl, item.articleId];\n\nawait client.query(query, values);\nawait client.end();\n\nconsole.log(`Updated article ${item.articleId} in database`);\n\nreturn {\n  articleId: item.articleId,\n  postId: item.postId,\n  postUrl: item.postUrl,\n  success: true\n};"
+            },
+            "id": "update-database",
+            "name": "Update Database",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2010,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 5,
+                "unit": "seconds"
+            },
+            "id": "wait",
+            "name": "Wait 5 Seconds",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1,
+            "position": [
+                2230,
+                180
+            ],
+            "webhookId": "auto-poster-wait"
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "facebook-autopost-trigger",
+                "responseMode": "onReceived",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook Trigger",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                140
+            ],
+            "webhookId": "facebook-autopost-trigger"
+        }
+    ],
+    "connections": {
+        "Every 30 Minutes": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Unposted Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Unposted Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Unposted Articles": {
+            "main": [
+                [
+                    {
+                        "node": "Any Articles?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Any Articles?": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Articles": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Post Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Every 30 Minutes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Post Data": {
+            "main": [
+                [
+                    {
+                        "node": "Post to Facebook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post to Facebook": {
+            "main": [
+                [
+                    {
+                        "node": "Add Comment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Add Comment": {
+            "main": [
+                [
+                    {
+                        "node": "Pin Comment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pin Comment": {
+            "main": [
+                [
+                    {
+                        "node": "Update Database",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Database": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 5 Seconds",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 5 Seconds": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2025-11-30T07:23:00.000Z",
+    "versionId": "1"
+}
