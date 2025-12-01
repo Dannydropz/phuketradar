@@ -73,12 +73,13 @@ function requireCronAuth(req: Request, res: Response, next: NextFunction) {
 import { metaBusinessSuiteService } from "./services/meta-business-suite-client";
 import { googleAnalyticsService } from "./services/google-analytics-client";
 import { googleSearchConsoleService } from "./services/google-search-console-client";
+import { smartLearningService } from "./services/smart-learning-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
 
-  // Sync Facebook Insights
-  app.post("/api/admin/sync-facebook-insights", requireAdminAuth, async (req, res) => {
+  // Sync Facebook Insights (API key auth for N8N)
+  app.post("/api/admin/sync-facebook-insights", requireCronAuth, async (req, res) => {
     try {
       const result = await metaBusinessSuiteService.batchUpdatePostInsights(7);
       res.json(result);
@@ -88,8 +89,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sync Google Analytics
-  app.post("/api/admin/sync-google-analytics", requireAdminAuth, async (req, res) => {
+  // Sync Google Analytics (API key auth for N8N)
+  app.post("/api/admin/sync-google-analytics", requireCronAuth, async (req, res) => {
     try {
       const result = await googleAnalyticsService.batchSyncArticleMetrics(7);
       res.json(result);
@@ -99,14 +100,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sync Google Search Console
-  app.post("/api/admin/sync-google-search-console", requireAdminAuth, async (req, res) => {
+  // Sync Google Search Console (API key auth for N8N)
+  app.post("/api/admin/sync-google-search-console", requireCronAuth, async (req, res) => {
     try {
       const result = await googleSearchConsoleService.batchSyncSearchMetrics(3);
       res.json(result);
     } catch (error) {
       console.error("Error syncing Google Search Console:", error);
       res.status(500).json({ error: "Failed to sync search console" });
+    }
+  });
+
+  // Recalculate Engagement Scores (API key auth for N8N)
+  app.post("/api/admin/recalculate-engagement", requireCronAuth, async (req, res) => {
+    try {
+      const result = await smartLearningService.recalculateEngagementScores(7);
+      res.json(result);
+    } catch (error) {
+      console.error("Error recalculating engagement scores:", error);
+      res.status(500).json({ error: "Failed to recalculate scores" });
     }
   });
   // Article routes
@@ -119,6 +131,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching articles:", error);
       res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
+  // Get trending articles (based on engagement score)
+  app.get("/api/articles/trending", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const articles = await smartLearningService.getTrendingArticles(limit);
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching trending articles:", error);
+      res.status(500).json({ error: "Failed to fetch trending articles" });
     }
   });
 

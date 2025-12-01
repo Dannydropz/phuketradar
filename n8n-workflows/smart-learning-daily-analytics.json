@@ -1,0 +1,134 @@
+{
+    "name": "Daily Analytics Sync",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 6 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://phuketradar.com/api/admin/sync-google-analytics",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "options": {
+                    "timeout": 60000
+                }
+            },
+            "name": "Sync Google Analytics",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                450,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "1",
+                    "name": "Railway Admin Auth"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://phuketradar.com/api/admin/sync-google-search-console",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "options": {
+                    "timeout": 60000
+                }
+            },
+            "name": "Sync Google Search Console",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                650,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "1",
+                    "name": "Railway Admin Auth"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://phuketradar.com/api/admin/recalculate-engagement",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "options": {
+                    "timeout": 120000
+                }
+            },
+            "name": "Recalculate Engagement Scores",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                850,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "1",
+                    "name": "Railway Admin Auth"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Sync Google Analytics",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Sync Google Analytics": {
+            "main": [
+                [
+                    {
+                        "node": "Sync Google Search Console",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Sync Google Search Console": {
+            "main": [
+                [
+                    {
+                        "node": "Recalculate Engagement Scores",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "timezone": "Asia/Bangkok"
+    }
+}
