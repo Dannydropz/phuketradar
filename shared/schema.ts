@@ -155,6 +155,24 @@ export const socialMediaAnalytics = pgTable("social_media_analytics", {
   lastUpdatedAt: timestamp("last_updated_at").notNull().defaultNow(),
 });
 
+export const scoreAdjustments = pgTable("score_adjustments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  articleId: text("article_id").notNull(),
+  originalScore: integer("original_score").notNull(),
+  adjustedScore: integer("adjusted_score").notNull(),
+  adjustmentReason: text("adjustment_reason"),
+  articleTitle: text("article_title").notNull(),
+  articleCategory: text("article_category").notNull(),
+  articleContentSnippet: text("article_content_snippet"),
+  thaiKeywords: text("thai_keywords").array(),
+  adjustedBy: text("adjusted_by").notNull().default("admin"),
+  adjustedAt: timestamp("adjusted_at").notNull().defaultNow(),
+}, (table) => ({
+  articleIdIdx: index("score_adjustments_article_id_idx").on(table.articleId),
+  categoryIdx: index("score_adjustments_category_idx").on(table.articleCategory),
+  adjustedAtIdx: index("score_adjustments_adjusted_at_idx").on(table.adjustedAt),
+}));
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,

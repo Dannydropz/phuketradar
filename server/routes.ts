@@ -1036,6 +1036,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
 
+      // SCORE LEARNING: Track manual score adjustments
+      if (updates.interestScore !== undefined) {
+        // Get current article to compare scores
+        const currentArticle = await storage.getArticleById(id);
+        if (currentArticle && currentArticle.interestScore !== updates.interestScore) {
+          const { scoreLearningService } = await import("./services/score-learning");
+          await scoreLearningService.recordAdjustment({
+            articleId: id,
+            originalScore: currentArticle.interestScore || 3,
+            adjustedScore: updates.interestScore,
+            adjustmentReason: `Admin manually adjusted score from ${currentArticle.interestScore || 3} to ${updates.interestScore}`,
+          });
+        }
+      }
+
       // CRITICAL FIX: Sanitize timeline tags to ensure they're separate array elements
       if (updates.timelineTags) {
         console.log(`📝 [PATCH ARTICLE] Raw timelineTags received:`, updates.timelineTags);
@@ -1470,6 +1485,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error unsubscribing:", error);
       res.status(500).send("Failed to unsubscribe");
+    }
+  });
+
+  // Score Learning routes - PROTECTED
+
+  // Get score learning insights
+  app.get("/api/admin/score-learning/insights", requireAdminAuth, async (req, res) => {
+    try {
+      const { scoreLearningService } = await import("./services/score-learning");
+      const insights = await scoreLearningService.getLearningInsights();
+      const statistics = await scoreLearningService.getStatistics();
+
+      res.json({
+        insights,
+        statistics,
+      });
+    } catch (error) {
+      console.error("Error getting score learning insights:", error);
+      res.status(500).json({ error: "Failed to get insights" });
+    }
+  });
+
+  // Get score adjustments for a specific category
+  app.get("/api/admin/score-learning/category/:category", requireAdminAuth, async (req, res) => {
+    try {
+      const { category } = req.params;
+      const { scoreLearningService } = await import("./services/score-learning");
+      const adjustments = await scoreLearningService.getAdjustmentsByCategory(category);
+
+      res.json(adjustments);
+    } catch (error) {
+      console.error("Error getting category adjustments:", error);
+      res.status(500).json({ error: "Failed to get adjustments" });
     }
   });
 

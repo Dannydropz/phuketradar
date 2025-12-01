@@ -305,12 +305,24 @@ CATEGORY GUIDE (read full story, not just headline):
 - National: Major news from outside Phuket (Bangkok, Hat Yai, etc.)
 - WHEN UNCERTAIN: Use "Local" as default
 
-INTEREST SCORE (1-5):
-- 5 = URGENT: Deaths, major structural failures, violent crime with injuries, natural disasters
-- 4 = SERIOUS: Accidents with injuries, arrests, active rescue operations
-- 3 = NOTEWORTHY: Minor infrastructure issues, tourism developments, business openings
-- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events
-- 1 = TRIVIAL: Ceremonial events, ribbon cuttings
+INTEREST SCORE (1-5) - BE VERY STRICT:
+**RESERVE 4-5 FOR HIGH-ENGAGEMENT NEWS ONLY:**
+- 5 = BREAKING/URGENT: Deaths, drownings, fatal accidents, violent crime with serious injuries, major fires, natural disasters causing casualties
+- 4 = SERIOUS INCIDENTS: Non-fatal accidents with injuries, arrests for serious crimes, active rescue operations, fights/assaults, hit-and-runs, robberies
+
+**CAP ROUTINE NEWS AT 3 OR BELOW:**
+- 3 = NOTEWORTHY: Minor accidents (no injuries), infrastructure complaints (potholes, flooding damage), tourism developments, business openings, missing persons
+- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning
+- 1 = TRIVIAL: Ceremonial events, ribbon cuttings, photo ops
+
+**CRITICAL DISTINCTIONS:**
+- "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
+- "Luxury hotel opens" = Score 3 (business news, NOT breaking)
+- "Students win robotics award" = Score 3 (achievement, NOT urgent)
+- "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
+- "Car crash with injuries" = Score 4 (actual incident with victims)
+- "Drowning at beach" = Score 5 (death/urgent)
+- "Arrest for theft" = Score 4 (crime with action)
 
 LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
@@ -319,8 +331,9 @@ This is a HYPER-LOCAL PHUKET site.
 - ALL OTHER LOCATIONS (Hat Yai, Bangkok, etc.): Category="National", MAX SCORE=3
 
 CRITICAL RULES:
-- Officials tackle/inspect = Score 2 (just talk, not action)
-- Accident/crash/collision = Score 4-5 (actual event with victims)
+- Officials tackle/inspect/discuss = Score 2 (just talk, not action)
+- Accident/crash/collision WITH INJURIES = Score 4-5 (actual event with victims)
+- Infrastructure damage/complaints = Score 3 (not urgent, just problems)
 - Meetings ABOUT disasters ≠ disasters = Score 2
 - Hat Yai floods, Bangkok explosions = Category="National", Score 3
 

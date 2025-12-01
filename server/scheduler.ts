@@ -1032,20 +1032,22 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 if (shouldTriggerAutoPost) {
                   console.log(`🚀 Triggering N8N Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
 
-                  // Fire and forget - don't await the result to keep scheduler fast
-                  // Use the production webhook URL
-                  const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'https://n8n.optimisr.com/webhook/facebook-autopost-trigger';
+                  // Use internal Facebook service instead of N8N
+                  console.log(`🚀 Triggering Internal Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
 
-                  fetch(n8nWebhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      articleId: article.id,
-                      trigger: 'instant-publish'
+                  // We await this to ensure the process doesn't exit before posting completes
+                  // The scheduler runs as a background job so a few extra seconds is fine
+                  postArticleToFacebook(article, storage)
+                    .then(result => {
+                      if (result) {
+                        console.log(`✅ Auto-post successful: ${result.postId}`);
+                      } else {
+                        console.log(`⚠️ Auto-post skipped or failed (check logs)`);
+                      }
                     })
-                  }).catch(err => {
-                    console.error('❌ Failed to trigger N8N webhook:', err);
-                  });
+                    .catch(err => {
+                      console.error('❌ Failed to auto-post to Facebook:', err);
+                    });
                 } else if (article.isPublished && !hasImage) {
                   console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
                 } else if (article.isPublished && (article.interestScore ?? 0) < 4) {
