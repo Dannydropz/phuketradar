@@ -23,12 +23,13 @@
         },
         {
             "parameters": {
-                "jsCode": "// Fetch unposted articles from database\nconst { Client } = require('pg');\n\nconst client = new Client({\n  connectionString: $env.DATABASE_URL,\n  ssl: { rejectUnauthorized: false }\n});\n\nawait client.connect();\n\nconst query = `\n  SELECT \n    id, \n    title, \n    excerpt, \n    \"facebookHeadline\", \n    \"imageUrl\", \n    \"imageUrls\", \n    category, \n    slug, \n    \"interestScore\"\n  FROM articles\n  WHERE \"isPublished\" = true\n    AND \"facebookPostId\" IS NULL\n    AND \"interestScore\" >= 4\n    AND \"imageUrl\" IS NOT NULL\n    AND \"isManuallyCreated\" = false\n  ORDER BY \"publishedAt\" DESC\n  LIMIT 5\n`;\n\nconst result = await client.query(query);\nawait client.end();\n\nconsole.log(`Found ${result.rows.length} articles to post`);\n\nreturn result.rows;"
+                "operation": "executeQuery",
+                "query": "SELECT \n    id, \n    title, \n    excerpt, \n    facebook_headline as \"facebookHeadline\", \n    image_url as \"imageUrl\", \n    image_urls as \"imageUrls\", \n    category, \n    slug, \n    interest_score as \"interestScore\"\n  FROM articles\n  WHERE is_published = true\n    AND facebook_post_id IS NULL\n    AND interest_score >= 4\n    AND image_url IS NOT NULL\n    AND is_manually_created = false\n    AND published_at > NOW() - INTERVAL '3 hours'\n  ORDER BY published_at DESC\n  LIMIT 1"
             },
             "id": "fetch-articles",
             "name": "Fetch Unposted Articles",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 2,
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 1,
             "position": [
                 470,
                 300
@@ -123,12 +124,16 @@
         },
         {
             "parameters": {
-                "jsCode": "const item = $input.item.json;\nconst { Client } = require('pg');\n\nconst client = new Client({\n  connectionString: $env.DATABASE_URL,\n  ssl: { rejectUnauthorized: false }\n});\n\nawait client.connect();\n\nconst query = `\n  UPDATE articles\n  SET \"facebookPostId\" = $1,\n      \"facebookPostUrl\" = $2\n  WHERE id = $3\n`;\n\nconst values = [item.postId, item.postUrl, item.articleId];\n\nawait client.query(query, values);\nawait client.end();\n\nconsole.log(`Updated article ${item.articleId} in database`);\n\nreturn {\n  articleId: item.articleId,\n  postId: item.postId,\n  postUrl: item.postUrl,\n  success: true\n};"
+                "operation": "executeQuery",
+                "query": "UPDATE articles\nSET facebook_post_id = $1,\n    facebook_post_url = $2\nWHERE id = $3",
+                "additionalOptions": {
+                    "queryParams": "={{ [$json.postId, $json.postUrl, $json.articleId] }}"
+                }
             },
             "id": "update-database",
             "name": "Update Database",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 2,
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 1,
             "position": [
                 2010,
                 180
@@ -168,7 +173,7 @@
         }
     ],
     "connections": {
-        "Every 30 Minutes": {
+        "Every 60 Minutes": {
             "main": [
                 [
                     {
@@ -217,13 +222,6 @@
                 [
                     {
                         "node": "Prepare Post Data",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "Every 30 Minutes",
                         "type": "main",
                         "index": 0
                     }
