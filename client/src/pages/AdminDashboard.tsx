@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp, Link } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp, Link, TrendingUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -930,6 +930,20 @@ export default function AdminDashboard() {
                                       <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-orange-500/10">
                                         Timeline
                                       </Badge>
+                                      {parent.engagementScore !== null && parent.engagementScore !== undefined && parent.engagementScore > 0 && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="border-purple-500 text-purple-500 bg-purple-500/10 cursor-help">
+                                              <TrendingUp className="w-3 h-3 mr-1" />
+                                              {Math.round(parent.engagementScore)}
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="font-semibold">Engagement Score: {parent.engagementScore.toFixed(1)}</p>
+                                            <p className="text-xs text-muted-foreground">Based on FB Reach, Reactions, Comments & Shares</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )}
                                       <span className="text-xs md:text-sm text-muted-foreground">
                                         {formatDistanceToNow(new Date(parent.publishedAt), { addSuffix: true })}
                                       </span>
@@ -1083,6 +1097,20 @@ export default function AdminDashboard() {
                                       </TooltipTrigger>
                                       <TooltipContent>
                                         <p>Interest Score: {article.interestScore}/5 {article.interestScore >= 4 ? "(Auto-posted to Facebook)" : article.interestScore === 3 ? "(Published, manual post)" : "(Draft only)"}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {article.engagementScore !== null && article.engagementScore !== undefined && article.engagementScore > 0 && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge variant="outline" className="border-purple-500 text-purple-500 bg-purple-500/10 cursor-help">
+                                          <TrendingUp className="w-3 h-3 mr-1" />
+                                          {Math.round(article.engagementScore)}
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="font-semibold">Engagement Score: {article.engagementScore.toFixed(1)}</p>
+                                        <p className="text-xs text-muted-foreground">Based on FB Reach, Reactions, Comments & Shares</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   )}

@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
 import { ArticleCard } from "@/components/ArticleCard";
-
+import { TrendingArticles } from "@/components/TrendingArticles";
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
@@ -48,7 +48,6 @@ export default function Home() {
     return articles.filter(article => (article.interestScore ?? 0) >= 4);
   }, [articles]);
 
-  // Hero section: Prioritize high-interest articles (score >= 4), but fall back to recent articles if none exist
   // Hero section: Prioritize high-interest articles (score >= 4), but fill with recent articles if needed
   const heroArticles = useMemo(() => {
     // If we have enough high-interest articles (6+), use them exclusively
@@ -217,9 +216,10 @@ export default function Home() {
               </div>
             </section>
           )}
+
+          {/* Trending Section - Only show on home page */}
+          {!category && <TrendingArticles />}
         </div>
-
-
 
         <div className="container mx-auto px-4 py-8">
           {latestArticles.length > 0 && (

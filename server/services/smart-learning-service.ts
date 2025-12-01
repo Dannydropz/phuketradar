@@ -7,11 +7,14 @@ export class SmartLearningService {
     /**
      * Recalculate engagement scores for all articles based on recent metrics
      * 
-     * Formula factors:
-     * - GA Views (Weight: 1.0)
-     * - GA Time on Page (Weight: 2.0 - High quality signal)
-     * - GSC Clicks (Weight: 1.5 - High intent signal)
-     * - Facebook Engagement (Weight: 0.5 - Social signal)
+     * Formula factors (Updated for low-traffic optimization):
+     * - GA Views (Weight: 0.1)
+     * - GA Time on Page (Weight: 10.0 per min - High quality signal)
+     * - GSC Clicks (Weight: 2.0 - High intent signal)
+     * - Facebook Impressions (Weight: 0.05 - Reach signal)
+     * - Facebook Reactions (Weight: 2.0 - Engagement signal)
+     * - Facebook Comments (Weight: 3.0 - High engagement signal)
+     * - Facebook Shares (Weight: 5.0 - Viral signal)
      * - Recency Decay (Scores degrade over time)
      */
     async recalculateEngagementScores(daysLookback: number = 7): Promise<{ updated: number }> {
@@ -61,13 +64,19 @@ export class SmartLearningService {
 
             // 3. Search Intent Score (Clicks)
             // High intent users
-            const searchClicks = metrics?.gscClicks || 0;
+            const searchClicks = metrics?.scClicks || 0;
             score += searchClicks * 2;
 
-            // 4. Social Score (Viral potential)
-            // Likes/Shares
-            const socialEng = social?.reactions || 0; // Using reactions as proxy
-            score += socialEng * 0.5;
+            // 4. Social Score (Viral potential) - HEAVILY WEIGHTED
+            const impressions = social?.impressions || 0;
+            const reactions = social?.reactions || 0;
+            const comments = social?.comments || 0;
+            const shares = social?.shares || 0;
+
+            score += impressions * 0.05; // 200 reach = 10 pts
+            score += reactions * 2.0;    // 5 reactions = 10 pts
+            score += comments * 3.0;     // 3 comments ~ 10 pts
+            score += shares * 5.0;       // 2 shares = 10 pts
 
             // 5. Recency Decay
             // Newer articles hold score better. Older ones fade.
@@ -92,11 +101,15 @@ export class SmartLearningService {
 
     /**
      * Get trending articles based on the new Engagement Score
+     * Only considers articles published in the last 3 days to ensure freshness
      */
     async getTrendingArticles(limit: number = 5) {
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
         return await db
             .select()
             .from(articles)
+            .where(gte(articles.publishedAt, threeDaysAgo))
             .orderBy(desc(articles.engagementScore))
             .limit(limit);
     }

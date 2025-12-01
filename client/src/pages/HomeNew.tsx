@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import { ArticleImage } from "@/components/ArticleImage";
+import { TrendingArticles } from "@/components/TrendingArticles";
 
 import logoWhite from "@assets/logo-white-transparent.png";
 
@@ -318,6 +319,9 @@ export default function HomeNew() {
                         </div>
                     </section>
                 )}
+
+                {/* Trending Section */}
+                {!category && <TrendingArticles />}
 
                 {/* The "Radar" Feed - Mixed Density */}
                 <section>
