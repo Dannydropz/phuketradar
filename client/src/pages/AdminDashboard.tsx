@@ -634,6 +634,15 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   size={undefined}
+                  onClick={() => setLocation("/admin/analytics")}
+                  className="flex-1 md:flex-none h-11 px-4 py-2 border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                >
+                  <TrendingUp className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Analytics</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size={undefined}
                   onClick={handleLogout}
                   data-testid="button-logout"
                   className="flex-1 md:flex-none h-11 px-4 py-2"

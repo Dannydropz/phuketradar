@@ -11,6 +11,7 @@ import ArticleDetail from "@/pages/ArticleDetailNew";
 import JournalistProfile from "@/pages/JournalistProfile";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminInsights from "@/pages/AdminInsights";
+import AdminAnalytics from "@/pages/AdminAnalytics";
 import AdminLogin from "@/pages/AdminLogin";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
@@ -31,6 +32,11 @@ function Router() {
       <Route path="/admin/insights">
         <ProtectedRoute>
           <AdminInsights />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/analytics">
+        <ProtectedRoute>
+          <AdminAnalytics />
         </ProtectedRoute>
       </Route>
       <Route path="/story/:seriesId" component={TimelineStory} />

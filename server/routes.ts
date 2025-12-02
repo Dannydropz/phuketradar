@@ -19,7 +19,9 @@ import { buildArticleUrl } from "@shared/category-map";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
-import { pool } from "./db";
+import { pool, db } from "./db";
+import { articles, articleMetrics, socialMediaAnalytics } from "@shared/schema";
+import { eq, desc, sql } from "drizzle-orm";
 import { autoLinkContent } from "./lib/auto-link-content";
 import { getSmartContextStories } from "./services/smart-context";
 import { detectTags } from "./lib/tag-detector";
@@ -660,6 +662,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     });
+  });
+
+  // Analytics Dashboard Stats
+  app.get("/api/admin/analytics/dashboard", requireAdminAuth, async (req, res) => {
+    try {
+      // 1. Top Articles (Last 7 days)
+      const topArticles = await db
+        .select({
+          id: articles.id,
+          title: articles.title,
+          engagementScore: articles.engagementScore,
+          publishedAt: articles.publishedAt,
+          views: articleMetrics.gaViews,
+          fbReactions: socialMediaAnalytics.reactions,
+          fbComments: socialMediaAnalytics.comments,
+          fbShares: socialMediaAnalytics.shares
+        })
+        .from(articles)
+        .leftJoin(articleMetrics, eq(articles.id, articleMetrics.articleId))
+        .leftJoin(socialMediaAnalytics, eq(articles.id, socialMediaAnalytics.articleId))
+        .orderBy(desc(articles.engagementScore))
+        .limit(10);
+
+      // 2. Category Performance
+      const categoryStats = await db.execute(sql`
+        SELECT 
+            category, 
+            COUNT(*) as article_count,
+            SUM(COALESCE(am.ga_views, 0)) as total_views,
+            AVG(COALESCE(a.engagement_score, 0)) as avg_engagement
+        FROM articles a
+        LEFT JOIN article_metrics am ON a.id = am.article_id
+        GROUP BY category
+        ORDER BY avg_engagement DESC
+      `);
+
+      // 3. Daily Engagement (Last 7 days)
+      const dailyStats = await db.execute(sql`
+        SELECT 
+            metric_date,
+            SUM(ga_views) as total_views,
+            SUM(fb_engagement) as total_fb_engagement
+        FROM article_metrics
+        WHERE metric_date >= NOW() - INTERVAL '7 days'
+        GROUP BY metric_date
+        ORDER BY metric_date ASC
+      `);
+
+      res.json({
+        topArticles,
+        categoryStats: categoryStats.rows,
+        dailyStats: dailyStats.rows
+      });
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
   });
 
   // Get all articles (including unpublished) - PROTECTED
