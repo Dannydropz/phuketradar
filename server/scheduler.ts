@@ -1024,13 +1024,20 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 const isReallyPosted = article.facebookPostId && !article.facebookPostId.startsWith('LOCK:');
 
                 // Check eligibility for auto-posting
+
+                // SAFETY OVERRIDE: Double-check for Hat Yai / Songkhla keywords to prevent accidental posting
+                // Even if AI rated it high, we block it here if it's clearly about Southern floods outside Phuket
+                const isSouthernFloodStory = /Hat Yai|Songkhla|Narathiwat|Yala|Pattani/i.test(article.title + article.content);
+                const effectiveScore = isSouthernFloodStory ? Math.min(article.interestScore ?? 0, 3) : (article.interestScore ?? 0);
+                const effectiveCategory = isSouthernFloodStory ? 'National' : article.category;
+
                 // STRICT RULE: Only post Phuket-related stories (exclude "National" category)
                 const shouldTriggerAutoPost = article.isPublished &&
-                  (article.interestScore ?? 0) >= 4 &&
+                  effectiveScore >= 4 &&
                   !isReallyPosted &&
                   hasImage &&
                   !article.isManuallyCreated &&
-                  article.category !== 'National'; // Exclude National news (Southern floods, Bangkok, etc.)
+                  effectiveCategory !== 'National'; // Exclude National news (Southern floods, Bangkok, etc.)
 
                 if (shouldTriggerAutoPost) {
                   console.log(`🚀 Triggering N8N Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);

@@ -352,14 +352,15 @@ LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
 - Phuket stories: Score normally (1-5)
 - Nearby provinces (Phang Nga, Krabi): Score normally if relevant to Phuket
-- ALL OTHER LOCATIONS (Hat Yai, Bangkok, etc.): Category="National", MAX SCORE=3
+- ALL OTHER LOCATIONS (Hat Yai, Songkhla, Bangkok, etc.): Category="National", ABSOLUTE MAX SCORE=3. NO EXCEPTIONS.
+- SPECIFIC BAN: HAT YAI / SOUTHERN FLOODING stories must NEVER be scored above 3. Even if it's a disaster, if it's not in Phuket, it is NOT high interest for this site.
 
 CRITICAL RULES:
 - Officials tackle/inspect/discuss = Score 2 (just talk, not action)
 - Accident/crash/collision WITH INJURIES = Score 4-5 (actual event with victims)
 - Infrastructure damage/complaints = Score 3 (not urgent, just problems)
 - Meetings ABOUT disasters ≠ disasters = Score 2
-- Hat Yai floods, Bangkok explosions = Category="National", Score 3
+- Hat Yai floods, Bangkok explosions = Category="National", ABSOLUTE MAX SCORE 3 (Do not auto-post)
 
 ${learningContext}
 
