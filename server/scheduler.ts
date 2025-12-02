@@ -1024,11 +1024,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 const isReallyPosted = article.facebookPostId && !article.facebookPostId.startsWith('LOCK:');
 
                 // Check eligibility for auto-posting
+                // STRICT RULE: Only post Phuket-related stories (exclude "National" category)
                 const shouldTriggerAutoPost = article.isPublished &&
                   (article.interestScore ?? 0) >= 4 &&
                   !isReallyPosted &&
                   hasImage &&
-                  !article.isManuallyCreated;
+                  !article.isManuallyCreated &&
+                  article.category !== 'National'; // Exclude National news (Southern floods, Bangkok, etc.)
 
                 if (shouldTriggerAutoPost) {
                   console.log(`🚀 Triggering N8N Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);

@@ -320,12 +320,14 @@ GRAMMAR & STYLE:
 - Write in active voice when possible
 
 CATEGORY GUIDE (read full story, not just headline):
-- Weather: Natural disasters, typhoons, flooding, landslides, storms
+- Weather: Natural disasters, typhoons, flooding, landslides, storms (IN PHUKET ONLY)
 - Local: Community news, missing persons, drownings, boat accidents, local government
 - Traffic: Road accidents (non-criminal), road closures, construction
 - Crime: ONLY intentional criminal activity - arrests, theft, assault, scams
-- National: Major news from outside Phuket (Bangkok, Hat Yai, etc.)
+- National: Major news from outside Phuket (Bangkok, Hat Yai, Chiang Mai, etc.) AND Southern Thailand floods/disasters that are NOT in Phuket
 - WHEN UNCERTAIN: Use "Local" as default
+
+CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" (NOT "Weather" or "Local")
 
 INTEREST SCORE (1-5) - BE VERY STRICT:
 **RESERVE 4-5 FOR HIGH-ENGAGEMENT NEWS ONLY:**
