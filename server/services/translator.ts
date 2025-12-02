@@ -335,13 +335,14 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - 4 = SERIOUS INCIDENTS: Non-fatal accidents with injuries, arrests for serious crimes, active rescue operations, fights/assaults, hit-and-runs, robberies
 
 **CAP ROUTINE NEWS AT 3 OR BELOW:**
-- 3 = NOTEWORTHY: Minor accidents (no injuries), infrastructure complaints (potholes, flooding damage), tourism developments, business openings, missing persons
+- 3 = NOTEWORTHY: Minor accidents (no injuries), infrastructure complaints (potholes, flooding damage), tourism developments, business openings, new property launches, missing persons
 - 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, photo ops
 
 **CRITICAL DISTINCTIONS:**
 - "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
-- "Luxury hotel opens" = Score 3 (business news, NOT breaking)
+- "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
+- "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
 - "Students win robotics award" = Score 3 (achievement, NOT urgent)
 - "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
 - "Car crash with injuries" = Score 4 (actual incident with victims)
