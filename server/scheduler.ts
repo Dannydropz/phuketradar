@@ -757,7 +757,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 translation = await translatorService.translateAndRewrite(
                   post.title,
                   post.content,
-                  contentEmbedding // Pass precomputed full content embedding to be stored
+                  contentEmbedding, // Pass precomputed full content embedding to be stored
+                  post.location // Pass post.location as checkInLocation
                 );
               } catch (translationError) {
                 // Translation failed - skip this post entirely (do NOT publish Thai text)

@@ -9,6 +9,7 @@ export interface ScrapedPost {
   publishedAt: Date;
   textFormatPresetId?: string; // Facebook's colored background text post indicator
   isVideo?: boolean; // Video posts with screen grabs should be rejected
+  location?: string; // Check-in location name (e.g., "Hat Yai", "Phuket")
 }
 
 interface ScrapeCreatorsPost {
@@ -17,6 +18,10 @@ interface ScrapeCreatorsPost {
   url: string;
   permalink: string;
   author?: {
+    name: string;
+    id: string;
+  };
+  place?: {
     name: string;
     id: string;
   };
@@ -379,6 +384,9 @@ export class ScraperService {
         // Detect if this is a video post (video screen grabs have poor quality)
         const isVideo = !!(post.videoDetails?.sdUrl || post.videoDetails?.hdUrl);
 
+        // Extract check-in location if available
+        const location = post.place?.name;
+
         scrapedPosts.push({
           title: title.trim(),
           content: content.trim(),
@@ -389,6 +397,7 @@ export class ScraperService {
           publishedAt,
           textFormatPresetId: post.text_format_preset_id,
           isVideo,
+          location,
         });
       } catch (error) {
         console.error(`Error parsing post ${post.id}:`, error);

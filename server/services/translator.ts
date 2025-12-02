@@ -205,7 +205,8 @@ Respond in JSON format:
   async translateAndRewrite(
     title: string,
     content: string,
-    precomputedEmbedding?: number[]
+    precomputedEmbedding?: number[],
+    checkInLocation?: string
   ): Promise<TranslationResult> {
     try {
       // STEP 1: Enrich Thai text with Phuket context
@@ -253,6 +254,7 @@ CONTEXT & ENRICHMENT REQUIREMENTS:
 
 
 ${isComplex ? 'Google-Translated Text' : 'Original Thai Text'}: ${sourceTextForGPT}
+${checkInLocation ? `\nOFFICIAL CHECK-IN LOCATION: "${checkInLocation}"\n(CRITICAL: Use this location to verify where the event happened. If it says "Hat Yai" or "Songkhla", the event is NOT in Phuket.)` : ''}
 
 Respond in JSON format:
 {
