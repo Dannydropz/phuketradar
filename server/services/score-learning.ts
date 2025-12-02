@@ -107,7 +107,7 @@ export class ScoreLearningService {
 
             // Convert to insights
             const insights: ScoreLearningInsight[] = [];
-            for (const [category, data] of categoryMap.entries()) {
+            for (const [category, data] of Array.from(categoryMap.entries())) {
                 insights.push({
                     category,
                     avgAdjustment: data.totalAdjustment / data.count,
@@ -129,7 +129,7 @@ export class ScoreLearningService {
     async getAdjustmentsByCategory(category: string, limit: number = 20): Promise<ScoreAdjustment[]> {
         try {
             const adjustments = await db.query.scoreAdjustments.findMany({
-                where: eq(scoreAdjustments.articleCategory, category),
+                where: category === "all" ? undefined : eq(scoreAdjustments.articleCategory, category),
                 orderBy: [desc(scoreAdjustments.adjustedAt)],
                 limit,
             });

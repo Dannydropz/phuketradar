@@ -232,6 +232,26 @@ Respond in JSON format:
       }
 
       // STEP 4: Polish/rewrite with GPT-4o-mini
+
+      // SCORE LEARNING: Fetch recent manual adjustments to inject as learning examples
+      let learningContext = "";
+      try {
+        const { scoreLearningService } = await import("./score-learning");
+        // Get last 10 adjustments across all categories
+        const adjustments = await scoreLearningService.getAdjustmentsByCategory("all", 10);
+
+        if (adjustments && adjustments.length > 0) {
+          learningContext = `
+SCORING CORRECTIONS FROM ADMIN (LEARN FROM THESE MISTAKES):
+The admin has previously corrected scores for similar stories. DO NOT repeat these mistakes:
+${adjustments.map(adj => `- "${adj.articleTitle.substring(0, 50)}..." was scored ${adj.originalScore} but Admin corrected it to ${adj.adjustedScore}. Reason: ${adj.adjustmentReason || "Over/underscored"}`).join('\n')}
+`;
+          console.log(`   🧠 Injected ${adjustments.length} learning examples into prompt`);
+        }
+      } catch (err) {
+        console.warn("   ⚠️ Failed to fetch score learning context:", err);
+      }
+
       const prompt = `You are a professional news editor for an English-language news site covering Phuket, Thailand. 
 
 Your task:
@@ -338,6 +358,8 @@ CRITICAL RULES:
 - Infrastructure damage/complaints = Score 3 (not urgent, just problems)
 - Meetings ABOUT disasters ≠ disasters = Score 2
 - Hat Yai floods, Bangkok explosions = Category="National", Score 3
+
+${learningContext}
 
 Always output valid JSON.`,
           },
