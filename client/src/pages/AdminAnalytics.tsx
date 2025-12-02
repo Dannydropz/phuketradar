@@ -54,7 +54,7 @@ export default function AdminAnalytics() {
 
                 <div className="container mx-auto px-4 py-8 relative z-10">
                     <div className="flex items-center gap-4 mb-8">
-                        <Button variant="ghost" onClick={() => setLocation("/admin/dashboard")}>
+                        <Button variant="ghost" onClick={() => setLocation("/admin")}>
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             Back to Dashboard
                         </Button>
