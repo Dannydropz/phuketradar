@@ -668,22 +668,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/analytics/dashboard", requireAdminAuth, async (req, res) => {
     try {
       // 1. Top Articles (Last 7 days)
-      const topArticles = await db
-        .select({
-          id: articles.id,
-          title: articles.title,
-          engagementScore: articles.engagementScore,
-          publishedAt: articles.publishedAt,
-          views: articleMetrics.gaViews,
-          fbReactions: socialMediaAnalytics.reactions,
-          fbComments: socialMediaAnalytics.comments,
-          fbShares: socialMediaAnalytics.shares
-        })
-        .from(articles)
-        .leftJoin(articleMetrics, eq(articles.id, articleMetrics.articleId))
-        .leftJoin(socialMediaAnalytics, eq(articles.id, socialMediaAnalytics.articleId))
-        .orderBy(desc(articles.engagementScore))
-        .limit(10);
+      // 1. Top Articles (Last 7 days)
+      const topArticlesResult = await db.execute(sql`
+        WITH metrics_agg AS (
+            SELECT article_id, SUM(ga_views) as total_views
+            FROM article_metrics
+            GROUP BY article_id
+        ),
+        social_agg AS (
+            SELECT article_id, 
+                   SUM(reactions) as total_reactions,
+                   SUM(comments) as total_comments,
+                   SUM(shares) as total_shares
+            FROM social_media_analytics
+            GROUP BY article_id
+        )
+        SELECT 
+            a.id,
+            a.title,
+            a.engagement_score as "engagementScore",
+            a.published_at as "publishedAt",
+            COALESCE(m.total_views, 0) as views,
+            COALESCE(s.total_reactions, 0) as "fbReactions",
+            COALESCE(s.total_comments, 0) as "fbComments",
+            COALESCE(s.total_shares, 0) as "fbShares"
+        FROM articles a
+        LEFT JOIN metrics_agg m ON a.id = m.article_id
+        LEFT JOIN social_agg s ON a.id = s.article_id
+        ORDER BY a.engagement_score DESC
+        LIMIT 10
+      `);
+
+      const topArticles = topArticlesResult.rows;
 
       // 2. Category Performance
       const categoryStats = await db.execute(sql`
