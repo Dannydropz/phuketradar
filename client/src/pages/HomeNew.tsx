@@ -217,7 +217,7 @@ export default function HomeNew() {
                                         <div className="relative aspect-[16/9] rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-2xl shadow-blue-900/10 h-full">
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
                                             <img
-                                                src={getImageUrl(heroArticle.imageUrl)}
+                                                src={getImageUrl(heroArticle.videoThumbnail || heroArticle.imageUrl)}
                                                 alt={heroArticle.title}
                                                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
                                             />
@@ -254,7 +254,7 @@ export default function HomeNew() {
                                         <a className="block group cursor-pointer flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
                                             <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800 border border-white/5">
                                                 <img
-                                                    src={getImageUrl(article.imageUrl)}
+                                                    src={getImageUrl(article.videoThumbnail || article.imageUrl)}
                                                     alt={article.title}
                                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                                 />
@@ -297,7 +297,7 @@ export default function HomeNew() {
                                         {article.imageUrl && (
                                             <div className="aspect-video overflow-hidden w-full">
                                                 <ArticleImage
-                                                    src={getImageUrl(article.imageUrl)}
+                                                    src={getImageUrl(article.videoThumbnail || article.imageUrl)}
                                                     alt={article.title}
                                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                                 />
@@ -368,7 +368,7 @@ export default function HomeNew() {
                                                     )}
                                                 </div>
                                                 <img
-                                                    src={getImageUrl(article.imageUrl)}
+                                                    src={getImageUrl(article.videoThumbnail || article.imageUrl)}
                                                     alt={article.title}
                                                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                                                 />

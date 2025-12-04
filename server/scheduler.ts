@@ -686,7 +686,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 } else {
                   // Similarity is <55% - run SAFETY NET (only if worth checking)
                   // Skip safety net if similarity is very low (<35%) - not worth the GPT cost
-                  if (duplicateCheck.similarity >= 0.35) {
+                  if (duplicateCheck.similarity >= 0.50) {
                     console.log(`\n🛡️ SAFETY NET: Similarity ${(duplicateCheck.similarity * 100).toFixed(1)}% - Checking top 2 similar stories...`);
 
                     const topSimilar = getTopSimilarArticles(contentEmbedding, existingEmbeddings, 2);

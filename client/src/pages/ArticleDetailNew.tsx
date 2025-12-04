@@ -294,7 +294,17 @@ export default function ArticleDetailNew() {
 
                         {/* Article Images */}
                         <div className="mb-8">
-                            {article.imageUrls && article.imageUrls.length > 1 ? (
+                            {article.videoUrl ? (
+                                <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
+                                    <video
+                                        src={article.videoUrl}
+                                        poster={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
+                                        controls
+                                        playsInline
+                                        className="w-full max-h-[600px] object-contain mx-auto"
+                                    />
+                                </div>
+                            ) : article.imageUrls && article.imageUrls.length > 1 ? (
                                 <div className="space-y-4">
                                     <Carousel className="w-full rounded-2xl overflow-hidden relative border border-white/10" setApi={setApi}>
                                         <CarouselContent>
@@ -360,7 +370,7 @@ export default function ArticleDetailNew() {
                         <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-2 text-sm text-zinc-500">
                             <SiFacebook className="w-5 h-5 text-[#1877F2]" />
                             <span>
-                                Source: {article.sourceName || "Facebook"} - translated from Thai
+                                Source: <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">{article.sourceName || "Facebook"}</a> - translated from Thai
                             </span>
                         </div>
                     </article>

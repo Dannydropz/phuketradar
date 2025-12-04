@@ -2,7 +2,9 @@
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (vecA.length !== vecB.length) {
-    throw new Error("Vectors must have the same length");
+    // Gracefully handle dimension mismatch (e.g. migrating from large to small embeddings)
+    // Just return 0 similarity so we don't crash, effectively ignoring old incompatible embeddings
+    return 0;
   }
 
   let dotProduct = 0;
@@ -83,7 +85,7 @@ export function getTopSimilarArticles(
     }
 
     const similarity = cosineSimilarity(embedding, existing.embedding);
-    
+
     similarities.push({
       id: existing.id,
       title: existing.title,

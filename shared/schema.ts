@@ -31,6 +31,8 @@ export const articles = pgTable("articles", {
   imageUrl: text("image_url"),
   imageUrls: text("image_urls").array(),
   imageHash: text("image_hash"),
+  videoUrl: text("video_url"),
+  videoThumbnail: text("video_thumbnail"),
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull(),
   author: text("author"), // Deprecated: use journalistId instead

@@ -16,6 +16,7 @@ interface ArticleCardProps {
   title: string;
   excerpt: string;
   imageUrl?: string;
+  videoThumbnail?: string;
   category: string;
   publishedAt: Date;
   interestScore?: number | null;
@@ -103,6 +104,7 @@ export function ArticleCard({
   title,
   excerpt,
   imageUrl,
+  videoThumbnail,
   category,
   publishedAt,
   interestScore,
@@ -141,7 +143,7 @@ export function ArticleCard({
       <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
         <div className="relative w-full aspect-video overflow-hidden">
           <ArticleImage
-            src={imageUrl}
+            src={videoThumbnail || imageUrl}
             alt={title}
             category={mappedCategory}
             className="w-full h-full object-cover"

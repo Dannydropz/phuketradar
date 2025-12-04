@@ -176,6 +176,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -211,6 +213,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -229,6 +237,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -264,6 +274,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -589,6 +605,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -624,6 +642,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
@@ -683,6 +707,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -718,6 +744,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(eq(articles.seriesId, seriesId))
@@ -740,6 +772,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -775,6 +809,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(
@@ -802,6 +842,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -837,6 +879,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(
@@ -881,6 +929,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -916,6 +966,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(and(...conditions))
@@ -936,6 +992,8 @@ export class DatabaseStorage implements IStorage {
         imageUrl: articles.imageUrl,
         imageUrls: articles.imageUrls,
         imageHash: articles.imageHash,
+        videoUrl: articles.videoUrl,
+        videoThumbnail: articles.videoThumbnail,
         category: articles.category,
         author: articles.author,
         journalistId: articles.journalistId,
@@ -971,6 +1029,12 @@ export class DatabaseStorage implements IStorage {
         seriesUpdateCount: articles.seriesUpdateCount,
         tags: articles.tags,
         viewCount: articles.viewCount,
+        engagementScore: articles.engagementScore,
+        isPostedToFacebook: articles.isPostedToFacebook,
+        timelineTags: articles.timelineTags,
+        autoMatchEnabled: articles.autoMatchEnabled,
+        needsReview: articles.needsReview,
+        reviewReason: articles.reviewReason,
       })
       .from(articles)
       .where(
