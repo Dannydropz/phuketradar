@@ -19,6 +19,27 @@ export interface TranslationResult {
   reviewReason?: string;
 }
 
+// BLOCKED KEYWORDS - Auto-reject these stories due to legal/editorial policy
+// CRITICAL: Lese majeste laws in Thailand make royal family content extremely risky
+const BLOCKED_KEYWORDS = [
+  // Thai royal family terms
+  "พระราชา", // King
+  "ในหลวง", // His Majesty (informal)
+  "พระบาทสมเด็จพระเจ้าอยู่หัว", // His Majesty the King (formal)
+  "สมเด็จพระนางเจ้า", // Her Majesty the Queen
+  "พระราชวงศ์", // Royal family
+  "ภูมิพลอดุลยเดช", // King Bhumibol Adulyadej (Rama IX)
+  "รัชกาลที่", // Reign/Era (usually precedes royal names)
+  "พระมหากษัตริย์", // Monarch
+  "สถาบันพระมหากษัตริย์", // Monarchy institution
+  "King Bhumibol", // English
+  "King Rama", // English
+  "Thai King", // English
+  "Thai royal", // English
+  "monarchy", // English
+  "majesty", // English (usually in royal context)
+];
+
 // High-priority keywords that boost interest scores (urgent/dramatic news)
 // Note: "อุบัติเหตุ" (accident) removed - too generic, boosts infrastructure complaints
 // GPT's improved scoring guidance now handles real accidents vs. damage reports
@@ -63,6 +84,11 @@ const COLD_KEYWORDS = [
   "ทำงานเพื่อ", // work to/work on
   "บรรเทา", // alleviate/ease
   "ร่วมกัน", // together/jointly (often in meeting contexts)
+  "บริจาค", // donate/donation
+  "บริจาคโลหิต", // blood donation
+  "รับบริจาค", // receive donation
+  "ช่วยเหลือ", // help/assist (charity context)
+  "กุศล", // charity/merit
 ];
 
 // Phuket location context map for richer rewrites
@@ -126,7 +152,7 @@ export class TranslatorService {
     content: string;
     excerpt: string;
     category: string;
-  }): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
+  }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
     // Prepare context string from the map
     const contextMapString = Object.entries(PHUKET_CONTEXT_MAP)
@@ -178,7 +204,7 @@ Respond in JSON format:
 }`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // UPGRADE: Using GPT-4o for maximum reasoning and writing quality
+      model: model, // Use specified model (gpt-4o for score 5, gpt-4o-mini for score 4)
       messages: [
         {
           role: "system",
@@ -212,6 +238,31 @@ Respond in JSON format:
       // STEP 1: Enrich Thai text with Phuket context
       const enrichedThaiTitle = enrichWithPhuketContext(title);
       const enrichedThaiContent = enrichWithPhuketContext(content);
+
+      // STEP 1.5: PRE-FLIGHT CONTENT FILTER - Check for blocked keywords
+      // CRITICAL: Lese majeste laws in Thailand require strict filtering of royal family content
+      const combinedText = `${title} ${content}`.toLowerCase();
+      const blockedKeywordFound = BLOCKED_KEYWORDS.some(keyword =>
+        combinedText.includes(keyword.toLowerCase())
+      );
+
+      if (blockedKeywordFound) {
+        const matchedKeyword = BLOCKED_KEYWORDS.find(kw => combinedText.includes(kw.toLowerCase()));
+        console.log(`   🚫 BLOCKED CONTENT DETECTED: Royal family keyword "${matchedKeyword}" found`);
+        console.log(`   ⚖️  LESE MAJESTE COMPLIANCE: Rejecting story to avoid legal risk`);
+
+        return {
+          translatedTitle: title,
+          translatedContent: content,
+          excerpt: "Story rejected due to editorial policy",
+          category: "Politics",
+          isActualNews: false, // Mark as non-news to prevent publication
+          interestScore: 0,
+          isDeveloping: false,
+          needsReview: false,
+          embedding: precomputedEmbedding,
+        };
+      }
 
       // STEP 2: Determine translation strategy
       const isComplex = isComplexThaiText(enrichedThaiContent);
@@ -256,9 +307,18 @@ ${adjustments.map(adj => `- "${adj.articleTitle.substring(0, 50)}..." was scored
 
 Your task:
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
-2. REJECT and mark as NOT news if the content is about:
-   - The Thai royal family, monarchy, or king (sensitive political content)
+
+2. CRITICAL CONTENT FILTERS - REJECT and mark as NOT news if the content is about:
+   ⚖️  **LESE MAJESTE COMPLIANCE (ABSOLUTE PRIORITY):**
+   - The Thai royal family, monarchy, king, queen, or any member of the royal family
+   - King Bhumibol Adulyadej (Rama IX), King Rama X, or ANY Thai monarch (past or present)
+   - ANY story mentioning "His Majesty", "Her Majesty", "Royal Family", "พระราชา", "ในหลวง", "ภูมิพลอดุลยเดช"
+   - THIS APPLIES TO ALL ROYAL STORIES - even positive ones like donations, ceremonies, or tributes
+   - REASON: Thailand's lese majeste laws make ANY royal family content legally risky. ALWAYS reject.
+   
+   📰 **OTHER BLOCKED CONTENT:**
    - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
+
 3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style.
 
 CONTEXT & ENRICHMENT REQUIREMENTS:
@@ -345,9 +405,18 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
 - "Students win robotics award" = Score 3 (achievement, NOT urgent)
 - "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
+- **"Blood donation drive" = Score 3 MAX (community charity event, NOT urgent)**
+- **"Donation ceremony" = Score 2-3 MAX (routine charity, NOT news)**
+- **"Fundraiser for flood victims" = Score 3 MAX (charity event, NOT breaking news)**
+- **"Community helps disaster victims" = Score 3 MAX (charitable response, NOT the disaster itself)**
 - "Car crash with injuries" = Score 4 (actual incident with victims)
 - "Drowning at beach" = Score 5 (death/urgent)
 - "Arrest for theft" = Score 4 (crime with action)
+
+**CHARITY/DONATION EVENT RULES:**
+- Blood drives, donation ceremonies, fundraisers = ABSOLUTE MAX SCORE 3 (they're nice, but NOT high-engagement news)
+- Even if honoring someone famous (including royalty) = STILL capped at 3
+- Community help efforts = Score 3 (unless it's covering the actual disaster, then use disaster scoring)
 
 LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
@@ -362,6 +431,7 @@ CRITICAL RULES:
 - Infrastructure damage/complaints = Score 3 (not urgent, just problems)
 - Meetings ABOUT disasters ≠ disasters = Score 2
 - Hat Yai floods, Bangkok explosions = Category="National", ABSOLUTE MAX SCORE 3 (Do not auto-post)
+- Donation/charity events = ABSOLUTE MAX SCORE 3 (even if related to disasters or honoring VIPs)
 
 ${learningContext}
 
@@ -426,7 +496,10 @@ Always output valid JSON.`,
       let enrichedExcerpt = result.excerpt || "";
 
       if (finalInterestScore >= 4) {
-        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying GPT-4 premium enrichment...`);
+        // User requested GPT-4o for both score 4 and 5 to ensure quality
+        // Cost savings come from stricter scoring (fewer stories getting score 4/5)
+        const enrichmentModel = "gpt-4o";
+        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment using ${enrichmentModel}...`);
 
         try {
           const enrichmentResult = await this.enrichWithPremiumGPT4({
@@ -434,7 +507,7 @@ Always output valid JSON.`,
             content: enrichedContent,
             excerpt: enrichedExcerpt,
             category,
-          });
+          }, enrichmentModel);
 
           enrichedTitle = enrichmentResult.enrichedTitle;
           enrichedContent = enrichmentResult.enrichedContent;
@@ -479,7 +552,7 @@ Always output valid JSON.`,
   async generateEmbedding(text: string): Promise<number[]> {
     try {
       const response = await openai.embeddings.create({
-        model: "text-embedding-3-large",
+        model: "text-embedding-3-small",
         input: text,
       });
 
@@ -503,121 +576,7 @@ Always output valid JSON.`,
     return this.generateEmbedding(combinedText);
   }
 
-  async isRealPhoto(imageUrl: string): Promise<boolean> {
-    try {
-      // Decode HTML entities (&amp; -> &) for Facebook URLs
-      const decodedUrl = imageUrl
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#039;/g, "'");
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `You are a strict image classifier for a news website. Analyze this image and determine if it's a REAL PHOTOGRAPH of actual people, places, events, or objects.
-
-TASK 1: COUNT WORDS ON THE IMAGE
-- Use OCR to extract ALL visible text on the image
-- Count the total number of words (not characters, not sentences - WORDS)
-- Include text of any size, color, or location on the image
-- Return the exact word count
-
-TASK 2: CLASSIFY IMAGE TYPE
-CRITICAL: Be VERY STRICT. Answer "yes" ONLY if this is an authentic, unedited photograph showing:
-- Real people in real situations
-- Actual locations or buildings
-- Genuine news events
-- Physical objects in real-world settings
-
-Answer "no" (REJECT) if the image is ANY of these:
-
-❌ FACEBOOK TEXT POSTS/ANNOUNCEMENTS:
-- Text on solid colored backgrounds (black, blue, red, any color)
-- News headlines displayed as graphics
-- Announcement-style posts with just words
-- Quote graphics or text overlays
-- Even if the text describes a real news event
-
-❌ OTHER NON-PHOTOS:
-- Logos, branding, or icons
-- Illustrations, cartoons, or drawings
-- Infographics or charts
-- Promotional graphics or ads
-- Memes or heavily edited images
-- Screenshots of websites or apps
-
-WORD COUNT THRESHOLD:
-- If the image has 15 OR MORE words on it → AUTOMATICALLY REJECT (these are text graphics)
-- Even if it looks like a photo with text overlay, 15+ words = text graphic
-
-EXAMPLES OF WHAT TO REJECT:
-- "Phuket raids a major gambling website..." (white text on black background, 50+ words) → REJECT
-- Police announcement with text on blue background (30+ words) → REJECT  
-- Breaking news headline as a graphic (20+ words) → REJECT
-- Any image where text is the main element (15+ words) → REJECT
-
-EXAMPLES OF WHAT TO ACCEPT:
-- Accident photo with caption "Car crash on Patong Hill" (5 words) → ACCEPT if photo is real
-- Tourism photo with watermark "Phuket Times" (2 words) → ACCEPT if photo is real
-- Event photo with date/time stamp (3-5 words) → ACCEPT if photo is real
-
-CONFIDENCE REQUIREMENT:
-- Only return isRealPhoto: true if you are HIGHLY CONFIDENT (90%+) it's a genuine photograph
-- When in doubt, REJECT (return false)
-- If the image quality is poor and you can't tell, REJECT
-
-Return JSON: {"isRealPhoto": true/false, "confidence": 0-100, "wordCount": number, "reason": "brief explanation including word count"}`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: decodedUrl,
-                  detail: "low" // Use low detail to save costs
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.1, // Lower temperature for more consistent classification
-        response_format: { type: "json_object" }
-      });
-
-      const result = JSON.parse(response.choices[0].message.content || "{}");
-      const isRealPhoto = result.isRealPhoto || false;
-      const confidence = result.confidence || 0;
-      const wordCount = result.wordCount || 0;
-
-      // Apply word count threshold: 15+ words = text graphic
-      const hasTooManyWords = wordCount >= 15;
-
-      // Explicit blank image detection: 0 words + very low confidence = blank/broken image
-      const isProbablyBlank = wordCount === 0 && confidence < 50;
-
-      // Require high confidence (>80) AND word count below threshold to accept
-      // Also reject if it's probably a blank image
-      const accepted = isRealPhoto && confidence > 80 && !hasTooManyWords && !isProbablyBlank;
-
-      console.log(`🖼️  Image classification: ${accepted ? "REAL PHOTO ✓" : "TEXT GRAPHIC ✗"}`);
-      console.log(`   Word count on image: ${wordCount} words ${hasTooManyWords ? "(≥15 = TEXT GRAPHIC)" : isProbablyBlank ? "(0 words + low conf = BLANK)" : "(< 15 = OK)"}`);
-      console.log(`   Confidence: ${confidence}%`);
-      console.log(`   Reason: ${result.reason}`);
-
-      return accepted;
-    } catch (error) {
-      console.error("Error classifying image:", error);
-      // Re-throw the error so the caller can decide how to handle it
-      // The scheduler will catch this and reject the image (conservative approach for broken/blank images)
-      throw error;
-    }
-  }
 }
 
 export const translatorService = new TranslatorService();
