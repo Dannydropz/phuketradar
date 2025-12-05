@@ -27,6 +27,7 @@ import { getSmartContextStories } from "./services/smart-context";
 import { detectTags } from "./lib/tag-detector";
 import { TAG_DEFINITIONS } from "@shared/core-tags";
 import sharp from "sharp";
+import { cache, CACHE_KEYS, CACHE_TTL, withCache, invalidateArticleCaches } from "./lib/cache";
 
 // Extend session type
 declare module "express-session" {
@@ -125,10 +126,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   // Article routes
 
-  // Get all published articles
+  // Get all published articles (with caching for fast loads)
   app.get("/api/articles", async (req, res) => {
     try {
-      const articles = await storage.getPublishedArticles();
+      // Use server-side cache to avoid repeated database queries
+      const articles = await withCache(
+        CACHE_KEYS.PUBLISHED_ARTICLES,
+        CACHE_TTL.ARTICLES_LIST,
+        () => storage.getPublishedArticles()
+      );
+
+      // Set HTTP cache headers for browser caching (30 seconds)
+      // This allows browsers to cache the response and avoid network requests
+      res.set({
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+        'Vary': 'Accept-Encoding',
+      });
+
       res.json(articles);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -140,7 +154,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/articles/trending", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
-      const articles = await smartLearningService.getTrendingArticles(limit);
+
+      // Cache trending articles for 2 minutes
+      const articles = await withCache(
+        `${CACHE_KEYS.TRENDING_ARTICLES}:${limit}`,
+        CACHE_TTL.TRENDING,
+        () => smartLearningService.getTrendingArticles(limit)
+      );
+
+      res.set({
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+        'Vary': 'Accept-Encoding',
+      });
+
       res.json(articles);
     } catch (error) {
       console.error("Error fetching trending articles:", error);
@@ -152,7 +178,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/articles/category/:category", async (req, res) => {
     try {
       const { category } = req.params;
-      const articles = await storage.getArticlesByCategory(category);
+
+      // Cache category articles for 1 minute
+      const articles = await withCache(
+        CACHE_KEYS.CATEGORY_ARTICLES(category),
+        CACHE_TTL.ARTICLES_LIST,
+        () => storage.getArticlesByCategory(category)
+      );
+
+      res.set({
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+        'Vary': 'Accept-Encoding',
+      });
+
       res.json(articles);
     } catch (error) {
       console.error("Error fetching articles by category:", error);
@@ -171,6 +209,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .join(" ");
 
       const articles = await storage.getArticlesByTag(tagName);
+
+      res.set({
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+        'Vary': 'Accept-Encoding',
+      });
+
       res.json(articles);
     } catch (error) {
       console.error("Error fetching articles by tag:", error);
@@ -178,17 +222,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single article by slug or ID
+  // Get single article by slug or ID (with caching)
   app.get("/api/articles/:slugOrId", async (req, res) => {
     try {
       const { slugOrId } = req.params;
 
-      // Try to find by slug first (preferred for SEO)
-      let article = await storage.getArticleBySlug(slugOrId);
+      // Try cache first
+      const cacheKeySlug = CACHE_KEYS.ARTICLE_BY_SLUG(slugOrId);
+      const cacheKeyId = CACHE_KEYS.ARTICLE_BY_ID(slugOrId);
 
-      // Fall back to ID lookup if not found by slug
+      let article = cache.get<any>(cacheKeySlug) || cache.get<any>(cacheKeyId);
+
       if (!article) {
-        article = await storage.getArticleById(slugOrId);
+        // Try to find by slug first (preferred for SEO)
+        article = await storage.getArticleBySlug(slugOrId);
+
+        // Fall back to ID lookup if not found by slug
+        if (!article) {
+          article = await storage.getArticleById(slugOrId);
+        }
+
+        if (article) {
+          // Cache the article by both slug and ID
+          cache.set(CACHE_KEYS.ARTICLE_BY_SLUG(article.slug), article, CACHE_TTL.ARTICLE_DETAIL);
+          cache.set(CACHE_KEYS.ARTICLE_BY_ID(article.id), article, CACHE_TTL.ARTICLE_DETAIL);
+        }
       }
 
       if (!article) {
@@ -196,6 +254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apply auto-linking to article content before sending to client
+      // We create a copy to avoid mutating the cached version
+      const articleResponse = { ...article };
+
       if (article.tags && article.tags.length > 0) {
         // Filter tags for linking: Select Top 1 Location and Top 1 Topic
         // Since tags are already sorted by relevance (score) from detectTags,
@@ -223,15 +284,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (tagsToLink.length > 0) {
-          article.content = autoLinkContent(article.content, tagsToLink);
+          articleResponse.content = autoLinkContent(article.content, tagsToLink);
         }
       }
 
-      res.json(article);
+      // Set HTTP cache headers for article pages (1 minute, with stale-while-revalidate)
+      res.set({
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'Vary': 'Accept-Encoding',
+      });
+
+      res.json(articleResponse);
     } catch (error) {
       console.error("Error fetching article:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ error: "Failed to fetch article", details: errorMessage });
+    }
+  });
+
+  // Get sidebar articles for article detail page (lightweight - only latest + related)
+  // This avoids fetching ALL articles just for the sidebar
+  app.get("/api/articles/:id/sidebar", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get the current article to determine category
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      // Cache key based on article ID and category
+      const cacheKey = `sidebar:${id}:${article.category}`;
+
+      const sidebarData = await withCache(
+        cacheKey,
+        CACHE_TTL.ARTICLES_LIST,
+        async () => {
+          // Get latest 6 articles (we'll filter out current in frontend)
+          const allArticles = await storage.getPublishedArticles();
+          const latestArticles = allArticles
+            .filter(a => a.id !== id)
+            .slice(0, 5);
+
+          // Get related articles (same category, excluding current)
+          const relatedArticles = allArticles
+            .filter(a => a.id !== id && a.category === article.category)
+            .slice(0, 3);
+
+          return { latestArticles, relatedArticles };
+        }
+      );
+
+      res.set({
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'Vary': 'Accept-Encoding',
+      });
+
+      res.json(sidebarData);
+    } catch (error) {
+      console.error("Error fetching sidebar articles:", error);
+      res.status(500).json({ error: "Failed to fetch sidebar articles" });
     }
   });
 
@@ -441,10 +555,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Journalist routes
 
-  // Get all journalists
+  // Get all journalists (with caching - they rarely change)
   app.get("/api/journalists", async (req, res) => {
     try {
-      const journalists = await storage.getAllJournalists();
+      const journalists = await withCache(
+        CACHE_KEYS.JOURNALISTS,
+        CACHE_TTL.JOURNALISTS,
+        () => storage.getAllJournalists()
+      );
+
+      res.set({
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
+        'Vary': 'Accept-Encoding',
+      });
+
       res.json(journalists);
     } catch (error) {
       console.error("Error fetching journalists:", error);
@@ -1190,6 +1314,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Article not found" });
       }
 
+      // Invalidate caches after article update
+      invalidateArticleCaches();
+
       res.json(article);
     } catch (error) {
       console.error("Error updating article:", error);
@@ -1206,6 +1333,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ error: "Article not found" });
       }
+
+      // Invalidate caches after deletion
+      invalidateArticleCaches();
 
       res.json({ success: true });
     } catch (error) {
@@ -1230,6 +1360,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Manual publishes do NOT auto-post to Facebook
       // Use the dedicated POST /api/admin/articles/:id/facebook endpoint to manually post to Facebook
       console.log(`📰 [PUBLISH] Article published manually (not auto-posted to Facebook): ${article.title.substring(0, 60)}...`);
+
+      // Invalidate caches after publish
+      invalidateArticleCaches();
 
       res.json(article);
     } catch (error) {

@@ -43,8 +43,10 @@ export default function ArticleDetailNew() {
         enabled: !!slugOrId,
     });
 
-    const { data: allArticles = [] } = useQuery<ArticleListItem[]>({
-        queryKey: ["/api/articles"],
+    // Use lightweight sidebar endpoint instead of fetching ALL articles
+    const { data: sidebarData } = useQuery<{ latestArticles: ArticleListItem[], relatedArticles: ArticleListItem[] }>({
+        queryKey: [`/api/articles/${article?.id}/sidebar`],
+        enabled: !!article?.id,
     });
 
     const { data: journalist } = useQuery<Journalist>({
@@ -85,13 +87,9 @@ export default function ArticleDetailNew() {
         );
     }
 
-    const relatedArticles = allArticles
-        .filter((a) => a.id !== article.id && a.category === article.category)
-        .slice(0, 3);
-
-    const latestArticles = allArticles
-        .filter((a) => a.id !== article.id)
-        .slice(0, 5);
+    // Use sidebar data from lightweight endpoint
+    const relatedArticles = sidebarData?.relatedArticles || [];
+    const latestArticles = sidebarData?.latestArticles || [];
 
     const baseUrl = import.meta.env.VITE_REPLIT_DEV_DOMAIN
         ? `https://${import.meta.env.VITE_REPLIT_DEV_DOMAIN}`
