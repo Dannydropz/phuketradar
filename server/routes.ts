@@ -715,14 +715,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
 
       // 3. Daily Engagement (Last 7 days)
+      // Note: FB engagement comes from social_media_analytics (reactions + comments + shares)
       const dailyStats = await db.execute(sql`
+        WITH daily_views AS (
+            SELECT metric_date, SUM(ga_views) as total_views
+            FROM article_metrics
+            WHERE metric_date >= NOW() - INTERVAL '7 days'
+            GROUP BY metric_date
+        ),
+        daily_social AS (
+            SELECT DATE(last_updated_at) as social_date,
+                   SUM(reactions) + SUM(comments) + SUM(shares) as total_engagement
+            FROM social_media_analytics
+            WHERE last_updated_at >= NOW() - INTERVAL '7 days'
+            GROUP BY DATE(last_updated_at)
+        )
         SELECT 
-            metric_date,
-            SUM(ga_views) as total_views,
-            SUM(fb_engagement) as total_fb_engagement
-        FROM article_metrics
-        WHERE metric_date >= NOW() - INTERVAL '7 days'
-        GROUP BY metric_date
+            COALESCE(v.metric_date, s.social_date) as metric_date,
+            COALESCE(v.total_views, 0) as total_views,
+            COALESCE(s.total_engagement, 0) as total_fb_engagement
+        FROM daily_views v
+        FULL OUTER JOIN daily_social s ON v.metric_date = s.social_date
         ORDER BY metric_date ASC
       `);
 
