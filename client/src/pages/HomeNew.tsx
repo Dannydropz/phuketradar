@@ -221,24 +221,24 @@ export default function HomeNew() {
                                                 alt={heroArticle.title}
                                                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
                                             />
-                                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
-                                                <div className="flex items-center gap-3 mb-3 text-sm text-blue-400 font-medium">
-                                                    <span className="bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 backdrop-blur-md uppercase text-xs">
+                                            <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 lg:p-8 z-20 w-full">
+                                                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 text-sm text-blue-400 font-medium flex-wrap">
+                                                    <span className="bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 backdrop-blur-md uppercase text-[10px] sm:text-xs">
                                                         {heroArticle.category}
                                                     </span>
                                                     {heroArticle.isDeveloping && (
-                                                        <span className="bg-red-500/10 px-2 py-1 rounded border border-red-500/20 backdrop-blur-md uppercase text-xs text-red-500 animate-pulse">
+                                                        <span className="bg-red-500/10 px-2 py-1 rounded border border-red-500/20 backdrop-blur-md uppercase text-[10px] sm:text-xs text-red-500 animate-pulse">
                                                             Live Updates
                                                         </span>
                                                     )}
-                                                    <span className="flex items-center gap-1 text-zinc-400">
+                                                    <span className="flex items-center gap-1 text-zinc-400 text-xs sm:text-sm">
                                                         <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(heroArticle.publishedAt), { addSuffix: true })}
                                                     </span>
                                                 </div>
-                                                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight mb-3 group-hover:text-blue-100 transition-colors">
+                                                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight mb-2 sm:mb-3 group-hover:text-blue-100 transition-colors">
                                                     {heroArticle.storySeriesTitle || heroArticle.title}
                                                 </h1>
-                                                <p className="text-base md:text-lg text-zinc-300 line-clamp-2 max-w-3xl">
+                                                <p className="text-sm sm:text-base md:text-lg text-zinc-300 line-clamp-2 max-w-3xl hidden sm:block">
                                                     {heroArticle.excerpt}
                                                 </p>
                                             </div>
