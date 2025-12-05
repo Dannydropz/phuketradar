@@ -66,7 +66,6 @@ export function ArticleImage({ src, alt, className = "", category, testId }: Art
         src={src}
         alt={alt}
         className={`${className} ${isLoading ? 'hidden' : ''}`}
-        loading="lazy"
         decoding="async"
         onError={() => {
           setImageError(true);
