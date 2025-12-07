@@ -63,6 +63,15 @@ const HOT_KEYWORDS = [
   "สาหัส", // seriously injured
   "ระเบิด", // explosion
   "โจรกรรม", // robbery
+  // FOREIGNER KEYWORDS - These stories go viral with expat audience
+  "ต่างชาติ", // foreigner
+  "ฝรั่ง", // farang (Western foreigner)
+  "นักท่องเที่ยว", // tourist
+  "ชาวต่างประเทศ", // foreign national
+  "ปะทะ", // clash/confrontation
+  "ทะเลาะ", // quarrel/argue
+  "ชกต่อย", // fistfight
+  "ตบตี", // slap/hit fight
 ];
 
 // Low-priority keywords that lower interest scores (routine/boring news)
@@ -392,6 +401,7 @@ CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" 
 INTEREST SCORE (1-5) - BE VERY STRICT:
 **RESERVE 4-5 FOR HIGH-ENGAGEMENT NEWS ONLY:**
 - 5 = BREAKING/URGENT: Deaths, drownings, fatal accidents, violent crime with serious injuries, major fires, natural disasters causing casualties
+- 5 = FOREIGNER INCIDENTS: ANY story involving foreigners/tourists/expats doing something out of the ordinary - fights, accidents, disturbances, arrests, confrontations with locals. These stories go VIRAL with the expat audience. Keywords: foreigner, tourist, farang, expat, foreign national, American, British, Russian, Chinese tourist, etc.
 - 4 = SERIOUS INCIDENTS: Non-fatal accidents with injuries, arrests for serious crimes, active rescue operations, fights/assaults, hit-and-runs, robberies
 
 **CAP ROUTINE NEWS AT 3 OR BELOW:**
@@ -400,18 +410,21 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, photo ops
 
 **CRITICAL DISTINCTIONS:**
-- "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
-- "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
-- "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
-- "Students win robotics award" = Score 3 (achievement, NOT urgent)
-- "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
-- **"Blood donation drive" = Score 3 MAX (community charity event, NOT urgent)**
-- **"Donation ceremony" = Score 2-3 MAX (routine charity, NOT news)**
-- **"Fundraiser for flood victims" = Score 3 MAX (charity event, NOT breaking news)**
-- **"Community helps disaster victims" = Score 3 MAX (charitable response, NOT the disaster itself)**
-- "Car crash with injuries" = Score 4 (actual incident with victims)
-- "Drowning at beach" = Score 5 (death/urgent)
-- "Arrest for theft" = Score 4 (crime with action)
+- \"Road damaged by flooding\" = Score 3 (infrastructure complaint, NOT a disaster)
+- \"Luxury hotel/villa launch\" = Score 3 (business news, NOT breaking)
+- \"Art exhibition/Gallery opening\" = Score 3 (cultural event, NOT urgent)
+- \"Students win robotics award\" = Score 3 (achievement, NOT urgent)
+- \"Tourism boom faces sustainability concerns\" = Score 3 (discussion, NOT crisis)
+- **\"Blood donation drive\" = Score 3 MAX (community charity event, NOT urgent)**
+- **\"Donation ceremony\" = Score 2-3 MAX (routine charity, NOT news)**
+- **\"Fundraiser for flood victims\" = Score 3 MAX (charity event, NOT breaking news)**
+- **\"Community helps disaster victims\" = Score 3 MAX (charitable response, NOT the disaster itself)**
+- \"Car crash with injuries\" = Score 4 (actual incident with victims)
+- \"Drowning at beach\" = Score 5 (death/urgent)
+- \"Arrest for theft\" = Score 4 (crime with action)
+- **\"Foreigner in fight with locals\" = Score 5 (viral expat content)**
+- **\"Tourist arrested for...\" = Score 5 (foreigner incident)**
+- **\"Expat involved in accident\" = Score 5 (foreigner incident)**
 
 **CHARITY/DONATION EVENT RULES:**
 - Blood drives, donation ceremonies, fundraisers = ABSOLUTE MAX SCORE 3 (they're nice, but NOT high-engagement news)

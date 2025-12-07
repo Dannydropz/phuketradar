@@ -254,30 +254,22 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 return;
               }
 
-              // STEP -1.5: Reject video posts (video screen grabs have poor quality)
+              // STEP -1.5: VIDEO POST HANDLING (Accept and embed with thumbnail)
+              // Video posts are valuable content - use the video thumbnail as image
               if (post.isVideo) {
-                skippedNotNews++;
-                skipReasons.push({
-                  reason: "Video post (poor screen grab quality)",
-                  postTitle: post.title.substring(0, 60),
-                  sourceUrl: post.sourceUrl,
-                  facebookPostId: post.facebookPostId,
-                });
-
-                console.log(`\n⏭️  SKIPPED - VIDEO POST (screen grabs have poor quality)`);
+                console.log(`\n🎥 VIDEO POST DETECTED - Processing with embedded video support`);
                 console.log(`   Title: ${post.title.substring(0, 60)}...`);
-                console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+                console.log(`   Video URL: ${post.videoUrl?.substring(0, 60) || 'N/A'}...`);
+                console.log(`   Thumbnail: ${post.videoThumbnail?.substring(0, 60) || 'N/A'}...`);
 
-                // Update progress
-                if (callbacks?.onProgress) {
-                  callbacks.onProgress({
-                    totalPosts,
-                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles: createdCount,
-                    skippedNotNews,
-                  });
+                // If video post has no regular image but has a thumbnail, use thumbnail as image
+                if (!post.imageUrl && post.videoThumbnail) {
+                  console.log(`   📸 Using video thumbnail as primary image`);
+                  post.imageUrl = post.videoThumbnail;
+                  if (!post.imageUrls || post.imageUrls.length === 0) {
+                    post.imageUrls = [post.videoThumbnail];
+                  }
                 }
-                return;
               }
 
               // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
@@ -865,6 +857,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   console.log(`💾 Attempting to save article to database...`);
                   console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
                   console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
+                  if (post.isVideo) {
+                    console.log(`   🎥 VIDEO STORY - Video URL and thumbnail will be embedded`);
+                  }
 
                   // Prepare article data for duplicate detection
                   const articleData: InsertArticle = {
@@ -877,6 +872,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     imageUrl: localImageUrl || null,
                     imageUrls: localImageUrls || null,
                     imageHash: imageHash || null, // Store perceptual hash for duplicate detection
+                    videoUrl: post.videoUrl || null, // Store video URL for embedded playback
+                    videoThumbnail: post.videoThumbnail || null, // High-quality video thumbnail
                     category: translation.category,
                     sourceUrl: post.sourceUrl,
                     sourceName: source.name, // Actual source name (e.g., "The Phuket Times", "Phuket Info Center")
