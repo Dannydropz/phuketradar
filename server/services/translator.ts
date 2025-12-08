@@ -98,6 +98,25 @@ const COLD_KEYWORDS = [
   "รับบริจาค", // receive donation
   "ช่วยเหลือ", // help/assist (charity context)
   "กุศล", // charity/merit
+  // PROMOTIONAL/MALL EVENT KEYWORDS - These are NOT news, just marketing
+  "มาสคอต", // mascot
+  "mascot", // mascot (English)
+  "ห้างสรรพสินค้า", // department store/mall
+  "ศูนย์การค้า", // shopping center
+  "Jungceylon", // Jungceylon mall
+  "Central", // Central mall
+  "Robinson", // Robinson mall
+  "โปรโมชั่น", // promotion
+  "ลดราคา", // sale/discount
+  "เปิดตัว", // launch/unveil (product/mascot)
+  "กิจกรรมส่งเสริม", // promotional activity
+  "ถ่ายรูป", // photo opportunity
+  "เฉลิมฉลอง", // celebration
+  "สนุกสนาน", // fun/enjoyment (event context)
+  "การแสดง", // performance/show
+  "Hello Phuket", // Hello Phuket event
+  "sustainability", // sustainability event
+  "ความยั่งยืน", // sustainability (Thai)
 ];
 
 // Phuket location context map for richer rewrites
@@ -414,22 +433,36 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - \"Luxury hotel/villa launch\" = Score 3 (business news, NOT breaking)
 - \"Art exhibition/Gallery opening\" = Score 3 (cultural event, NOT urgent)
 - \"Students win robotics award\" = Score 3 (achievement, NOT urgent)
-- \"Tourism boom faces sustainability concerns\" = Score 3 (discussion, NOT crisis)
-- **\"Blood donation drive\" = Score 3 MAX (community charity event, NOT urgent)**
-- **\"Donation ceremony\" = Score 2-3 MAX (routine charity, NOT news)**
-- **\"Fundraiser for flood victims\" = Score 3 MAX (charity event, NOT breaking news)**
-- **\"Community helps disaster victims\" = Score 3 MAX (charitable response, NOT the disaster itself)**
-- \"Car crash with injuries\" = Score 4 (actual incident with victims)
-- \"Drowning at beach\" = Score 5 (death/urgent)
-- \"Arrest for theft\" = Score 4 (crime with action)
-- **\"Foreigner in fight with locals\" = Score 5 (viral expat content)**
-- **\"Tourist arrested for...\" = Score 5 (foreigner incident)**
-- **\"Expat involved in accident\" = Score 5 (foreigner incident)**
+- "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
+- "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
+- "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
+- "Students win robotics award" = Score 3 (achievement, NOT urgent)
+- "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
+- **"Blood donation drive" = Score 3 MAX (community charity event, NOT urgent)**
+- **"Donation ceremony" = Score 2-3 MAX (routine charity, NOT news)**
+- **"Fundraiser for flood victims" = Score 3 MAX (charity event, NOT breaking news)**
+- **"Community helps disaster victims" = Score 3 MAX (charitable response, NOT the disaster itself)**
+- **"Mascot at mall event" = Score 2 MAX (promotional fluff, NOT news)**
+- **"Shopping center celebration" = Score 2 MAX (mall marketing, NOT news)**
+- **"Hello Phuket event" = Score 2 MAX (promotional event, NOT breaking)**
+- **"Sustainability-themed event" = Score 2 MAX (feel-good PR, NOT urgent)**
+- "Car crash with injuries" = Score 4 (actual incident with victims)
+- "Drowning at beach" = Score 5 (death/urgent)
+- "Arrest for theft" = Score 4 (crime with action)
+- **"Foreigner in fight with locals" = Score 5 (viral expat content)**
+- **"Tourist arrested for..." = Score 5 (foreigner incident)**
+- **"Expat involved in accident" = Score 5 (foreigner incident)**
 
 **CHARITY/DONATION EVENT RULES:**
 - Blood drives, donation ceremonies, fundraisers = ABSOLUTE MAX SCORE 3 (they're nice, but NOT high-engagement news)
 - Even if honoring someone famous (including royalty) = STILL capped at 3
 - Community help efforts = Score 3 (unless it's covering the actual disaster, then use disaster scoring)
+
+**PROMOTIONAL/MALL EVENT RULES:**
+- Mascot appearances, mall events, product launches = ABSOLUTE MAX SCORE 2
+- Shopping center celebrations, sustainability events = Score 2 (marketing fluff)
+- Photo opportunities, performances, festivities = Score 2 (entertainment, NOT news)
+- If it sounds like a press release or promotional content = Score 1-2
 
 LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
@@ -445,6 +478,7 @@ CRITICAL RULES:
 - Meetings ABOUT disasters ≠ disasters = Score 2
 - Hat Yai floods, Bangkok explosions = Category="National", ABSOLUTE MAX SCORE 3 (Do not auto-post)
 - Donation/charity events = ABSOLUTE MAX SCORE 3 (even if related to disasters or honoring VIPs)
+- **Mascots, mall events, promotional content = ABSOLUTE MAX SCORE 2 (never waste GPT-4o on these)**
 
 ${learningContext}
 
