@@ -117,9 +117,10 @@ export default function HomeNew() {
         return filtered.slice(0, displayCount);
     }, [filteredArticles, heroArticle, sideStories, activeTab, displayCount]);
 
-    // Timeline/Live Stories (parent stories with seriesId)
+    // Timeline/Live Stories - Only show ACTIVE timelines (autoMatchEnabled = true)
+    // Ended timelines (autoMatchEnabled = false) are hidden from the Live Updates section
     const liveStories = useMemo(() => {
-        return filteredArticles.filter(a => a.isParentStory && a.seriesId).slice(0, 6);
+        return filteredArticles.filter(a => a.isParentStory && a.seriesId && a.autoMatchEnabled === true).slice(0, 6);
     }, [filteredArticles]);
 
     const hasMore = filteredArticles.length > (1 + 3 + radarArticles.length);

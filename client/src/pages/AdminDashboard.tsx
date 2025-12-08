@@ -866,8 +866,10 @@ export default function AdminDashboard() {
                       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
                     );
 
-                    // Then group them
-                    const parentStories = sortedArticles.filter(a => a.isParentStory);
+                    // Separate ACTIVE timelines (autoMatchEnabled=true) - these get pinned
+                    // ENDED timelines (autoMatchEnabled=false) are treated as regular articles
+                    const activeParentStories = sortedArticles.filter(a => a.isParentStory && a.autoMatchEnabled === true);
+                    const endedParentStories = sortedArticles.filter(a => a.isParentStory && a.autoMatchEnabled !== true);
                     const childStories = sortedArticles.filter(a => !a.isParentStory && a.seriesId);
                     const orphanStories = sortedArticles.filter(a => !a.isParentStory && !a.seriesId);
 
@@ -882,21 +884,24 @@ export default function AdminDashboard() {
                     });
 
                     // Identify child stories whose parents are NOT in the current list (orphans effectively)
-                    const parentIds = new Set(parentStories.map(p => p.seriesId));
-                    const trueOrphans = [...orphanStories];
+                    const activeParentIds = new Set(activeParentStories.map(p => p.seriesId));
+                    const endedParentIds = new Set(endedParentStories.map(p => p.seriesId));
+
+                    // True orphans = regular orphans + ended parent stories + child stories of parents not in active list
+                    const trueOrphans = [...orphanStories, ...endedParentStories];
                     childStories.forEach(child => {
-                      if (child.seriesId && !parentIds.has(child.seriesId)) {
+                      if (child.seriesId && !activeParentIds.has(child.seriesId) && !endedParentIds.has(child.seriesId)) {
                         trueOrphans.push(child);
                       }
                     });
 
-                    // Sort orphans by date
+                    // Sort orphans by date (includes ended timelines now)
                     trueOrphans.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
                     return (
                       <>
-                        {/* Render Parent Stories with Children */}
-                        {parentStories.map(parent => {
+                        {/* Render ACTIVE Parent Stories with Children (pinned at top) */}
+                        {activeParentStories.map(parent => {
                           const children = parent.seriesId ? childrenBySeries.get(parent.seriesId) || [] : [];
                           // Default to collapsed (true), only expand if explicitly opened
                           const isCollapsed = !collapsedTimelines.has(parent.id);
