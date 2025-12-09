@@ -1192,12 +1192,22 @@ export default function AdminDashboard() {
                                 <Eye className="w-4 h-4" />
                               </Button>
                               {/* Facebook Button - Always visible. Hollow = not posted, Filled = posted */}
-                              {article.facebookPostId ? (
+                              {article.facebookPostId && !article.facebookPostId.startsWith('LOCK:') ? (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="default"
-                                      onClick={() => window.open(`https://www.facebook.com/${article.facebookPostId.replace('_', '/posts/')}`, '_blank')}
+                                      onClick={(e) => {
+                                        if (e.shiftKey) {
+                                          // Shift+Click = Reset the facebook status
+                                          if (confirm('Reset Facebook status? This will allow you to re-post this article.')) {
+                                            updateMutation.mutate({ id: article.id, updates: { facebookPostId: null, facebookPostUrl: null } });
+                                          }
+                                        } else {
+                                          // Normal click = View on Facebook
+                                          window.open(`https://www.facebook.com/${article.facebookPostId!.replace('_', '/posts/')}`, '_blank');
+                                        }
+                                      }}
                                       data-testid={`button-facebook-posted-${article.id}`}
                                       className="h-11 w-11 p-0 bg-blue-600 hover:bg-blue-700"
                                       aria-label="View on Facebook"
@@ -1205,15 +1215,24 @@ export default function AdminDashboard() {
                                       <Facebook className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Posted to Facebook (click to view)</TooltipContent>
+                                  <TooltipContent>Posted to Facebook (click to view, shift+click to reset)</TooltipContent>
                                 </Tooltip>
                               ) : (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="outline"
-                                      onClick={() => postToFacebookMutation.mutate(article.id)}
-                                      disabled={postToFacebookMutation.isPending || !article.isPublished}
+                                      onClick={() => {
+                                        // If there's a stuck LOCK, clear it first
+                                        if (article.facebookPostId?.startsWith('LOCK:')) {
+                                          updateMutation.mutate({ id: article.id, updates: { facebookPostId: null } }, {
+                                            onSuccess: () => postToFacebookMutation.mutate(article.id)
+                                          });
+                                        } else {
+                                          postToFacebookMutation.mutate(article.id);
+                                        }
+                                      }}
+                                      disabled={postToFacebookMutation.isPending || updateMutation.isPending || !article.isPublished}
                                       data-testid={`button-facebook-${article.id}`}
                                       className="h-11 w-11 p-0 border-blue-500 text-blue-500 hover:bg-blue-500/10"
                                       aria-label="Post to Facebook"
@@ -1222,7 +1241,9 @@ export default function AdminDashboard() {
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    {!article.isPublished ? "Publish article first" : "Post to Facebook"}
+                                    {!article.isPublished ? "Publish article first" :
+                                      article.facebookPostId?.startsWith('LOCK:') ? "Clear stuck lock and post" :
+                                        "Post to Facebook"}
                                   </TooltipContent>
                                 </Tooltip>
                               )}
