@@ -293,14 +293,31 @@ export default function ArticleDetailNew() {
                         {/* Article Images */}
                         <div className="mb-8">
                             {article.videoUrl ? (
-                                <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
-                                    <video
-                                        src={article.videoUrl}
-                                        poster={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
-                                        controls
-                                        playsInline
-                                        className="w-full max-h-[600px] object-contain mx-auto"
-                                    />
+                                <div className="space-y-2">
+                                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
+                                        <video
+                                            src={article.videoUrl}
+                                            poster={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
+                                            controls
+                                            playsInline
+                                            className="w-full max-h-[600px] object-contain mx-auto"
+                                        />
+                                    </div>
+                                    {/* Video Source Credit */}
+                                    <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 py-2">
+                                        <SiFacebook className="w-4 h-4 text-[#1877F2]" />
+                                        <span>
+                                            Video source:{" "}
+                                            <a
+                                                href={article.sourceUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-400 hover:text-blue-300 transition-colors underline underline-offset-2"
+                                            >
+                                                {article.sourceName || "Facebook"}
+                                            </a>
+                                        </span>
+                                    </div>
                                 </div>
                             ) : article.imageUrls && article.imageUrls.length > 1 ? (
                                 <div className="space-y-4">
