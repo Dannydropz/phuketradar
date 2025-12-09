@@ -396,11 +396,22 @@ CRITICAL LOCATION VERIFICATION:
 - CHECK LANDMARKS: "Pholphichai Road", "Wat Plakrim", "Wat Phutthikaram" are in HAT YAI, not Phuket.
 - CRITICAL: PERSON'S ORIGIN ≠ EVENT LOCATION: If "Patong Jet Ski team helps with floods", READ CAREFULLY to see WHERE they are helping. They might be FROM Patong but HELPING IN Hat Yai. DO NOT assume the event is in Phuket just because the people are from Phuket.
 
-
-CRITICAL FACTUALITY RULES:
+CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - DO NOT INVENT FACTS: Do not add details, numbers, quotes, or events not in the source text.
 - NO GUESSING: If source says "several people", do NOT change to "five people".
 - CONTEXT VS. FICTION: You MAY add context (e.g., "Hat Yai is a major city") but MUST NOT add specific details about the event itself.
+
+⚠️ NEVER INVENT THE FOLLOWING (even if they seem plausible):
+- "Authorities were alerted" / "Police responded" - unless source says so
+- "The person was detained/arrested" - unless source says so
+- "Eyewitnesses described..." - unless source quotes witnesses
+- "Calls for stricter enforcement" - unless source says so
+- "narrowly avoiding..." / "caused chaos" - unless source describes this
+- Specific times ("late afternoon", "Thursday") - unless source provides
+- Injuries, damages, or consequences not in source
+- Reactions from officials not quoted in source
+
+🎯 FOR SHORT/VIRAL POSTS: If the source is just a funny caption with a photo (e.g., "Foreigner with pot helmet on Sarasin Road"), write a SHORT, FACTUAL article that describes ONLY what is visible/stated. Do NOT dramatize into a full news story with invented details.
 
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
