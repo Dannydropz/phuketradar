@@ -335,6 +335,7 @@ ${adjustments.map(adj => `- "${adj.articleTitle.substring(0, 50)}..." was scored
 
 Your task:
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
+   **IMPORTANT:** Short captions with viral images ARE news! If a post shows a foreigner doing something unusual (wearing a pot as a helmet, sitting dangerously on a scooter, etc.), this IS newsworthy even if the caption is just a few words. These viral foreigner stories get MASSIVE engagement.
 
 2. CRITICAL CONTENT FILTERS - REJECT and mark as NOT news if the content is about:
    ⚖️  **LESE MAJESTE COMPLIANCE (ABSOLUTE PRIORITY):**
@@ -425,7 +426,7 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 
 **CAP ROUTINE NEWS AT 3 OR BELOW:**
 - 3 = NOTEWORTHY: Minor accidents (no injuries), infrastructure complaints (potholes, flooding damage), tourism developments, business openings, new property launches, missing persons
-- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning
+- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning, **community sports events, friendly matches, alumni gatherings, local football/futsal matches**
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, photo ops
 
 **CRITICAL DISTINCTIONS:**
@@ -446,12 +447,16 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - **"Shopping center celebration" = Score 2 MAX (mall marketing, NOT news)**
 - **"Hello Phuket event" = Score 2 MAX (promotional event, NOT breaking)**
 - **"Sustainability-themed event" = Score 2 MAX (feel-good PR, NOT urgent)**
+- **"Alumni football match" = Score 2 MAX (community sports, NOT breaking)**
+- **"Friendly match at stadium" = Score 2 MAX (local sports event, NOT urgent)**
+- **"Community sports event" = Score 2 MAX (routine local activity)**
 - "Car crash with injuries" = Score 4 (actual incident with victims)
 - "Drowning at beach" = Score 5 (death/urgent)
 - "Arrest for theft" = Score 4 (crime with action)
 - **"Foreigner in fight with locals" = Score 5 (viral expat content)**
 - **"Tourist arrested for..." = Score 5 (foreigner incident)**
 - **"Expat involved in accident" = Score 5 (foreigner incident)**
+- **"Foreigner doing something weird/silly" = Score 5 (viral expat content - pot on head, funny behavior, etc.)**
 
 **CHARITY/DONATION EVENT RULES:**
 - Blood drives, donation ceremonies, fundraisers = ABSOLUTE MAX SCORE 3 (they're nice, but NOT high-engagement news)
