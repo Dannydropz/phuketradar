@@ -317,7 +317,8 @@ export class ScraperService {
       console.log(JSON.stringify(data, null, 2));
 
       // The single post endpoint returns the post directly (not in a posts array)
-      if (!data || !data.text) {
+      // Note: API returns 'description' not 'text' for the post content
+      if (!data || (!data.text && !data.description)) {
         console.log("❌ No post data returned from single post endpoint");
         return null;
       }
@@ -337,7 +338,7 @@ export class ScraperService {
       const title = lines[0]?.substring(0, 200) || text.substring(0, 100);
       const content = text;
 
-      // Extract images
+      // Extract images from various possible fields
       let imageUrl: string | undefined;
       let imageUrls: string[] | undefined;
 
@@ -351,14 +352,49 @@ export class ScraperService {
         imageUrl = post.images[0];
       }
 
+      // Also check for media/attachments array (common in Facebook API responses)
+      if (!imageUrl && post.attachments?.data) {
+        for (const attachment of post.attachments.data) {
+          if (attachment.media?.image?.src) {
+            imageUrl = attachment.media.image.src;
+            break;
+          }
+          // Check subattachments for multi-image posts
+          if (attachment.subattachments?.data) {
+            const subImages = attachment.subattachments.data
+              .map((sub: any) => sub.media?.image?.src)
+              .filter(Boolean);
+            if (subImages.length > 0) {
+              imageUrls = subImages;
+              imageUrl = subImages[0];
+              break;
+            }
+          }
+        }
+      }
+
+      // Check for media array (another possible format)
+      if (!imageUrl && post.media && Array.isArray(post.media)) {
+        const mediaImages = post.media
+          .filter((m: any) => m.type === 'photo' || m.image)
+          .map((m: any) => m.image || m.src || m.url)
+          .filter(Boolean);
+        if (mediaImages.length > 0) {
+          imageUrls = mediaImages;
+          imageUrl = mediaImages[0];
+        }
+      }
+
       // Check for video
       const isVideo = !!(post.video_url || post.videoDetails?.sdUrl || post.videoDetails?.hdUrl);
 
       // Extract Facebook post ID
       const facebookPostId = this.extractFacebookPostId(postUrl, post.id || post.post_id);
 
-      // Parse timestamp if available
-      const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
+      // Parse timestamp if available (API uses creation_time, not created_time)
+      const publishedAt = post.creation_time
+        ? new Date(post.creation_time)
+        : (post.created_time ? new Date(post.created_time) : new Date());
 
       // Extract location if available
       const location = post.place?.name;
