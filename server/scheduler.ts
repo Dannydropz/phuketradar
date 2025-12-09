@@ -1224,28 +1224,28 @@ export async function runManualPostScrape(
       });
     }
 
-    // Scrape the individual post
-    let scrapedPosts;
+    // Scrape the individual post using the SINGLE POST endpoint
+    let post;
     try {
-      scrapedPosts = await scraperService.scrapeFacebookPage(postUrl);
+      // Import the scraper service directly to use scrapeSingleFacebookPost
+      const { scraperService } = await import("./services/scraper");
+      post = await scraperService.scrapeSingleFacebookPost(postUrl);
     } catch (scrapeError) {
       console.error("❌ Error scraping post URL:", scrapeError);
       return {
         success: false,
-        message: "Failed to scrape the post. Please check the URL and try again."
+        message: `Failed to scrape the post: ${scrapeError instanceof Error ? scrapeError.message : 'Unknown error'}`
       };
     }
 
-    if (!scrapedPosts || scrapedPosts.length === 0) {
-      console.log("❌ No posts found at the given URL");
+    if (!post) {
+      console.log("❌ No post found at the given URL");
       return {
         success: false,
-        message: "No posts found at the given URL. The post may be private or the URL may be incorrect."
+        message: "No post found at the given URL. The post may be private or the URL may be incorrect."
       };
     }
 
-    // Take the first post (should be the only one for a direct post URL)
-    const post = scrapedPosts[0];
     console.log(`✅ Post scraped successfully`);
     console.log(`   Title: ${post.title.substring(0, 60)}...`);
     console.log(`   Images: ${post.imageUrls?.length || (post.imageUrl ? 1 : 0)}`);

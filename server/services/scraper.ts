@@ -68,6 +68,7 @@ interface ScrapeCreatorsResponse {
 
 export class ScraperService {
   private scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
+  private scrapeCreatorsSinglePostUrl = "https://api.scrapecreators.com/v1/facebook/post";
   private apiKey = process.env.SCRAPECREATORS_API_KEY;
 
   // Extract canonical Facebook post ID - ALWAYS returns numeric ID when available
@@ -282,6 +283,108 @@ export class ScraperService {
     } catch (error) {
       console.error("Error scraping Facebook page:", error);
       throw new Error("Failed to scrape Facebook page");
+    }
+  }
+
+  /**
+   * Scrape a SINGLE Facebook post by its URL
+   * This uses the /v1/facebook/post endpoint which is designed for individual posts
+   * Supports: share URLs, post permalinks, pfbid URLs, etc.
+   */
+  async scrapeSingleFacebookPost(postUrl: string): Promise<ScrapedPost | null> {
+    try {
+      if (!this.apiKey) {
+        throw new Error("SCRAPECREATORS_API_KEY is not configured");
+      }
+
+      console.log(`🎯 Scraping SINGLE Facebook post: ${postUrl}`);
+
+      // Call the single post endpoint
+      const response = await fetch(`${this.scrapeCreatorsSinglePostUrl}?url=${encodeURIComponent(postUrl)}`, {
+        headers: {
+          'x-api-key': this.apiKey
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`ScrapeCreators single post API error (${response.status}):`, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log("📋 SINGLE POST API RESPONSE:");
+      console.log(JSON.stringify(data, null, 2));
+
+      // The single post endpoint returns the post directly (not in a posts array)
+      if (!data || !data.text) {
+        console.log("❌ No post data returned from single post endpoint");
+        return null;
+      }
+
+      // Convert to our ScrapedPost format
+      const post = data;
+
+      // Extract text content
+      const text = post.text || post.description || '';
+      if (!text.trim()) {
+        console.log("❌ Post has no text content");
+        return null;
+      }
+
+      // Extract the first line as title
+      const lines = text.split('\n').filter((line: string) => line.trim());
+      const title = lines[0]?.substring(0, 200) || text.substring(0, 100);
+      const content = text;
+
+      // Extract images
+      let imageUrl: string | undefined;
+      let imageUrls: string[] | undefined;
+
+      // Try different image fields the API might return
+      if (post.image) {
+        imageUrl = post.image;
+      } else if (post.full_picture) {
+        imageUrl = post.full_picture;
+      } else if (post.images && Array.isArray(post.images)) {
+        imageUrls = post.images;
+        imageUrl = post.images[0];
+      }
+
+      // Check for video
+      const isVideo = !!(post.video_url || post.videoDetails?.sdUrl || post.videoDetails?.hdUrl);
+
+      // Extract Facebook post ID
+      const facebookPostId = this.extractFacebookPostId(postUrl, post.id || post.post_id);
+
+      // Parse timestamp if available
+      const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
+
+      // Extract location if available
+      const location = post.place?.name;
+
+      const scrapedPost: ScrapedPost = {
+        title: title.trim(),
+        content: content.trim(),
+        imageUrl,
+        imageUrls: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
+        sourceUrl: postUrl,
+        facebookPostId: facebookPostId || undefined,
+        publishedAt,
+        isVideo,
+        location,
+      };
+
+      console.log(`✅ Successfully scraped single post`);
+      console.log(`   Title: ${scrapedPost.title.substring(0, 60)}...`);
+      console.log(`   Images: ${scrapedPost.imageUrls?.length || (scrapedPost.imageUrl ? 1 : 0)}`);
+      console.log(`   Is Video: ${scrapedPost.isVideo}`);
+
+      return scrapedPost;
+
+    } catch (error) {
+      console.error("Error scraping single Facebook post:", error);
+      throw error;
     }
   }
 
