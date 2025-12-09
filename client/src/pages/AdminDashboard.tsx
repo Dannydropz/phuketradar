@@ -1192,7 +1192,7 @@ export default function AdminDashboard() {
                                 <Eye className="w-4 h-4" />
                               </Button>
                               {/* Facebook Post Button for Published Articles */}
-                              {article.isPublished && article.imageUrl && !article.facebookPostId && (
+                              {article.isPublished && (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && !article.facebookPostId && (
                                 <Button
                                   variant="outline"
                                   onClick={() => postToFacebookMutation.mutate(article.id)}
