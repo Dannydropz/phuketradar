@@ -1191,18 +1191,40 @@ export default function AdminDashboard() {
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              {/* Facebook Post Button for Published Articles */}
-                              {article.isPublished && (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && !article.facebookPostId && (
-                                <Button
-                                  variant="outline"
-                                  onClick={() => postToFacebookMutation.mutate(article.id)}
-                                  disabled={postToFacebookMutation.isPending}
-                                  data-testid={`button-facebook-${article.id}`}
-                                  className="h-11 w-11 p-0"
-                                  aria-label="Post to Facebook"
-                                >
-                                  <Facebook className="w-4 h-4" />
-                                </Button>
+                              {/* Facebook Button - Always visible. Hollow = not posted, Filled = posted */}
+                              {article.facebookPostId ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="default"
+                                      onClick={() => window.open(`https://www.facebook.com/${article.facebookPostId.replace('_', '/posts/')}`, '_blank')}
+                                      data-testid={`button-facebook-posted-${article.id}`}
+                                      className="h-11 w-11 p-0 bg-blue-600 hover:bg-blue-700"
+                                      aria-label="View on Facebook"
+                                    >
+                                      <Facebook className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Posted to Facebook (click to view)</TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => postToFacebookMutation.mutate(article.id)}
+                                      disabled={postToFacebookMutation.isPending || !article.isPublished}
+                                      data-testid={`button-facebook-${article.id}`}
+                                      className="h-11 w-11 p-0 border-blue-500 text-blue-500 hover:bg-blue-500/10"
+                                      aria-label="Post to Facebook"
+                                    >
+                                      <Facebook className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {!article.isPublished ? "Publish article first" : "Post to Facebook"}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {!article.isPublished ? (
                                 <>
