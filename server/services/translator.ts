@@ -215,6 +215,7 @@ STRICT WRITING GUIDELINES:
    - **The Narrative:** Tell the story chronologically or by importance.
    - **The "Context" Section:** You MUST end the article with a distinct section titled "<h3>Context: [Topic]</h3>". In this section, explain the broader background (e.g., "Bangla Road's History of Incidents", "Phuket's Struggle with Flooding"). Use the provided context map or general knowledge to explain *why* this matters.
 5. **FACTUALITY:** Do NOT invent quotes or specific numbers. You MAY add general context (e.g., "The area is popular with tourists") but not specifics ("5,000 people were there") unless in the source.
+6. **DO NOT SANITIZE:** If the story is about public indecency, sex acts, or other scandalous behavior, report it accurately using professional language. Do NOT replace specific claims with vague euphemisms like "risky behavior" or "inappropriate conduct".
 
 EXAMPLE OUTPUT FORMAT:
 "**PATONG, PHUKET –** A violent altercation between American tourists turned one of Phuket's most famous nightlife strips into a scene of chaos Saturday night...
@@ -410,6 +411,16 @@ CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - Specific times ("late afternoon", "Thursday") - unless source provides
 - Injuries, damages, or consequences not in source
 - Reactions from officials not quoted in source
+
+🚫 DO NOT SANITIZE OR CENSOR THE CONTENT:
+- If the source says foreigners were "having sex in public" or "engaging in sexual acts", REPORT THIS ACCURATELY (use appropriate news language like "engaging in public indecency" or "allegedly having sex")
+- DO NOT replace scandalous content with vague euphemisms like "risky behavior" or "inappropriate conduct" if the source is more specific
+- Thai slang translations to know:
+  - "เอากัน" / "จ่อ" / "ขย่ม" = having sex (report as "engaging in sexual acts" or "allegedly having sex")
+  - "อุจาดตา" = obscene/disgusting behavior (report the actual behavior, not just "offensive")
+  - "ฝ่าธงแดง" = ignoring red flags (for beach safety)
+- The viral/scandalous element is often WHY the story is newsworthy - don't hide it!
+- Use professional news language but accurately convey what happened
 
 🎯 FOR SHORT/VIRAL POSTS: If the source is just a funny caption with a photo (e.g., "Foreigner with pot helmet on Sarasin Road"), write a SHORT, FACTUAL article that describes ONLY what is visible/stated. Do NOT dramatize into a full news story with invented details.
 
