@@ -16,7 +16,7 @@
  * will be permanently saved and appear in the main application.
  */
 
-import { getScraperService } from "./services/scraper";
+import { getScraperService, scrapePostComments } from "./services/scraper";
 import { translatorService } from "./services/translator";
 import { classificationService } from "./services/classifier";
 import { storage } from "./storage";
@@ -746,11 +746,39 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               // STEP 3: Translate and rewrite (pass precomputed embedding from full Thai content)
               let translation;
               try {
+                // STEP 3a: Fetch community comments for potential high-interest stories
+                // Hot keywords indicate likely score 4-5 stories that benefit from comment context
+                const hotKeywords = [
+                  "ไฟไหม้", "จมน้ำ", "จับกุม", "เสียชีวิต", "บาดเจ็บ", "ตาย", "ฆ่า", "ยิง", "แทง",
+                  "ชน", "รถชน", "ต่างชาติ", "ฝรั่ง", "นักท่องเที่ยว", "ปะทะ", "ทะเลาะ", "ชกต่อย"
+                ];
+                const combinedPostText = `${post.title} ${post.content}`;
+                const mightBeHighInterest = hotKeywords.some(kw => combinedPostText.includes(kw));
+
+                let communityComments: string[] | undefined;
+                if (mightBeHighInterest && post.sourceUrl) {
+                  try {
+                    console.log(`   🔥 Potential high-interest story detected - fetching community comments...`);
+                    const comments = await scrapePostComments(post.sourceUrl, 15);
+                    if (comments.length > 0) {
+                      // Extract just the text from comments (anonymized - no usernames)
+                      communityComments = comments
+                        .filter(c => c.text && c.text.length > 10) // Skip very short comments
+                        .map(c => c.text);
+                      console.log(`   ✅ Got ${communityComments.length} substantive comments for context`);
+                    }
+                  } catch (commentError) {
+                    console.log(`   ⚠️ Comment fetch failed (non-critical): ${commentError}`);
+                    // Continue without comments - they're optional enhancement
+                  }
+                }
+
                 translation = await translatorService.translateAndRewrite(
                   post.title,
                   post.content,
                   contentEmbedding, // Pass precomputed full content embedding to be stored
-                  post.location // Pass post.location as checkInLocation
+                  post.location, // Pass post.location as checkInLocation
+                  communityComments // Pass community comments for story enrichment (used for score 4-5)
                 );
               } catch (translationError) {
                 // Translation failed - skip this post entirely (do NOT publish Thai text)

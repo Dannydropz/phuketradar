@@ -693,6 +693,84 @@ export class ScraperService {
   }
 }
 
+// Interface for Facebook comment data
+export interface FacebookComment {
+  id: string;
+  text: string;
+  reactionCount: number;
+  replyCount: number;
+  createdAt: string;
+}
+
+/**
+ * Scrape top comments from a Facebook post for story enrichment
+ * Used to add context and public sentiment to high-interest articles
+ * 
+ * @param postUrl - The Facebook post URL to scrape comments from
+ * @param limit - Maximum number of comments to fetch (default 15)
+ * @returns Array of comments sorted by engagement (reaction_count)
+ */
+export async function scrapePostComments(postUrl: string, limit: number = 15): Promise<FacebookComment[]> {
+  const apiKey = process.env.SCRAPECREATORS_API_KEY;
+
+  if (!apiKey) {
+    console.log("   ⚠️ SCRAPECREATORS_API_KEY not set - skipping comment scraping");
+    return [];
+  }
+
+  try {
+    console.log(`   💬 Fetching top ${limit} comments for story enrichment...`);
+
+    const response = await fetch(
+      `https://api.scrapecreators.com/v1/facebook/post/comments?url=${encodeURIComponent(postUrl)}`,
+      {
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.log(`   ⚠️ Comments API returned ${response.status} - continuing without comments`);
+      return [];
+    }
+
+    const data = await response.json();
+
+    if (!data.success || !data.comments || data.comments.length === 0) {
+      console.log(`   ⚠️ No comments found for this post`);
+      return [];
+    }
+
+    // Map and sort comments by engagement (reaction_count)
+    const comments: FacebookComment[] = data.comments
+      .filter((c: any) => c.text && c.text.trim().length > 0) // Only comments with actual text
+      .map((c: any) => ({
+        id: c.id,
+        text: c.text,
+        reactionCount: c.reaction_count || 0,
+        replyCount: c.reply_count || 0,
+        createdAt: c.created_at || ''
+      }))
+      .sort((a: FacebookComment, b: FacebookComment) => b.reactionCount - a.reactionCount) // Sort by most engaged
+      .slice(0, limit);
+
+    console.log(`   ✅ Fetched ${comments.length} comments (top by engagement)`);
+
+    // Log a preview of top comments
+    if (comments.length > 0) {
+      console.log(`   📝 Top comment preview: "${comments[0].text.substring(0, 50)}..." (${comments[0].reactionCount} reactions)`);
+    }
+
+    return comments;
+
+  } catch (error) {
+    console.error(`   ⚠️ Error fetching comments:`, error);
+    return []; // Fail gracefully - story can still be processed without comments
+  }
+}
+
 // Provider-agnostic scraper interface
 export async function getScraperService(): Promise<{
   scrapeFacebookPage: (pageUrl: string) => Promise<ScrapedPost[]>;
@@ -717,3 +795,4 @@ export async function getScraperService(): Promise<{
 }
 
 export const scraperService = new ScraperService();
+

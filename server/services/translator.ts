@@ -180,12 +180,44 @@ export class TranslatorService {
     content: string;
     excerpt: string;
     category: string;
+    communityComments?: string[]; // Optional: Top comments from Facebook post for context
   }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
     // Prepare context string from the map
     const contextMapString = Object.entries(PHUKET_CONTEXT_MAP)
       .map(([key, value]) => `- ${key}: ${value}`)
       .join("\n");
+
+    // Build community comments section if available
+    let communityCommentsSection = "";
+    if (params.communityComments && params.communityComments.length > 0) {
+      communityCommentsSection = `
+COMMUNITY COMMENTS FROM FACEBOOK (Use for additional context - HANDLE CAREFULLY):
+${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}
+
+INSTRUCTIONS FOR USING COMMUNITY COMMENTS:
+1. **BLEND ADDITIONAL CONTEXT INTO THE STORY**: If comments mention plausible details that enhance understanding (locations, circumstances, background context), incorporate them NATURALLY into the article body using HEDGING LANGUAGE:
+   - "Local residents allege that..."
+   - "According to local sources on social media..."
+   - "Community members familiar with the area suggest..."
+   - "Some witnesses reportedly described..."
+   - "Unconfirmed reports from locals indicate..."
+   - "It is alleged by community members that..."
+   
+2. **PUBLIC REACTION SECTION**: After the "Context" section, add a brief "<h3>Public Reaction</h3>" section summarizing overall community sentiment. Examples:
+   - "The incident has sparked concern among local residents, with many calling for increased safety measures in the area."
+   - "Public reaction has been mixed, with some expressing sympathy for those involved while others criticized the circumstances that led to the incident."
+   - "Community members expressed shock at the news, with several sharing similar experiences in the comments."
+   
+3. **CRITICAL RULES FOR COMMENTS:**
+   - NEVER treat comments as verified facts - always hedge
+   - NEVER mention specific commenter names (anonymize completely)
+   - NEVER include speculation that could be defamatory
+   - Prioritize comments with substantive information over emotional reactions
+   - If comments only contain emotional reactions (e.g., "so sad", "prayers"), just use them for the Public Reaction section
+   - If comments are in Thai, interpret their meaning for English readers
+`;
+    }
 
     const prompt = `You are a Senior International Correspondent for a major wire service (like AP, Reuters, or AFP) stationed in Phuket, Thailand.
     
@@ -199,7 +231,7 @@ Content: ${params.content}
 
 AVAILABLE LOCAL CONTEXT (Use this to add depth):
 ${contextMapString}
-
+${communityCommentsSection}
 CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
 - **DATELINE = EVENT LOCATION, NOT PERSON'S ORIGIN:** If "KB Jetski Phuket team helps in Songkhla floods", the dateline should be "**SONGKHLA –**" or "**HAT YAI, SONGKHLA –**" (where the event is), NOT "**PHUKET TOWN –**" (where the team is from).
 - **DO NOT HALLUCINATE PHUKET:** If the event is in Hat Yai, Bangkok, Songkhla, or any other location, DO NOT use a Phuket dateline.
@@ -212,10 +244,12 @@ STRICT WRITING GUIDELINES:
 2. **LEDE PARAGRAPH:** Write a powerful, summary lede that answers Who, What, Where, When, and Why in the first sentence.
 3. **TONE:** Professional, objective, and authoritative. Avoid "police speak" (e.g., change "proceeded to the scene" to "rushed to the scene"). Use active voice.
 4. **STRUCTURE:**
-   - **The Narrative:** Tell the story chronologically or by importance.
-   - **The "Context" Section:** You MUST end the article with a distinct section titled "<h3>Context: [Topic]</h3>". In this section, explain the broader background (e.g., "Bangla Road's History of Incidents", "Phuket's Struggle with Flooding"). Use the provided context map or general knowledge to explain *why* this matters.
-5. **FACTUALITY:** Do NOT invent quotes or specific numbers. You MAY add general context (e.g., "The area is popular with tourists") but not specifics ("5,000 people were there") unless in the source.
-6. **DO NOT SANITIZE:** If the story is about public indecency, sex acts, or other scandalous behavior, report it accurately using professional language. Do NOT replace specific claims with vague euphemisms like "risky behavior" or "inappropriate conduct".
+   - **The Narrative:** Tell the story chronologically or by importance.${params.communityComments && params.communityComments.length > 0 ? `
+   - **Additional Context from Community:** Weave in alleged details from comments using hedging language.` : ''}
+   - **The "Context" Section:** End the main article with a distinct section titled "<h3>Context: [Topic]</h3>". Explain the broader background.${params.communityComments && params.communityComments.length > 0 ? `
+   - **The "Public Reaction" Section:** After Context, add "<h3>Public Reaction</h3>" summarizing community sentiment.` : ''}
+5. **FACTUALITY:** Do NOT invent quotes or specific numbers. You MAY add general context but not specifics unless in the source.
+6. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language.
 
 EXAMPLE OUTPUT FORMAT:
 "**PATONG, PHUKET –** A violent altercation between American tourists turned one of Phuket's most famous nightlife strips into a scene of chaos Saturday night...
@@ -223,12 +257,15 @@ EXAMPLE OUTPUT FORMAT:
 The incident unfolded on Bangla Road... [Story continues]...
 
 <h3>Context: Bangla Road's Ongoing Challenge</h3>
-This incident highlights ongoing public safety concerns along Bangla Road, which attracts thousands of international visitors nightly..."
+This incident highlights ongoing public safety concerns along Bangla Road, which attracts thousands of international visitors nightly...${params.communityComments && params.communityComments.length > 0 ? `
+
+<h3>Public Reaction</h3>
+The incident has drawn significant attention on social media, with local residents expressing [sentiment]..."` : ''}"
 
 Respond in JSON format:
 {
   "enrichedTitle": "Compelling, AP-Style Headline (Title Case)",
-  "enrichedContent": "Full HTML article starting with DATELINE and ending with CONTEXT SECTION",
+  "enrichedContent": "Full HTML article starting with DATELINE, including Context section${params.communityComments && params.communityComments.length > 0 ? ' and Public Reaction section' : ''}",
   "enrichedExcerpt": "2-3 sentence professional summary"
 }`;
 
@@ -261,7 +298,8 @@ Respond in JSON format:
     title: string,
     content: string,
     precomputedEmbedding?: number[],
-    checkInLocation?: string
+    checkInLocation?: string,
+    communityComments?: string[] // Optional: Top comments from Facebook for story enrichment
   ): Promise<TranslationResult> {
     try {
       // STEP 1: Enrich Thai text with Phuket context
@@ -581,6 +619,7 @@ Always output valid JSON.`,
             content: enrichedContent,
             excerpt: enrichedExcerpt,
             category,
+            communityComments, // Pass community comments for blending into story
           }, enrichmentModel);
 
           enrichedTitle = enrichmentResult.enrichedTitle;
