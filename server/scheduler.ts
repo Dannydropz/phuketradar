@@ -504,7 +504,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 for (const existing of recentArticles) {
                   // Get stored entities (may be null for old articles without entities)
                   const existingEntities = (existing as any).entities as ExtractedEntities | null;
-                  if (!existingEntities) return; // Skip old articles without entities
+                  if (!existingEntities) continue; // Skip old articles without entities
 
                   // Compare entities
                   const entityMatch = entityExtractionService.compareEntities(extractedEntities, existingEntities);
