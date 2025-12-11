@@ -345,19 +345,28 @@ export class ScraperService {
           if (pageMatch) {
             const pageName = pageMatch[1];
             const pageUrl = `https://www.facebook.com/${pageName}`;
-            console.log(`   📄 Scraping page: ${pageUrl}`);
+            console.log(`   📄 Scraping page: ${pageUrl} (up to 5 pages to find older posts)`);
 
             try {
-              // Scrape the page to get recent posts
-              const pagePosts = await this.scrapeFacebookPage(pageUrl);
+              // Scrape the page with pagination to get more posts (for older posts)
+              const pagePosts = await this.scrapeFacebookPageWithPagination(pageUrl, 5);
+              console.log(`   📋 Found ${pagePosts.length} posts from page`);
 
               // Extract the post ID from the original URL to match
+              // pfbid format: pfbid0eQGN38vUHKMDLLKHgsLu2CvWXn9vPrZ6z466izR6mfZT3DgJZjAk8ApfQGA5WGXgl
               const pfbidMatch = cleanUrl.match(/pfbid([A-Za-z0-9]+)/);
               const numericIdMatch = cleanUrl.match(/\/posts\/(\d+)/);
+
+              // Get the last 10 characters of pfbid for matching (in case of URL encoding differences)
+              const pfbidSuffix = pfbidMatch ? pfbidMatch[0].slice(-15) : null;
+
+              console.log(`   🔍 Looking for: ${pfbidMatch ? pfbidMatch[0].substring(0, 20) + '...' : numericIdMatch?.[1] || 'unknown'}`);
 
               // Try to find the matching post by URL pattern
               const matchingPost = pagePosts.find(p => {
                 if (pfbidMatch && p.sourceUrl?.includes(pfbidMatch[0])) return true;
+                // Also try matching by suffix (handles URL encoding differences)
+                if (pfbidSuffix && p.sourceUrl?.includes(pfbidSuffix)) return true;
                 if (numericIdMatch && p.sourceUrl?.includes(numericIdMatch[1])) return true;
                 return false;
               });
@@ -366,7 +375,8 @@ export class ScraperService {
                 console.log(`   ✅ Found matching post via page scraper!`);
                 return matchingPost;
               } else {
-                console.log(`   ⚠️ Post not found in page results (may be too old or have different ID)`);
+                console.log(`   ⚠️ Post not found in ${pagePosts.length} page results`);
+                console.log(`   💡 The post may have been deleted, made private, or is very old`);
               }
             } catch (pageError) {
               console.error(`   ❌ Page scraper fallback failed:`, pageError);
