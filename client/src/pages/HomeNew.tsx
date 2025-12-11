@@ -8,6 +8,7 @@ import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import { ArticleImage } from "@/components/ArticleImage";
 import { TrendingArticles } from "@/components/TrendingArticles";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 
 import logoWhite from "@assets/logo-white-transparent.png";
 
@@ -323,6 +324,9 @@ export default function HomeNew() {
 
                 {/* Trending Section */}
                 {!category && <TrendingArticles />}
+
+                {/* Newsletter Sign-up Section */}
+                {!category && <NewsletterSignup />}
 
                 {/* The "Radar" Feed - Mixed Density */}
                 <section>
