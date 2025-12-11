@@ -299,8 +299,24 @@ export class ScraperService {
 
       console.log(`🎯 Scraping SINGLE Facebook post: ${postUrl}`);
 
+      // Clean the URL - remove query parameters and hash fragments that can cause issues
+      let cleanUrl = postUrl;
+      try {
+        const urlObj = new URL(postUrl);
+        // Remove query params like ?rdid= and hash fragments
+        urlObj.search = '';
+        urlObj.hash = '';
+        cleanUrl = urlObj.toString();
+        if (cleanUrl !== postUrl) {
+          console.log(`   🧹 Cleaned URL: ${cleanUrl}`);
+        }
+      } catch (e) {
+        // If URL parsing fails, use original
+        console.log(`   ⚠️ Could not parse URL, using original`);
+      }
+
       // Call the single post endpoint
-      const response = await fetch(`${this.scrapeCreatorsSinglePostUrl}?url=${encodeURIComponent(postUrl)}`, {
+      const response = await fetch(`${this.scrapeCreatorsSinglePostUrl}?url=${encodeURIComponent(cleanUrl)}`, {
         headers: {
           'x-api-key': this.apiKey
         }
