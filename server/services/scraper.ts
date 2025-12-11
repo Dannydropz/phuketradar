@@ -299,6 +299,16 @@ export class ScraperService {
 
       console.log(`🎯 Scraping SINGLE Facebook post: ${postUrl}`);
 
+      // Resolve share URLs first (they redirect to canonical URLs)
+      if (postUrl.includes('/share/p/') || postUrl.includes('/share/')) {
+        console.log(`   📎 Detected share URL, resolving...`);
+        const resolvedUrls = await this.resolveShareUrl(postUrl);
+        if (resolvedUrls.length > 0 && resolvedUrls[0] !== postUrl) {
+          postUrl = resolvedUrls[0];
+          console.log(`   ✅ Resolved to: ${postUrl}`);
+        }
+      }
+
       // Clean the URL - remove query parameters and hash fragments that can cause issues
       let cleanUrl = postUrl;
       try {
@@ -325,6 +335,45 @@ export class ScraperService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`ScrapeCreators single post API error (${response.status}):`, errorText);
+
+        // If 404, try fallback: scrape the page and find the post
+        if (response.status === 404) {
+          console.log(`\n🔄 Single post API failed, trying fallback: page scraper...`);
+
+          // Extract page name from URL
+          const pageMatch = cleanUrl.match(/facebook\.com\/([^\/]+)\//);
+          if (pageMatch) {
+            const pageName = pageMatch[1];
+            const pageUrl = `https://www.facebook.com/${pageName}`;
+            console.log(`   📄 Scraping page: ${pageUrl}`);
+
+            try {
+              // Scrape the page to get recent posts
+              const pagePosts = await this.scrapeFacebookPage(pageUrl);
+
+              // Extract the post ID from the original URL to match
+              const pfbidMatch = cleanUrl.match(/pfbid([A-Za-z0-9]+)/);
+              const numericIdMatch = cleanUrl.match(/\/posts\/(\d+)/);
+
+              // Try to find the matching post by URL pattern
+              const matchingPost = pagePosts.find(p => {
+                if (pfbidMatch && p.sourceUrl?.includes(pfbidMatch[0])) return true;
+                if (numericIdMatch && p.sourceUrl?.includes(numericIdMatch[1])) return true;
+                return false;
+              });
+
+              if (matchingPost) {
+                console.log(`   ✅ Found matching post via page scraper!`);
+                return matchingPost;
+              } else {
+                console.log(`   ⚠️ Post not found in page results (may be too old or have different ID)`);
+              }
+            } catch (pageError) {
+              console.error(`   ❌ Page scraper fallback failed:`, pageError);
+            }
+          }
+        }
+
         throw new Error(`API error: ${response.status} - ${errorText}`);
       }
 
