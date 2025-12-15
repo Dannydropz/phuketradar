@@ -79,6 +79,7 @@ export class ScraperService {
   //   - URL: /posts/1146339707616870  → Returns: "1146339707616870"
   //   - URL: /posts/pfbid0wGs...      → Returns: "1146339707616870" (if apiId is numeric)
   //   - URL: /posts/pfbid0wGs...      → Returns: "pfbid0wGs..." (if no numeric ID available)
+  //   - URL: /reel/4117170505095746   → Returns: "4117170505095746" (reels)
   private extractFacebookPostId(url: string, apiId?: string): string | null {
     try {
       // Step 1: Look for numeric ID in API's id field (most reliable source)
@@ -86,8 +87,8 @@ export class ScraperService {
         return apiId;
       }
 
-      // Step 2: Look for numeric ID in URL
-      const numericMatch = url.match(/\/posts\/(\d+)/);
+      // Step 2: Look for numeric ID in URL (posts OR reels)
+      const numericMatch = url.match(/\/(?:posts|reel|reels|videos)\/(\d+)/);
       if (numericMatch) {
         return numericMatch[1];
       }
@@ -309,6 +310,14 @@ export class ScraperService {
         }
       }
 
+      // Detect and log Reel URLs for debugging
+      if (postUrl.includes('/reel/') || postUrl.includes('/reels/')) {
+        const reelId = postUrl.match(/\/reels?\/(\d+)/)?.[1];
+        console.log(`   🎬 Detected Facebook REEL URL`);
+        console.log(`   🎬 Reel ID: ${reelId || 'unknown'}`);
+        console.log(`   📡 Sending to ScrapeCreators API (reels are supported)...`);
+      }
+
       // Clean the URL - remove query parameters and hash fragments that can cause issues
       let cleanUrl = postUrl;
       try {
@@ -340,9 +349,18 @@ export class ScraperService {
         if (response.status === 404) {
           console.log(`\n🔄 Single post API failed, trying fallback: page scraper...`);
 
-          // Extract page name from URL
+          // Check if this is a reel URL (format: /reel/ID)
+          const reelIdMatch = cleanUrl.match(/\/reel\/(\d+)/);
+          if (reelIdMatch) {
+            console.log(`   🎬 Detected REEL URL with ID: ${reelIdMatch[1]}`);
+            console.log(`   ⚠️  Reels require direct API support - fallback may not work`);
+            // For reels, we need to try the API again with a different approach
+            // The page scraper won't typically return reels in regular post feeds
+          }
+
+          // Extract page name from URL (works for /PageName/posts/... format)
           const pageMatch = cleanUrl.match(/facebook\.com\/([^\/]+)\//);
-          if (pageMatch) {
+          if (pageMatch && pageMatch[1] !== 'reel' && pageMatch[1] !== 'watch') {
             const pageName = pageMatch[1];
             const pageUrl = `https://www.facebook.com/${pageName}`;
             console.log(`   📄 Scraping page: ${pageUrl} (up to 5 pages to find older posts)`);
@@ -355,7 +373,7 @@ export class ScraperService {
               // Extract the post ID from the original URL to match
               // pfbid format: pfbid0eQGN38vUHKMDLLKHgsLu2CvWXn9vPrZ6z466izR6mfZT3DgJZjAk8ApfQGA5WGXgl
               const pfbidMatch = cleanUrl.match(/pfbid([A-Za-z0-9]+)/);
-              const numericIdMatch = cleanUrl.match(/\/posts\/(\d+)/);
+              const numericIdMatch = cleanUrl.match(/\/(?:posts|reel|reels|videos)\/(\d+)/);
 
               // Get the last 10 characters of pfbid for matching (in case of URL encoding differences)
               const pfbidSuffix = pfbidMatch ? pfbidMatch[0].slice(-15) : null;
@@ -367,7 +385,10 @@ export class ScraperService {
                 if (pfbidMatch && p.sourceUrl?.includes(pfbidMatch[0])) return true;
                 // Also try matching by suffix (handles URL encoding differences)
                 if (pfbidSuffix && p.sourceUrl?.includes(pfbidSuffix)) return true;
+                // Match numeric ID in posts, reels, or videos URLs
                 if (numericIdMatch && p.sourceUrl?.includes(numericIdMatch[1])) return true;
+                // Match by facebookPostId if available
+                if (numericIdMatch && p.facebookPostId === numericIdMatch[1]) return true;
                 return false;
               });
 
@@ -377,10 +398,17 @@ export class ScraperService {
               } else {
                 console.log(`   ⚠️ Post not found in ${pagePosts.length} page results`);
                 console.log(`   💡 The post may have been deleted, made private, or is very old`);
+                if (reelIdMatch) {
+                  console.log(`   🎬 NOTE: Facebook Reels may not appear in regular page feeds`);
+                }
               }
             } catch (pageError) {
               console.error(`   ❌ Page scraper fallback failed:`, pageError);
             }
+          } else if (reelIdMatch) {
+            // For direct reel URLs without page context, log helpful message
+            console.log(`   ⚠️  Cannot determine source page from reel URL`);
+            console.log(`   💡 Try using the full URL with page name: facebook.com/PageName/videos/ID`);
           }
         }
 

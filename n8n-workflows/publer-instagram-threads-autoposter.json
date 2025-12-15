@@ -1,0 +1,549 @@
+{
+    "name": "Phuket Radar - Instagram & Threads Auto-Poster (via Publer)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 30
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Every 30 Minutes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT \n  id, \n  title, \n  excerpt, \n  \"facebook_headline\" as \"facebookHeadline\",\n  \"image_url\" as \"imageUrl\", \n  \"image_urls\" as \"imageUrls\",\n  category, \n  slug, \n  \"interest_score\" as \"interestScore\",\n  \"published_at\" as \"publishedAt\"\nFROM articles \nWHERE \"is_published\" = true \n  AND \"instagram_post_id\" IS NULL \n  AND \"interest_score\" >= 4 \n  AND \"image_url\" IS NOT NULL\n  AND \"is_manually_created\" = false\n  AND \"published_at\" > NOW() - INTERVAL '12 hours'\nORDER BY \"interest_score\" DESC, \"published_at\" DESC\nLIMIT 1;",
+                "options": {}
+            },
+            "id": "fetch-unposted-article",
+            "name": "Fetch Unposted Article",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                220,
+                0
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "IC2VuxPYhOIGxyyH",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "check-result",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "exists",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check-article-exists",
+            "name": "Has Article?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build article URL\nconst baseUrl = 'https://phuketradar.com';\nconst article = $input.first().json;\n\n// Build URL based on category\nconst categorySlug = article.category.toLowerCase().replace(/\\s+/g, '-');\nconst articleUrl = `${baseUrl}/${categorySlug}/${article.slug}-${article.id}`;\n\n// Generate hashtags based on category\nconst hashtagMap = {\n  'Breaking': '#PhuketNews #ThailandNews #BreakingNews',\n  'Tourism': '#PhuketTourism #ThailandTravel #VisitPhuket',\n  'Business': '#PhuketBusiness #ThailandBusiness #PhuketEconomy',\n  'Events': '#PhuketEvents #ThingsToDoInPhuket #PhuketLife',\n  'Crime': '#PhuketNews #PhuketCrime #ThailandSafety',\n  'Traffic': '#PhuketTraffic #PhuketNews #ThailandTravel',\n  'Weather': '#PhuketWeather #ThailandWeather #TropicalWeather',\n  'National': '#ThailandNews #Thailand #SoutheastAsia',\n  'Other': '#PhuketNews #Thailand #PhuketLife'\n};\n\nconst hashtags = '#Phuket ' + (hashtagMap[article.category] || hashtagMap['Other']);\n\n// Use enriched Facebook headline if available\nconst headline = article.facebookHeadline || article.title;\n\n// Build Instagram caption (max 2200 chars)\nconst instagramCaption = `${headline}\\n\\n${article.excerpt}\\n\\n📰 Read the full story: ${articleUrl}\\n\\n${hashtags}`;\n\n// Build Threads text (max 500 chars)\nlet threadsText = `${headline}\\n\\n📰 ${articleUrl}\\n\\n${hashtags}`;\nif (threadsText.length > 500) {\n  // Truncate if too long\n  threadsText = `${headline.substring(0, 300)}...\\n\\n📰 ${articleUrl}`;\n}\n\nreturn {\n  ...article,\n  articleUrl,\n  hashtags,\n  headline,\n  instagramCaption,\n  threadsText,\n  imageUrl: article.imageUrl\n};"
+            },
+            "id": "prepare-post-content",
+            "name": "Prepare Post Content",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://app.publer.com/api/v1/media/from-url",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer-API {{ $env.PUBLER_API_KEY }}"
+                        },
+                        {
+                            "name": "Publer-Workspace-Id",
+                            "value": "={{ $env.PUBLER_WORKSPACE_ID }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"url\": \"{{ $json.imageUrl }}\"\n}",
+                "options": {}
+            },
+            "id": "upload-media-to-publer",
+            "name": "Upload Media to Publer",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://app.publer.com/api/v1/job_status/{{ $json.job_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer-API {{ $env.PUBLER_API_KEY }}"
+                        },
+                        {
+                            "name": "Publer-Workspace-Id",
+                            "value": "={{ $env.PUBLER_WORKSPACE_ID }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "check-upload-status",
+            "name": "Check Upload Status",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1100,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 3,
+                "unit": "seconds"
+            },
+            "id": "wait-for-upload",
+            "name": "Wait 3s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1320,
+                -100
+            ],
+            "webhookId": "wait-upload"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://app.publer.com/api/v1/posts/schedule/publish",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer-API {{ $env.PUBLER_API_KEY }}"
+                        },
+                        {
+                            "name": "Publer-Workspace-Id",
+                            "value": "={{ $env.PUBLER_WORKSPACE_ID }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"bulk\": {\n    \"posts\": [\n      {\n        \"networks\": {\n          \"instagram\": {\n            \"text\": {{ JSON.stringify($('Prepare Post Content').item.json.instagramCaption) }},\n            \"media_ids\": [{{ JSON.stringify($('Check Upload Status').item.json.payload.id) }}],\n            \"type\": \"photo\"\n          }\n        },\n        \"accounts\": [\"{{ $env.PUBLER_INSTAGRAM_ACCOUNT_ID }}\"]\n      }\n    ]\n  }\n}",
+                "options": {}
+            },
+            "id": "post-to-instagram",
+            "name": "Post to Instagram",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://app.publer.com/api/v1/job_status/{{ $json.job_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer-API {{ $env.PUBLER_API_KEY }}"
+                        },
+                        {
+                            "name": "Publer-Workspace-Id",
+                            "value": "={{ $env.PUBLER_WORKSPACE_ID }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "check-instagram-post-status",
+            "name": "Check IG Post Status",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1760,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 5,
+                "unit": "seconds"
+            },
+            "id": "wait-for-instagram",
+            "name": "Wait 5s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1980,
+                -200
+            ],
+            "webhookId": "wait-ig"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://app.publer.com/api/v1/posts/schedule/publish",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer-API {{ $env.PUBLER_API_KEY }}"
+                        },
+                        {
+                            "name": "Publer-Workspace-Id",
+                            "value": "={{ $env.PUBLER_WORKSPACE_ID }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"bulk\": {\n    \"posts\": [\n      {\n        \"networks\": {\n          \"threads\": {\n            \"text\": {{ JSON.stringify($('Prepare Post Content').item.json.threadsText) }},\n            \"media_ids\": [{{ JSON.stringify($('Check Upload Status').item.json.payload.id) }}],\n            \"type\": \"photo\"\n          }\n        },\n        \"accounts\": [\"{{ $env.PUBLER_THREADS_ACCOUNT_ID }}\"]\n      }\n    ]\n  }\n}",
+                "options": {}
+            },
+            "id": "post-to-threads",
+            "name": "Post to Threads",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://app.publer.com/api/v1/job_status/{{ $json.job_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer-API {{ $env.PUBLER_API_KEY }}"
+                        },
+                        {
+                            "name": "Publer-Workspace-Id",
+                            "value": "={{ $env.PUBLER_WORKSPACE_ID }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "check-threads-post-status",
+            "name": "Check Threads Status",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1760,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 5,
+                "unit": "seconds"
+            },
+            "id": "wait-for-threads",
+            "name": "Wait 5s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1980,
+                0
+            ],
+            "webhookId": "wait-threads"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Get results from both platforms\nconst preparedContent = $('Prepare Post Content').first().json;\nconst igResult = $('Check IG Post Status').first().json;\nconst threadsResult = $('Check Threads Status').first().json;\n\n// Extract post IDs from Publer responses\nlet instagramPostId = null;\nlet threadsPostId = null;\n\nif (igResult.status === 'completed' && igResult.payload) {\n  // Publer returns the post ID in the payload\n  instagramPostId = igResult.payload.id || igResult.payload.external_id || 'publer-' + Date.now();\n}\n\nif (threadsResult.status === 'completed' && threadsResult.payload) {\n  threadsPostId = threadsResult.payload.id || threadsResult.payload.external_id || 'publer-threads-' + Date.now();\n}\n\nreturn {\n  articleId: preparedContent.id,\n  instagramPostId,\n  instagramPostUrl: instagramPostId ? `https://instagram.com/p/${instagramPostId}` : null,\n  threadsPostId,\n  threadsPostUrl: threadsPostId ? `https://threads.net/t/${threadsPostId}` : null,\n  success: !!(instagramPostId || threadsPostId)\n};"
+            },
+            "id": "merge-results",
+            "name": "Merge Results",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2200,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=UPDATE articles \nSET \n  \"instagram_post_id\" = '{{ $json.instagramPostId }}',\n  \"instagram_post_url\" = '{{ $json.instagramPostUrl }}',\n  \"threads_post_id\" = '{{ $json.threadsPostId }}',\n  \"threads_post_url\" = '{{ $json.threadsPostUrl }}'\nWHERE id = '{{ $json.articleId }}';",
+                "options": {}
+            },
+            "id": "update-database",
+            "name": "Update Database",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                2420,
+                -100
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "IC2VuxPYhOIGxyyH",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "parameters": {},
+            "id": "no-articles",
+            "name": "No Articles",
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                660,
+                100
+            ]
+        }
+    ],
+    "connections": {
+        "Every 30 Minutes": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Unposted Article",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Unposted Article": {
+            "main": [
+                [
+                    {
+                        "node": "Has Article?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Article?": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Post Content",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Articles",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Post Content": {
+            "main": [
+                [
+                    {
+                        "node": "Upload Media to Publer",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upload Media to Publer": {
+            "main": [
+                [
+                    {
+                        "node": "Check Upload Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Upload Status": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 3s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 3s": {
+            "main": [
+                [
+                    {
+                        "node": "Post to Instagram",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Post to Threads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post to Instagram": {
+            "main": [
+                [
+                    {
+                        "node": "Check IG Post Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check IG Post Status": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 5s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 5s": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post to Threads": {
+            "main": [
+                [
+                    {
+                        "node": "Check Threads Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Threads Status": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 5s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 5s": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge Results": {
+            "main": [
+                [
+                    {
+                        "node": "Update Database",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "phuket-radar-publer"
+    },
+    "tags": []
+}
