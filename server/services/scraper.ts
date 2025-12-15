@@ -341,6 +341,68 @@ export class ScraperService {
         }
       });
 
+      // If reel URL fails, try alternative URL formats
+      if (!response.ok && response.status === 404) {
+        const reelId = cleanUrl.match(/\/reels?\/(\d+)/)?.[1];
+
+        if (reelId) {
+          console.log(`   ❌ Direct reel URL failed, trying alternative formats...`);
+
+          // Alternative formats to try for Facebook reels/videos
+          const alternativeUrls = [
+            `https://www.facebook.com/watch?v=${reelId}`,  // Watch format
+            `https://www.facebook.com/videos/${reelId}`,   // Direct video format
+          ];
+
+          for (const altUrl of alternativeUrls) {
+            console.log(`   🔄 Trying: ${altUrl}`);
+
+            const altResponse = await fetch(`${this.scrapeCreatorsSinglePostUrl}?url=${encodeURIComponent(altUrl)}`, {
+              headers: {
+                'x-api-key': this.apiKey
+              }
+            });
+
+            if (altResponse.ok) {
+              const altData = await altResponse.json();
+              console.log(`   ✅ Alternative URL worked!`);
+
+              // Process the successful response
+              if (altData && (altData.text || altData.description)) {
+                const post = altData;
+                const text = post.text || post.description || '';
+                const lines = text.split('\n').filter((line: string) => line.trim());
+                const title = lines[0]?.substring(0, 200) || text.substring(0, 100);
+
+                // Extract video details
+                const isVideo = true;
+                const videoUrl = post.video_url || post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
+                const videoThumbnail = post.videoDetails?.thumbnail || post.full_picture || post.image;
+
+                const scrapedPost: ScrapedPost = {
+                  title: title.trim(),
+                  content: text.trim(),
+                  imageUrl: videoThumbnail,
+                  sourceUrl: postUrl, // Keep original reel URL as source
+                  facebookPostId: reelId,
+                  publishedAt: post.creation_time ? new Date(post.creation_time) : new Date(),
+                  isVideo,
+                  videoUrl,
+                  videoThumbnail,
+                  location: post.place?.name,
+                };
+
+                console.log(`   ✅ Successfully scraped reel via alternative URL`);
+                console.log(`      Title: ${scrapedPost.title.substring(0, 60)}...`);
+                return scrapedPost;
+              }
+            }
+          }
+
+          console.log(`   ❌ All alternative URL formats failed`);
+        }
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`ScrapeCreators single post API error (${response.status}):`, errorText);
