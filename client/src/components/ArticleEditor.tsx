@@ -41,6 +41,7 @@ interface ArticleEditorProps {
     imageUrl?: string;
     imageUrls?: string[];
     interestScore?: number;
+    facebookEmbedUrl?: string;
   }) => Promise<void>;
   onCancel: () => void;
   isSaving?: boolean;
@@ -60,6 +61,7 @@ export function ArticleEditor({
   const [imageUrl, setImageUrl] = useState(article?.imageUrl || '');
   const [imageUrls, setImageUrls] = useState<string[]>(article?.imageUrls || []);
   const [interestScore, setInterestScore] = useState<number>(article?.interestScore ?? 3);
+  const [facebookEmbedUrl, setFacebookEmbedUrl] = useState((article as any)?.facebookEmbedUrl || '');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const editor = useEditor({
@@ -107,7 +109,7 @@ export function ArticleEditor({
     }
 
     const content = editor.getHTML();
-    
+
     await onSave({
       title: title.trim(),
       content,
@@ -116,6 +118,7 @@ export function ArticleEditor({
       imageUrl: imageUrl || undefined,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       interestScore,
+      facebookEmbedUrl: facebookEmbedUrl || undefined,
     });
   };
 
@@ -167,7 +170,7 @@ export function ArticleEditor({
 
       const data = await response.json();
       setImageUrl(data.imageUrl);
-      
+
       toast({
         title: "Image Uploaded",
         description: "Featured image uploaded successfully",
@@ -206,7 +209,7 @@ export function ArticleEditor({
 
       const data = await response.json();
       setImageUrls([...imageUrls, data.imageUrl]);
-      
+
       toast({
         title: "Image Uploaded",
         description: "Additional image uploaded successfully",
@@ -277,6 +280,21 @@ export function ArticleEditor({
         </Select>
         <p className="text-xs text-muted-foreground">
           Scores 4-5 trigger automatic posting to Facebook/Instagram/Threads when published.
+        </p>
+      </div>
+
+      {/* Facebook Video Embed URL */}
+      <div className="space-y-2">
+        <Label htmlFor="article-facebook-embed">Facebook Video/Reel Embed URL (optional)</Label>
+        <Input
+          id="article-facebook-embed"
+          data-testid="input-article-facebook-embed"
+          value={facebookEmbedUrl}
+          onChange={(e) => setFacebookEmbedUrl(e.target.value)}
+          placeholder="https://www.facebook.com/reel/4117170505095746"
+        />
+        <p className="text-xs text-muted-foreground">
+          Paste a Facebook video or reel URL to embed it on the article page. Use this when the video can't be scraped directly.
         </p>
       </div>
 

@@ -33,6 +33,7 @@ export const articles = pgTable("articles", {
   imageHash: text("image_hash"),
   videoUrl: text("video_url"),
   videoThumbnail: text("video_thumbnail"),
+  facebookEmbedUrl: text("facebook_embed_url"), // Facebook video/reel URL to embed on article page
   category: text("category").notNull(),
   sourceUrl: text("source_url").notNull(),
   author: text("author"), // Deprecated: use journalistId instead

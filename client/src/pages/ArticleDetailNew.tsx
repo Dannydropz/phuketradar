@@ -7,6 +7,7 @@ import { SiFacebook } from "react-icons/si";
 import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem, Journalist } from "@shared/schema";
 import { ArticleImage } from "@/components/ArticleImage";
+import { FacebookEmbed } from "@/components/FacebookEmbed";
 import { SEO } from "@/components/SEO";
 import { JsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -290,9 +291,15 @@ export default function ArticleDetailNew() {
                             </div>
                         </div>
 
-                        {/* Article Images */}
+                        {/* Article Media - Facebook Embed > Native Video > Images */}
                         <div className="mb-8">
-                            {article.videoUrl ? (
+                            {/* Priority 1: Facebook Embed (for reels and videos that can't be scraped directly) */}
+                            {(article as any).facebookEmbedUrl ? (
+                                <FacebookEmbed
+                                    url={(article as any).facebookEmbedUrl}
+                                    sourceName={article.sourceName || undefined}
+                                />
+                            ) : article.videoUrl ? (
                                 <div className="space-y-2">
                                     <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
                                         <video
