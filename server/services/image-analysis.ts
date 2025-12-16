@@ -20,7 +20,7 @@ export class ImageAnalysisService {
     try {
       // Step 1: HEAD request to check file size without downloading full image
       const headResponse = await fetch(imageUrl, { method: 'HEAD' });
-      
+
       if (!headResponse.ok) {
         // Network/permission error - accept the post (don't block on CDN issues)
         return {
@@ -33,30 +33,37 @@ export class ImageAnalysisService {
       const contentLength = headResponse.headers.get('content-length');
       const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
 
-      // Step 2: File size heuristic - Facebook text-on-background posts are typically <80KB
-      // Real photos are usually >100KB even when compressed
-      if (fileSize > 0 && fileSize < 80000) {
-        // Small file = likely text graphic, but download to confirm
+      // Step 2: File size heuristic - Facebook text-on-background posts are typically <150KB
+      // Increased from 80KB to catch gradient backgrounds which can be larger
+      // Real photos are usually >150KB even when compressed
+      if (fileSize > 0 && fileSize < 150000) {
+        // Small/medium file = possibly text graphic, download to confirm with color analysis
         const getResponse = await fetch(imageUrl);
         if (!getResponse.ok) {
           return {
             status: 'download_failed',
             confidence: 'low',
-            reason: `Small file (${Math.round(fileSize/1024)}KB) but download failed - accepting`,
+            reason: `Small file (${Math.round(fileSize / 1024)}KB) but download failed - accepting`,
             metadata: { fileSize },
           };
         }
 
-        // Step 3: Color analysis on small files only (saves processing time)
+        // Step 3: Color analysis - check both dominance AND unique color clusters
         const imageBuffer = Buffer.from(await getResponse.arrayBuffer());
         const colorResult = await this.analyzeColorDominance(imageBuffer);
 
-        // Combine file size + color dominance for high confidence classification
-        if (colorResult.dominancePercentage > 75) {
+        // TEXT GRAPHIC DETECTION - Two methods:
+        // Method 1: High dominance (>75%) = solid color background
+        // Method 2: Very few color clusters (<5) + moderate dominance (>60%) = gradient background
+        const isHighDominance = colorResult.dominancePercentage > 75;
+        const isLowVariety = colorResult.uniqueColorClusters < 5 && colorResult.dominancePercentage > 60;
+
+        if (isHighDominance || isLowVariety) {
+          const detectionMethod = isHighDominance ? 'solid color' : 'low color variety (gradient)';
           return {
             status: 'solid_background',
             confidence: 'high',
-            reason: `Small file (${Math.round(fileSize/1024)}KB) + ${colorResult.dominancePercentage.toFixed(1)}% single color = text graphic`,
+            reason: `File ${Math.round(fileSize / 1024)}KB, ${colorResult.dominancePercentage.toFixed(1)}% dominant color, ${colorResult.uniqueColorClusters} color clusters = ${detectionMethod} text graphic`,
             metadata: {
               fileSize,
               dominancePercentage: colorResult.dominancePercentage,
@@ -64,11 +71,11 @@ export class ImageAnalysisService {
             },
           };
         } else {
-          // Small but varied colors - might be a thumbnail or compressed photo
+          // Varied colors or moderate cluster count - likely a real photo
           return {
             status: 'real_photo',
             confidence: 'medium',
-            reason: `Small file (${Math.round(fileSize/1024)}KB) but varied colors (${colorResult.dominancePercentage.toFixed(1)}% dominant) - accepting`,
+            reason: `File ${Math.round(fileSize / 1024)}KB with ${colorResult.uniqueColorClusters} color clusters (${colorResult.dominancePercentage.toFixed(1)}% dominant) - accepting as real photo`,
             metadata: {
               fileSize,
               dominancePercentage: colorResult.dominancePercentage,
@@ -80,7 +87,7 @@ export class ImageAnalysisService {
         return {
           status: 'real_photo',
           confidence: 'high',
-          reason: `Large file (${Math.round(fileSize/1024)}KB) - real photo`,
+          reason: `Large file (${Math.round(fileSize / 1024)}KB) - real photo`,
           metadata: { fileSize },
         };
       } else {
@@ -96,14 +103,19 @@ export class ImageAnalysisService {
 
         const imageBuffer = Buffer.from(await getResponse.arrayBuffer());
         const actualSize = imageBuffer.length;
-        
-        if (actualSize < 80000) {
+
+        if (actualSize < 150000) {
           const colorResult = await this.analyzeColorDominance(imageBuffer);
-          if (colorResult.dominancePercentage > 75) {
+          // Same detection logic: high dominance OR low color variety
+          const isHighDominance = colorResult.dominancePercentage > 75;
+          const isLowVariety = colorResult.uniqueColorClusters < 5 && colorResult.dominancePercentage > 60;
+
+          if (isHighDominance || isLowVariety) {
+            const detectionMethod = isHighDominance ? 'solid color' : 'low color variety (gradient)';
             return {
               status: 'solid_background',
               confidence: 'high',
-              reason: `Small file (${Math.round(actualSize/1024)}KB) + ${colorResult.dominancePercentage.toFixed(1)}% single color = text graphic`,
+              reason: `File ${Math.round(actualSize / 1024)}KB, ${colorResult.uniqueColorClusters} color clusters = ${detectionMethod} text graphic`,
               metadata: {
                 fileSize: actualSize,
                 dominancePercentage: colorResult.dominancePercentage,
@@ -137,6 +149,7 @@ export class ImageAnalysisService {
   private async analyzeColorDominance(imageBuffer: Buffer): Promise<{
     dominancePercentage: number;
     dominantColor: string;
+    uniqueColorClusters: number;
   }> {
     // Downsample to 32x32 for fast analysis
     const { data, info } = await sharp(imageBuffer)
@@ -145,8 +158,9 @@ export class ImageAnalysisService {
       .toBuffer({ resolveWithObject: true });
 
     // Cluster nearby colors (tolerance = colors within this range are considered "same")
+    // Using a higher tolerance (50) to better cluster gradient shades together
     const colorCounts = new Map<string, number>();
-    const tolerance = 30;
+    const tolerance = 50; // Increased from 30 to catch gradient variations
 
     for (let i = 0; i < data.length; i += info.channels) {
       const r = data[i];
@@ -158,8 +172,8 @@ export class ImageAnalysisService {
       for (const [colorKey, count] of Array.from(colorCounts.entries())) {
         const [cr, cg, cb] = colorKey.split(',').map(Number);
         const distance = Math.sqrt(
-          Math.pow(r - cr, 2) + 
-          Math.pow(g - cg, 2) + 
+          Math.pow(r - cr, 2) +
+          Math.pow(g - cg, 2) +
           Math.pow(b - cb, 2)
         );
 
@@ -189,7 +203,11 @@ export class ImageAnalysisService {
 
     const dominancePercentage = (maxCount / totalPixels) * 100;
 
-    return { dominancePercentage, dominantColor };
+    // Count unique color clusters - text overlays typically have very few (< 5)
+    // Real photos have many distinct color regions (> 10)
+    const uniqueColorClusters = colorCounts.size;
+
+    return { dominancePercentage, dominantColor, uniqueColorClusters };
   }
 
   /**
@@ -214,16 +232,16 @@ export class ImageAnalysisService {
     );
 
     const anyRealPhotos = results.some(
-      r => r.analysis.status === 'real_photo' || 
-           r.analysis.status === 'download_failed' || 
-           r.analysis.status === 'analysis_error'
+      r => r.analysis.status === 'real_photo' ||
+        r.analysis.status === 'download_failed' ||
+        r.analysis.status === 'analysis_error'
     );
 
     // Count how many images are confirmed real photos (high confidence)
     const realPhotoCount = results.filter(
       r => r.analysis.status === 'real_photo' && r.analysis.confidence !== 'low'
     ).length;
-    
+
     const multipleRealPhotos = realPhotoCount >= 2;
 
     return { allTextGraphics, anyRealPhotos, multipleRealPhotos, results };

@@ -564,6 +564,9 @@ export class ScraperService {
       // Extract location if available
       const location = post.place?.name;
 
+      // Extract textFormatPresetId if available (indicates colored background text post)
+      const textFormatPresetId = post.text_format_preset_id;
+
       const scrapedPost: ScrapedPost = {
         title: title.trim(),
         content: content.trim(),
@@ -572,6 +575,7 @@ export class ScraperService {
         sourceUrl: postUrl,
         facebookPostId: facebookPostId || undefined,
         publishedAt,
+        textFormatPresetId,
         isVideo,
         location,
       };
