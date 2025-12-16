@@ -489,12 +489,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 }
               }
 
-              // STEP 1: Extract entities from Thai title (before translation - saves money!)
+              // STEP 1: Extract entities from Thai title AND content (catches quantities like "734 packs")
               let extractedEntities: ExtractedEntities | undefined;
               let foundEntityDuplicate = false;
 
               try {
-                extractedEntities = await entityExtractionService.extractEntities(post.title);
+                // Pass both title and content to catch entities in body (like specific quantities)
+                extractedEntities = await entityExtractionService.extractEntities(post.title, post.content);
 
                 // STEP 1.5: Check for entity-based duplicates (catches same story from different sources)
                 // This is MUCH better at catching rewrites of the same event than semantic similarity alone
@@ -525,6 +526,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     console.log(`   New title: ${post.title.substring(0, 60)}...`);
                     console.log(`   Existing: ${existing.title.substring(0, 60)}...`);
                     console.log(`   📊 Entity matches:`);
+                    console.log(`      - Numbers: ${entityMatch.matchedNumbers} (quantities like "734 packs")`);
                     console.log(`      - Locations: ${entityMatch.matchedLocations}`);
                     console.log(`      - Crime types: ${entityMatch.matchedCrimeTypes}`);
                     console.log(`      - Organizations: ${entityMatch.matchedOrganizations}`);
@@ -886,7 +888,15 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
                   console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
                   if (post.isVideo) {
-                    console.log(`   🎥 VIDEO STORY - Video URL and thumbnail will be embedded`);
+                    const boostedScore = Math.max(translation.interestScore, 4);
+                    const hasDirectUrl = !!post.videoUrl;
+                    console.log(`   🎥 VIDEO STORY DETECTED!`);
+                    console.log(`      📊 Score boost: ${translation.interestScore} → ${boostedScore} (videos get min 4)`);
+                    if (hasDirectUrl) {
+                      console.log(`      ✅ Direct video URL available - native playback`);
+                    } else {
+                      console.log(`      📺 No direct URL - using Facebook embed (auto-embed enabled)`);
+                    }
                   }
 
                   // Prepare article data for duplicate detection
@@ -902,6 +912,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     imageHash: imageHash || null, // Store perceptual hash for duplicate detection
                     videoUrl: post.videoUrl || null, // Store video URL for embedded playback
                     videoThumbnail: post.videoThumbnail || null, // High-quality video thumbnail
+                    // PHASE 1: Auto-embed for video posts without direct URLs
+                    // If it's a video but we couldn't get the direct video URL, use the source URL for Facebook embedding
+                    facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
                     category: translation.category,
                     sourceUrl: post.sourceUrl,
                     sourceName: source.name, // Actual source name (e.g., "The Phuket Times", "Phuket Info Center")
@@ -914,7 +927,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     embedding: translation.embedding,
                     eventType: classification.eventType,
                     severity: classification.severity,
-                    interestScore: translation.interestScore,
+                    // VIDEO BOOST: Video content gets high engagement - boost interest score
+                    interestScore: post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore,
                     isDeveloping: translation.isDeveloping || false, // Story has limited details
                     entities: extractedEntities as any, // Store extracted entities for future duplicate detection
                   };
@@ -1384,10 +1398,27 @@ export async function runManualPostScrape(
       embedding: translation.embedding,
       eventType: classification.eventType,
       severity: classification.severity,
-      interestScore: translation.interestScore,
+      // VIDEO SUPPORT: Include video fields for manual scrapes
+      videoUrl: post.videoUrl || null,
+      videoThumbnail: post.videoThumbnail || null,
+      // PHASE 1 AUTO-EMBED: If it's a video but no direct URL, use source for embedding
+      facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
+      // VIDEO BOOST: Videos get minimum score of 4 for high engagement
+      interestScore: post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore,
       isDeveloping: translation.isDeveloping || false,
       entities: null,
     };
+
+    // Log video handling for manual scrapes
+    if (post.isVideo) {
+      console.log(`\n🎥 VIDEO POST DETECTED (Manual Scrape)`);
+      console.log(`   📊 Score boost: ${translation.interestScore} → ${Math.max(translation.interestScore, 4)}`);
+      if (post.videoUrl) {
+        console.log(`   ✅ Direct video URL available`);
+      } else {
+        console.log(`   📺 Using Facebook embed (source URL)`);
+      }
+    }
 
     // Auto-detect tags
     articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
