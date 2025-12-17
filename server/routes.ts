@@ -1542,6 +1542,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate Switchy short URL for article - PROTECTED
+  app.post("/api/admin/articles/:id/switchy", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { platform = 'bio' } = req.body; // Default to bio link
+
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      if (!article.isPublished) {
+        return res.status(400).json({ error: "Only published articles can have short links generated" });
+      }
+
+      // Check if already has a short URL
+      if (article.switchyShortUrl) {
+        return res.json({
+          success: true,
+          shortUrl: article.switchyShortUrl,
+          alreadyExists: true,
+        });
+      }
+
+      // Import and use Switchy service
+      const { switchyService } = await import("./services/switchy");
+
+      if (!switchyService.isConfigured()) {
+        return res.status(500).json({ error: "Switchy API key not configured" });
+      }
+
+      // Build the article URL
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'https://phuketradar.com';
+
+      const articlePath = `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+      const fullUrl = `${baseUrl}${articlePath}`;
+
+      // Create short link with platform-specific UTMs
+      const result = await switchyService.createArticleLink(
+        fullUrl,
+        platform as 'instagram' | 'facebook' | 'threads' | 'newsletter' | 'bio',
+        article.facebookHeadline || article.title,
+        article.imageUrl || undefined
+      );
+
+      if (!result.success || !result.link) {
+        return res.status(500).json({ error: result.error || "Failed to create short link" });
+      }
+
+      // Save the short URL to the article
+      await storage.updateArticle(id, {
+        switchyShortUrl: result.link.shortUrl,
+      });
+
+      console.log(`🔗 [SWITCHY] Created short URL for article ${id}: ${result.link.shortUrl}`);
+
+      res.json({
+        success: true,
+        shortUrl: result.link.shortUrl,
+        originalUrl: result.link.originalUrl,
+      });
+    } catch (error) {
+      console.error("Error generating Switchy short URL:", error);
+      res.status(500).json({ error: "Failed to generate short URL" });
+    }
+  });
+
   // Clear stuck Facebook posting locks - PROTECTED
   app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
     try {

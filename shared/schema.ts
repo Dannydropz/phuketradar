@@ -51,6 +51,7 @@ export const articles = pgTable("articles", {
   instagramPostUrl: text("instagram_post_url"), // OUR Instagram post URL
   threadsPostId: text("threads_post_id"), // OUR Threads post ID (set after posting)
   threadsPostUrl: text("threads_post_url"), // OUR Threads post URL
+  switchyShortUrl: text("switchy_short_url"), // Branded short link for social media
   eventType: text("event_type"),
   severity: text("severity"),
   articleType: text("article_type").notNull().default("breaking"),
