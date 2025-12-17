@@ -312,14 +312,43 @@ export async function postArticleToFacebook(
     console.log(`✅ [FB-POST] Posted to Facebook successfully!`);
     console.log(`✅ [FB-POST] Post ID: ${postId}`);
 
-    // Add comment with "Read more" link
+    // Add comment with "Read more" link (use Switchy short URL if available)
+    let commentUrl = articleUrl;
+
+    // Try to get or generate Switchy short URL for better tracking
+    try {
+      if (article.switchyShortUrl) {
+        commentUrl = article.switchyShortUrl;
+        console.log(`📘 [FB-POST] Using existing Switchy short URL: ${commentUrl}`);
+      } else {
+        // Generate new Switchy short URL
+        const { switchyService } = await import("../services/switchy");
+        if (switchyService.isConfigured()) {
+          const shortLinkResult = await switchyService.createArticleLink(
+            articleUrl,
+            'facebook',
+            article.facebookHeadline || article.title,
+            article.imageUrl || undefined
+          );
+          if (shortLinkResult.success && shortLinkResult.link?.shortUrl) {
+            commentUrl = shortLinkResult.link.shortUrl;
+            // Save the short URL to the article for future use
+            await storage.updateArticle(article.id, { switchyShortUrl: commentUrl });
+            console.log(`🔗 [FB-POST] Generated Switchy short URL: ${commentUrl}`);
+          }
+        }
+      }
+    } catch (switchyError) {
+      console.warn(`⚠️  [FB-POST] Switchy short link generation failed, using direct URL:`, switchyError);
+    }
+
     const commentResponse = await fetch(`https://graph.facebook.com/v18.0/${postId}/comments`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: `Read the full story: ${articleUrl}`,
+        message: `Read the full story: ${commentUrl}`,
         access_token: FB_PAGE_ACCESS_TOKEN,
       }),
     });

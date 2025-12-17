@@ -972,6 +972,30 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   if (article.isPublished) {
                     console.log(`   📰 HIGH INTEREST (${translation.interestScore}/5) - Article AUTO-PUBLISHED`);
                     publishedCount++;
+
+                    // Auto-generate Switchy short URL for social media tracking
+                    try {
+                      const { switchyService } = await import("./services/switchy");
+                      if (switchyService.isConfigured()) {
+                        const baseUrl = 'https://phuketradar.com';
+                        const articlePath = `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+                        const fullUrl = `${baseUrl}${articlePath}`;
+
+                        const switchyResult = await switchyService.createArticleLink(
+                          fullUrl,
+                          'bio',
+                          translation.facebookHeadline || translation.translatedTitle,
+                          localImageUrl || undefined
+                        );
+
+                        if (switchyResult.success && switchyResult.link?.shortUrl) {
+                          await storage.updateArticle(article.id, { switchyShortUrl: switchyResult.link.shortUrl });
+                          console.log(`   🔗 Generated Switchy short URL: ${switchyResult.link.shortUrl}`);
+                        }
+                      }
+                    } catch (switchyError) {
+                      console.warn(`   ⚠️  Switchy short URL generation failed (non-critical):`, switchyError);
+                    }
                   } else {
                     console.log(`   📋 Low interest (${translation.interestScore}/5) - Article saved as DRAFT for review`);
                   }

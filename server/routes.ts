@@ -1361,10 +1361,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the dedicated POST /api/admin/articles/:id/facebook endpoint to manually post to Facebook
       console.log(`📰 [PUBLISH] Article published manually (not auto-posted to Facebook): ${article.title.substring(0, 60)}...`);
 
+      // Auto-generate Switchy short URL for social media tracking
+      if (!article.switchyShortUrl) {
+        try {
+          const { switchyService } = await import("./services/switchy");
+          if (switchyService.isConfigured()) {
+            const baseUrl = process.env.REPLIT_DEV_DOMAIN
+              ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+              : 'https://phuketradar.com';
+            const articlePath = `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+            const fullUrl = `${baseUrl}${articlePath}`;
+
+            const result = await switchyService.createArticleLink(
+              fullUrl,
+              'bio', // Default to bio link UTMs
+              article.facebookHeadline || article.title,
+              article.imageUrl || undefined
+            );
+
+            if (result.success && result.link?.shortUrl) {
+              await storage.updateArticle(id, { switchyShortUrl: result.link.shortUrl });
+              console.log(`🔗 [PUBLISH] Generated Switchy short URL: ${result.link.shortUrl}`);
+            }
+          }
+        } catch (switchyError) {
+          console.warn(`⚠️  [PUBLISH] Switchy short URL generation failed:`, switchyError);
+          // Don't fail the publish if Switchy fails
+        }
+      }
+
       // Invalidate caches after publish
       invalidateArticleCaches();
 
-      res.json(article);
+      // Reload article to include the new short URL
+      const updatedArticle = await storage.getArticleById(id);
+      res.json(updatedArticle || article);
     } catch (error) {
       console.error("Error publishing article:", error);
       res.status(500).json({ error: "Failed to publish article" });
