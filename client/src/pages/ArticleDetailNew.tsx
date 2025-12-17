@@ -13,6 +13,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleUrl } from "@shared/category-map";
 import { TagPills } from "@/components/TagPills";
+import { useMetaPixel } from "@/hooks/use-meta-pixel";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
     Carousel,
@@ -38,6 +39,7 @@ export default function ArticleDetailNew() {
     const [api, setApi] = useState<CarouselApi>();
     const [current, setCurrent] = useState(0);
     const [searchOpen, setSearchOpen] = useState(false);
+    const { trackViewContent } = useMetaPixel();
 
     const { data: article, isLoading, error, isError } = useQuery<Article>({
         queryKey: ["/api/articles", slugOrId],
@@ -64,6 +66,18 @@ export default function ArticleDetailNew() {
         });
     }, [api]);
 
+    // Track Meta Pixel ViewContent event when article loads
+    useEffect(() => {
+        if (article) {
+            trackViewContent({
+                content_name: article.title,
+                content_category: article.category,
+                content_ids: [article.id],
+                content_type: 'article',
+            });
+        }
+    }, [article?.id]);
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -71,6 +85,7 @@ export default function ArticleDetailNew() {
             </div>
         );
     }
+
 
     if (isError || !article) {
         return (

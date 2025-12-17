@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMetaPixel } from "@/hooks/use-meta-pixel";
 
 export function NewsletterSignup() {
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const { trackSubscribe } = useMetaPixel();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,6 +33,9 @@ export function NewsletterSignup() {
             });
 
             if (response.ok) {
+                // Track Meta Pixel Subscribe event on successful subscription
+                trackSubscribe();
+
                 toast({
                     title: "Subscribed!",
                     description: "You've been added to our newsletter.",
