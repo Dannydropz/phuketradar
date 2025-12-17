@@ -119,6 +119,44 @@ const COLD_KEYWORDS = [
   "ความยั่งยืน", // sustainability (Thai)
 ];
 
+// POLITICS KEYWORDS - Used to cap political stories at score 3 regardless of AI category
+// Editorial decision: Politics important locally but low engagement with expat Facebook audience
+const POLITICS_KEYWORDS = [
+  // Thai political terms
+  "เลือกตั้ง", // election
+  "ส.ส.", // MP (Member of Parliament)
+  "สมาชิกสภาผู้แทนราษฎร", // Member of Parliament (full)
+  "นักการเมือง", // politician
+  "พรรค", // party (political)
+  "หาเสียง", // campaign/canvass
+  "ผู้สมัคร", // candidate
+  "ลงคะแนน", // vote/voting
+  "การเมือง", // politics
+  "นายก", // mayor/PM
+  "รัฐบาล", // government
+  "ฝ่ายค้าน", // opposition
+  "สภา", // parliament/council
+  "อบจ", // Provincial Administrative Organization
+  "อบต", // Subdistrict Administrative Organization
+  "เทศบาล", // municipality
+  // English political terms (from translated content)
+  "election",
+  "campaign",
+  "candidate",
+  "politician",
+  "political party",
+  "MP ", // Member of Parliament with space to avoid false matches
+  "parliament",
+  "voting",
+  "ballot",
+  "constituency",
+  "People's Party", // Thai political party
+  "Pheu Thai", // Thai political party
+  "Move Forward", // Thai political party
+  "Democrat Party", // Thai political party
+  "Bhumjaithai", // Thai political party
+];
+
 // Phuket location context map for richer rewrites
 const PHUKET_CONTEXT_MAP: Record<string, string> = {
   "ป่าตอง": "Patong, a major tourist beach area on Phuket's west coast",
@@ -543,6 +581,7 @@ CRITICAL RULES:
 - Meetings ABOUT disasters ≠ disasters = Score 2
 - Hat Yai floods, Bangkok explosions = Category="National", ABSOLUTE MAX SCORE 3 (Do not auto-post)
 - Donation/charity events = ABSOLUTE MAX SCORE 3 (even if related to disasters or honoring VIPs)
+- **Politics category = ABSOLUTE MAX SCORE 3 (elections, political parties, government appointments, MPs, political campaigns). While important locally, expat audience has low engagement with Thai politics.**
 - **Mascots, mall events, promotional content = ABSOLUTE MAX SCORE 2 (never waste GPT-4o on these)**
 
 ${learningContext}
@@ -595,6 +634,23 @@ Always output valid JSON.`,
       if (hasColdKeyword) {
         finalInterestScore = Math.max(1, finalInterestScore - 1);
         console.log(`   ❄️  COLD KEYWORD PENALTY: ${finalInterestScore + 1} → ${finalInterestScore}`);
+      }
+
+      // CAP POLITICS CONTENT AT SCORE 3
+      // Editorial decision: Politics stories are important but don't resonate with expat Facebook audience
+      // Cap at 3 to prevent auto-posting while still publishing on site
+      // Use BOTH category check AND keyword detection (AI sometimes categorizes politics as "Local")
+      const hasPoliticsKeyword = POLITICS_KEYWORDS.some(keyword =>
+        title.toLowerCase().includes(keyword.toLowerCase()) ||
+        content.toLowerCase().includes(keyword.toLowerCase()) ||
+        (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
+        (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
+      );
+
+      if ((category === "Politics" || hasPoliticsKeyword) && finalInterestScore > 3) {
+        const reason = category === "Politics" ? "politics category" : `politics keyword detected`;
+        console.log(`   🏛️  POLITICS CAP: ${finalInterestScore} → 3 (${reason})`);
+        finalInterestScore = 3;
       }
 
       // Ensure score stays within 1-5 range
