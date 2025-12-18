@@ -123,18 +123,18 @@ class SwitchyService {
                 };
             }
 
-            const data = await response.json();
+            let data = await response.json();
             console.log('[SWITCHY] Raw Response:', JSON.stringify(data, null, 2));
 
             // Extract the short URL from response
-            const shortUrl = data.shortUrl || data.url || (data.link && data.link.shortUrl);
+            let shortUrl = data.shortUrl || data.url || (data.link && data.link.shortUrl);
 
             if (shortUrl === urlWithUtm) {
                 console.warn('[SWITCHY] Switchy returned the original URL as the short URL. This usually means the domain identifier is incorrect.');
 
                 // Fetch domains via GraphQL (the official way)
                 try {
-                    console.log('[SWITCHY] Fetching domains via GraphQL to find correct identifier...');
+                    console.log('[SWITCHY] 🕵️ Finding available domains to get correct ID...');
                     const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
                         method: 'POST',
                         headers: {
@@ -156,12 +156,44 @@ class SwitchyService {
 
                     if (gqlResponse.ok) {
                         const gqlData = await gqlResponse.json();
-                        console.log('[SWITCHY] GraphQL Domains Response:', JSON.stringify(gqlData, null, 2));
-                    } else {
-                        console.error('[SWITCHY] GraphQL domains request failed:', gqlResponse.status);
+                        const domains = gqlData?.data?.domains || [];
+                        console.log('[SWITCHY] 📋 FOUND DOMAINS:', JSON.stringify(domains, null, 2));
+
+                        if (domains.length > 0) {
+                            console.log('[SWITCHY] 💡 Use one of these IDs in SWITCHY_DOMAIN env var');
+                        }
                     }
                 } catch (e) {
-                    console.error('[SWITCHY] Failed to fetch domains via GraphQL:', e);
+                    console.error('[SWITCHY] ❌ Failed to fetch domains:', e);
+                }
+
+                // Fallback: If custom domain failed, try with default switchy.io
+                if (this.domain !== 'switchy.io') {
+                    console.log('[SWITCHY] 🔄 Retrying with fallback domain switchy.io...');
+                    const fallbackPayload = {
+                        link: {
+                            ...payload.link,
+                            domain: 'switchy.io'
+                        }
+                    };
+                    const fallbackResponse = await fetch(`${this.baseUrl}/links/create`, {
+                        method: 'POST',
+                        headers: {
+                            'Api-Authorization': this.apiKey,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(fallbackPayload),
+                    });
+
+                    if (fallbackResponse.ok) {
+                        const fallbackData = await fallbackResponse.json();
+                        const fallbackShortUrl = fallbackData.shortUrl || fallbackData.url || (fallbackData.link && fallbackData.link.shortUrl);
+                        if (fallbackShortUrl && fallbackShortUrl !== urlWithUtm) {
+                            console.log('[SWITCHY] ✅ Fallback success:', fallbackShortUrl);
+                            data = fallbackData;
+                            shortUrl = fallbackShortUrl;
+                        }
+                    }
                 }
             }
 
