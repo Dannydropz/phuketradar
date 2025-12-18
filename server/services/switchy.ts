@@ -130,19 +130,38 @@ class SwitchyService {
             const shortUrl = data.shortUrl || data.url || (data.link && data.link.shortUrl);
 
             if (shortUrl === urlWithUtm) {
-                console.warn('[SWITCHY] Switchy returned the original URL as the short URL. This usually means the domain is not recognized or active.');
+                console.warn('[SWITCHY] Switchy returned the original URL as the short URL. This usually means the domain identifier is incorrect.');
 
-                // Try to list domains to see what's available (helpful for debugging)
+                // Fetch domains via GraphQL (the official way)
                 try {
-                    const domainsResponse = await fetch(`${this.baseUrl}/domains`, {
-                        headers: { 'Api-Authorization': this.apiKey }
+                    console.log('[SWITCHY] Fetching domains via GraphQL to find correct identifier...');
+                    const gqlResponse = await fetch('https://api.switchy.io/', {
+                        method: 'POST',
+                        headers: {
+                            'Api-Authorization': this.apiKey,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            query: `
+                                query {
+                                    domains(where: {removed: false}) {
+                                        id
+                                        name
+                                        fullName
+                                    }
+                                }
+                            `
+                        })
                     });
-                    if (domainsResponse.ok) {
-                        const domains = await domainsResponse.json();
-                        console.log('[SWITCHY] Available domains in this workspace:', JSON.stringify(domains, null, 2));
+
+                    if (gqlResponse.ok) {
+                        const gqlData = await gqlResponse.json();
+                        console.log('[SWITCHY] GraphQL Domains Response:', JSON.stringify(gqlData, null, 2));
+                    } else {
+                        console.error('[SWITCHY] GraphQL domains request failed:', gqlResponse.status);
                     }
                 } catch (e) {
-                    console.error('[SWITCHY] Failed to list domains:', e);
+                    console.error('[SWITCHY] Failed to fetch domains via GraphQL:', e);
                 }
             }
 
