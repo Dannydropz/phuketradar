@@ -268,6 +268,40 @@ class SwitchyService {
     }
 
     /**
+     * List all assets (folders, pixels, domains) for configuration
+     */
+    async listAssets(): Promise<any> {
+        if (!this.apiKey) return { error: 'Not configured' };
+
+        try {
+            const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
+                method: 'POST',
+                headers: {
+                    'Api-Authorization': this.apiKey,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: `
+                        query {
+                            folders { id name }
+                            pixels { id name platform }
+                            domains { id name fullName }
+                        }
+                    `
+                })
+            });
+
+            if (gqlResponse.ok) {
+                const gqlData = await gqlResponse.json();
+                return gqlData.data || {};
+            }
+            return { error: `GraphQL error: ${gqlResponse.status}` };
+        } catch (error) {
+            return { error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    }
+
+    /**
      * Check if Switchy is configured and available
      */
     isConfigured(): boolean {
