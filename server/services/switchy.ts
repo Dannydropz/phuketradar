@@ -150,8 +150,9 @@ class SwitchyService {
             if (!shortUrl || shortUrl === urlWithUtm) {
                 console.warn('[SWITCHY] First attempt failed to generate short URL. Domain might be invalid. Trying fallback...');
 
-                // Try to list domains to help debugging if this is the first failure
+                // Fetch assets via GraphQL (the official way)
                 try {
+                    console.log('[SWITCHY] 🕵️ Discovering Folder and Pixel IDs...');
                     const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
                         method: 'POST',
                         headers: {
@@ -159,15 +160,33 @@ class SwitchyService {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            query: `query { domains { id name fullName } }`
+                            query: `
+                                query {
+                                    folders {
+                                        id
+                                        name
+                                    }
+                                    pixels {
+                                        id
+                                        name
+                                        platform
+                                    }
+                                    domains {
+                                        id
+                                        name
+                                        fullName
+                                    }
+                                }
+                            `
                         })
                     });
+
                     if (gqlResponse.ok) {
                         const gqlData = await gqlResponse.json();
-                        console.log('[SWITCHY] Available Workspace Domains:', JSON.stringify(gqlData.data?.domains || [], null, 2));
+                        console.log('[SWITCHY] 📋 ASSET DISCOVERY:', JSON.stringify(gqlData.data || {}, null, 2));
                     }
                 } catch (e) {
-                    // Silently fail domain discovery
+                    console.error('[SWITCHY] ❌ Failed to fetch assets:', e);
                 }
 
                 // Retry with switchy.io if we aren't already using it
