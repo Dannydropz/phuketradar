@@ -64,6 +64,26 @@ class SwitchyService {
     }
 
     /**
+     * Extract or construct a short URL from the Switchy API response
+     */
+    private extractShortUrl(data: any, originalUrl: string): string | null {
+        // Some response variations have a nested link object, some are flat
+        const linkData = data.link || data;
+
+        // 1. Try explicit shortUrl field
+        if (linkData.shortUrl && linkData.shortUrl !== originalUrl) {
+            return linkData.shortUrl;
+        }
+
+        // 2. Construct from domain + id (How raw Switchy API usually works)
+        if (linkData.domain && linkData.id) {
+            return `https://${linkData.domain}/${linkData.id}`;
+        }
+
+        return null;
+    }
+
+    /**
      * Create a shortened URL with optional UTM parameters and OG overrides
      */
     async createShortLink(
@@ -103,7 +123,6 @@ class SwitchyService {
             }
 
             console.log('[SWITCHY] Creating short link for:', urlWithUtm);
-            console.log('[SWITCHY] Payload:', JSON.stringify(payload, null, 2));
 
             const response = await fetch(`${this.baseUrl}/links/create`, {
                 method: 'POST',
@@ -116,7 +135,6 @@ class SwitchyService {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[SWITCHY] API error:', response.status, errorText);
                 return {
                     success: false,
                     error: `API error: ${response.status} - ${errorText}`
@@ -124,17 +142,16 @@ class SwitchyService {
             }
 
             let data = await response.json();
-            console.log('[SWITCHY] Raw Response:', JSON.stringify(data, null, 2));
+            console.log('[SWITCHY] Link created raw:', JSON.stringify(data, null, 2));
 
-            // Extract the short URL from response
-            let shortUrl = data.shortUrl || data.url || (data.link && data.link.shortUrl);
+            let shortUrl = this.extractShortUrl(data, urlWithUtm);
 
-            if (shortUrl === urlWithUtm) {
-                console.warn('[SWITCHY] Switchy returned the original URL as the short URL. This usually means the domain identifier is incorrect.');
+            // Fallback logic if the first attempt returned the long URL
+            if (!shortUrl || shortUrl === urlWithUtm) {
+                console.warn('[SWITCHY] First attempt failed to generate short URL. Domain might be invalid. Trying fallback...');
 
-                // Fetch domains via GraphQL (the official way)
+                // Try to list domains to help debugging if this is the first failure
                 try {
-                    console.log('[SWITCHY] 🕵️ Finding available domains to get correct ID...');
                     const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
                         method: 'POST',
                         headers: {
@@ -142,59 +159,46 @@ class SwitchyService {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            query: `
-                                query {
-                                    domains {
-                                        id
-                                        name
-                                        fullName
-                                    }
-                                }
-                            `
+                            query: `query { domains { id name fullName } }`
                         })
                     });
-
                     if (gqlResponse.ok) {
                         const gqlData = await gqlResponse.json();
-                        const domains = gqlData?.data?.domains || [];
-                        console.log('[SWITCHY] 📋 FOUND DOMAINS:', JSON.stringify(domains, null, 2));
-
-                        if (domains.length > 0) {
-                            console.log('[SWITCHY] 💡 Use one of these IDs in SWITCHY_DOMAIN env var');
-                        }
+                        console.log('[SWITCHY] Available Workspace Domains:', JSON.stringify(gqlData.data?.domains || [], null, 2));
                     }
                 } catch (e) {
-                    console.error('[SWITCHY] ❌ Failed to fetch domains:', e);
+                    // Silently fail domain discovery
                 }
 
-                // Fallback: If custom domain failed, try with default switchy.io
+                // Retry with switchy.io if we aren't already using it
                 if (this.domain !== 'switchy.io') {
-                    console.log('[SWITCHY] 🔄 Retrying with fallback domain switchy.io...');
-                    const fallbackPayload = {
-                        link: {
-                            ...payload.link,
-                            domain: 'switchy.io'
-                        }
-                    };
-                    const fallbackResponse = await fetch(`${this.baseUrl}/links/create`, {
+                    console.log('[SWITCHY] Retrying with domain: switchy.io');
+                    const fallbackPayload = { link: { ...payload.link, domain: 'switchy.io' } };
+                    const fbRes = await fetch(`${this.baseUrl}/links/create`, {
                         method: 'POST',
-                        headers: {
-                            'Api-Authorization': this.apiKey,
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Api-Authorization': this.apiKey, 'Content-Type': 'application/json' },
                         body: JSON.stringify(fallbackPayload),
                     });
 
-                    if (fallbackResponse.ok) {
-                        const fallbackData = await fallbackResponse.json();
-                        const fallbackShortUrl = fallbackData.shortUrl || fallbackData.url || (fallbackData.link && fallbackData.link.shortUrl);
-                        if (fallbackShortUrl && fallbackShortUrl !== urlWithUtm) {
-                            console.log('[SWITCHY] ✅ Fallback success:', fallbackShortUrl);
-                            data = fallbackData;
-                            shortUrl = fallbackShortUrl;
+                    if (fbRes.ok) {
+                        const fbData = await fbRes.json();
+                        const fbShortUrl = this.extractShortUrl(fbData, urlWithUtm);
+                        if (fbShortUrl && fbShortUrl !== urlWithUtm) {
+                            console.log('[SWITCHY] Fallback successful:', fbShortUrl);
+                            data = fbData;
+                            shortUrl = fbShortUrl;
                         }
                     }
                 }
+            }
+
+            // Final safety net: if we still don't have a short URL, we use the input URL
+            // but return success: false if it's literally just the long URL
+            if (!shortUrl || shortUrl === urlWithUtm) {
+                return {
+                    success: false,
+                    error: 'API returned long URL instead of short URL. Check domain configuration.'
+                };
             }
 
             return {
