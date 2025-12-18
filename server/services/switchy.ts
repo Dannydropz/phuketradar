@@ -144,7 +144,7 @@ class SwitchyService {
                         body: JSON.stringify({
                             query: `
                                 query {
-                                    domains(where: {removed: false}) {
+                                    domains {
                                         id
                                         name
                                         fullName
