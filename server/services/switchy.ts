@@ -30,14 +30,18 @@ interface CreateLinkResponse {
 
 class SwitchyService {
     private apiKey: string;
+    private domain: string;
     private baseUrl = 'https://api.switchy.io/v1';
 
     constructor() {
         const apiKey = process.env.SWITCHY_API_KEY;
+        const domain = process.env.SWITCHY_DOMAIN || 'go.phuketradar.com';
+
         if (!apiKey) {
             console.warn('[SWITCHY] SWITCHY_API_KEY not set. URL shortening will be disabled.');
         }
         this.apiKey = apiKey || '';
+        this.domain = domain;
     }
 
     /**
@@ -79,6 +83,7 @@ class SwitchyService {
 
             const payload: Record<string, any> = {
                 url: urlWithUtm,
+                domain: this.domain,
             };
 
             // Add optional overrides
