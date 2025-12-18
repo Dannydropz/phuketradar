@@ -283,9 +283,24 @@ class SwitchyService {
                 body: JSON.stringify({
                     query: `
                         query {
-                            folders { id name }
-                            pixels { id name platform }
-                            domains { id name fullName }
+                            workspaces {
+                                id
+                                name
+                                folders {
+                                    id
+                                    name
+                                }
+                                pixels {
+                                    id
+                                    name
+                                    platform
+                                }
+                            }
+                            domains {
+                                id
+                                name
+                                fullName
+                            }
                         }
                     `
                 })
