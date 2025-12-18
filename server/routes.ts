@@ -1621,15 +1621,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switchyShortUrl: result.link.shortUrl,
       });
 
-      console.log(`🔗 [SWITCHY] Created short URL for article ${id}: ${result.link.shortUrl}`);
+      console.log(`🔗 [SWITCHY] Created/Returned short URL: ${result.link.shortUrl}`);
 
-      res.json({
-        success: true,
-        shortUrl: result.link.shortUrl,
-        originalUrl: result.link.originalUrl,
-      });
+      res.json(result);
     } catch (error) {
-      console.error("Error generating Switchy short URL:", error);
+      console.error("Error generating Short link:", error);
       res.status(500).json({ error: "Failed to generate short URL" });
     }
   });
