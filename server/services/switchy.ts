@@ -82,25 +82,28 @@ class SwitchyService {
             const urlWithUtm = this.buildUrlWithUtm(originalUrl, options);
 
             const payload: Record<string, any> = {
-                url: urlWithUtm,
-                domain: this.domain,
+                link: {
+                    url: urlWithUtm,
+                    domain: this.domain,
+                }
             };
 
-            // Add optional overrides
+            // Add optional overrides to the nested link object
             if (options.title) {
-                payload.title = options.title;
+                payload.link.title = options.title;
             }
             if (options.description) {
-                payload.description = options.description;
+                payload.link.description = options.description;
             }
             if (options.imageUrl) {
-                payload.image = options.imageUrl;
+                payload.link.image = options.imageUrl;
             }
             if (options.slug) {
-                payload.slug = options.slug;
+                payload.link.slug = options.slug;
             }
 
             console.log('[SWITCHY] Creating short link for:', urlWithUtm);
+            console.log('[SWITCHY] Payload:', JSON.stringify(payload, null, 2));
 
             const response = await fetch(`${this.baseUrl}/links/create`, {
                 method: 'POST',
