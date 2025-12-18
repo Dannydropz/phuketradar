@@ -124,16 +124,32 @@ class SwitchyService {
             }
 
             const data = await response.json();
-            console.log('[SWITCHY] Link created:', data);
+            console.log('[SWITCHY] Raw Response:', JSON.stringify(data, null, 2));
 
             // Extract the short URL from response
-            // Note: Exact response structure may vary - adjust based on actual API response
-            const shortUrl = data.shortUrl || data.short_url || data.url || data.link?.shortUrl;
+            const shortUrl = data.shortUrl || data.url || (data.link && data.link.shortUrl);
+
+            if (shortUrl === urlWithUtm) {
+                console.warn('[SWITCHY] Switchy returned the original URL as the short URL. This usually means the domain is not recognized or active.');
+
+                // Try to list domains to see what's available (helpful for debugging)
+                try {
+                    const domainsResponse = await fetch(`${this.baseUrl}/domains`, {
+                        headers: { 'Api-Authorization': this.apiKey }
+                    });
+                    if (domainsResponse.ok) {
+                        const domains = await domainsResponse.json();
+                        console.log('[SWITCHY] Available domains in this workspace:', JSON.stringify(domains, null, 2));
+                    }
+                } catch (e) {
+                    console.error('[SWITCHY] Failed to list domains:', e);
+                }
+            }
 
             return {
                 success: true,
                 link: {
-                    id: data.id || data.link?.id,
+                    id: data.id || (data.link && data.link.id),
                     shortUrl: shortUrl,
                     originalUrl: urlWithUtm,
                     title: options.title,
