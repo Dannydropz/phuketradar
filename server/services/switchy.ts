@@ -135,7 +135,7 @@ class SwitchyService {
                 // Fetch domains via GraphQL (the official way)
                 try {
                     console.log('[SWITCHY] Fetching domains via GraphQL to find correct identifier...');
-                    const gqlResponse = await fetch('https://api.switchy.io/', {
+                    const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
                         method: 'POST',
                         headers: {
                             'Api-Authorization': this.apiKey,
