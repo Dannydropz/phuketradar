@@ -219,6 +219,8 @@ export class DatabaseStorage implements IStorage {
         autoMatchEnabled: articles.autoMatchEnabled,
         needsReview: articles.needsReview,
         reviewReason: articles.reviewReason,
+        facebookEmbedUrl: articles.facebookEmbedUrl,
+        switchyShortUrl: articles.switchyShortUrl,
       })
       .from(articles)
       .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
@@ -280,6 +282,8 @@ export class DatabaseStorage implements IStorage {
         autoMatchEnabled: articles.autoMatchEnabled,
         needsReview: articles.needsReview,
         reviewReason: articles.reviewReason,
+        facebookEmbedUrl: articles.facebookEmbedUrl,
+        switchyShortUrl: articles.switchyShortUrl,
       })
       .from(articles)
       .where(eq(articles.isPublished, true))
@@ -648,6 +652,8 @@ export class DatabaseStorage implements IStorage {
         autoMatchEnabled: articles.autoMatchEnabled,
         needsReview: articles.needsReview,
         reviewReason: articles.reviewReason,
+        facebookEmbedUrl: articles.facebookEmbedUrl,
+        switchyShortUrl: articles.switchyShortUrl,
       })
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
@@ -750,6 +756,8 @@ export class DatabaseStorage implements IStorage {
         autoMatchEnabled: articles.autoMatchEnabled,
         needsReview: articles.needsReview,
         reviewReason: articles.reviewReason,
+        facebookEmbedUrl: articles.facebookEmbedUrl,
+        switchyShortUrl: articles.switchyShortUrl,
       })
       .from(articles)
       .where(eq(articles.seriesId, seriesId))

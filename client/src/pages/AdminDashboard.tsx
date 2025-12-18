@@ -209,6 +209,31 @@ export default function AdminDashboard() {
     },
   });
 
+  const generateShortUrlMutation = useMutation({
+    mutationFn: async (articleId: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${articleId}/switchy`, { platform: 'bio' });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Short URL Generated",
+        description: `Successfully created: ${data.link.shortUrl}`,
+      });
+      // Copy to clipboard
+      if (data.link?.shortUrl) {
+        navigator.clipboard.writeText(data.link.shortUrl);
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const scrapeMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/scrape");
@@ -1244,6 +1269,24 @@ export default function AdminDashboard() {
                                     {!article.isPublished ? "Publish article first" :
                                       article.facebookPostId?.startsWith('LOCK:') ? "Clear stuck lock and post" :
                                         "Post to Facebook"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {article.isPublished && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => generateShortUrlMutation.mutate(article.id)}
+                                      disabled={generateShortUrlMutation.isPending}
+                                      className={`h-11 w-11 p-0 ${article.switchyShortUrl ? 'border-green-500 text-green-500 bg-green-500/5' : 'border-purple-500 text-purple-500 hover:bg-purple-500/10'}`}
+                                      aria-label="Generate Short Link"
+                                    >
+                                      <Link className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {article.switchyShortUrl ? `Short URL: ${article.switchyShortUrl} (Click to re-generate & copy)` : "Generate Switchy Short Link"}
                                   </TooltipContent>
                                 </Tooltip>
                               )}

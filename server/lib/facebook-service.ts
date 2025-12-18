@@ -317,29 +317,42 @@ export async function postArticleToFacebook(
 
     // Try to get or generate Switchy short URL for better tracking
     try {
+      console.log(`🔍 [FB-POST] Checking for Switchy short URL for article ${article.id}`);
       if (article.switchyShortUrl) {
         commentUrl = article.switchyShortUrl;
         console.log(`📘 [FB-POST] Using existing Switchy short URL: ${commentUrl}`);
       } else {
         // Generate new Switchy short URL
+        console.log(`🚀 [FB-POST] No existing Switchy URL, attempting to generate one...`);
         const { switchyService } = await import("../services/switchy");
-        if (switchyService.isConfigured()) {
+
+        const isConfigured = switchyService.isConfigured();
+        console.log(`⚙️  [FB-POST] Switchy configured: ${isConfigured}`);
+
+        if (isConfigured) {
           const shortLinkResult = await switchyService.createArticleLink(
             articleUrl,
             'facebook',
             article.facebookHeadline || article.title,
             article.imageUrl || undefined
           );
+
+          console.log(`📡 [FB-POST] Switchy result:`, JSON.stringify(shortLinkResult));
+
           if (shortLinkResult.success && shortLinkResult.link?.shortUrl) {
             commentUrl = shortLinkResult.link.shortUrl;
             // Save the short URL to the article for future use
             await storage.updateArticle(article.id, { switchyShortUrl: commentUrl });
-            console.log(`🔗 [FB-POST] Generated Switchy short URL: ${commentUrl}`);
+            console.log(`🔗 [FB-POST] Generated and saved Switchy short URL: ${commentUrl}`);
+          } else {
+            console.warn(`⚠️  [FB-POST] Switchy generation unsuccessful: ${shortLinkResult.error || 'Unknown error'}`);
           }
+        } else {
+          console.warn(`⚠️  [FB-POST] Switchy not configured (missing API key), skipping generation`);
         }
       }
     } catch (switchyError) {
-      console.warn(`⚠️  [FB-POST] Switchy short link generation failed, using direct URL:`, switchyError);
+      console.warn(`❌ [FB-POST] Switchy short link exception, using direct URL:`, switchyError);
     }
 
     const commentResponse = await fetch(`https://graph.facebook.com/v18.0/${postId}/comments`, {

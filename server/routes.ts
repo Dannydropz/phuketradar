@@ -1589,15 +1589,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Only published articles can have short links generated" });
       }
 
-      // Check if already has a short URL
-      if (article.switchyShortUrl) {
-        return res.json({
-          success: true,
-          shortUrl: article.switchyShortUrl,
-          alreadyExists: true,
-        });
-      }
-
       // Import and use Switchy service
       const { switchyService } = await import("./services/switchy");
 
