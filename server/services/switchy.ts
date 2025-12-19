@@ -124,6 +124,35 @@ class SwitchyService {
 
             console.log('[SWITCHY] Creating short link for:', urlWithUtm);
 
+            // Fetch assets via GraphQL for discovery (Temporary logging)
+            try {
+                const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Api-Authorization': this.apiKey,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: `
+                            query {
+                                workspaces {
+                                    id
+                                    name
+                                    folders { id name }
+                                    pixels { id name platform }
+                                }
+                            }
+                        `
+                    })
+                });
+                if (gqlResponse.ok) {
+                    const gqlData = await gqlResponse.json();
+                    console.log('[SWITCHY] 📋 DISCOVERY DATA:', JSON.stringify(gqlData.data || {}, null, 2));
+                }
+            } catch (e) {
+                console.error('[SWITCHY] Discovery failed:', e);
+            }
+
             const response = await fetch(`${this.baseUrl}/links/create`, {
                 method: 'POST',
                 headers: {
@@ -149,45 +178,6 @@ class SwitchyService {
             // Fallback logic if the first attempt returned the long URL
             if (!shortUrl || shortUrl === urlWithUtm) {
                 console.warn('[SWITCHY] First attempt failed to generate short URL. Domain might be invalid. Trying fallback...');
-
-                // Fetch assets via GraphQL (the official way)
-                try {
-                    console.log('[SWITCHY] 🕵️ Discovering Folder and Pixel IDs...');
-                    const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
-                        method: 'POST',
-                        headers: {
-                            'Api-Authorization': this.apiKey,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            query: `
-                                query {
-                                    folders {
-                                        id
-                                        name
-                                    }
-                                    pixels {
-                                        id
-                                        name
-                                        platform
-                                    }
-                                    domains {
-                                        id
-                                        name
-                                        fullName
-                                    }
-                                }
-                            `
-                        })
-                    });
-
-                    if (gqlResponse.ok) {
-                        const gqlData = await gqlResponse.json();
-                        console.log('[SWITCHY] 📋 ASSET DISCOVERY:', JSON.stringify(gqlData.data || {}, null, 2));
-                    }
-                } catch (e) {
-                    console.error('[SWITCHY] ❌ Failed to fetch assets:', e);
-                }
 
                 // Retry with switchy.io if we aren't already using it
                 if (this.domain !== 'switchy.io') {
