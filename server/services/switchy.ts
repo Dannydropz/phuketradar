@@ -101,10 +101,18 @@ class SwitchyService {
             // Build URL with UTM parameters
             const urlWithUtm = this.buildUrlWithUtm(originalUrl, options);
 
+
+
+            console.log('[SWITCHY] Creating short link for:', urlWithUtm);
+
             const payload: Record<string, any> = {
                 link: {
                     url: urlWithUtm,
                     domain: this.domain,
+                    // Attach the Facebook Pixel automatically
+                    pixels: [
+                        { platform: 'facebook', value: '831369166474772' }
+                    ]
                 }
             };
 
@@ -120,37 +128,6 @@ class SwitchyService {
             }
             if (options.slug) {
                 payload.link.slug = options.slug;
-            }
-
-            console.log('[SWITCHY] Creating short link for:', urlWithUtm);
-
-            // Fetch assets via GraphQL for discovery (Temporary logging)
-            try {
-                const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Api-Authorization': this.apiKey,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        query: `
-                            query {
-                                workspaces {
-                                    id
-                                    name
-                                    folders { id name }
-                                    pixels { id name platform }
-                                }
-                            }
-                        `
-                    })
-                });
-                if (gqlResponse.ok) {
-                    const gqlData = await gqlResponse.json();
-                    console.log('[SWITCHY] 📋 DISCOVERY DATA:', JSON.stringify(gqlData.data || {}, null, 2));
-                }
-            } catch (e) {
-                console.error('[SWITCHY] Discovery failed:', e);
             }
 
             const response = await fetch(`${this.baseUrl}/links/create`, {
@@ -171,18 +148,20 @@ class SwitchyService {
             }
 
             let data = await response.json();
-            console.log('[SWITCHY] Link created raw:', JSON.stringify(data, null, 2));
-
             let shortUrl = this.extractShortUrl(data, urlWithUtm);
 
             // Fallback logic if the first attempt returned the long URL
             if (!shortUrl || shortUrl === urlWithUtm) {
-                console.warn('[SWITCHY] First attempt failed to generate short URL. Domain might be invalid. Trying fallback...');
+                console.warn('[SWITCHY] First attempt failed. Trying fallback domain switchy.io...');
 
                 // Retry with switchy.io if we aren't already using it
                 if (this.domain !== 'switchy.io') {
-                    console.log('[SWITCHY] Retrying with domain: switchy.io');
-                    const fallbackPayload = { link: { ...payload.link, domain: 'switchy.io' } };
+                    const fallbackPayload = {
+                        link: {
+                            ...payload.link,
+                            domain: 'switchy.io'
+                        }
+                    };
                     const fbRes = await fetch(`${this.baseUrl}/links/create`, {
                         method: 'POST',
                         headers: { 'Api-Authorization': this.apiKey, 'Content-Type': 'application/json' },
@@ -193,7 +172,6 @@ class SwitchyService {
                         const fbData = await fbRes.json();
                         const fbShortUrl = this.extractShortUrl(fbData, urlWithUtm);
                         if (fbShortUrl && fbShortUrl !== urlWithUtm) {
-                            console.log('[SWITCHY] Fallback successful:', fbShortUrl);
                             data = fbData;
                             shortUrl = fbShortUrl;
                         }
@@ -201,12 +179,10 @@ class SwitchyService {
                 }
             }
 
-            // Final safety net: if we still don't have a short URL, we use the input URL
-            // but return success: false if it's literally just the long URL
             if (!shortUrl || shortUrl === urlWithUtm) {
                 return {
                     success: false,
-                    error: 'API returned long URL instead of short URL. Check domain configuration.'
+                    error: 'API returned long URL instead of short URL.'
                 };
             }
 
@@ -255,55 +231,6 @@ class SwitchyService {
             utmMedium: utm.medium,
             utmCampaign: utm.campaign,
         });
-    }
-
-    /**
-     * List all assets (folders, pixels, domains) for configuration
-     */
-    async listAssets(): Promise<any> {
-        if (!this.apiKey) return { error: 'Not configured' };
-
-        try {
-            const gqlResponse = await fetch('https://graphql.switchy.io/v1/graphql', {
-                method: 'POST',
-                headers: {
-                    'Api-Authorization': this.apiKey,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    query: `
-                        query {
-                            workspaces {
-                                id
-                                name
-                                folders {
-                                    id
-                                    name
-                                }
-                                pixels {
-                                    id
-                                    name
-                                    platform
-                                }
-                            }
-                            domains {
-                                id
-                                name
-                                fullName
-                            }
-                        }
-                    `
-                })
-            });
-
-            if (gqlResponse.ok) {
-                const gqlData = await gqlResponse.json();
-                return gqlData.data || {};
-            }
-            return { error: `GraphQL error: ${gqlResponse.status}` };
-        } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
-        }
     }
 
     /**

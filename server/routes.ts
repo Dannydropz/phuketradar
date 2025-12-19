@@ -1630,16 +1630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Debug: List Switchy Assets (Pixels/Folders) - PROTECTED
-  app.get("/api/admin/switchy/assets", requireAdminAuth, async (req, res) => {
-    try {
-      const { switchyService } = await import("./services/switchy");
-      const assets = await switchyService.listAssets();
-      res.json(assets);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch switchy assets" });
-    }
-  });
+
 
   // Clear stuck Facebook posting locks - PROTECTED
   app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
