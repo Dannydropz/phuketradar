@@ -126,18 +126,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   // Article routes
 
-  // Get all published articles (with caching for fast loads)
+  // Get all published articles (with caching and pagination support)
   app.get("/api/articles", async (req, res) => {
     try {
-      // Use server-side cache to avoid repeated database queries
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      // Use server-side cache with pagination parameters in the key
       const articles = await withCache(
-        CACHE_KEYS.PUBLISHED_ARTICLES,
+        `${CACHE_KEYS.PUBLISHED_ARTICLES}:${limit}:${offset}`,
         CACHE_TTL.ARTICLES_LIST,
-        () => storage.getPublishedArticles()
+        () => storage.getPublishedArticles(limit, offset)
       );
 
       // Set HTTP cache headers for browser caching (30 seconds)
-      // This allows browsers to cache the response and avoid network requests
       res.set({
         'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
         'Vary': 'Accept-Encoding',
@@ -174,16 +176,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get articles by category
+  // Get articles by category with pagination
   app.get("/api/articles/category/:category", async (req, res) => {
     try {
       const { category } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
 
-      // Cache category articles for 1 minute
+      // Cache category articles with pagination parameters
       const articles = await withCache(
-        CACHE_KEYS.CATEGORY_ARTICLES(category),
+        `${CACHE_KEYS.CATEGORY_ARTICLES(category)}:${limit}:${offset}`,
         CACHE_TTL.ARTICLES_LIST,
-        () => storage.getArticlesByCategory(category)
+        () => storage.getArticlesByCategory(category, limit, offset)
       );
 
       res.set({
@@ -219,6 +223,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching articles by tag:", error);
       res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
+  // Public Search API for articles
+  app.get("/api/articles/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.json([]);
+      }
+
+      // Cache search results for 5 minutes
+      const results = await withCache(
+        `search:${query.toLowerCase().trim()}`,
+        300, // 5 minutes
+        () => storage.searchArticles(query)
+      );
+
+      res.set({
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+      });
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching articles:", error);
+      res.status(500).json({ error: "Failed to search articles" });
     }
   });
 

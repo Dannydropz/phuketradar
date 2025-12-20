@@ -41,9 +41,9 @@ export default function HomeNew() {
         return <NotFound />;
     }
 
-    // Fetch Articles
+    // Fetch Articles - Limit to 50 for fast initial load
     const { data: allArticles = [], isLoading } = useQuery<ArticleListItem[]>({
-        queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
+        queryKey: category ? [`/api/articles/category/${category}?limit=50`] : ["/api/articles?limit=50"],
     });
 
     // Fetch Journalists

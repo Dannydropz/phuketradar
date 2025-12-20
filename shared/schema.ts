@@ -226,7 +226,7 @@ export type InsertSocialMediaAnalytics = z.infer<typeof insertSocialMediaAnalyti
 export type SocialMediaAnalytics = typeof socialMediaAnalytics.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
-export type ArticleListItem = Omit<Article, 'content' | 'embedding' | 'seriesId' | 'storySeriesTitle' | 'isParentStory' | 'seriesUpdateCount' | 'autoMatchEnabled'> & {
+export type ArticleListItem = Omit<Article, 'content' | 'originalContent' | 'originalTitle' | 'entities' | 'embedding' | 'seriesId' | 'storySeriesTitle' | 'isParentStory' | 'seriesUpdateCount' | 'autoMatchEnabled'> & {
   seriesId?: string | null;
   storySeriesTitle?: string | null;
   isParentStory?: boolean | null;

@@ -20,8 +20,8 @@ export interface IStorage {
   getArticleBySourceFacebookPostId(sourceFacebookPostId: string): Promise<Article | undefined>;
   getArticleByImageUrl(imageUrl: string): Promise<Article | undefined>;
   getArticlesWithImageHashes(): Promise<{ id: string; title: string; imageHash: string | null }[]>;
-  getArticlesByCategory(category: string): Promise<ArticleListItem[]>;
-  getPublishedArticles(): Promise<ArticleListItem[]>;
+  getArticlesByCategory(category: string, limit?: number, offset?: number): Promise<ArticleListItem[]>;
+  getPublishedArticles(limit?: number, offset?: number): Promise<ArticleListItem[]>;
   getPendingArticles(): Promise<Article[]>;
   getArticlesWithEmbeddings(): Promise<{ id: string; title: string; content: string; embedding: number[] | null; entities?: any }[]>;
   getRecentArticlesWithEmbeddings(days: number): Promise<{ id: string; title: string; content: string; embedding: number[] | null; entities?: any }[]>;
@@ -69,6 +69,61 @@ export interface IStorage {
   getTrendingArticles(hoursAgo: number, limit: number): Promise<ArticleListItem[]>;
   incrementArticleViewCount(id: string): Promise<void>;
 }
+
+// Optimized field selection for article lists (excludes heavy content/embedding/entities fields)
+const LEAN_ARTICLE_FIELDS = {
+  id: articles.id,
+  slug: articles.slug,
+  title: articles.title,
+  excerpt: articles.excerpt,
+  imageUrl: articles.imageUrl,
+  imageUrls: articles.imageUrls,
+  imageHash: articles.imageHash,
+  videoUrl: articles.videoUrl,
+  videoThumbnail: articles.videoThumbnail,
+  category: articles.category,
+  author: articles.author,
+  journalistId: articles.journalistId,
+  sourceUrl: articles.sourceUrl,
+  publishedAt: articles.publishedAt,
+  isPublished: articles.isPublished,
+  originalLanguage: articles.originalLanguage,
+  translatedBy: articles.translatedBy,
+  facebookHeadline: articles.facebookHeadline,
+  facebookPostId: articles.facebookPostId,
+  facebookPostUrl: articles.facebookPostUrl,
+  sourceFacebookPostId: articles.sourceFacebookPostId,
+  instagramPostId: articles.instagramPostId,
+  instagramPostUrl: articles.instagramPostUrl,
+  threadsPostId: articles.threadsPostId,
+  threadsPostUrl: articles.threadsPostUrl,
+  eventType: articles.eventType,
+  severity: articles.severity,
+  articleType: articles.articleType,
+  interestScore: articles.interestScore,
+  relatedArticleIds: articles.relatedArticleIds,
+  sourceName: articles.sourceName,
+  isDeveloping: articles.isDeveloping,
+  isManuallyCreated: articles.isManuallyCreated,
+  parentStoryId: articles.parentStoryId,
+  mergedIntoId: articles.mergedIntoId,
+  lastEnrichedAt: articles.lastEnrichedAt,
+  enrichmentCount: articles.enrichmentCount,
+  seriesId: articles.seriesId,
+  storySeriesTitle: articles.storySeriesTitle,
+  isParentStory: articles.isParentStory,
+  seriesUpdateCount: articles.seriesUpdateCount,
+  tags: articles.tags,
+  viewCount: articles.viewCount,
+  engagementScore: articles.engagementScore,
+  isPostedToFacebook: articles.isPostedToFacebook,
+  timelineTags: articles.timelineTags,
+  autoMatchEnabled: articles.autoMatchEnabled,
+  needsReview: articles.needsReview,
+  reviewReason: articles.reviewReason,
+  facebookEmbedUrl: articles.facebookEmbedUrl,
+  switchyShortUrl: articles.switchyShortUrl,
+};
 
 export class DatabaseStorage implements IStorage {
   // User methods
@@ -159,7 +214,7 @@ export class DatabaseStorage implements IStorage {
     }, 3, 2000, `getArticleByImageUrl(${imageUrl.substring(0, 30)}...)`);
   }
 
-  async getArticlesByCategory(category: string): Promise<ArticleListItem[]> {
+  async getArticlesByCategory(category: string, limit: number = 30, offset: number = 0): Promise<ArticleListItem[]> {
     const dbCategories = [...resolveDbCategories(category)];
 
     if (dbCategories.length === 0) {
@@ -167,128 +222,27 @@ export class DatabaseStorage implements IStorage {
     }
 
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-        facebookEmbedUrl: articles.facebookEmbedUrl,
-        switchyShortUrl: articles.switchyShortUrl,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
-      .where(sql`${inArray(articles.category, dbCategories)} AND ${articles.isPublished} = true`)
-      .orderBy(desc(articles.publishedAt));
+      .where(
+        and(
+          eq(articles.isPublished, true),
+          inArray(articles.category, dbCategories)
+        )
+      )
+      .orderBy(desc(articles.publishedAt))
+      .limit(limit)
+      .offset(offset);
   }
 
-  async getPublishedArticles(): Promise<ArticleListItem[]> {
+  async getPublishedArticles(limit: number = 30, offset: number = 0): Promise<ArticleListItem[]> {
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-        facebookEmbedUrl: articles.facebookEmbedUrl,
-        switchyShortUrl: articles.switchyShortUrl,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(eq(articles.isPublished, true))
-      .orderBy(desc(articles.publishedAt));
+      .orderBy(desc(articles.publishedAt))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getPendingArticles(): Promise<Article[]> {
@@ -627,62 +581,7 @@ export class DatabaseStorage implements IStorage {
 
   async getArticlesByJournalistId(journalistId: string): Promise<ArticleListItem[]> {
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-        facebookEmbedUrl: articles.facebookEmbedUrl,
-        switchyShortUrl: articles.switchyShortUrl,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(eq(articles.journalistId, journalistId))
       .orderBy(desc(articles.publishedAt));
@@ -731,62 +630,7 @@ export class DatabaseStorage implements IStorage {
   // Smart Context methods
   async getArticlesBySeriesId(seriesId: string): Promise<ArticleListItem[]> {
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-        facebookEmbedUrl: articles.facebookEmbedUrl,
-        switchyShortUrl: articles.switchyShortUrl,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(eq(articles.seriesId, seriesId))
       .orderBy(desc(articles.publishedAt));
@@ -798,60 +642,7 @@ export class DatabaseStorage implements IStorage {
     const searchPattern = `%${query.trim()}%`;
 
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(
         and(
@@ -868,60 +659,7 @@ export class DatabaseStorage implements IStorage {
 
     // Tags are stored as an array, check if the tag is in the array
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(
         and(
@@ -955,60 +693,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(and(...conditions))
       .orderBy(desc(articles.publishedAt)); // Newest first
@@ -1018,60 +703,7 @@ export class DatabaseStorage implements IStorage {
     const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
 
     return await db
-      .select({
-        id: articles.id,
-        slug: articles.slug,
-        title: articles.title,
-        excerpt: articles.excerpt,
-        originalTitle: articles.originalTitle,
-        originalContent: articles.originalContent,
-        imageUrl: articles.imageUrl,
-        imageUrls: articles.imageUrls,
-        imageHash: articles.imageHash,
-        videoUrl: articles.videoUrl,
-        videoThumbnail: articles.videoThumbnail,
-        category: articles.category,
-        author: articles.author,
-        journalistId: articles.journalistId,
-        sourceUrl: articles.sourceUrl,
-        publishedAt: articles.publishedAt,
-        isPublished: articles.isPublished,
-        originalLanguage: articles.originalLanguage,
-        translatedBy: articles.translatedBy,
-        facebookHeadline: articles.facebookHeadline,
-        facebookPostId: articles.facebookPostId,
-        facebookPostUrl: articles.facebookPostUrl,
-        sourceFacebookPostId: articles.sourceFacebookPostId,
-        instagramPostId: articles.instagramPostId,
-        instagramPostUrl: articles.instagramPostUrl,
-        threadsPostId: articles.threadsPostId,
-        threadsPostUrl: articles.threadsPostUrl,
-        eventType: articles.eventType,
-        severity: articles.severity,
-        articleType: articles.articleType,
-        interestScore: articles.interestScore,
-        relatedArticleIds: articles.relatedArticleIds,
-        entities: articles.entities,
-        sourceName: articles.sourceName,
-        isDeveloping: articles.isDeveloping,
-        isManuallyCreated: articles.isManuallyCreated,
-        parentStoryId: articles.parentStoryId,
-        mergedIntoId: articles.mergedIntoId,
-        lastEnrichedAt: articles.lastEnrichedAt,
-        enrichmentCount: articles.enrichmentCount,
-        seriesId: articles.seriesId,
-        storySeriesTitle: articles.storySeriesTitle,
-        isParentStory: articles.isParentStory,
-        seriesUpdateCount: articles.seriesUpdateCount,
-        tags: articles.tags,
-        viewCount: articles.viewCount,
-        engagementScore: articles.engagementScore,
-        isPostedToFacebook: articles.isPostedToFacebook,
-        timelineTags: articles.timelineTags,
-        autoMatchEnabled: articles.autoMatchEnabled,
-        needsReview: articles.needsReview,
-        reviewReason: articles.reviewReason,
-      })
+      .select(LEAN_ARTICLE_FIELDS)
       .from(articles)
       .where(
         and(

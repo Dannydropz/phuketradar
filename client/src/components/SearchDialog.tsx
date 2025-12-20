@@ -24,21 +24,18 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     }
   }, [open]);
 
-  const { data: allArticles = [] } = useQuery<ArticleListItem[]>({
-    queryKey: ["/api/articles"],
-    enabled: open, // Only fetch when dialog is open
+  const { data: searchResults = [] } = useQuery<ArticleListItem[]>({
+    queryKey: ["/api/articles/search", searchQuery],
+    queryFn: async () => {
+      if (searchQuery.length < 2) return [];
+      const res = await fetch(`/api/articles/search?q=${encodeURIComponent(searchQuery)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open && searchQuery.length >= 2,
   });
 
-  const filteredArticles = searchQuery.trim()
-    ? allArticles.filter((article) => {
-        const query = searchQuery.toLowerCase();
-        return (
-          article.title.toLowerCase().includes(query) ||
-          article.excerpt.toLowerCase().includes(query) ||
-          article.category.toLowerCase().includes(query)
-        );
-      }).slice(0, 10)
-    : [];
+  const filteredArticles = searchQuery.trim() ? searchResults : [];
 
   const handleArticleClick = () => {
     setSearchQuery("");
@@ -51,7 +48,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         <DialogHeader>
           <DialogTitle>Search Articles</DialogTitle>
         </DialogHeader>
-        
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -91,8 +88,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                       data-testid={`search-result-${article.id}`}
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge 
-                          variant={showRed ? "destructive" : "secondary"} 
+                        <Badge
+                          variant={showRed ? "destructive" : "secondary"}
                           className={`text-xs ${showRed ? "font-bold" : ""}`}
                         >
                           {isBreaking ? (showRed ? "BREAKING" : "Breaking") : article.category}
