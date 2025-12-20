@@ -85,8 +85,14 @@ export function serveStatic(app: Express) {
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
+    // Cache headers optimized for Cloudflare edge caching:
+    // - s-maxage: How long Cloudflare should cache at the edge (5 minutes)
+    // - max-age: How long browsers should cache (1 minute - keeps content fresh for users)
+    // - stale-while-revalidate: Serve stale content while refreshing in background
     res.set({
-      'Cache-Control': 'public, max-age=60, stale-while-revalidate=600',
+      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+      'CDN-Cache-Control': 'public, max-age=300', // Cloudflare-specific header
+      'Vary': 'Accept-Encoding',
     });
     res.sendFile(path.resolve(distPath, "index.html"));
   });

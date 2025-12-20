@@ -139,9 +139,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         () => storage.getPublishedArticles(limit, offset)
       );
 
-      // Set HTTP cache headers for browser caching (30 seconds)
+      // Set HTTP cache headers for browser + Cloudflare edge caching
       res.set({
-        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+        'Cache-Control': 'public, max-age=30, s-maxage=120, stale-while-revalidate=300',
+        'CDN-Cache-Control': 'public, max-age=120',
         'Vary': 'Accept-Encoding',
       });
 
