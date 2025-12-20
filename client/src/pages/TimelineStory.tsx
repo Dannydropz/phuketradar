@@ -46,7 +46,7 @@ interface TimelineResponse {
     updateCount: number;
 }
 
-export function TimelineStory() {
+export default function TimelineStory() {
     const [, params] = useRoute("/story/:seriesId");
     const seriesId = params?.seriesId;
     const [expandedUpdates, setExpandedUpdates] = useState<Set<string>>(new Set());

@@ -31,6 +31,7 @@ import { imageHashService } from "./services/image-hash";
 import { imageAnalysisService } from "./services/image-analysis";
 import { DuplicateVerifierService } from "./services/duplicate-verifier";
 import { imageDownloaderService } from "./services/image-downloader";
+import { imageGeneratorService } from "./services/image-generator";
 import { detectTags } from "./lib/tag-detector";
 import type { InsertArticle } from "@shared/schema";
 
@@ -42,6 +43,7 @@ export interface ScrapeProgressCallback {
     createdArticles: number;
     skippedNotNews: number;
   }) => void;
+  onPostScraped?: (post: any) => void;
 }
 
 // Skip reason tracking for detailed debugging
@@ -114,9 +116,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
       return !!existing;
     };
 
-    // Get all existing article embeddings for semantic duplicate detection
-    const existingEmbeddings = await storage.getArticlesWithEmbeddings();
-    console.log(`Loaded ${existingEmbeddings.length} existing article embeddings`);
+    // Get existing article embeddings for semantic duplicate detection (only last 3 days to optimize)
+    const existingEmbeddings = await storage.getRecentArticlesWithEmbeddings(3);
+    console.log(`Loaded ${existingEmbeddings.length} recent article embeddings for duplicate detection`);
 
     // Get all existing article image hashes for visual duplicate detection
     const existingImageHashes = await storage.getArticlesWithImageHashes();
@@ -780,7 +782,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   post.content,
                   contentEmbedding, // Pass precomputed full content embedding to be stored
                   post.location, // Pass post.location as checkInLocation
-                  communityComments // Pass community comments for story enrichment (used for score 4-5)
+                  communityComments, // Pass community comments for story enrichment (used for score 4-5)
+                  {
+                    likeCount: post.likeCount,
+                    commentCount: post.commentCount,
+                    shareCount: post.shareCount,
+                    viewCount: post.viewCount,
+                  }
                 );
               } catch (translationError) {
                 // Translation failed - skip this post entirely (do NOT publish Thai text)
@@ -820,8 +828,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               if (translation.isActualNews) {
                 // STEP 5.5: Check interest score and review flag for auto-publish decision
                 // Auto-publish stories with interest score >= 3 (moderate interest and above)
-                // Lower-scored stories (1-2) OR stories flagged for review are saved as drafts
-                const shouldAutoPublish = translation.interestScore >= 3 && !translation.needsReview;
+                // NEW: If score is 4 or 5 (Viral/High Interest), auto-publish even if flagged for review 
+                // because these stories (mostly videos) are too important to sit in draft.
+                const isHighInterest = translation.interestScore >= 4;
+                const shouldAutoPublish = isHighInterest || (translation.interestScore >= 3 && !translation.needsReview);
 
                 if (!shouldAutoPublish) {
                   const reason = translation.needsReview
@@ -887,11 +897,35 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   console.log(`💾 Attempting to save article to database...`);
                   console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
                   console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
-                  if (post.isVideo) {
-                    const boostedScore = Math.max(translation.interestScore, 4);
+
+                  // NEW: Determine if this is a video story and calculate boosted score early
+                  const isVideoStory = post.isVideo;
+                  const finalInterestScore = isVideoStory ? Math.max(translation.interestScore, 4) : translation.interestScore;
+
+                  // NEW: PREMIUM VIRAL ENRICHMENT (AI Hero Image)
+                  // For Viral/Premium stories (Score 5), generate a high-quality AI Hero image
+                  // if the current image is a screen grab or missing/poor quality.
+                  let finalImageUrl = localImageUrl;
+                  if (finalInterestScore >= 5) {
+                    console.log(`\n🚀 VIRAL STORY DETECTED (${finalInterestScore}/5) - Creating premium AI Hero image...`);
+                    try {
+                      const aiHeroUrl = await imageGeneratorService.generateEditorialImage(
+                        translation.translatedTitle,
+                        translation.excerpt
+                      );
+                      if (aiHeroUrl) {
+                        console.log(`✅ Premium AI Hero image generated for viral card.`);
+                        finalImageUrl = aiHeroUrl;
+                      }
+                    } catch (aiError) {
+                      console.error("❌ Failed to generate AI Hero image:", aiError);
+                    }
+                  }
+
+                  if (isVideoStory) {
                     const hasDirectUrl = !!post.videoUrl;
                     console.log(`   🎥 VIDEO STORY DETECTED!`);
-                    console.log(`      📊 Score boost: ${translation.interestScore} → ${boostedScore} (videos get min 4)`);
+                    console.log(`      📊 Score boost: ${translation.interestScore} → ${finalInterestScore} (videos get min 4)`);
                     if (hasDirectUrl) {
                       console.log(`      ✅ Direct video URL available - native playback`);
                     } else {
@@ -907,30 +941,31 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     originalTitle: post.title, // Store Thai source title for duplicate detection
                     originalContent: post.content, // Store Thai source content for duplicate detection
                     facebookHeadline: translation.facebookHeadline, // Save high-CTR headline
-                    imageUrl: localImageUrl || null,
+                    imageUrl: finalImageUrl || null,
                     imageUrls: localImageUrls || null,
                     imageHash: imageHash || null, // Store perceptual hash for duplicate detection
                     videoUrl: post.videoUrl || null, // Store video URL for embedded playback
                     videoThumbnail: post.videoThumbnail || null, // High-quality video thumbnail
                     // PHASE 1: Auto-embed for video posts without direct URLs
                     // If it's a video but we couldn't get the direct video URL, use the source URL for Facebook embedding
-                    facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
+                    facebookEmbedUrl: (isVideoStory && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
                     category: translation.category,
                     sourceUrl: post.sourceUrl,
-                    sourceName: source.name, // Actual source name (e.g., "The Phuket Times", "Phuket Info Center")
-                    sourceFacebookPostId: post.facebookPostId || null, // Source post ID for duplicate detection
-                    facebookPostId: null, // OUR posting status - only set after posting to OUR Facebook page
-                    journalistId: assignedJournalist.id, // Assign random journalist
-                    isPublished: shouldAutoPublish, // Auto-publish moderate+ interest stories (score >= 3)
+                    sourceName: post.sourceName || "Facebook",
+                    sourceFacebookPostId: post.facebookPostId || null,
+                    facebookPostId: null, // Set after our page posts it
+                    journalistId: assignedJournalist.id,
+                    isPublished: shouldAutoPublish,
                     originalLanguage: "th",
                     translatedBy: "openai",
                     embedding: translation.embedding,
                     eventType: classification.eventType,
                     severity: classification.severity,
-                    // VIDEO BOOST: Video content gets high engagement - boost interest score
-                    interestScore: post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore,
-                    isDeveloping: translation.isDeveloping || false, // Story has limited details
-                    entities: extractedEntities as any, // Store extracted entities for future duplicate detection
+                    interestScore: finalInterestScore,
+                    engagementScore: (post.likeCount || 0) + ((post.commentCount || 0) * 2) + ((post.shareCount || 0) * 5),
+                    viewCount: post.viewCount || 0,
+                    isDeveloping: translation.isDeveloping || false,
+                    entities: extractedEntities || null,
                   };
 
                   // Auto-detect tags from translated title and content
@@ -1293,9 +1328,12 @@ export async function runManualPostScrape(
     // Scrape the individual post using the SINGLE POST endpoint
     let post;
     try {
-      // Import the scraper service directly to use scrapeSingleFacebookPost
-      const { scraperService } = await import("./services/scraper");
+      // Scrape the post
       post = await scraperService.scrapeSingleFacebookPost(postUrl);
+
+      if (callbacks?.onPostScraped) {
+        callbacks.onPostScraped(post);
+      }
     } catch (scrapeError) {
       console.error("❌ Error scraping post URL:", scrapeError);
       return {
@@ -1337,7 +1375,15 @@ export async function runManualPostScrape(
       translation = await translatorService.translateAndRewrite(
         post.title,
         post.content,
-        contentEmbedding
+        contentEmbedding,
+        post.location,
+        undefined, // communityComments (not used in manual yet)
+        {
+          likeCount: post.likeCount,
+          commentCount: post.commentCount,
+          shareCount: post.shareCount,
+          viewCount: post.viewCount,
+        }
       );
     } catch (translationError) {
       console.error(`❌ TRANSLATION FAILED:`, translationError);
@@ -1370,7 +1416,15 @@ export async function runManualPostScrape(
     let localImageUrls = post.imageUrls;
 
     try {
-      if (post.imageUrl) {
+      // If it's a video/reel and we have no primary image but have a thumbnail, use it
+      if (!localImageUrl && post.videoThumbnail) {
+        console.log(`\n📸 No primary image, using video thumbnail instead...`);
+        const savedPath = await imageDownloaderService.downloadAndSaveImage(post.videoThumbnail, "news-video");
+        if (savedPath) {
+          localImageUrl = savedPath;
+          console.log(`   ✅ Saved to: ${savedPath}`);
+        }
+      } else if (post.imageUrl) {
         console.log(`\n⬇️  Downloading primary image...`);
         const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news");
         if (savedPath) {
@@ -1398,6 +1452,34 @@ export async function runManualPostScrape(
       console.log("   Continuing with original URLs...");
     }
 
+    const finalInterestScore = post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore;
+
+    // Extract entities for duplicate detection and context
+    let extractedEntities = null;
+    try {
+      const { entityExtractionService } = await import("./services/entity-extraction");
+      extractedEntities = await entityExtractionService.extractEntities(post.title, post.content);
+    } catch (e) {
+      console.error("❌ Failed to extract entities for manual scrape:", e);
+    }
+
+    // NEW: PREMIUM VIRAL ENRICHMENT (AI Hero Image)
+    let finalImageUrl = localImageUrl;
+    if (finalInterestScore >= 5) {
+      console.log(`\n🚀 VIRAL STORY DETECTED (${finalInterestScore}/5) - Creating premium AI Hero image...`);
+      try {
+        const aiHeroUrl = await imageGeneratorService.generateEditorialImage(
+          translation.translatedTitle,
+          translation.excerpt
+        );
+        if (aiHeroUrl) {
+          finalImageUrl = aiHeroUrl;
+        }
+      } catch (aiError) {
+        console.error("❌ Failed to generate AI Hero image:", aiError);
+      }
+    }
+
     // Prepare article data - ALWAYS SAVE AS DRAFT for manual review
     const assignedJournalist = getRandomJournalist();
     const articleData: InsertArticle = {
@@ -1407,7 +1489,7 @@ export async function runManualPostScrape(
       originalTitle: post.title,
       originalContent: post.content,
       facebookHeadline: translation.facebookHeadline,
-      imageUrl: localImageUrl || null,
+      imageUrl: finalImageUrl || null,
       imageUrls: localImageUrls || null,
       imageHash: null,
       category: translation.category,
@@ -1429,8 +1511,10 @@ export async function runManualPostScrape(
       facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
       // VIDEO BOOST: Videos get minimum score of 4 for high engagement
       interestScore: post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore,
+      engagementScore: (post.likeCount || 0) + ((post.commentCount || 0) * 2) + ((post.shareCount || 0) * 5),
+      viewCount: post.viewCount || 0,
       isDeveloping: translation.isDeveloping || false,
-      entities: null,
+      entities: extractedEntities || null,
     };
 
     // Log video handling for manual scrapes

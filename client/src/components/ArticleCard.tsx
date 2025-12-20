@@ -140,15 +140,34 @@ export function ArticleCard({
 
   return (
     <Link href={articleUrl}>
-      <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col" data-testid={`card-article-${id}`}>
+      <Card className="overflow-hidden hover-elevate active-elevate-2 transition-all duration-200 cursor-pointer h-full flex flex-col group" data-testid={`card-article-${id}`}>
         <div className="relative w-full aspect-video overflow-hidden">
+          {/* Category Badge Overlay - Top Right */}
+          <div className="absolute top-3 right-3 z-10">
+            <Badge
+              variant={categoryVariant}
+              className="font-bold tracking-tight shadow-lg backdrop-blur-md bg-opacity-90 px-2 py-1 uppercase text-[10px]"
+            >
+              {mappedCategory === "Foreigner Incident" ? "Expats" : mappedCategory}
+            </Badge>
+          </div>
+
           <ArticleImage
-            src={videoThumbnail || imageUrl}
+            src={imageUrl || videoThumbnail}
             alt={title}
             category={mappedCategory}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 contrast-[1.10] brightness-[1.05]"
             testId={`img-article-${id}`}
           />
+
+          {/* Video Play Overlay */}
+          {(videoThumbnail || videoThumbnail === imageUrl) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-white/30 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110">
+                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1" />
+              </div>
+            </div>
+          )}
         </div>
         <div className="p-6 flex flex-col flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">

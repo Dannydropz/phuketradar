@@ -67,14 +67,14 @@ export class ApifyScraperService {
       // Extract the post ID from various Facebook URL formats
       // Format 1: /posts/pfbid... -> extract pfbid
       // Format 2: /posts/12345... -> extract numeric ID
-      
+
       const postIdMatch = url.match(/\/posts\/([^/?]+)/);
       if (postIdMatch) {
         const postId = postIdMatch[1];
         // Return a normalized format using just the post ID
         return `https://www.facebook.com/posts/${postId}`;
       }
-      
+
       // If no match, return original URL
       return url;
     } catch (error) {
@@ -134,17 +134,17 @@ export class ApifyScraperService {
 
       while (runStatus === 'RUNNING' && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-        
+
         const statusResponse = await fetch(
           `https://api.apify.com/v2/acts/${urlSafeActorId}/runs/${runId}?token=${this.apiKey}`
         );
-        
+
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
           runStatus = statusData.data.status;
           console.log(`[APIFY] Status: ${runStatus} (${attempts + 1}/${maxAttempts})`);
         }
-        
+
         attempts++;
       }
 
@@ -192,6 +192,17 @@ export class ApifyScraperService {
     }
   }
 
+  async scrapeSingleFacebookPost(postUrl: string): Promise<ScrapedPost | null> {
+    try {
+      console.log(`[APIFY] Scraping single post: ${postUrl}`);
+      const posts = await this.scrapeFacebookPage(postUrl);
+      return posts.length > 0 ? posts[0] : null;
+    } catch (error) {
+      console.error(`[APIFY] Error scraping single post:`, error);
+      return null;
+    }
+  }
+
   private parseApifyResponse(posts: ApifyDatasetItem[]): ScrapedPost[] {
     const scrapedPosts: ScrapedPost[] = [];
     const seenUrls = new Set<string>();
@@ -206,7 +217,7 @@ export class ApifyScraperService {
 
         // Get source URL with fallback chain: postUrl -> url -> topLevelUrl
         const rawSourceUrl = post.postUrl || post.url || post.topLevelUrl;
-        
+
         if (!rawSourceUrl) {
           console.log(`[APIFY] ⚠️ Skipping post - no URL found in postUrl, url, or topLevelUrl fields`);
           console.log(`[APIFY] Post data keys:`, Object.keys(post));
@@ -229,7 +240,7 @@ export class ApifyScraperService {
 
         // Extract ALL image URLs from the post
         const imageUrls: string[] = [];
-        
+
         // Try older format: images array
         if (post.images && post.images.length > 0) {
           for (const img of post.images) {
@@ -238,7 +249,7 @@ export class ApifyScraperService {
             }
           }
         }
-        
+
         // Try newer format: media field (can be array or object)
         if (post.media) {
           if (Array.isArray(post.media)) {
@@ -247,15 +258,15 @@ export class ApifyScraperService {
               // Prioritize image.uri over thumbnail (they're often the same photo with different URLs)
               // Only use thumbnail as fallback if image doesn't exist
               let imgUrl: string | undefined;
-              
+
               if (mediaItem.image) {
-                imgUrl = typeof mediaItem.image === 'string' 
-                  ? mediaItem.image 
+                imgUrl = typeof mediaItem.image === 'string'
+                  ? mediaItem.image
                   : mediaItem.image.uri;
               } else if (mediaItem.thumbnail) {
                 imgUrl = mediaItem.thumbnail;
               }
-              
+
               if (imgUrl && !imageUrls.includes(imgUrl)) {
                 imageUrls.push(imgUrl);
               }
@@ -334,7 +345,7 @@ export class ApifyScraperService {
     // If duplicate checker is provided, filter out duplicates
     if (checkForDuplicate) {
       const filteredPosts: ScrapedPost[] = [];
-      
+
       for (const post of posts) {
         const isDuplicate = await checkForDuplicate(post.sourceUrl);
         if (!isDuplicate) {
@@ -343,7 +354,7 @@ export class ApifyScraperService {
           console.log(`[APIFY] 🔗 Skipping known post: ${post.sourceUrl}`);
         }
       }
-      
+
       return filteredPosts;
     }
 

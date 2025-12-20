@@ -6,17 +6,27 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { lazy, Suspense } from "react";
 import Home from "@/pages/HomeNew";
-import ArticleDetail from "@/pages/ArticleDetailNew";
-import JournalistProfile from "@/pages/JournalistProfile";
-import AdminDashboard from "@/pages/AdminDashboard";
-import AdminInsights from "@/pages/AdminInsights";
-import AdminAnalytics from "@/pages/AdminAnalytics";
-import AdminLogin from "@/pages/AdminLogin";
-import Privacy from "@/pages/Privacy";
-import NotFound from "@/pages/not-found";
-import { TimelineStory } from "@/pages/TimelineStory";
-import TagPage from "@/pages/TagPage";
+
+const ArticleDetail = lazy(() => import("@/pages/ArticleDetailNew"));
+const JournalistProfile = lazy(() => import("@/pages/JournalistProfile"));
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
+const AdminInsights = lazy(() => import("@/pages/AdminInsights"));
+const AdminAnalytics = lazy(() => import("@/pages/AdminAnalytics"));
+const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const TagPage = lazy(() => import("@/pages/TagPage"));
+const TimelineStory = lazy(() => import("@/pages/TimelineStory"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -56,7 +66,9 @@ function App() {
         <TooltipProvider>
           <AdminAuthProvider>
             <Toaster />
-            <Router />
+            <Suspense fallback={<LoadingFallback />}>
+              <Router />
+            </Suspense>
           </AdminAuthProvider>
         </TooltipProvider>
       </ThemeProvider>

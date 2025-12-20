@@ -57,11 +57,16 @@ app.get('/', (_req, res, next) => {
   next();
 });
 
-// Serve static files from attached_assets folder at /assets route
-app.use('/assets', express.static(path.join(process.cwd(), 'attached_assets')));
+// Serve static files from attached_assets folder at /assets route with long-term caching
+app.use('/assets', express.static(path.join(process.cwd(), 'attached_assets'), {
+  maxAge: '30d',
+  immutable: true
+}));
 
-// Serve uploaded images from public/uploads folder
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+// Serve uploaded images from public/uploads folder with reasonable caching
+app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads'), {
+  maxAge: '7d'
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

@@ -76,10 +76,18 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Serve static assets with long-term caching
+  app.use(express.static(distPath, {
+    maxAge: '1y',
+    immutable: true,
+    index: false // Don't serve index.html as a static file, we handle it below
+  }));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
+    res.set({
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=600',
+    });
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

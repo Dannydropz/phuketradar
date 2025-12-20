@@ -24,6 +24,7 @@ export interface IStorage {
   getPublishedArticles(): Promise<ArticleListItem[]>;
   getPendingArticles(): Promise<Article[]>;
   getArticlesWithEmbeddings(): Promise<{ id: string; title: string; content: string; embedding: number[] | null; entities?: any }[]>;
+  getRecentArticlesWithEmbeddings(days: number): Promise<{ id: string; title: string; content: string; embedding: number[] | null; entities?: any }[]>;
   createArticle(article: InsertArticle): Promise<Article>;
   updateArticle(id: string, article: Partial<Article>): Promise<Article | undefined>;
   claimArticleForFacebookPosting(id: string, lockToken: string): Promise<boolean>;
@@ -312,6 +313,33 @@ export class DatabaseStorage implements IStorage {
     // Filter out articles without original content (legacy articles before this fix)
     return result
       .filter(a => a.title !== null && a.content !== null)
+      .map(a => ({
+        id: a.id,
+        title: a.title as string,
+        content: a.content as string,
+        embedding: a.embedding,
+        entities: a.entities,
+      }));
+  }
+
+  async getRecentArticlesWithEmbeddings(days: number): Promise<{ id: string; title: string; content: string; embedding: number[] | null; entities?: any }[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const result = await db
+      .select({
+        id: articles.id,
+        title: articles.originalTitle,
+        content: articles.originalContent,
+        embedding: articles.embedding,
+        entities: articles.entities,
+        publishedAt: articles.publishedAt,
+      })
+      .from(articles)
+      .where(gte(articles.publishedAt, cutoffDate));
+
+    return result
+      .filter(a => a.title !== null && a.content !== null && a.embedding !== null)
       .map(a => ({
         id: a.id,
         title: a.title as string,

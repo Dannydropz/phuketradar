@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
-import { Article } from '@shared/schema';
+import { Article, articles } from '@shared/schema';
 import { db } from '../db';
-import { articles } from '@shared/schema';
 import { eq, and, isNull, gte, sql } from 'drizzle-orm';
+import { IStorage } from '../storage';
+import { cosineSimilarity } from '../lib/semantic-similarity';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -30,11 +31,16 @@ export class DuplicateDetectionService {
     originalContent?: string;
     embedding?: number[];
     publishedAt?: Date;
-  }): Promise<DetectionResult[]> {
+  }, storage: IStorage): Promise<DetectionResult[]> {
     console.log('[DUPLICATE DETECTION] Starting multi-layer detection...');
 
+    if (!article.embedding) {
+      console.log('[DUPLICATE DETECTION] No embedding provided, skipping semantic detection');
+      return [];
+    }
+
     // Layer 1: Embedding similarity (fast)
-    const embeddingMatches = await this.findByEmbedding(article.embedding);
+    const embeddingMatches = await this.findByEmbedding(article.embedding, storage);
     console.log(`[DUPLICATE DETECTION] Embedding layer found ${embeddingMatches.length} potential matches`);
 
     if (embeddingMatches.length === 0) {
@@ -56,15 +62,16 @@ export class DuplicateDetectionService {
     return verifiedMatches;
   }
 
-  /**
-   * Find related stories that might be updates (broader than duplicates)
-   * Used by the enrichment coordinator to merge developing stories
-   */
-  async findRelatedStories(article: Article): Promise<Article[]> {
+  async findRelatedStories(article: Article, storage: IStorage): Promise<Article[]> {
     console.log(`[RELATED STORY SEARCH] Looking for updates/related stories for: "${article.title}"`);
 
+    if (!article.embedding) {
+      console.log(`[RELATED STORY SEARCH] No embedding for article, skipping related search`);
+      return [];
+    }
+
     // 1. Find candidates with similar embeddings (broader threshold)
-    const candidates = await this.findByEmbedding(article.embedding, 0.35); // Lower threshold for related stories
+    const candidates = await this.findByEmbedding(article.embedding, storage, 0.35); // Lower threshold for related stories
 
     if (candidates.length === 0) return [];
 
@@ -133,52 +140,47 @@ export class DuplicateDetectionService {
    */
   private async findByEmbedding(
     embedding: number[],
-    threshold: number = 0.85
+    storage: IStorage,
+    threshold: number = 0.75 // Lower threshold for better recall, relying on GPT layer for final confirmation
   ): Promise<Article[]> {
-    // DISABLED: Embedding search still causes crashes on Railway + Supabase
-    // The generate_series() approach still has compatibility issues
-    console.log('[DUPLICATE DETECTION] Embedding search DISABLED - preventing crashes');
-    return [];
-
-    /* DISABLED CODE
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');
       return [];
     }
 
     try {
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      // Fetch only articles from the last 3 days to keep memory usage low and performance high
+      // This is the "low resource" stable version requested by the user
+      const recentCandidates = await storage.getRecentArticlesWithEmbeddings(3);
 
-      // Supabase-compatible query using generate_series() instead of unnest()
-      // This avoids PostgreSQL function overload ambiguity issues
-      const similarArticles = await db.execute(sql`
-        WITH query_embedding AS (
-          SELECT ${embedding}::real[] as vec
-        )
-        SELECT 
-          a.*,
-          (
-            SELECT COALESCE(SUM(a.embedding[i] * qe.vec[i]), 0)
-            FROM generate_series(1, array_length(a.embedding, 1)) i, query_embedding qe
-          ) AS similarity
-        FROM articles a, query_embedding qe
-        WHERE a.embedding IS NOT NULL
-          AND a.published_at >= ${twentyFourHoursAgo}
-          AND a.merged_into_id IS NULL
-          AND array_length(a.embedding, 1) = ${embedding.length}
-        ORDER BY similarity DESC
-        LIMIT 10
-      `);
+      if (recentCandidates.length === 0) {
+        return [];
+      }
 
-      const filtered = (similarArticles.rows as any[]).filter(row => row.similarity >= threshold);
-      console.log(`[DUPLICATE DETECTION] Embedding search found ${filtered.length} matches (threshold: ${threshold})`);
-      return filtered as Article[];
+      // Perform cosine similarity in-memory using Node.js instead of DB
+      // This is extremely efficient for hundreds of items and avoids DB crashes
+      const matches: Article[] = [];
+
+      for (const candidate of recentCandidates) {
+        if (!candidate.embedding) continue;
+
+        const similarity = cosineSimilarity(embedding, candidate.embedding);
+
+        if (similarity >= threshold) {
+          // Fetch full article details for the match
+          const fullArticle = await storage.getArticleById(candidate.id);
+          if (fullArticle) {
+            matches.push(fullArticle);
+          }
+        }
+      }
+
+      // Sort by similarity descending
+      return matches;
     } catch (error) {
-      // Non-fatal: If embedding search fails, log and continue without it
-      console.error('[DUPLICATE DETECTION] Embedding search failed - continuing without it:', error?.message || error);
+      console.error('[DUPLICATE DETECTION] Embedding search failed:', error);
       return [];
     }
-    */
   }
 
   /**

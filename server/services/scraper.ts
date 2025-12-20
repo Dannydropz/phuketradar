@@ -8,10 +8,15 @@ export interface ScrapedPost {
   facebookPostId?: string; // Canonical Facebook post ID for deduplication
   publishedAt: Date;
   textFormatPresetId?: string; // Facebook's colored background text post indicator
-  isVideo?: boolean; // Video posts with screen grabs should be rejected
-  videoUrl?: string;
-  videoThumbnail?: string;
+  isVideo?: boolean; // If true, triggers Facebook embed fallback on frontend
+  videoUrl?: string; // Direct video URL if available (SD/HD)
+  videoThumbnail?: string; // Video preview image
   location?: string; // Check-in location name (e.g., "Hat Yai", "Phuket")
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  viewCount?: number;
+  sourceName?: string;
 }
 
 interface ScrapeCreatorsPost {
@@ -58,6 +63,16 @@ interface ScrapeCreatorsPost {
     hdUrl?: string;
     thumbnail?: string;
   };
+  video?: {
+    thumbnail?: string;
+    sd_url?: string;
+    hd_url?: string;
+  };
+  like_count?: number;
+  comment_count?: number;
+  share_count?: number;
+  view_count?: number;
+  page_name?: string;
 }
 
 interface ScrapeCreatorsResponse {
@@ -376,8 +391,8 @@ export class ScraperService {
 
                 // Extract video details
                 const isVideo = true;
-                const videoUrl = post.video_url || post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
-                const videoThumbnail = post.videoDetails?.thumbnail || post.full_picture || post.image;
+                const videoUrl = post.video_url || post.video?.hd_url || post.video?.sd_url || post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
+                const videoThumbnail = post.video?.thumbnail || post.videoThumbnail || post.videoDetails?.thumbnail || post.full_picture || post.image;
 
                 const scrapedPost: ScrapedPost = {
                   title: title.trim(),
@@ -390,6 +405,10 @@ export class ScraperService {
                   videoUrl,
                   videoThumbnail,
                   location: post.place?.name,
+                  likeCount: post.like_count,
+                  commentCount: post.comment_count,
+                  shareCount: post.share_count,
+                  viewCount: post.view_count,
                 };
 
                 console.log(`   ✅ Successfully scraped reel via alternative URL`);
@@ -550,8 +569,28 @@ export class ScraperService {
         }
       }
 
-      // Check for video
-      const isVideo = !!(post.video_url || post.videoDetails?.sdUrl || post.videoDetails?.hdUrl);
+      // 🎥 ENHANCED VIDEO/REEL DETECTION
+      const isUrlVideo = postUrl.includes('/reel/') ||
+        postUrl.includes('/reels/') ||
+        postUrl.includes('/videos/') ||
+        postUrl.includes('/watch');
+
+      const hasVideoAttachment = post.attachments?.data?.some((att: any) =>
+        att.type?.includes('video') ||
+        att.type?.includes('reel') ||
+        att.media_type === 'video'
+      );
+
+      const isVideo = !!(post.video_url || post.video?.sd_url || post.video?.hd_url || post.videoDetails?.sdUrl || post.videoDetails?.hdUrl) || isUrlVideo || hasVideoAttachment;
+      const videoUrl = post.video_url || post.video?.hd_url || post.video?.sd_url || post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
+      const videoThumbnail = post.video?.thumbnail || post.videoThumbnail || post.videoDetails?.thumbnail || post.image || imageUrl;
+
+      if (isVideo) {
+        console.log(`\n🎥 VIDEO DETECTED (Single Post) via parsing bits:`);
+        console.log(`   - Has direct URL: ${!!videoUrl}`);
+        console.log(`   - Is URL pattern: ${isUrlVideo}`);
+        console.log(`   - Has video attachment: ${hasVideoAttachment}`);
+      }
 
       // Extract Facebook post ID
       const facebookPostId = this.extractFacebookPostId(postUrl, post.id || post.post_id);
@@ -566,6 +605,10 @@ export class ScraperService {
 
       // Extract textFormatPresetId if available (indicates colored background text post)
       const textFormatPresetId = post.text_format_preset_id;
+      const likeCount = post.like_count;
+      const commentCount = post.comment_count;
+      const shareCount = post.share_count;
+      const viewCount = post.view_count;
 
       const scrapedPost: ScrapedPost = {
         title: title.trim(),
@@ -577,7 +620,14 @@ export class ScraperService {
         publishedAt,
         textFormatPresetId,
         isVideo,
+        videoUrl,
+        videoThumbnail,
         location,
+        likeCount,
+        commentCount,
+        shareCount,
+        viewCount,
+        sourceName: post.author?.name || post.page_name,
       };
 
       console.log(`✅ Successfully scraped single post`);
@@ -599,14 +649,41 @@ export class ScraperService {
 
     for (const post of posts) {
       try {
-        // Skip posts without ANY text content (allow short captions for breaking news)
+        // Extract source URL early for video detection and duplicate checks
+        const rawSourceUrl = post.permalink || post.url || sourceUrl;
+
+        // 🎥 ENHANCED VIDEO/REEL DETECTION (Done early to inform skipping logic)
+        // ScrapeCreators often misses direct video URLs for Reels in page feeds, 
+        // but we can detect them via URL patterns and attachment types.
+        const isUrlVideo = rawSourceUrl.includes('/reel/') ||
+          rawSourceUrl.includes('/reels/') ||
+          rawSourceUrl.includes('/videos/') ||
+          rawSourceUrl.includes('/watch') ||
+          post.url?.includes('/reel/') ||
+          post.permalink?.includes('/reel/');
+
+        const hasVideoAttachment = post.attachments?.data?.some(att =>
+          att.type?.includes('video') ||
+          att.type?.includes('reel') ||
+          att.media_type === 'video'
+        );
+
+        const isVideo = !!(post.videoDetails?.sdUrl || post.videoDetails?.hdUrl) || isUrlVideo || hasVideoAttachment;
+        const videoUrl = post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
+        const videoThumbnail = post.videoDetails?.thumbnail;
+
+        // Skip posts without ANY text content - UNLESS they are video/reel posts!
+        // Video/reel stories are often news-heavy even with short captions.
         if (!post.text || post.text.trim().length === 0) {
-          console.log(`Skipping post ${post.id} - no text content`);
-          continue;
+          if (isVideo) {
+            console.log(`Allowing video post ${post.id} even without text content`);
+          } else {
+            console.log(`Skipping post ${post.id} - no text content`);
+            continue;
+          }
         }
 
         // Extract canonical Facebook post ID for deduplication
-        const rawSourceUrl = post.permalink || post.url || sourceUrl;
         const facebookPostId = this.extractFacebookPostId(rawSourceUrl, post.id);
 
         // Skip if we've already seen this post ID in this batch
@@ -619,14 +696,12 @@ export class ScraperService {
         }
 
         // Use the EXACT permalink as source URL - do NOT normalize
-        // Normalization was causing false duplicate rejections because different posts
-        // were being collapsed to the same canonical URL, triggering unique constraint violations
         const actualSourceUrl = rawSourceUrl;
 
         // Extract the first line as title (or use first 100 chars)
-        const lines = post.text.split('\n').filter(line => line.trim());
-        const title = lines[0]?.substring(0, 200) || post.text.substring(0, 100);
-        const content = post.text;
+        const lines = post.text ? post.text.split('\n').filter(line => line.trim()) : [];
+        const title = lines[0]?.substring(0, 200) || post.text?.substring(0, 100) || "Video Story";
+        const content = post.text || "";
 
         // Extract ALL image URLs from the post
         const imageUrls: string[] = [];
@@ -691,10 +766,12 @@ export class ScraperService {
         // Parse timestamp if available
         const publishedAt = post.created_time ? new Date(post.created_time) : new Date();
 
-        // Detect if this is a video post (video screen grabs have poor quality)
-        const isVideo = !!(post.videoDetails?.sdUrl || post.videoDetails?.hdUrl);
-        const videoUrl = post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
-        const videoThumbnail = post.videoDetails?.thumbnail;
+        if (isVideo) {
+          console.log(`\n🎥 VIDEO DETECTED via parsing bits:`);
+          console.log(`   - Has direct URL: ${!!videoUrl}`);
+          console.log(`   - Is URL pattern: ${isUrlVideo}`);
+          console.log(`   - Has video attachment: ${hasVideoAttachment}`);
+        }
 
         // Extract check-in location if available
         const location = post.place?.name;
@@ -712,6 +789,11 @@ export class ScraperService {
           videoUrl,
           videoThumbnail,
           location,
+          likeCount: post.like_count,
+          commentCount: post.comment_count,
+          shareCount: post.share_count,
+          viewCount: post.view_count,
+          sourceName: post.author?.name || post.page_name,
         });
       } catch (error) {
         console.error(`Error parsing post ${post.id}:`, error);
@@ -948,6 +1030,7 @@ export async function getScraperService(): Promise<{
     maxPages?: number,
     checkForDuplicate?: (sourceUrl: string) => Promise<boolean>
   ) => Promise<ScrapedPost[]>;
+  scrapeSingleFacebookPost: (postUrl: string) => Promise<ScrapedPost | null>;
 }> {
   const provider = process.env.SCRAPER_PROVIDER ||
     (process.env.SCRAPECREATORS_API_KEY ? 'scrapecreators' :

@@ -7,6 +7,7 @@ interface ArticleImageProps {
   className?: string;
   category?: string;
   testId?: string;
+  priority?: boolean;
 }
 
 // Category-based placeholder colors for when images fail to load
@@ -29,9 +30,22 @@ const getCategoryPlaceholder = (category?: string) => {
   }
 };
 
-export function ArticleImage({ src, alt, className = "", category, testId }: ArticleImageProps) {
+// Helper to optimize Cloudinary URLs
+const optimizeCloudinaryUrl = (url: string) => {
+  if (!url.includes("res.cloudinary.com")) return url;
+
+  // If it already has transformation parameters, don't add more
+  if (url.includes("/f_auto") || url.includes("/q_auto")) return url;
+
+  // Insert f_auto,q_auto after /upload/
+  return url.replace("/upload/", "/upload/f_auto,q_auto/");
+};
+
+export function ArticleImage({ src, alt, className = "", category, testId, priority }: ArticleImageProps) {
   const [imageError, setImageError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!priority); // If priority, don't show loading state to avoid flash
+
+  const optimizedSrc = src ? optimizeCloudinaryUrl(src) : src;
 
   // If no src provided or image failed to load, show placeholder
   if (!src || imageError) {
@@ -44,6 +58,7 @@ export function ArticleImage({ src, alt, className = "", category, testId }: Art
           src={logoImage}
           alt="Phuket Radar"
           className="w-1/2 h-auto opacity-30"
+          loading="lazy"
         />
       </div>
     );
@@ -51,22 +66,25 @@ export function ArticleImage({ src, alt, className = "", category, testId }: Art
 
   return (
     <>
-      {isLoading && (
+      {isLoading && !priority && (
         <div
-          className={`${className} ${getCategoryPlaceholder(category)} flex items-center justify-center`}
+          className={`${className} ${getCategoryPlaceholder(category)} flex items-center justify-center absolute inset-0 z-0`}
         >
           <img
             src={logoImage}
             alt="Phuket Radar"
             className="w-1/2 h-auto opacity-30"
+            loading="lazy"
           />
         </div>
       )}
       <img
-        src={src}
+        src={optimizedSrc}
         alt={alt}
-        className={`${className} ${isLoading ? 'hidden' : ''}`}
-        decoding="async"
+        className={`${className} ${isLoading && !priority ? 'invisible' : 'visible'}`}
+        decoding={priority ? "sync" : "async"}
+        loading={priority ? "eager" : "lazy"}
+        {...(priority ? { "fetchpriority": "high" } as any : {})}
         onError={() => {
           setImageError(true);
           setIsLoading(false);

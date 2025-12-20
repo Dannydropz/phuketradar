@@ -160,6 +160,8 @@ export default function Home() {
               title: featured.title,
               excerpt: featured.excerpt,
               imageUrl: featured.imageUrl || "",
+              videoThumbnail: featured.videoThumbnail,
+              facebookEmbedUrl: featured.facebookEmbedUrl,
               category: featured.category,
               publishedAt: new Date(featured.publishedAt),
               interestScore: featured.interestScore,
@@ -170,6 +172,8 @@ export default function Home() {
               title: article.title,
               excerpt: article.excerpt,
               imageUrl: article.imageUrl || "",
+              videoThumbnail: article.videoThumbnail,
+              facebookEmbedUrl: article.facebookEmbedUrl,
               category: article.category,
               publishedAt: new Date(article.publishedAt),
               interestScore: article.interestScore,
@@ -197,6 +201,7 @@ export default function Home() {
                       title={article.title}
                       excerpt={article.excerpt}
                       imageUrl={article.imageUrl || undefined}
+                      videoThumbnail={article.videoThumbnail || undefined}
                       category={article.category}
                       publishedAt={new Date(article.publishedAt)}
                       interestScore={article.interestScore}

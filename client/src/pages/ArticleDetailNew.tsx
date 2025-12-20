@@ -353,6 +353,7 @@ export default function ArticleDetailNew() {
                                                             alt={`${article.title} - Image ${index + 1}`}
                                                             category={article.category}
                                                             className="w-full max-h-[600px] object-contain"
+                                                            priority={index === 0}
                                                         />
                                                     </div>
                                                 </CarouselItem>
@@ -387,6 +388,7 @@ export default function ArticleDetailNew() {
                                         alt={article.title}
                                         category={article.category}
                                         className="w-full max-h-[600px] object-contain"
+                                        priority={true}
                                     />
                                 </div>
                             ) : null}

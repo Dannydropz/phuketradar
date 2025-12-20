@@ -40,7 +40,7 @@ export class StoryEnrichmentCoordinator {
       originalContent: translatedArticle.originalContent || undefined,
       embedding: translatedArticle.embedding as number[] | undefined,
       publishedAt: new Date()
-    });
+    }, storage);
 
     if (duplicates.length === 0) {
       console.log(`✅ [ENRICHMENT COORDINATOR] No duplicates found - creating new article`);
@@ -190,7 +190,7 @@ export class StoryEnrichmentCoordinator {
         console.log(`\n🔍 [ENRICHMENT] Checking for updates for: "${article.title.substring(0, 60)}..."`);
 
         // 2. Search for related stories (updates)
-        const relatedStories = await this.duplicateDetector.findRelatedStories(article);
+        const relatedStories = await this.duplicateDetector.findRelatedStories(article, storage);
 
         if (relatedStories.length > 0) {
           console.log(`🔄 [ENRICHMENT] Found ${relatedStories.length} related stories/updates. Merging...`);

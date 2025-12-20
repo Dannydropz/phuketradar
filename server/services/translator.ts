@@ -68,6 +68,8 @@ const HOT_KEYWORDS = [
   "ฝรั่ง", // farang (Western foreigner)
   "นักท่องเที่ยว", // tourist
   "ชาวต่างประเทศ", // foreign national
+  "ทะเลาะวิวาท", // fight/brawl/quarrel
+  "ทำร้ายร่างกาย", // assault/physical attack
   "ปะทะ", // clash/confrontation
   "ทะเลาะ", // quarrel/argue
   "ชกต่อย", // fistfight
@@ -337,7 +339,13 @@ Respond in JSON format:
     content: string,
     precomputedEmbedding?: number[],
     checkInLocation?: string,
-    communityComments?: string[] // Optional: Top comments from Facebook for story enrichment
+    communityComments?: string[], // Optional: Top comments from Facebook for story enrichment
+    engagement?: {
+      likeCount?: number;
+      commentCount?: number;
+      shareCount?: number;
+      viewCount?: number;
+    }
   ): Promise<TranslationResult> {
     try {
       // STEP 1: Enrich Thai text with Phuket context
@@ -408,7 +416,24 @@ ${adjustments.map(adj => `- "${adj.articleTitle.substring(0, 50)}..." was scored
         console.warn("   ⚠️ Failed to fetch score learning context:", err);
       }
 
+      // SOCIAL MEDIA ENGAGEMENT CONTEXT
+      let engagementContext = "";
+      if (engagement && (engagement.viewCount || engagement.likeCount || engagement.commentCount)) {
+        engagementContext = `
+SOCIAL MEDIA ENGAGEMENT DATA (REAL-WORLD VIRALITY INDICATORS):
+- Views: ${engagement.viewCount || "Unknown"}
+- Likes: ${engagement.likeCount || "Unknown"}
+- Comments: ${engagement.commentCount || engagement.commentCount}
+- Shares: ${engagement.shareCount || "Unknown"}
+
+INSTRUCTION: High engagement (especially views > 10,000 or shares > 50) STRONGLY SUGGESTS a score of 5 for local crime or foreigner incidents.
+`;
+      }
+
       const prompt = `You are a professional news editor for an English-language news site covering Phuket, Thailand. 
+
+Engagement Metrics:
+${engagementContext}
 
 Your task:
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
