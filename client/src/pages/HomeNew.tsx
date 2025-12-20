@@ -134,10 +134,63 @@ export default function HomeNew() {
         return `/${article.category.toLowerCase()}/${article.slug || article.id}`;
     };
 
+    // Show skeleton layout instead of spinner for better perceived performance
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <div className="min-h-screen bg-[#050505] text-white font-sans">
+                {/* Skeleton Navigation */}
+                <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            <div className="h-10 w-32 bg-zinc-800 rounded animate-pulse" />
+                            <div className="hidden md:flex items-center space-x-6">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div key={i} className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+
+                {/* Skeleton Content */}
+                <main className="pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Hero Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
+                        <div className="md:col-span-3">
+                            <div className="aspect-video bg-zinc-800 rounded-lg animate-pulse" />
+                            <div className="mt-4 space-y-3">
+                                <div className="h-6 w-24 bg-zinc-800 rounded animate-pulse" />
+                                <div className="h-8 w-full bg-zinc-800 rounded animate-pulse" />
+                                <div className="h-4 w-3/4 bg-zinc-800 rounded animate-pulse" />
+                            </div>
+                        </div>
+                        <div className="md:col-span-2 space-y-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="flex gap-4">
+                                    <div className="w-24 h-20 bg-zinc-800 rounded animate-pulse flex-shrink-0" />
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 w-full bg-zinc-800 rounded animate-pulse" />
+                                        <div className="h-4 w-2/3 bg-zinc-800 rounded animate-pulse" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Article Grid Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="bg-zinc-900/50 rounded-lg overflow-hidden">
+                                <div className="aspect-video bg-zinc-800 animate-pulse" />
+                                <div className="p-4 space-y-3">
+                                    <div className="h-4 w-20 bg-zinc-800 rounded animate-pulse" />
+                                    <div className="h-5 w-full bg-zinc-800 rounded animate-pulse" />
+                                    <div className="h-4 w-3/4 bg-zinc-800 rounded animate-pulse" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </main>
             </div>
         );
     }

@@ -18,8 +18,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
 
-  <!-- DNS prefetch for non-critical origins -->
+  <!-- DNS prefetch for analytics (loaded later) -->
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://connect.facebook.net">
 
   <!-- Google Fonts with display=swap and non-blocking load -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
@@ -32,43 +33,99 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
 
-  <!-- Google Analytics (deferred to not block rendering) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-JZ55TEKNFG"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-JZ55TEKNFG');
-  </script>
+  <!-- Critical inline styles for instant first paint -->
+  <style>
+    /* Prevent FOUC and show loading state instantly */
+    html {
+      background: #050505;
+    }
 
-  <!-- Meta Pixel Code -->
-  <script>
-    !function (f, b, e, v, n, t, s) {
-      if (f.fbq) return; n = f.fbq = function () {
-        n.callMethod ?
-          n.callMethod.apply(n, arguments) : n.queue.push(arguments)
-      };
-      if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
-      n.queue = []; t = b.createElement(e); t.async = !0;
-      t.src = v; s = b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t, s)
-    }(window, document, 'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '831369166474772');
-    fbq('track', 'PageView');
-  </script>
-  <!-- End Meta Pixel Code -->
+    body {
+      margin: 0;
+      background: #050505;
+      color: #fff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    #root {
+      min-height: 100vh;
+    }
+
+    /* Skeleton loading animation */
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+
+      100% {
+        background-position: 200% 0;
+      }
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+  </style>
 </head>
 
 <body>
+  <!-- Skeleton loader shown before React hydrates -->
+  <div id="root">
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
+      <div
+        style="width:48px;height:48px;border:3px solid #333;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;">
+      </div>
+    </div>
+    <style>
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </div>
+
+  <!-- Main app bundle -->
+  <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Analytics loaded AFTER main content (non-blocking) -->
+  <script>
+    // Defer analytics until after page load
+    window.addEventListener('load', function () {
+      // Google Analytics
+      var gaScript = document.createElement('script');
+      gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-JZ55TEKNFG';
+      gaScript.async = true;
+      document.head.appendChild(gaScript);
+
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      window.gtag = gtag;
+      gtag('js', new Date());
+      gtag('config', 'G-JZ55TEKNFG');
+
+      // Meta Pixel (deferred)
+      !function (f, b, e, v, n, t, s) {
+        if (f.fbq) return; n = f.fbq = function () {
+          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+        };
+        if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+        n.queue = []; t = b.createElement(e); t.async = !0;
+        t.src = v; s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s)
+      }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '831369166474772');
+      fbq('track', 'PageView');
+    });
+  </script>
+
   <!-- Meta Pixel noscript fallback -->
   <noscript>
     <img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=831369166474772&ev=PageView&noscript=1" />
   </noscript>
-
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
 </body>
 
 </html>

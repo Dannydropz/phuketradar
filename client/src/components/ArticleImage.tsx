@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import logoImage from "@assets/PhuketRadar_1759933943849.png";
 
 interface ArticleImageProps {
@@ -30,22 +30,52 @@ const getCategoryPlaceholder = (category?: string) => {
   }
 };
 
-// Helper to optimize Cloudinary URLs
-const optimizeCloudinaryUrl = (url: string) => {
+// Helper to optimize Cloudinary URLs with responsive sizing
+const optimizeCloudinaryUrl = (url: string, width?: number) => {
   if (!url.includes("res.cloudinary.com")) return url;
 
   // If it already has transformation parameters, don't add more
   if (url.includes("/f_auto") || url.includes("/q_auto")) return url;
 
-  // Insert f_auto,q_auto after /upload/
-  return url.replace("/upload/", "/upload/f_auto,q_auto/");
+  // Build transformation string
+  const transforms = ["f_auto", "q_auto"];
+  if (width) {
+    transforms.push(`w_${width}`);
+  }
+
+  // Insert transformations after /upload/
+  return url.replace("/upload/", `/upload/${transforms.join(",")}/`);
 };
 
 export function ArticleImage({ src, alt, className = "", category, testId, priority }: ArticleImageProps) {
   const [imageError, setImageError] = useState(false);
-  const [isLoading, setIsLoading] = useState(!priority); // If priority, don't show loading state to avoid flash
+  const [isLoading, setIsLoading] = useState(!priority);
 
-  const optimizedSrc = src ? optimizeCloudinaryUrl(src) : src;
+  // Preload priority images by injecting a link tag
+  useEffect(() => {
+    if (priority && src) {
+      const optimizedSrc = optimizeCloudinaryUrl(src, 800); // Hero images typically 800px wide
+
+      // Check if preload already exists
+      const existingPreload = document.querySelector(`link[href="${optimizedSrc}"]`);
+      if (existingPreload) return;
+
+      const preloadLink = document.createElement('link');
+      preloadLink.rel = 'preload';
+      preloadLink.as = 'image';
+      preloadLink.href = optimizedSrc;
+      preloadLink.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(preloadLink);
+
+      return () => {
+        // Cleanup on unmount
+        preloadLink.remove();
+      };
+    }
+  }, [priority, src]);
+
+  // For hero images, use a smaller optimized version
+  const optimizedSrc = src ? optimizeCloudinaryUrl(src, priority ? 800 : 400) : src;
 
   // If no src provided or image failed to load, show placeholder
   if (!src || imageError) {
@@ -95,3 +125,4 @@ export function ArticleImage({ src, alt, className = "", category, testId, prior
     </>
   );
 }
+
