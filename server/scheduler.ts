@@ -201,8 +201,27 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Wrap entire post processing in timeout to prevent indefinite stalls (2 minutes max)
           await withTimeout(
             (async () => {
+              // STEP -5: VIDEO POST HANDLING (MUST come before image check!)
+              // Video posts are valuable content - use the video thumbnail as image
+              if (post.isVideo) {
+                console.log(`\n🎥 VIDEO POST DETECTED - Processing with embedded video support`);
+                console.log(`   Title: ${post.title.substring(0, 60)}...`);
+                console.log(`   Video URL: ${post.videoUrl?.substring(0, 60) || 'N/A'}...`);
+                console.log(`   Thumbnail: ${post.videoThumbnail?.substring(0, 60) || 'N/A'}...`);
+
+                // If video post has no regular image but has a thumbnail, use thumbnail as image
+                if (!post.imageUrl && post.videoThumbnail) {
+                  console.log(`   📸 Using video thumbnail as primary image`);
+                  post.imageUrl = post.videoThumbnail;
+                  if (!post.imageUrls || post.imageUrls.length === 0) {
+                    post.imageUrls = [post.videoThumbnail];
+                  }
+                }
+              }
+
               // STEP -4: Skip posts with no images (only publish posts with 1+ photos)
-              const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl;
+              // Note: Video posts should have their thumbnail set as imageUrl above
+              const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl || (post.isVideo && post.videoThumbnail);
               if (!hasImages) {
                 skippedNotNews++;
                 skipReasons.push({
@@ -214,6 +233,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 });
                 console.log(`\n⏭️  SKIPPED - NO IMAGES (only posts with photos are published)`);
                 console.log(`   Title: ${post.title.substring(0, 60)}...`);
+                console.log(`   Is Video: ${post.isVideo}, Has Thumbnail: ${!!post.videoThumbnail}`);
                 console.log(`   ✅ Skipped before translation (saved API credits)\n`);
 
                 // Update progress
@@ -254,24 +274,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   });
                 }
                 return;
-              }
-
-              // STEP -1.5: VIDEO POST HANDLING (Accept and embed with thumbnail)
-              // Video posts are valuable content - use the video thumbnail as image
-              if (post.isVideo) {
-                console.log(`\n🎥 VIDEO POST DETECTED - Processing with embedded video support`);
-                console.log(`   Title: ${post.title.substring(0, 60)}...`);
-                console.log(`   Video URL: ${post.videoUrl?.substring(0, 60) || 'N/A'}...`);
-                console.log(`   Thumbnail: ${post.videoThumbnail?.substring(0, 60) || 'N/A'}...`);
-
-                // If video post has no regular image but has a thumbnail, use thumbnail as image
-                if (!post.imageUrl && post.videoThumbnail) {
-                  console.log(`   📸 Using video thumbnail as primary image`);
-                  post.imageUrl = post.videoThumbnail;
-                  if (!post.imageUrls || post.imageUrls.length === 0) {
-                    post.imageUrls = [post.videoThumbnail];
-                  }
-                }
               }
 
               // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
