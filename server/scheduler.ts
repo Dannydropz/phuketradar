@@ -1484,6 +1484,18 @@ export async function runManualPostScrape(
 
     // Prepare article data - ALWAYS SAVE AS DRAFT for manual review
     const assignedJournalist = getRandomJournalist();
+
+    // Determine source name: use scraped author name, extract from URL, or fallback to "Facebook"
+    const sourceName = (() => {
+      if (post.sourceName) return post.sourceName;
+      // Extract page name from URL like facebook.com/PhuketTimeNews/posts/...
+      const pageMatch = post.sourceUrl?.match(/facebook\.com\/([^\/]+)/);
+      if (pageMatch && pageMatch[1] !== 'reel' && pageMatch[1] !== 'watch' && pageMatch[1] !== 'share') {
+        return pageMatch[1];
+      }
+      return "Facebook";
+    })();
+
     const articleData: InsertArticle = {
       title: translation.translatedTitle,
       content: translation.translatedContent,
@@ -1496,7 +1508,7 @@ export async function runManualPostScrape(
       imageHash: null,
       category: translation.category,
       sourceUrl: post.sourceUrl,
-      sourceName: "Manual Scrape", // Mark as manually scraped
+      sourceName,
       sourceFacebookPostId: post.facebookPostId || null,
       facebookPostId: null,
       journalistId: assignedJournalist.id,
