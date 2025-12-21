@@ -456,8 +456,15 @@ CONTEXT & ENRICHMENT REQUIREMENTS:
 - If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally.
 - Add brief LOCAL CONTEXT about Phuket locations when relevant to help international readers understand the setting.
 - Include BACKGROUND INFORMATION when it adds depth (e.g., "Bangla Road, Patong's famous nightlife strip").
-- Use an ENGAGING NEWS STYLE that goes beyond basic facts - help readers understand WHY this matters.
 - Maintain all factual details, names, times, and numbers exactly as provided.
+
+⚠️ CRITICAL - ZERO HALLUCINATION POLICY (READ CAREFULLY):
+- ONLY write about what is explicitly stated or shown in the source.
+- DO NOT INVENT actions, behaviors, or events that aren't described (e.g., "shouted", "appeared agitated", "caused chaos").
+- If source shows tourists on motorbike being stopped by police, report ONLY that - do NOT add that they "shouted at passersby" unless the source says so.
+- Context = explaining what Patong is. Hallucination = inventing what the person did.
+- When in doubt, write LESS. A short factual article is better than a long invented one.
+- If source is just a video caption like "Farangs showing off at traffic lights, police pulled them over", your article should describe ONLY: tourists on motorbikes at traffic lights, police stopped them. Do NOT add "agitated", "outburst", "disruption" unless source says so.
 
 4. Extract a concise excerpt (2-3 sentences) written from a THIRD-PERSON NEWS REPORTING perspective with perfect grammar. CRITICAL: Never use first-person ('we', 'our', 'join us') or make it sound like the news site is organizing events. Report objectively.
 5. Categorize the article by TOPIC (not urgency).
@@ -523,7 +530,13 @@ CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - The viral/scandalous element is often WHY the story is newsworthy - don't hide it!
 - Use professional news language but accurately convey what happened
 
-🎯 FOR SHORT/VIRAL POSTS: If the source is just a funny caption with a photo (e.g., "Foreigner with pot helmet on Sarasin Road"), write a SHORT, FACTUAL article that describes ONLY what is visible/stated. Do NOT dramatize into a full news story with invented details.
+🎯 FOR SHORT/VIRAL POSTS (CRITICAL - READ THIS):
+If the source is just a short caption with a video/photo (e.g., "Tourists showing off at traffic lights, police stopped them"):
+- Write a SHORT article (2-3 paragraphs max) that describes ONLY what the source says.
+- DO NOT dramatize or expand into a full news story with invented scenarios.
+- DO NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "disrupted traffic", "onlookers gathered" unless the source says so.
+- CORRECT: "Tourists were seen revving their motorbikes at a traffic light. Police officers approached and directed them to pull over."
+- WRONG: "A tourist's unruly behavior brought traffic to a standstill. Witnesses reported the individual appeared agitated and shouted at passersby."
 
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
