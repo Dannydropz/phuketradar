@@ -8,6 +8,12 @@ interface ArticleImageProps {
   category?: string;
   testId?: string;
   priority?: boolean;
+  /** Width hint for optimization - defaults based on priority */
+  width?: number;
+  /** Height hint for explicit dimensions */
+  height?: number;
+  /** Aspect ratio hint: 'video' (16:9), 'square', 'card' (3:2) */
+  aspect?: 'video' | 'square' | 'card';
 }
 
 // Category-based placeholder colors for when images fail to load
@@ -47,7 +53,7 @@ const optimizeCloudinaryUrl = (url: string, width?: number) => {
   return url.replace("/upload/", `/upload/${transforms.join(",")}/`);
 };
 
-export function ArticleImage({ src, alt, className = "", category, testId, priority }: ArticleImageProps) {
+export function ArticleImage({ src, alt, className = "", category, testId, priority, width, height, aspect }: ArticleImageProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(!priority);
 
@@ -74,8 +80,26 @@ export function ArticleImage({ src, alt, className = "", category, testId, prior
     }
   }, [priority, src]);
 
-  // For hero images, use a smaller optimized version
-  const optimizedSrc = src ? optimizeCloudinaryUrl(src, priority ? 800 : 400) : src;
+  // Calculate dimensions based on aspect ratio for CLS prevention
+  const getDimensions = () => {
+    const w = width || (priority ? 800 : 400);
+    switch (aspect) {
+      case 'video':
+        return { width: w, height: Math.round(w * 9 / 16) };
+      case 'square':
+        return { width: w, height: w };
+      case 'card':
+        return { width: w, height: Math.round(w * 2 / 3) };
+      default:
+        return { width: w, height: Math.round(w * 9 / 16) };
+    }
+  };
+
+  const dimensions = getDimensions();
+
+  // Use width prop for optimization sizing
+  const optimizationWidth = width || (priority ? 800 : 400);
+  const optimizedSrc = src ? optimizeCloudinaryUrl(src, optimizationWidth) : src;
 
   // If no src provided or image failed to load, show placeholder
   if (!src || imageError) {
@@ -83,6 +107,7 @@ export function ArticleImage({ src, alt, className = "", category, testId, prior
       <div
         className={`${className} ${getCategoryPlaceholder(category)} flex items-center justify-center`}
         data-testid={testId}
+        style={{ aspectRatio: aspect === 'video' ? '16/9' : aspect === 'square' ? '1/1' : '3/2' }}
       >
         <img
           src={logoImage}
@@ -111,6 +136,8 @@ export function ArticleImage({ src, alt, className = "", category, testId, prior
       <img
         src={optimizedSrc}
         alt={alt}
+        width={dimensions.width}
+        height={dimensions.height}
         className={`${className} ${isLoading && !priority ? 'invisible' : 'visible'}`}
         decoding={priority ? "sync" : "async"}
         loading={priority ? "eager" : "lazy"}

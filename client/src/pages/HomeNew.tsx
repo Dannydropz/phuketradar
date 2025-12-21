@@ -271,10 +271,13 @@ export default function HomeNew() {
                                     <a className="block h-full group cursor-pointer">
                                         <div className="relative aspect-[16/9] rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-2xl shadow-blue-900/10 h-full">
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
-                                            <img
+                                            <ArticleImage
                                                 src={getImageUrl(heroArticle.imageUrl || heroArticle.videoThumbnail)}
                                                 alt={heroArticle.title}
                                                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+                                                priority={true}
+                                                aspect="video"
+                                                width={800}
                                             />
                                             <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 lg:p-8 z-20 w-full">
                                                 <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 text-sm text-blue-400 font-medium flex-wrap">
@@ -308,10 +311,12 @@ export default function HomeNew() {
                                     <Link key={article.id} href={getArticleUrl(article)}>
                                         <a className="block group cursor-pointer flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
                                             <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800 border border-white/5">
-                                                <img
+                                                <ArticleImage
                                                     src={getImageUrl(article.imageUrl || article.videoThumbnail)}
                                                     alt={article.title}
                                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                                    aspect="square"
+                                                    width={96}
                                                 />
                                             </div>
                                             <div>
@@ -425,10 +430,12 @@ export default function HomeNew() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <img
+                                                <ArticleImage
                                                     src={getImageUrl(article.imageUrl || article.videoThumbnail)}
                                                     alt={article.title}
                                                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                                                    aspect="card"
+                                                    width={400}
                                                 />
                                             </div>
                                             <div className="p-5 flex flex-col flex-grow">
@@ -451,6 +458,10 @@ export default function HomeNew() {
                                                                 src={getJournalistImageUrl(journalist.headshot) || ""}
                                                                 className="w-6 h-6 rounded-full object-cover"
                                                                 alt={journalist.nickname}
+                                                                width={24}
+                                                                height={24}
+                                                                loading="lazy"
+                                                                decoding="async"
                                                                 onError={(e) => {
                                                                     e.currentTarget.style.display = 'none';
                                                                     e.currentTarget.nextElementSibling?.classList.remove('hidden');

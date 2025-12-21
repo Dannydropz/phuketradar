@@ -39,6 +39,10 @@ export default defineConfig({
         manualChunks: {
           'vendor': ['react', 'react-dom', 'wouter', '@tanstack/react-query'],
           'ui': ['lucide-react', 'date-fns', 'clsx', 'tailwind-merge'],
+          // Heavy chart library - only loaded on admin pages
+          'charts': ['recharts'],
+          // Animation library - can be deferred
+          'motion': ['framer-motion'],
         },
       },
     },

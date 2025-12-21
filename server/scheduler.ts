@@ -31,7 +31,8 @@ import { imageHashService } from "./services/image-hash";
 import { imageAnalysisService } from "./services/image-analysis";
 import { DuplicateVerifierService } from "./services/duplicate-verifier";
 import { imageDownloaderService } from "./services/image-downloader";
-import { imageGeneratorService } from "./services/image-generator";
+// AI image generation disabled - synthetic images looked inappropriate for news content
+// import { imageGeneratorService } from "./services/image-generator";
 import { detectTags } from "./lib/tag-detector";
 import type { InsertArticle } from "@shared/schema";
 
@@ -900,29 +901,12 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   console.log(`   Title: ${translation.translatedTitle.substring(0, 60)}...`);
                   console.log(`   Category: ${translation.category} | Interest: ${translation.interestScore}/5 | Will publish: ${shouldAutoPublish}`);
 
-                  // NEW: Determine if this is a video story and calculate boosted score early
+                  // Determine if this is a video story and calculate boosted score early
                   const isVideoStory = post.isVideo;
                   const finalInterestScore = isVideoStory ? Math.max(translation.interestScore, 4) : translation.interestScore;
 
-                  // NEW: PREMIUM VIRAL ENRICHMENT (AI Hero Image)
-                  // For Viral/Premium stories (Score 5), generate a high-quality AI Hero image
-                  // if the current image is a screen grab or missing/poor quality.
-                  let finalImageUrl = localImageUrl;
-                  if (finalInterestScore >= 5) {
-                    console.log(`\n🚀 VIRAL STORY DETECTED (${finalInterestScore}/5) - Creating premium AI Hero image...`);
-                    try {
-                      const aiHeroUrl = await imageGeneratorService.generateEditorialImage(
-                        translation.translatedTitle,
-                        translation.excerpt
-                      );
-                      if (aiHeroUrl) {
-                        console.log(`✅ Premium AI Hero image generated for viral card.`);
-                        finalImageUrl = aiHeroUrl;
-                      }
-                    } catch (aiError) {
-                      console.error("❌ Failed to generate AI Hero image:", aiError);
-                    }
-                  }
+                  // Use original source image (AI generation disabled - synthetic images looked poor)
+                  const finalImageUrl = localImageUrl;
 
                   if (isVideoStory) {
                     const hasDirectUrl = !!post.videoUrl;
@@ -1465,22 +1449,8 @@ export async function runManualPostScrape(
       console.error("❌ Failed to extract entities for manual scrape:", e);
     }
 
-    // NEW: PREMIUM VIRAL ENRICHMENT (AI Hero Image)
-    let finalImageUrl = localImageUrl;
-    if (finalInterestScore >= 5) {
-      console.log(`\n🚀 VIRAL STORY DETECTED (${finalInterestScore}/5) - Creating premium AI Hero image...`);
-      try {
-        const aiHeroUrl = await imageGeneratorService.generateEditorialImage(
-          translation.translatedTitle,
-          translation.excerpt
-        );
-        if (aiHeroUrl) {
-          finalImageUrl = aiHeroUrl;
-        }
-      } catch (aiError) {
-        console.error("❌ Failed to generate AI Hero image:", aiError);
-      }
-    }
+    // Use original source image (AI generation disabled - synthetic images looked poor)
+    const finalImageUrl = localImageUrl;
 
     // Prepare article data - ALWAYS SAVE AS DRAFT for manual review
     const assignedJournalist = getRandomJournalist();
