@@ -1,12 +1,15 @@
 # Build stage
-# Force rebuild: 2025-11-25 08:30 UTC
+# Force rebuild: 2025-12-21 06:05 UTC
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Set development mode to ensure devDependencies are installed for build
+ENV NODE_ENV=development
+
+# Install ALL dependencies including devDependencies (vite, esbuild, etc.)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
