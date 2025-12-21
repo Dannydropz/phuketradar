@@ -288,7 +288,11 @@ STRICT WRITING GUIDELINES:
    - **Additional Context from Community:** Weave in alleged details from comments using hedging language.` : ''}
    - **The "Context" Section:** End the main article with a distinct section titled "<h3>Context: [Topic]</h3>". Explain the broader background.${params.communityComments && params.communityComments.length > 0 ? `
    - **The "Public Reaction" Section:** After Context, add "<h3>Public Reaction</h3>" summarizing community sentiment.` : ''}
-5. **FACTUALITY:** Do NOT invent quotes or specific numbers. You MAY add general context but not specifics unless in the source.
+5. **FACTUALITY - ZERO TOLERANCE FOR HALLUCINATION:**
+   - Do NOT invent quotes, specific numbers, witness statements, or police responses.
+   - Do NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "witnesses described", "police responded to calls" unless the source says so.
+   - You MAY add general context about locations (e.g., "Patong is a major tourist area") but NOT specific details about the event.
+   - For short/viral posts: write SHORT factual articles (2-3 paragraphs). Do NOT dramatize into full news stories with invented scenarios.
 6. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language.
 
 EXAMPLE OUTPUT FORMAT:
