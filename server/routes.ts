@@ -1396,11 +1396,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!article.switchyShortUrl) {
         try {
           const { switchyService } = await import("./services/switchy");
+          const { buildArticleUrl } = await import("../shared/category-map");
           if (switchyService.isConfigured()) {
             const baseUrl = process.env.REPLIT_DEV_DOMAIN
               ? `https://${process.env.REPLIT_DEV_DOMAIN}`
               : 'https://phuketradar.com';
-            const articlePath = `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+            const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
             const fullUrl = `${baseUrl}${articlePath}`;
 
             const result = await switchyService.createArticleLink(
@@ -1628,11 +1629,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Build the article URL
+      const { buildArticleUrl } = await import("../shared/category-map");
       const baseUrl = process.env.REPLIT_DEV_DOMAIN
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : 'https://phuketradar.com';
 
-      const articlePath = `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+      const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
       const fullUrl = `${baseUrl}${articlePath}`;
 
       // Create short link with platform-specific UTMs

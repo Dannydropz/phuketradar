@@ -997,9 +997,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     // Auto-generate Switchy short URL for social media tracking
                     try {
                       const { switchyService } = await import("./services/switchy");
+                      const { buildArticleUrl } = await import("../shared/category-map");
                       if (switchyService.isConfigured()) {
                         const baseUrl = 'https://phuketradar.com';
-                        const articlePath = `/${article.category.toLowerCase()}/${article.slug || article.id}`;
+                        const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
                         const fullUrl = `${baseUrl}${articlePath}`;
 
                         const switchyResult = await switchyService.createArticleLink(
