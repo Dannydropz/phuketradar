@@ -2098,6 +2098,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate Facebook headline using AI - PROTECTED
+  app.post("/api/admin/generate-facebook-headline", requireAdminAuth, async (req, res) => {
+    try {
+      const { title, excerpt } = req.body;
+
+      if (!title) {
+        return res.status(400).json({ error: "Title is required" });
+      }
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are a social media headline expert for a Phuket news site. Your job is to create high-CTR Facebook headlines that:
+1. Are punchy and attention-grabbing (max 15 words)
+2. Use power words: BREAKING, CAUGHT, SHOCKING, WATCH, etc. when appropriate
+3. Create curiosity without being clickbait
+4. Are written from THIRD-PERSON NEWS REPORTING perspective (never "Join Us", "We", "Our")
+5. Focus on emotion, urgency, location, and impact
+
+🎭 CRITICAL - THAI SOCIAL MEDIA CONTEXT:
+If the title contains sarcastic/humorous Thai context:
+- "Quality tourist" or "Tourist enjoying" with ironic context = DRUNK/MISBEHAVING tourist
+- Reference to "embracing street life" or "resting on road" = PASSED OUT DRUNK
+- Always report the ACTUAL situation, not the sarcastic framing
+
+Examples:
+- "Tourist Found Passed Out on Patong Street" → "WATCH: 'Quality Tourist' Found Sprawled Across Patong Sidewalk as Locals React"
+- "Traffic Accident on Patong Hill" → "BREAKING: Multi-Vehicle Crash Closes Patong Hill During Rush Hour"
+- "Restaurant Fire in Rawai" → "Dramatic Fire Engulfs Popular Rawai Restaurant – No Injuries Reported"`,
+          },
+          {
+            role: "user",
+            content: `Create a high-CTR Facebook headline for this article:
+
+Title: ${title}
+Excerpt: ${excerpt || "(no excerpt provided)"}
+
+Respond with ONLY the headline, no quotes or explanation.`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 100,
+      });
+
+      const headline = completion.choices[0].message.content?.trim() || title;
+
+      res.json({ headline });
+    } catch (error) {
+      console.error("Error generating Facebook headline:", error);
+      res.status(500).json({ error: "Failed to generate headline" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

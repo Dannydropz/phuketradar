@@ -42,6 +42,8 @@ interface ArticleEditorProps {
     imageUrls?: string[];
     interestScore?: number;
     facebookEmbedUrl?: string;
+    sourceUrl?: string;
+    facebookHeadline?: string;
   }) => Promise<void>;
   onCancel: () => void;
   isSaving?: boolean;
@@ -62,7 +64,10 @@ export function ArticleEditor({
   const [imageUrls, setImageUrls] = useState<string[]>(article?.imageUrls || []);
   const [interestScore, setInterestScore] = useState<number>(article?.interestScore ?? 3);
   const [facebookEmbedUrl, setFacebookEmbedUrl] = useState((article as any)?.facebookEmbedUrl || '');
+  const [sourceUrl, setSourceUrl] = useState(article?.sourceUrl || '');
+  const [facebookHeadline, setFacebookHeadline] = useState(article?.facebookHeadline || '');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isGeneratingHeadline, setIsGeneratingHeadline] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -119,6 +124,8 @@ export function ArticleEditor({
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       interestScore,
       facebookEmbedUrl: facebookEmbedUrl || undefined,
+      sourceUrl: sourceUrl || undefined,
+      facebookHeadline: facebookHeadline || undefined,
     });
   };
 
@@ -295,6 +302,85 @@ export function ArticleEditor({
         />
         <p className="text-xs text-muted-foreground">
           Paste a Facebook video or reel URL to embed it on the article page. Use this when the video can't be scraped directly.
+        </p>
+      </div>
+
+      {/* Source URL */}
+      <div className="space-y-2">
+        <Label htmlFor="article-source-url">Source URL (optional)</Label>
+        <Input
+          id="article-source-url"
+          data-testid="input-article-source-url"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          placeholder="https://www.facebook.com/phuketimes/posts/..."
+        />
+        <p className="text-xs text-muted-foreground">
+          Original source link for attribution. Links to the Facebook post or news article you're covering.
+        </p>
+      </div>
+
+      {/* Facebook Headline */}
+      <div className="space-y-2">
+        <Label htmlFor="article-facebook-headline">Facebook Headline (optional)</Label>
+        <div className="flex gap-2">
+          <Input
+            id="article-facebook-headline"
+            data-testid="input-article-facebook-headline"
+            value={facebookHeadline}
+            onChange={(e) => setFacebookHeadline(e.target.value)}
+            placeholder="High-CTR headline for Facebook posts"
+            className="flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (!title.trim()) {
+                toast({
+                  title: "Title Required",
+                  description: "Please enter a title first to generate a Facebook headline",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setIsGeneratingHeadline(true);
+              try {
+                const response = await fetch('/api/admin/generate-facebook-headline', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    title: title.trim(),
+                    excerpt: excerpt.trim() || editor?.getHTML().substring(0, 500) || ''
+                  }),
+                });
+                if (!response.ok) throw new Error('Failed to generate headline');
+                const data = await response.json();
+                setFacebookHeadline(data.headline);
+                toast({
+                  title: "Headline Generated",
+                  description: "AI-optimized Facebook headline created",
+                });
+              } catch (error) {
+                toast({
+                  title: "Generation Failed",
+                  description: error instanceof Error ? error.message : "Failed to generate headline",
+                  variant: "destructive",
+                });
+              } finally {
+                setIsGeneratingHeadline(false);
+              }
+            }}
+            disabled={isGeneratingHeadline || !title.trim()}
+            data-testid="button-generate-fb-headline"
+          >
+            {isGeneratingHeadline ? 'Generating...' : '✨ Generate'}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          CTR-optimized headline used when posting to Facebook. If empty, the article title is used.
         </p>
       </div>
 

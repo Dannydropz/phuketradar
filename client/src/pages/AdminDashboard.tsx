@@ -365,10 +365,12 @@ export default function AdminDashboard() {
       category: string;
       imageUrl?: string;
       imageUrls?: string[];
+      sourceUrl?: string;
+      facebookHeadline?: string;
     }) => {
       const res = await apiRequest("POST", "/api/admin/articles", {
         ...data,
-        sourceUrl: "manual-creation",
+        sourceUrl: data.sourceUrl || "manual-creation",
         isPublished: false,
       });
       return await res.json();
@@ -401,6 +403,8 @@ export default function AdminDashboard() {
         category: string;
         imageUrl?: string;
         imageUrls?: string[];
+        sourceUrl?: string;
+        facebookHeadline?: string;
       };
     }) => {
       const res = await apiRequest("PATCH", `/api/admin/articles/${id}`, data);
