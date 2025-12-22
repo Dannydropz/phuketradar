@@ -150,6 +150,33 @@ app.get('/category/:category', (req, res) => {
   res.redirect(301, `/${category}`);
 });
 
+// SEO: 301 redirect legacy database category paths to correct frontend categories
+// This fixes old Switchy links and Facebook posts that used incorrect paths
+const LEGACY_CATEGORY_REDIRECTS: Record<string, string> = {
+  'breaking': 'local',   // Breaking -> Local (most breaking news is local)
+  'other': 'local',      // Other -> Local
+  'info': 'local',       // Info -> Local
+  'events': 'local',     // Events -> Local
+  'business': 'economy', // Business -> Economy
+};
+
+// Handle legacy category paths like /breaking/:slug, /other/:slug, /business/:slug
+app.get('/:legacyCategory/:slugOrId', (req, res, next) => {
+  const { legacyCategory, slugOrId } = req.params;
+  const legacyCategoryLower = legacyCategory.toLowerCase();
+
+  // Check if this is a legacy category that needs redirecting
+  const correctCategory = LEGACY_CATEGORY_REDIRECTS[legacyCategoryLower];
+
+  if (correctCategory) {
+    console.log(`🔄 [REDIRECT] Legacy category path: /${legacyCategory}/${slugOrId} -> /${correctCategory}/${slugOrId}`);
+    res.redirect(301, `/${correctCategory}/${slugOrId}`);
+  } else {
+    // Not a legacy category, let it pass through to the SPA router
+    next();
+  }
+});
+
 // SEO: 301 redirect old /article/:slug URLs to new /:category/:slug URLs
 app.get('/article/:slugOrId', async (req, res, next) => {
   try {
