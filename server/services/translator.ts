@@ -236,6 +236,22 @@ COMMUNITY COMMENTS FROM FACEBOOK (Use for additional context - HANDLE CAREFULLY)
 ${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}
 
 INSTRUCTIONS FOR USING COMMUNITY COMMENTS:
+
+🎭 CRITICAL - THAI SARCASM/HUMOR DETECTION:
+Comments often reveal the TRUE CONTEXT when captions are sarcastic. DECODE THESE PATTERNS:
+- "นักท่องเที่ยวคุณภาพ" / "Quality tourist" + 🤣😂 = SARCASM meaning BAD tourist behavior (drunk, disorderly, embarrassing)
+- "555" / "5555" = Thai internet laughter - commenters are MOCKING the subject
+- "เอาที่สบายใจ" / "Whatever makes you happy" = SARCASM about embarrassing situation  
+- "สกิลมา" / "Nice skills" / "Great pose" = MOCKERY of someone in stupid situation
+- Comments with 🤣😂🍺 emojis = People are LAUGHING AT the person, not with them
+- "Another quality tourist" in English = SARCASM meaning tourist behaving badly
+- "Need rescue" with laughing emoji = Tourist is DRUNK, not in actual danger
+- "ไม่เมาหรอก" / "Not drunk at all" = SARCASM - they ARE drunk
+
+⚠️ USE COMMENTS TO DETERMINE TRUE STORY:
+If the caption says "Tourist enjoying Patong" but comments say "Quality tourist 555 🍺", the TRUE story is:
+→ DRUNK TOURIST, not "Tourist enjoying the scenery"
+
 1. **BLEND ADDITIONAL CONTEXT INTO THE STORY**: If comments mention plausible details that enhance understanding (locations, circumstances, background context), incorporate them NATURALLY into the article body using HEDGING LANGUAGE:
    - "Local residents allege that..."
    - "According to local sources on social media..."
@@ -245,17 +261,18 @@ INSTRUCTIONS FOR USING COMMUNITY COMMENTS:
    - "It is alleged by community members that..."
    
 2. **PUBLIC REACTION SECTION**: After the "Context" section, add a brief "<h3>Public Reaction</h3>" section summarizing overall community sentiment. Examples:
-   - "The incident has sparked concern among local residents, with many calling for increased safety measures in the area."
-   - "Public reaction has been mixed, with some expressing sympathy for those involved while others criticized the circumstances that led to the incident."
-   - "Community members expressed shock at the news, with several sharing similar experiences in the comments."
+   - "The images sparked widespread amusement online, with locals dubbing the individual yet another 'quality tourist.'"
+   - "Community reaction was largely humorous, with many commenters joking about the tourist's state."
+   - "The incident has gone viral locally, with residents expressing a mix of amusement and exasperation at tourist behavior."
    
 3. **CRITICAL RULES FOR COMMENTS:**
    - NEVER treat comments as verified facts - always hedge
    - NEVER mention specific commenter names (anonymize completely)
    - NEVER include speculation that could be defamatory
    - Prioritize comments with substantive information over emotional reactions
-   - If comments only contain emotional reactions (e.g., "so sad", "prayers"), just use them for the Public Reaction section
-   - If comments are in Thai, interpret their meaning for English readers
+   - Interpret SARCASTIC comments to understand TRUE MEANING (not literal)
+   - If comments are in Thai, interpret their INTENDED meaning (including sarcasm) for English readers
+   - If 70%+ comments are mocking/laughing, the story is likely embarrassing/amusing, not serious
 `;
     }
 
@@ -294,6 +311,22 @@ STRICT WRITING GUIDELINES:
    - You MAY add general context about locations (e.g., "Patong is a major tourist area") but NOT specific details about the event.
    - For short/viral posts: write SHORT factual articles (2-3 paragraphs). Do NOT dramatize into full news stories with invented scenarios.
 6. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language.
+
+🎭 THAI SOCIAL MEDIA HUMOR DETECTION (CRITICAL FOR VIRAL POSTS):
+Thai social media posts often use SARCASM and EUPHEMISMS. DO NOT take captions literally:
+- "เอาที่สบายใจ" / "Whatever makes you happy" = SARCASM mocking someone's embarrassing behavior
+- "นักท่องเที่ยวคุณภาพ" / "Quality tourist" = SARCASM meaning BAD tourist behavior
+- "นอนข้างทาง" + watching "สาวๆ" = Person is DRUNK/PASSED OUT, not "enjoying the scene"
+- "555" in comments = Thai internet laughter - people are mocking the subject
+- Person lying on Patong street = 99% INTOXICATED, not "resting" or "embracing street life"
+- Comments with 😂🤣 = People are LAUGHING AT the subject
+
+📝 VIRAL POST WRITING GUIDANCE:
+- Report the ACTUAL situation shown in images/described in comments, not the sarcastic caption
+- Use: "appeared to be intoxicated", "was found passed out", "allegedly drunk"
+- Keep the amusing angle - these are "tourist behaving badly" stories that go VIRAL
+- DO NOT sanitize drunk behavior into "relaxing" or "enjoying" 
+- Context section should explain WHY this went viral (locals amused by tourist behavior)
 
 EXAMPLE OUTPUT FORMAT:
 "**PATONG, PHUKET –** A violent altercation between American tourists turned one of Phuket's most famous nightlife strips into a scene of chaos Saturday night...
@@ -541,6 +574,51 @@ If the source is just a short caption with a video/photo (e.g., "Tourists showin
 - DO NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "disrupted traffic", "onlookers gathered" unless the source says so.
 - CORRECT: "Tourists were seen revving their motorbikes at a traffic light. Police officers approached and directed them to pull over."
 - WRONG: "A tourist's unruly behavior brought traffic to a standstill. Witnesses reported the individual appeared agitated and shouted at passersby."
+
+THAI SOCIAL MEDIA CONTEXT ANALYSIS (CRITICAL - READ BEFORE INTERPRETING):
+Thai social media posts often use SARCASM, HUMOR, and EUPHEMISMS. You MUST analyze the TRUE meaning:
+
+🎭 SARCASTIC/HUMOROUS CAPTION PATTERNS:
+- "เอาที่สบายใจ" / "เอาที่บายใจ" = "Whatever makes you happy" (SARCASM - they're mocking the person)
+- "นักท่องเที่ยวคุณภาพ" = "Quality tourist" (SARCASM - means BADLY-behaving tourist)
+- "ท่านั้นสวย" / "สกิลมา" = "Nice pose" / "Skills" (SARCASM - mocking embarrassing situation)
+- "ความสุขแท้ๆ" / "มีความสุข" = "True happiness" (SARCASM when someone is in embarrassing position)
+- "ไม่เห็นว่าจะผิดตรงไหน" = "I don't see anything wrong" (SARCASM - obviously something IS wrong)
+- "บรรยากาศดี" = "Nice atmosphere" (SARCASM when situation is clearly bad)
+- "555" / "5555" = Thai internet laughter (like "lol") - indicates post is humorous/mocking
+
+🍺 DRUNK/INTOXICATED TOURIST INDICATORS:
+- Person lying flat on street/sidewalk = DRUNK, not "resting" or "enjoying the view"
+- "นอนข้างทาง" = "sleeping on the roadside" = PASSED OUT DRUNK
+- "พ่อใหญ่" = "big guy" (often sarcastic term for drunk foreigners)
+- Reference to watching "สาวๆ" (girls) walking by while lying down = SARCASTIC (they're unconscious)
+- Location: Patong + foreigner + lying on ground = 99% DRUNK, not "appreciating street life"
+- Use of 😂🤣 emojis in comments = people are LAUGHING AT, not WITH the person
+
+📸 VISUAL CONTEXT CLUES (If image shows):
+- Person horizontal on pavement = INTOXICATED/PASSED OUT
+- Police standing near confused tourist = TOURIST IN TROUBLE, not "friendly chat"
+- Person in underwear/minimal clothing = DRUNK/DISORDERLY, not "enjoying weather"
+- Crowd gathered around = INCIDENT, not "photo opportunity"
+- Red face on foreigner = DRUNK, not "sunburn"
+
+🔍 HOW TO INTERPRET THESE POSTS:
+1. NEVER take humorous Thai captions literally
+2. LOOK at what the IMAGE actually shows (if described)
+3. READ the comments for true context (e.g., "Another quality tourist 🤣" = drunk/bad behavior)
+4. If locals are using 555/emojis/sarcasm = it's a MOCKERY post, not praise
+5. "Enjoying X" in sarcastic context = DRUNK/MISBEHAVING
+
+📝 HOW TO WRITE THESE STORIES:
+- Report the ACTUAL situation, not the sarcastic caption
+- Use phrases like "appeared to be intoxicated", "was found lying", "allegedly passed out"
+- Keep the humorous/viral angle - these stories are MEANT to be amusing
+- DO NOT sanitize drunk behavior into "relaxing" or "resting"
+- Match the tone - these are "tourist behaving badly" viral stories
+
+EXAMPLE INTERPRETATION:
+❌ WRONG: "Tourist Enjoys Patong's Vibrant Street Scene" (literal caption interpretation)
+✅ CORRECT: "Tourist Found Passed Out on Patong Street, Locals React with Amusement"
 
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
