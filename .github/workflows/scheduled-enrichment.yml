@@ -14,9 +14,9 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - name: Trigger enrichment on Railway
+      - name: Trigger story enrichment
         run: |
-          curl -X POST https://phuketradar-production.up.railway.app/api/cron/enrich \
+          curl -X POST https://phuketradar.com/api/cron/enrich \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}" \
             --fail --show-error

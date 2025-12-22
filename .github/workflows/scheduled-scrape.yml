@@ -14,9 +14,9 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - name: Trigger scrape on Railway
+      - name: Trigger scheduled scrape
         run: |
-          curl -X POST https://phuketradar-production.up.railway.app/api/cron/scrape \
+          curl -X POST https://phuketradar.com/api/cron/scrape \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}" \
             --fail --show-error
