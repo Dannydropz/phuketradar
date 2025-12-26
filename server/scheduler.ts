@@ -202,6 +202,26 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Wrap entire post processing in timeout to prevent indefinite stalls (2 minutes max)
           await withTimeout(
             (async () => {
+              // STEP -5.5: CONTENT-BASED VIDEO DETECTION
+              // Sometimes the scraper doesn't detect video posts from API response
+              // but the content clearly mentions "viral video", "คลิป" (clip), "วิดีโอ" (video)
+              // In these cases, we should still treat it as a video post and enable embedding
+              const videoKeywords = [
+                // Thai keywords for video/clip
+                'คลิป', 'วิดีโอ', 'วีดีโอ', 'ไวรัล', 'คลิปไวรัล',
+                // English keywords (in case already translated or bilingual posts)
+                'viral video', 'video clip', 'footage', 'caught on camera', 'captured on video'
+              ];
+              const combinedContent = `${post.title} ${post.content}`.toLowerCase();
+              const mentionsVideo = videoKeywords.some(kw => combinedContent.includes(kw.toLowerCase()));
+
+              if (mentionsVideo && !post.isVideo) {
+                console.log(`\n📹 CONTENT-BASED VIDEO DETECTION - Post mentions video content`);
+                console.log(`   Title: ${post.title.substring(0, 60)}...`);
+                console.log(`   Marking as video post for Facebook embedding`);
+                post.isVideo = true;
+              }
+
               // STEP -5: VIDEO POST HANDLING (MUST come before image check!)
               // Video posts are valuable content - use the video thumbnail as image
               if (post.isVideo) {
@@ -1340,6 +1360,24 @@ export async function runManualPostScrape(
     console.log(`✅ Post scraped successfully`);
     console.log(`   Title: ${post.title.substring(0, 60)}...`);
     console.log(`   Images: ${post.imageUrls?.length || (post.imageUrl ? 1 : 0)}`);
+
+    // CONTENT-BASED VIDEO DETECTION for manual scrapes
+    // Sometimes the scraper doesn't detect video posts from API response
+    // but the content clearly mentions "viral video", "คลิป" (clip), "วิดีโอ" (video)
+    const videoKeywords = [
+      // Thai keywords for video/clip
+      'คลิป', 'วิดีโอ', 'วีดีโอ', 'ไวรัล', 'คลิปไวรัล',
+      // English keywords (in case already translated or bilingual posts)
+      'viral video', 'video clip', 'footage', 'caught on camera', 'captured on video'
+    ];
+    const combinedContent = `${post.title} ${post.content}`.toLowerCase();
+    const mentionsVideo = videoKeywords.some(kw => combinedContent.includes(kw.toLowerCase()));
+
+    if (mentionsVideo && !post.isVideo) {
+      console.log(`\n📹 CONTENT-BASED VIDEO DETECTION - Post mentions video content`);
+      console.log(`   Marking as video post for Facebook embedding`);
+      post.isVideo = true;
+    }
 
     // Get journalists for assignment
     const journalists = await storage.getAllJournalists();
