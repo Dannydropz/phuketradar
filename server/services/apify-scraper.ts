@@ -343,9 +343,42 @@ export class ApifyScraperService {
     try {
       console.log(`[APIFY] Scraping single post: ${postUrl}`);
       const posts = await this.scrapeFacebookPage(postUrl);
-      return posts.length > 0 ? posts[0] : null;
+
+      if (posts.length > 0) {
+        return posts[0];
+      }
+
+      // Regular scraping returned no results - try authenticated fallback
+      console.log(`[APIFY] Regular scrape returned no results, trying authenticated fallback...`);
+
+      if (this.hasAuthenticatedSession()) {
+        const authenticatedPost = await this.scrapeSinglePostAuthenticated(postUrl);
+        if (authenticatedPost) {
+          console.log(`[APIFY] ✅ Authenticated fallback successful!`);
+          return authenticatedPost;
+        }
+      } else {
+        console.log(`[APIFY] ⚠️ No authenticated session configured (set FACEBOOK_COOKIES)`);
+      }
+
+      return null;
     } catch (error) {
       console.error(`[APIFY] Error scraping single post:`, error);
+
+      // Even on error, try authenticated fallback as last resort
+      if (this.hasAuthenticatedSession()) {
+        console.log(`[APIFY] Trying authenticated fallback after error...`);
+        try {
+          const authenticatedPost = await this.scrapeSinglePostAuthenticated(postUrl);
+          if (authenticatedPost) {
+            console.log(`[APIFY] ✅ Authenticated fallback successful after error!`);
+            return authenticatedPost;
+          }
+        } catch (authError) {
+          console.error(`[APIFY] Authenticated fallback also failed:`, authError);
+        }
+      }
+
       return null;
     }
   }
