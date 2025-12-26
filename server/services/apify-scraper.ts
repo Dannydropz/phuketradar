@@ -209,9 +209,23 @@ export class ApifyScraperService {
 
     for (const post of posts) {
       try {
+        // CRITICAL: Check if API returned an error object instead of post data
+        // Error objects have structure: { url, error, errorDescription }
+        const postAsAny = post as any;
+        if (postAsAny.error || postAsAny.errorDescription) {
+          console.log(`\n❌ [APIFY] API RETURNED ERROR FOR POST:`);
+          console.log(`   URL: ${postAsAny.url || 'unknown'}`);
+          console.log(`   Error: ${postAsAny.error || 'no error field'}`);
+          console.log(`   Error Description: ${postAsAny.errorDescription || 'no description'}`);
+          console.log(`   All keys: ${Object.keys(post).join(', ')}`);
+          continue;
+        }
+
         // Skip posts without ANY text content (allow short captions for breaking news)
         if (!post.text || post.text.trim().length === 0) {
           console.log(`[APIFY] Skipping post - no text content`);
+          console.log(`   URL: ${post.postUrl || post.url || 'unknown'}`);
+          console.log(`   Keys present: ${Object.keys(post).join(', ')}`);
           continue;
         }
 

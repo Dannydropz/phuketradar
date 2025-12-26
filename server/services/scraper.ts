@@ -500,10 +500,59 @@ export class ScraperService {
       console.log("📋 SINGLE POST API RESPONSE:");
       console.log(JSON.stringify(data, null, 2));
 
+      // CRITICAL: Check if API returned an error object instead of post data
+      // Error objects have structure: { url, error, errorDescription } or { success: false, ... }
+      if (data.error || data.errorDescription || data.success === false) {
+        console.log(`\n❌ SCRAPECREATORS API RETURNED ERROR:`);
+        console.log(`   URL: ${postUrl}`);
+        console.log(`   Error: ${data.error || 'no error field'}`);
+        console.log(`   Error Description: ${data.errorDescription || data.message || 'no description'}`);
+        console.log(`   All keys: ${Object.keys(data).join(', ')}`);
+
+        // DON'T throw an error - return null so fallback can be attempted
+        // Try the page scraper fallback before giving up
+        console.log(`\n🔄 Attempting page scraper fallback...`);
+
+        const pageMatch = postUrl.match(/facebook\.com\/([^\/]+)\//);
+        if (pageMatch && pageMatch[1] !== 'reel' && pageMatch[1] !== 'watch') {
+          const pageName = pageMatch[1];
+          const pageUrl = `https://www.facebook.com/${pageName}`;
+          console.log(`   📄 Scraping page: ${pageUrl}`);
+
+          try {
+            const pagePosts = await this.scrapeFacebookPageWithPagination(pageUrl, 3);
+            console.log(`   📋 Found ${pagePosts.length} posts from page`);
+
+            // Try to find matching post by pfbid or numeric ID
+            const pfbidMatch = postUrl.match(/pfbid([A-Za-z0-9]+)/);
+            const numericIdMatch = postUrl.match(/\/(?:posts|reel|reels|videos)\/(\d+)/);
+
+            const matchingPost = pagePosts.find(p => {
+              if (pfbidMatch && p.sourceUrl?.includes(pfbidMatch[0])) return true;
+              if (numericIdMatch && p.sourceUrl?.includes(numericIdMatch[1])) return true;
+              if (numericIdMatch && p.facebookPostId === numericIdMatch[1]) return true;
+              return false;
+            });
+
+            if (matchingPost) {
+              console.log(`   ✅ Found matching post via page scraper fallback!`);
+              return matchingPost;
+            } else {
+              console.log(`   ⚠️ Post not found in page results`);
+            }
+          } catch (pageError) {
+            console.error(`   ❌ Page scraper fallback failed:`, pageError);
+          }
+        }
+
+        return null;
+      }
+
       // The single post endpoint returns the post directly (not in a posts array)
       // Note: API returns 'description' not 'text' for the post content
       if (!data || (!data.text && !data.description)) {
         console.log("❌ No post data returned from single post endpoint");
+        console.log("   Keys available:", Object.keys(data || {}).join(', '));
         return null;
       }
 
