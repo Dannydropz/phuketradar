@@ -231,12 +231,28 @@ export class ApifyScraperService {
         return null;
       }
 
-      // Use Apify's facebook-posts-scraper with cookies for authenticated access
-      // Note: We're targeting just this single URL to minimize cost and time
-      const urlSafeActorId = this.getUrlSafeActorId();
+      // Convert Cookie-Editor format to Apify expected format
+      // Apify expects: [{ name: "...", value: "...", domain: "...", ... }]
+      const formattedCookies = cookies.map(c => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path || "/",
+        httpOnly: c.httpOnly || false,
+        secure: c.secure || true,
+      }));
 
+      console.log(`   📋 Formatted ${formattedCookies.length} cookies for Apify`);
+
+      // Use the Facebook Profile Scraper actor which properly supports cookies
+      // Actor: curious_coder/facebook-profile-scraper or apify/facebook-posts-scraper
+      // Different actors have different input schemas
+      const authActorId = 'apify~facebook-posts-scraper';
+
+      // Try with the standard actor but with properly formatted cookies
+      // Some actors expect cookies as a stringified JSON
       const runResponse = await fetch(
-        `https://api.apify.com/v2/acts/${urlSafeActorId}/runs?token=${this.apiKey}`,
+        `https://api.apify.com/v2/acts/${authActorId}/runs?token=${this.apiKey}`,
         {
           method: 'POST',
           headers: {
@@ -244,15 +260,21 @@ export class ApifyScraperService {
           },
           body: JSON.stringify({
             startUrls: [{ url: postUrl }],
-            maxPosts: 5, // Only need 1 post, but get a few in case of pagination issues
+            maxPosts: 5,
             scrapePosts: true,
             scrapeAbout: false,
             scrapeReviews: false,
-            maxPostDate: "30 days", // Wider date range for single post
-            cookies: cookies, // Pass the Facebook session cookies
+            maxPostDate: "30 days",
+            // Pass cookies in multiple formats that different actors might expect
+            cookies: formattedCookies,
+            sessionCookies: JSON.stringify(formattedCookies),
+            // Also try the facebook-specific format
+            facebookCookies: formattedCookies,
+            // Use datacenter proxy from same region as login
             proxyConfiguration: {
               useApifyProxy: true,
-              apifyProxyGroups: ['RESIDENTIAL'], // Use residential proxies for better success
+              // Don't use RESIDENTIAL as it might be from wrong country
+              // Let Apify choose the best proxy
             },
           }),
         }
@@ -280,7 +302,7 @@ export class ApifyScraperService {
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         const statusResponse = await fetch(
-          `https://api.apify.com/v2/acts/${urlSafeActorId}/runs/${runId}?token=${this.apiKey}`
+          `https://api.apify.com/v2/acts/${authActorId}/runs/${runId}?token=${this.apiKey}`
         );
 
         if (statusResponse.ok) {
