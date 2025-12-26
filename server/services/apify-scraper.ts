@@ -244,13 +244,15 @@ export class ApifyScraperService {
 
       console.log(`   📋 Formatted ${formattedCookies.length} cookies for Apify`);
 
-      // Use the Facebook Profile Scraper actor which properly supports cookies
-      // Actor: curious_coder/facebook-profile-scraper or apify/facebook-posts-scraper
-      // Different actors have different input schemas
-      const authActorId = 'apify~facebook-posts-scraper';
+      // Use curious_coder/facebook-profile-scraper which properly supports cookie authentication
+      // This actor is specifically designed for authenticated access to Facebook content
+      // Documentation: https://apify.com/curious_coder/facebook-profile-scraper
+      const authActorId = 'curious_coder~facebook-profile-scraper';
 
-      // Try with the standard actor but with properly formatted cookies
-      // Some actors expect cookies as a stringified JSON
+      // This actor has a different input schema:
+      // - urls: array of URLs to scrape
+      // - cookies: array of cookie objects
+      // - maxPosts: number of posts to retrieve
       const runResponse = await fetch(
         `https://api.apify.com/v2/acts/${authActorId}/runs?token=${this.apiKey}`,
         {
@@ -259,22 +261,18 @@ export class ApifyScraperService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            startUrls: [{ url: postUrl }],
-            maxPosts: 5,
-            scrapePosts: true,
-            scrapeAbout: false,
-            scrapeReviews: false,
-            maxPostDate: "30 days",
-            // Pass cookies in multiple formats that different actors might expect
+            // This actor expects 'urls' not 'startUrls'
+            urls: [postUrl],
+            // Cookies in the format exported from Cookie-Editor
             cookies: formattedCookies,
-            sessionCookies: JSON.stringify(formattedCookies),
-            // Also try the facebook-specific format
-            facebookCookies: formattedCookies,
-            // Use datacenter proxy from same region as login
+            // Maximum number of posts to scrape
+            maxPosts: 10,
+            // Scrape posts from the URL
+            scrapePhotos: true,
+            scrapeVideos: false,
+            // Proxy configuration
             proxyConfiguration: {
               useApifyProxy: true,
-              // Don't use RESIDENTIAL as it might be from wrong country
-              // Let Apify choose the best proxy
             },
           }),
         }
