@@ -55,10 +55,18 @@ interface ApifyDatasetItem {
 export class ApifyScraperService {
   private apiKey = process.env.APIFY_API_KEY;
   private actorId = 'apify/facebook-posts-scraper';
+  // Facebook cookies for authenticated scraping (JSON string of cookies array)
+  // Can be exported from browser using Cookie-Editor extension
+  private facebookCookies = process.env.FACEBOOK_COOKIES;
 
   // Convert actor ID to URL-safe format (replace / with ~)
   private getUrlSafeActorId(): string {
     return this.actorId.replace('/', '~');
+  }
+
+  // Check if authenticated scraping is available
+  public hasAuthenticatedSession(): boolean {
+    return !!(this.apiKey && this.facebookCookies);
   }
 
   // Normalize Facebook post URL to handle different formats
@@ -189,6 +197,145 @@ export class ApifyScraperService {
     } catch (error) {
       console.error("[APIFY] Error scraping Facebook page:", error);
       throw new Error("Failed to scrape Facebook page with Apify");
+    }
+  }
+
+  /**
+   * Scrape a single Facebook post using authenticated session (with cookies)
+   * This can access login-protected posts that the regular scraper cannot reach.
+   * 
+   * @param postUrl - The Facebook post URL to scrape
+   * @returns The scraped post or null if not found
+   */
+  async scrapeSinglePostAuthenticated(postUrl: string): Promise<ScrapedPost | null> {
+    try {
+      if (!this.apiKey) {
+        throw new Error("APIFY_API_KEY is not configured");
+      }
+
+      if (!this.facebookCookies) {
+        console.log(`[APIFY-AUTH] ⚠️ No Facebook cookies configured - cannot use authenticated scraping`);
+        return null;
+      }
+
+      console.log(`\n🔐 [APIFY-AUTH] Scraping with AUTHENTICATED session: ${postUrl}`);
+
+      // Parse cookies - can be JSON array or base64 encoded
+      let cookies: any[];
+      try {
+        cookies = JSON.parse(this.facebookCookies);
+        console.log(`   ✅ Cookies parsed: ${cookies.length} cookies available`);
+      } catch (e) {
+        console.error(`   ❌ Failed to parse FACEBOOK_COOKIES - must be valid JSON array`);
+        console.error(`   💡 Export cookies using Cookie-Editor browser extension`);
+        return null;
+      }
+
+      // Use Apify's facebook-posts-scraper with cookies for authenticated access
+      // Note: We're targeting just this single URL to minimize cost and time
+      const urlSafeActorId = this.getUrlSafeActorId();
+
+      const runResponse = await fetch(
+        `https://api.apify.com/v2/acts/${urlSafeActorId}/runs?token=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            startUrls: [{ url: postUrl }],
+            maxPosts: 5, // Only need 1 post, but get a few in case of pagination issues
+            scrapePosts: true,
+            scrapeAbout: false,
+            scrapeReviews: false,
+            maxPostDate: "30 days", // Wider date range for single post
+            cookies: cookies, // Pass the Facebook session cookies
+            proxyConfiguration: {
+              useApifyProxy: true,
+              apifyProxyGroups: ['RESIDENTIAL'], // Use residential proxies for better success
+            },
+          }),
+        }
+      );
+
+      if (!runResponse.ok) {
+        const errorText = await runResponse.text();
+        console.error(`[APIFY-AUTH] API error (${runResponse.status}):`, errorText);
+        throw new Error(`HTTP error! status: ${runResponse.status}`);
+      }
+
+      const runData = await runResponse.json();
+      const runId = runData.data.id;
+      const defaultDatasetId = runData.data.defaultDatasetId;
+
+      console.log(`   🚀 Run started: ${runId}`);
+      console.log(`   ⏳ Waiting for completion...`);
+
+      // Poll for completion (timeout after 3 minutes for single post)
+      const maxAttempts = 36; // 36 * 5 seconds = 3 minutes
+      let attempts = 0;
+      let runStatus = 'RUNNING';
+
+      while (runStatus === 'RUNNING' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        const statusResponse = await fetch(
+          `https://api.apify.com/v2/acts/${urlSafeActorId}/runs/${runId}?token=${this.apiKey}`
+        );
+
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          runStatus = statusData.data.status;
+          if (attempts % 6 === 0) { // Log every 30 seconds
+            console.log(`   ⏳ Status: ${runStatus} (${attempts * 5}s elapsed)`);
+          }
+        }
+
+        attempts++;
+      }
+
+      if (runStatus !== 'SUCCEEDED') {
+        console.error(`   ❌ Run did not complete. Status: ${runStatus}`);
+        return null;
+      }
+
+      console.log(`   ✅ Run completed successfully!`);
+
+      // Fetch results
+      const datasetResponse = await fetch(
+        `https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${this.apiKey}`
+      );
+
+      if (!datasetResponse.ok) {
+        console.error(`   ❌ Failed to fetch dataset: ${datasetResponse.status}`);
+        return null;
+      }
+
+      const posts: ApifyDatasetItem[] = await datasetResponse.json();
+      console.log(`   📋 Retrieved ${posts.length} posts from authenticated scrape`);
+
+      if (posts.length === 0) {
+        console.log(`   ⚠️ No posts found - the post may be deleted or still not accessible`);
+        return null;
+      }
+
+      // Log the response for debugging
+      console.log(`   📋 First post structure:`, JSON.stringify(posts[0], null, 2).substring(0, 500) + '...');
+
+      // Parse and return the first matching post
+      const scrapedPosts = this.parseApifyResponse(posts);
+
+      if (scrapedPosts.length > 0) {
+        console.log(`   ✅ Successfully scraped authenticated post: ${scrapedPosts[0].title.substring(0, 60)}...`);
+        return scrapedPosts[0];
+      }
+
+      console.log(`   ⚠️ Post parsed but no valid content found`);
+      return null;
+
+    } catch (error) {
+      console.error(`[APIFY-AUTH] Error in authenticated scrape:`, error);
+      return null;
     }
   }
 

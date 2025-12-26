@@ -545,6 +545,30 @@ export class ScraperService {
           }
         }
 
+        // FINAL FALLBACK: Try Apify with authenticated session (cookies)
+        // This can access login-protected posts that public scrapers cannot reach
+        console.log(`\n🔐 Attempting APIFY AUTHENTICATED fallback for login-protected content...`);
+        try {
+          const { apifyScraperService } = await import('./apify-scraper');
+
+          if (apifyScraperService.hasAuthenticatedSession()) {
+            const authenticatedPost = await apifyScraperService.scrapeSinglePostAuthenticated(postUrl);
+
+            if (authenticatedPost) {
+              console.log(`   ✅ Successfully scraped via Apify authenticated session!`);
+              return authenticatedPost;
+            } else {
+              console.log(`   ⚠️ Apify authenticated scrape returned no results`);
+            }
+          } else {
+            console.log(`   ⚠️ Apify authenticated session not configured`);
+            console.log(`   💡 Set APIFY_API_KEY and FACEBOOK_COOKIES environment variables`);
+            console.log(`   💡 Export cookies from logged-in Facebook session using Cookie-Editor extension`);
+          }
+        } catch (apifyError) {
+          console.error(`   ❌ Apify authenticated fallback failed:`, apifyError);
+        }
+
         return null;
       }
 
