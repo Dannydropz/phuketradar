@@ -244,10 +244,15 @@ export class ApifyScraperService {
 
       console.log(`   📋 Formatted ${formattedCookies.length} cookies for Apify`);
 
-      // Use curious_coder/facebook-profile-scraper which properly supports cookie authentication
-      // This actor is specifically designed for authenticated access to Facebook content
-      // Documentation: https://apify.com/curious_coder/facebook-profile-scraper
-      const authActorId = 'curious_coder~facebook-profile-scraper';
+      // NOTE: The apify/facebook-posts-scraper doesn't properly support cookie authentication
+      // For proper authenticated scraping, you would need to rent a paid actor like:
+      // - curious_coder/facebook-profile-scraper (paid)
+      // - apify/facebook-page-scraper (paid)
+      // For now, we try with the free actor + cookies (may not work for private posts)
+      const authActorId = 'apify~facebook-posts-scraper';
+
+      console.log(`   ⚠️ Note: Free actor may not support authenticated access`);
+      console.log(`   💡 For private posts, consider renting: curious_coder/facebook-profile-scraper`);
 
       // This actor has a different input schema:
       // - urls: array of URLs to scrape
@@ -261,15 +266,16 @@ export class ApifyScraperService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            // This actor expects 'urls' not 'startUrls'
-            urls: [postUrl],
-            // Cookies in the format exported from Cookie-Editor
+            // apify/facebook-posts-scraper expects startUrls
+            startUrls: [{ url: postUrl }],
+            // Try passing cookies (may not work with this actor)
             cookies: formattedCookies,
             // Maximum number of posts to scrape
             maxPosts: 10,
-            // Scrape posts from the URL
-            scrapePhotos: true,
-            scrapeVideos: false,
+            scrapePosts: true,
+            scrapeAbout: false,
+            scrapeReviews: false,
+            maxPostDate: "30 days",
             // Proxy configuration
             proxyConfiguration: {
               useApifyProxy: true,
