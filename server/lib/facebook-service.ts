@@ -355,6 +355,8 @@ export async function postArticleToFacebook(
       console.warn(`❌ [FB-POST] Switchy short link exception, using direct URL:`, switchyError);
     }
 
+    console.log(`📝 [FB-POST] Comment will include URL: ${commentUrl}`);
+
     const commentResponse = await fetch(`https://graph.facebook.com/v18.0/${postId}/comments`, {
       method: "POST",
       headers: {

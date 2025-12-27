@@ -24,7 +24,7 @@ This directory contains N8N automation workflows for Phuket Radar.
 ```bash
 FB_PAGE_ID=786684811203574
 FB_PAGE_ACCESS_TOKEN=your_page_access_token
-NEON_DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+DATABASE_URL=postgresql://postgres:password@phuketradar-postgres:5432/phuketradar
 SITE_BASE_URL=https://phuketradar.com
 ```
 
@@ -51,11 +51,11 @@ SITE_BASE_URL=https://phuketradar.com
 ### Option 1: Simple Workflow (Recommended)
 
 1. **Import** `phuket-radar-facebook-autoposter-simple.json` into N8N
-2. **Set environment variables** in your N8N instance:
+2. **Set environment variables** in your N8N instance (via Coolify):
    ```bash
    FB_PAGE_ID=786684811203574
    FB_PAGE_ACCESS_TOKEN=your_token
-   NEON_DATABASE_URL=your_connection_string
+   DATABASE_URL=postgresql://postgres:password@phuketradar-postgres:5432/phuketradar
    SITE_BASE_URL=https://phuketradar.com
    ```
 3. **Test** by clicking "Execute Workflow"
@@ -243,10 +243,10 @@ AND "interestScore" >= 3  -- Include score 3
 ### Database connection errors?
 
 **Check**:
-- Connection string is correct
-- SSL is enabled for Neon
-- N8N server IP is whitelisted
+- Connection string is correct (use internal Docker hostname `phuketradar-postgres` for Netcup)
+- SSL is disabled for internal connections (both N8N and Postgres on same Netcup VPS)
 - Database credentials are valid
+- Both services are on the same Docker network in Coolify
 
 ---
 

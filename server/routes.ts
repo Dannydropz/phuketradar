@@ -1397,12 +1397,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const { switchyService } = await import("./services/switchy");
           const { buildArticleUrl } = await import("../shared/category-map");
+
+          console.log(`🔗 [PUBLISH] Attempting to generate Switchy short URL for article ${id}...`);
+
           if (switchyService.isConfigured()) {
             const baseUrl = process.env.REPLIT_DEV_DOMAIN
               ? `https://${process.env.REPLIT_DEV_DOMAIN}`
               : 'https://phuketradar.com';
             const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
             const fullUrl = `${baseUrl}${articlePath}`;
+
+            console.log(`🔗 [PUBLISH] Article URL: ${fullUrl}`);
 
             const result = await switchyService.createArticleLink(
               fullUrl,
@@ -1413,13 +1418,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             if (result.success && result.link?.shortUrl) {
               await storage.updateArticle(id, { switchyShortUrl: result.link.shortUrl });
-              console.log(`🔗 [PUBLISH] Generated Switchy short URL: ${result.link.shortUrl}`);
+              console.log(`✅ [PUBLISH] Generated Switchy short URL: ${result.link.shortUrl}`);
+            } else {
+              console.warn(`⚠️  [PUBLISH] Switchy generation failed: ${result.error || 'Unknown error'}`);
+              console.warn(`⚠️  [PUBLISH] Full Switchy response:`, JSON.stringify(result));
             }
+          } else {
+            console.warn(`⚠️  [PUBLISH] Switchy not configured (SWITCHY_API_KEY not set)`);
           }
         } catch (switchyError) {
-          console.warn(`⚠️  [PUBLISH] Switchy short URL generation failed:`, switchyError);
+          console.warn(`⚠️  [PUBLISH] Switchy short URL generation exception:`, switchyError);
           // Don't fail the publish if Switchy fails
         }
+      } else {
+        console.log(`🔗 [PUBLISH] Article already has Switchy URL: ${article.switchyShortUrl}`);
       }
 
       // Invalidate caches after publish

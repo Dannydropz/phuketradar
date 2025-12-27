@@ -1095,7 +1095,8 @@ export async function scrapePostComments(postUrl: string, limit: number = 15): P
   }
 }
 
-// Provider-agnostic scraper interface
+// Main scraper service - ALWAYS uses ScrapeCreators for scheduled scrapes
+// Apify is ONLY used as a fallback inside scrapeSingleFacebookPost() when ScrapeCreators fails
 export async function getScraperService(): Promise<{
   scrapeFacebookPage: (pageUrl: string) => Promise<ScrapedPost[]>;
   scrapeFacebookPageWithPagination: (
@@ -1105,17 +1106,9 @@ export async function getScraperService(): Promise<{
   ) => Promise<ScrapedPost[]>;
   scrapeSingleFacebookPost: (postUrl: string) => Promise<ScrapedPost | null>;
 }> {
-  const provider = process.env.SCRAPER_PROVIDER ||
-    (process.env.SCRAPECREATORS_API_KEY ? 'scrapecreators' :
-      (process.env.APIFY_API_KEY ? 'apify' : 'scrapecreators'));
-
-  if (provider === 'apify' && process.env.APIFY_API_KEY) {
-    console.log('🔄 Using Apify scraper (multi-image support enabled)');
-    const { apifyScraperService } = await import('./apify-scraper');
-    return apifyScraperService;
-  }
-
-  console.log('🔄 Using ScrapeCreators scraper (single image only)');
+  // Always use ScrapeCreators for main scraping operations
+  // Apify is only a fallback for manual single-post scrapes (handled inside scrapeSingleFacebookPost)
+  console.log('🔄 Using ScrapeCreators scraper');
   return scraperService;
 }
 

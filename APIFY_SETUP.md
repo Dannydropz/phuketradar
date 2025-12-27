@@ -1,146 +1,77 @@
-# Apify Multi-Image Scraping Setup
+# Apify Fallback Scraping Setup
 
 ## Overview
-Your app now supports **two scraping providers** that you can switch between at any time:
 
-### 🎯 Apify (Recommended - Multi-Image Support)
-- ✅ Extracts **all images** from Facebook carousel/album posts
-- ✅ Free tier: 500 pages/month
-- ✅ Paid tier: $39/month for 3,900 pages
-- ✅ Currently **active** (SCRAPER_PROVIDER=apify in .env)
+**Important:** Apify is ONLY used as a fallback for manual single-post scrapes when ScrapeCreators fails. It is NOT used for scheduled auto-scrapes.
 
-### 🔄 ScrapeCreators (Fallback - Single Image Only)
-- ⚠️ Only returns **one image** per post
-- ✅ Good as backup option
-- ⚠️ You'll miss carousel images
+### Primary Scraper: ScrapeCreators
+- ✅ Used for ALL scheduled auto-scrapes (every 4 hours)
+- ✅ Used for page scraping in manual scrapes
+- ✅ No monthly limits that would break auto-scraping
+
+### Fallback Scraper: Apify
+- ⚠️ ONLY used as fallback when ScrapeCreators fails for single-post scrapes
+- ⚠️ Limited monthly quota (500 pages/month free tier)
+- ⚠️ Should NOT be used as primary scraper to avoid quota issues
+- ✅ Useful for authenticated scraping of login-protected content
 
 ---
 
-## How to Use Apify
+## How It Works
 
-### 1. Sign Up (Already Done!)
-You've already added your `APIFY_API_KEY` to Replit Secrets. ✅
+1. **Scheduled Scrapes (Auto)**: Always use ScrapeCreators
+2. **Manual Page Scrapes**: Always use ScrapeCreators
+3. **Manual Single-Post Scrapes**: 
+   - First tries ScrapeCreators
+   - If ScrapeCreators fails, falls back to Apify (if `APIFY_API_KEY` is set)
+   - This is useful for login-protected posts
 
-### 2. How It Works
-When you trigger scraping (manually or via cron), the app will:
-1. Use Apify to scrape Facebook posts
-2. Extract **all images** from carousel posts
-3. Store them in the `imageUrls` array
-4. Display them as an image carousel on your website
-5. Post them as a grid on Facebook when publishing
+---
 
-### 3. Monitor Usage
-- Check your Apify dashboard: https://console.apify.com/
+## Environment Variables
+
+```bash
+# Primary scraper (required)
+SCRAPECREATORS_API_KEY=...
+
+# Fallback scraper (optional - for manual single-post fallback only)
+APIFY_API_KEY=...
+
+# Optional: Facebook cookies for authenticated Apify scraping
+FACEBOOK_COOKIES=...
+```
+
+**Note:** Do NOT set `SCRAPER_PROVIDER=apify` - this is deprecated and will be ignored.
+
+---
+
+## Monitoring
+
+### ScrapeCreators
+- Check your ScrapeCreators dashboard for usage
+
+### Apify (Fallback Only)
+- Check Apify dashboard: https://console.apify.com/
 - View "Runs" to see scraping activity
 - Monitor credits (500 pages free per month)
 
 ---
 
-## Switching Between Providers
-
-### Option A: Use Apify (Multi-Image) - Current Setting
-```
-SCRAPER_PROVIDER=apify
-```
-Requires: `APIFY_API_KEY` in secrets ✅
-
-### Option B: Use ScrapeCreators (Single Image)
-```
-SCRAPER_PROVIDER=scrapecreators
-```
-Requires: `SCRAPECREATORS_API_KEY` in secrets
-
-### How to Switch
-1. Go to Replit Secrets (🔒 icon in sidebar)
-2. Add/change `SCRAPER_PROVIDER` value
-3. Restart your app
-4. Next scraping run will use the new provider
-
-**Default behavior:** If you don't set `SCRAPER_PROVIDER`, it will use Apify if `APIFY_API_KEY` exists, otherwise ScrapeCreators.
-
----
-
-## Duplicate Detection (Handles Both URL Formats)
-
-You mentioned seeing duplicates with different Facebook URL formats:
-- `https://www.facebook.com/posts/1115795577429138` (numeric ID)
-- `https://www.facebook.com/posts/pfbid034pFkj6...` (pfbid format)
-
-These are the **same post** with different URL formats. Your app now handles this with **4-layer duplicate detection**:
-
-### 1. ✅ Source URL Check (Fast)
-Checks if the exact URL is already in database
-
-### 2. ✅ Image URL Check (Catches URL Format Differences) 
-**This is the key!** Even if Facebook URLs differ, the same story will use the same images. The app checks **all images** in the `imageUrls` array against existing articles.
-
-### 3. ✅ Semantic Similarity (70% threshold)
-Compares Thai title embeddings to catch near-duplicates with different wording
-
-### 4. ✅ Database Constraint
-PostgreSQL UNIQUE constraint prevents race condition duplicates
-
-### Enhanced Logging
-Now when duplicates are detected, you'll see clear messages like:
-```
-🚫 DUPLICATE DETECTED - Method: IMAGE URL CHECK (3 images checked)
-   New title: Phuket City Police Crack Down on Fireworks Sales...
-   Existing: Phuket City Police Crack Down on Fireworks Sales...
-   Matching image: https://scontent.fbos1-1.fna.fbcdn.net/...
-   ✅ Skipped before translation (saved API credits)
-```
-
-This makes it easy to see **why** each duplicate was caught.
-
----
-
-## Cost Comparison
-
-### Apify
-- Free: 500 pages/month
-- Paid: $39/month for 3,900 pages (~$0.01/page)
-- **Benefit:** Full carousel images = better content quality
-
-### ScrapeCreators
-- Check their pricing
-- **Limitation:** Single image only
-
-**Recommendation:** Start with Apify's free tier (500 pages). If ScrapeCreators adds multi-image support later, you can switch back with one environment variable change!
-
----
-
-## Testing
-
-To test the Apify scraper:
-1. Go to your admin panel
-2. Click "Trigger Scraping"
-3. Watch the logs for `[APIFY]` messages
-4. Look for `📸 MULTI-IMAGE POST DETECTED!` in logs
-5. Check articles to verify `imageUrls` array is populated
-
----
-
 ## Troubleshooting
 
-### "Apify run timed out"
-- Apify scraper waits up to 5 minutes for completion
-- If it times out, check Apify dashboard for run status
-- Consider reducing `maxPosts` in `apify-scraper.ts` (currently 50)
+### "Monthly usage hard limit exceeded" Error
+This means your Apify quota is exhausted. This should NOT affect scheduled scrapes since they use ScrapeCreators. If you see this error during scheduled scrapes, there's a bug - please report it.
 
-### "No images extracted"
-- Check if posts actually have multiple images on Facebook
-- Verify `APIFY_API_KEY` is valid
-- Check Apify dashboard for error logs
-
-### Want to go back to ScrapeCreators?
-Just change `SCRAPER_PROVIDER=scrapecreators` and restart!
+### Single-post scrape failing
+If both ScrapeCreators and Apify fail for a single post:
+1. The post may be login-protected
+2. Try setting `FACEBOOK_COOKIES` for authenticated Apify scraping
+3. The post may have been deleted or made private
 
 ---
 
-## Files Changed
-- ✅ `server/services/apify-scraper.ts` - New Apify integration
-- ✅ `server/services/scraper.ts` - Provider switching logic
-- ✅ `server/scheduler.ts` - Enhanced logging, uses provider
-- ✅ `server/routes.ts` - Uses provider for manual scraping
-- ✅ `.env.example` - Documentation
-- ✅ `replit.md` - Architecture documentation
+## Files
+
+- `server/services/scraper.ts` - Primary ScrapeCreators service, getScraperService() always returns ScrapeCreators
+- `server/services/apify-scraper.ts` - Apify fallback service (used only inside scrapeSingleFacebookPost when ScrapeCreators fails)
+- `server/scheduler.ts` - Uses ScrapeCreators for scheduled scrapes

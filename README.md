@@ -33,13 +33,10 @@ FB_PAGE_ACCESS_TOKEN=...
 # Cron API Key (for scheduled scraping via GitHub Actions)
 CRON_API_KEY=...
 
-# Scraping Provider: 'scrapecreators' (single image) or 'apify' (multi-image support)
-SCRAPER_PROVIDER=apify
-
-# ScrapeCreators API (single image scraping)
+# ScrapeCreators API (primary scraper for scheduled scrapes)
 SCRAPECREATORS_API_KEY=...
 
-# Apify API (multi-image scraping)
+# Apify API (fallback for manual single-post scrapes only)
 APIFY_API_KEY=...
 ```
 

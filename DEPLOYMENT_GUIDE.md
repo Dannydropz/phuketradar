@@ -14,7 +14,7 @@ git push origin main
 ```
 
 **Result:** 
-- ✅ Deploys to https://phuketradar.com in ~2 minutes
+- ✅ Deploys to https://phuketradar.com via Coolify in ~2-3 minutes
 - ✅ Goes live immediately
 - ⚠️ No testing step
 
@@ -68,10 +68,10 @@ git push origin staging
    - Base: `main` ← Compare: `staging`
    - Click "Create Pull Request"
 
-4. **Railway auto-creates preview:**
-   - Check Railway dashboard
+4. **Coolify auto-deploys preview (if configured):**
+   - Check Coolify dashboard at your Netcup server
    - Find the preview deployment
-   - Get the preview URL (e.g., `phuketradar-staging-abc123.up.railway.app`)
+   - Get the preview URL (e.g., `staging.phuketradar.com`)
 
 5. **Test the preview:**
    - Visit the preview URL
@@ -80,7 +80,7 @@ git push origin staging
 
 6. **When ready to go live:**
    - Click "Merge Pull Request" on GitHub
-   - Railway auto-deploys to production
+   - Coolify auto-deploys to production
    - Preview deployment is deleted
 
 ---
@@ -96,25 +96,25 @@ git push origin staging
 
 ---
 
-## Railway PR Preview Setup
+## Coolify Deployment Setup (Netcup VPS)
 
-### Enable PR Deployments:
+### Auto-Deploy from GitHub:
 
-1. **Go to Railway Dashboard:**
-   - https://railway.app
+1. **Go to Coolify Dashboard:**
+   - Access your Netcup VPS Coolify instance
    - Select your `phuketradar` project
 
-2. **Project Settings:**
-   - Click "Settings" tab
-   - Scroll to "Environments"
-   - Enable "PR Deployments"
+2. **GitHub Integration:**
+   - Ensure GitHub webhook is configured
+   - Branch: `main`
+   - Auto-deploy on push: ✅ Enabled
 
-3. **Configure:**
-   - Base branch: `main`
-   - Deploy PRs from: `staging`
-   - Auto-delete after merge: ✅ Yes
+3. **Staging Environment (Optional):**
+   - Create a separate application for staging
+   - Connect to `staging` branch
+   - Use different domain: `staging.phuketradar.com`
 
-**Done!** Now every PR from `staging` → `main` gets a preview URL.
+**Done!** Now pushes to `main` auto-deploy to production.
 
 ---
 
@@ -165,7 +165,7 @@ git push origin main
 - **Always test locally first** for UI changes (`npm run dev`)
 - **Use preview deployments** for features that touch the database
 - **Push to main** for typos, copy changes, small CSS tweaks
-- **Check Railway logs** after deploying to catch errors early
+- **Check Coolify logs** after deploying to catch errors early
 
 ---
 

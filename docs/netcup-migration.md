@@ -181,13 +181,45 @@ Check with: `dig phuketradar.com`
 
 ---
 
-## Step 7: Cleanup Old Services
+## Step 7: Update N8N Workflows for Netcup
+
+Since N8N workflows connect to the database and API, update credentials after migration:
+
+### Update PostgreSQL Credentials in N8N
+
+1. Go to **N8N Dashboard** → **Credentials**
+2. Find **"Postgres account"** (or similar)
+3. Update connection details:
+   - **Host:** `phuketradar-postgres` (internal Docker hostname)
+   - **Port:** `5432`
+   - **Database:** `phuketradar`
+   - **User:** `postgres`
+   - **Password:** Your Netcup PostgreSQL password
+   - **SSL:** Disable (internal connection)
+
+### Verify Workflows Still Work
+
+Test these workflows after updating credentials:
+- ✅ **Facebook Auto-Poster** - Posts articles to Facebook
+- ✅ **Instagram/Threads Auto-Poster** - Posts via Publer
+- ✅ **Daily Analytics Sync** - Syncs Google Analytics data
+- ✅ **Facebook Insights Sync** - Syncs Facebook engagement data
+
+### API Endpoints (No Changes Needed)
+
+The following workflows use `https://phuketradar.com/api/...` URLs, which automatically point to Netcup once DNS is updated:
+- Daily Analytics Sync
+- Facebook Insights Sync
+
+---
+
+## Step 8: Cleanup Old Services
 
 After confirming everything works:
 
 1. **Railway:** Delete project or pause billing
 2. **Supabase:** Export final backup, then delete project
-3. **Update N8N:** Change API URLs from Railway to Netcup
+3. **Verify N8N:** Run each workflow manually to confirm they work
 
 ---
 

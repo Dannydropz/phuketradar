@@ -1,37 +1,35 @@
 # N8N Deployment on Netcup VPS
 
-Guide for deploying N8N on your Netcup VPS to automate workflows for Phuket Radar (hosted on Railway).
+Guide for deploying N8N on your Netcup VPS to automate workflows for Phuket Radar.
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────┐
-│         Netcup VPS (Germany)            │
-│  ┌───────────────────────────────────┐  │
-│  │           N8N Server              │  │
-│  │  - Workflow Automation            │  │
-│  │  - Scheduled Jobs                 │  │
-│  │  - API Integrations               │  │
-│  └───────────────┬───────────────────┘  │
-└──────────────────┼──────────────────────┘
-                   │
-                   │ HTTPS API Calls
-                   │
-  ┌────────────────┼────────────────────────────┐
-  │                ▼                            │
-  │   Railway (Phuket Radar Production)        │
-  │  ┌─────────────────────────────────────┐   │
-  │  │  Node.js App + PostgreSQL/Supabase  │   │
-  │  │  Exposes API endpoints for N8N      │   │
-  │  └─────────────────────────────────────┘   │
-  └────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                  Netcup VPS (Germany)                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                Coolify Platform                   │  │
+│  │  ┌─────────────────┐  ┌────────────────────────┐  │  │
+│  │  │   N8N Server    │  │   Phuket Radar App     │  │  │
+│  │  │  - Workflows    │  │  - Node.js Backend     │  │  │
+│  │  │  - Scheduling   │  │  - React Frontend      │  │  │
+│  │  └────────┬────────┘  └───────────┬────────────┘  │  │
+│  │           │                       │               │  │
+│  │           └───────────┬───────────┘               │  │
+│  │                       ▼                           │  │
+│  │           ┌───────────────────────┐               │  │
+│  │           │  PostgreSQL Database  │               │  │
+│  │           └───────────────────────┘               │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
 ```
 
 **Key Points:**
-- N8N runs on Netcup VPS (always on, scheduled workflows)
-- Phuket Radar stays on Railway (current setup, no migration needed)
-- N8N connects to Railway via HTTPS API calls
-- N8N can also connect to Supabase database directly
+- N8N runs on Netcup VPS via Coolify (always on, scheduled workflows)
+- Phuket Radar is now hosted on the same Netcup VPS via Coolify
+- Both services share the same PostgreSQL database on Netcup
+- N8N connects to Phuket Radar API via internal network or public domain
+- Ultra-low latency since everything runs on the same server
 
 ---
 
@@ -233,11 +231,11 @@ Login with credentials you set in docker-compose.yml:
 
 ---
 
-## Connecting N8N to Railway-Hosted Phuket Radar
+## Connecting N8N to Phuket Radar (Both on Netcup)
 
 ### Option 1: Via API Endpoints (Recommended)
 
-N8N will call your Railway API endpoints via HTTPS.
+N8N calls Phuket Radar API endpoints via HTTPS (using the public domain).
 
 **Add API endpoints to Phuket Radar** for N8N to trigger actions:
 
@@ -274,22 +272,22 @@ app.get("/api/n8n/viral-articles", async (req, res) => {
 
 **In N8N workflow**, use HTTP Request node:
 - Method: POST
-- URL: `https://your-app.railway.app/api/n8n/sync-analytics`
+- URL: `https://phuketradar.com/api/n8n/sync-analytics`
 - Headers: `x-api-key: your-secret-key`
 
-### Option 2: Direct Database Access
+### Option 2: Direct Database Access (Recommended for Netcup Setup)
 
-N8N can connect directly to your Supabase/PostgreSQL database.
+Since both N8N and Phuket Radar are on the same Netcup VPS, N8N can connect directly to the local PostgreSQL database with minimal latency.
 
 **In N8N:**
 1. Go to Credentials → Add Credential → Postgres
-2. Enter your Supabase connection details:
-   - Host: `your-project.supabase.co`
-   - Database: `postgres`
+2. Enter your Netcup PostgreSQL connection details:
+   - Host: `phuketradar-postgres` (internal Docker hostname) or `localhost`
+   - Database: `phuketradar`
    - User: `postgres`
-   - Password: `your-supabase-password`
+   - Password: `your-postgres-password`
    - Port: `5432`
-   - SSL: `require`
+   - SSL: `disable` (internal network) or `require` (if using external access)
 
 **Use Postgres node in workflows** to query/insert data directly.
 
@@ -369,13 +367,13 @@ N8N can connect directly to your Supabase/PostgreSQL database.
 
 ### 1. Use Environment Variables
 
-In `/opt/n8n/.env`:
+In Coolify, set these environment variables for the N8N service:
 
 ```bash
 N8N_BASIC_AUTH_USER=admin
 N8N_BASIC_AUTH_PASSWORD=your-strong-password
-RAILWAY_API_KEY=your-railway-api-key
-SUPABASE_PASSWORD=your-supabase-password
+PHUKETRADAR_API_KEY=your-api-key
+POSTGRES_PASSWORD=your-postgres-password
 OPENAI_API_KEY=your-openai-key
 SLACK_WEBHOOK_URL=your-slack-webhook
 ```

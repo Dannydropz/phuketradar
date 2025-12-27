@@ -30,7 +30,7 @@ async function createWorkflow(workflowData: any) {
 
 async function createCredential() {
     const credentialData = {
-        name: "Railway Admin Auth",
+        name: "Netcup Admin Auth",
         type: "httpHeaderAuth",
         data: {
             name: "Authorization",
@@ -61,7 +61,7 @@ async function main() {
 
     try {
         // Step 1: Create credential
-        console.log("1️⃣ Creating Railway Admin Auth credential...");
+        console.log("1️⃣ Creating Netcup Admin Auth credential...");
         const credential = await createCredential();
         if (credential) {
             console.log(`✅ Credential created: ${credential.name} (ID: ${credential.id})\n`);
