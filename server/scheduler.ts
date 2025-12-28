@@ -1429,6 +1429,14 @@ export async function runManualPostScrape(
     console.log(`✅ Translation complete`);
     console.log(`   Category: ${translation.category}`);
     console.log(`   Interest Score: ${translation.interestScore}/5`);
+    console.log(`   Translated Title: ${translation.translatedTitle?.substring(0, 80)}...`);
+
+    // SAFETY CHECK: Verify translation actually happened (not still Thai)
+    const thaiPattern = /[\u0E00-\u0E7F]/;
+    if (thaiPattern.test(translation.translatedTitle || '')) {
+      console.warn(`   ⚠️  WARNING: Translated title still contains Thai characters!`);
+      console.warn(`   This may indicate a translation failure.`);
+    }
 
     // Classify the article
     const classification = await classificationService.classifyArticle(

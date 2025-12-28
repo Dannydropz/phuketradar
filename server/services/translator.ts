@@ -719,6 +719,61 @@ Always output valid JSON.`,
 
       const result = JSON.parse(completion.choices[0].message.content || "{}");
 
+      // TRANSLATION VALIDATION: Check if GPT actually returned translated (English) content
+      // If it returned empty or still-Thai content, log warning and handle appropriately
+      const thaiPattern = /[\u0E00-\u0E7F]/;
+      const translatedTitleIsThai = result.translatedTitle && thaiPattern.test(result.translatedTitle);
+      const translatedContentIsThai = result.translatedContent && thaiPattern.test(result.translatedContent);
+      const translationMissing = !result.translatedTitle || !result.translatedContent;
+
+      if (translationMissing || translatedTitleIsThai || translatedContentIsThai) {
+        console.warn(`   ⚠️  TRANSLATION ISSUE DETECTED:`);
+        if (translationMissing) {
+          console.warn(`      - Missing translation fields (title: ${!!result.translatedTitle}, content: ${!!result.translatedContent})`);
+        }
+        if (translatedTitleIsThai) {
+          console.warn(`      - Title still in Thai: "${result.translatedTitle?.substring(0, 50)}..."`);
+        }
+        if (translatedContentIsThai) {
+          console.warn(`      - Content still in Thai (first 100 chars)`);
+        }
+        console.warn(`      - Raw GPT response keys: ${Object.keys(result).join(', ')}`);
+        console.warn(`      - isActualNews: ${result.isActualNews}, category: ${result.category}`);
+
+        // If GPT said it's news but didn't translate, force a fallback translation
+        // This can happen with very short captions or when GPT gets confused
+        if (result.isActualNews && (translationMissing || translatedTitleIsThai)) {
+          console.log(`   🔄 Attempting fallback translation for missing/Thai content...`);
+
+          // Simple fallback: Use Google Translate for the title at minimum
+          try {
+            const { translate } = await import('@vitalets/google-translate-api');
+
+            if (!result.translatedTitle || translatedTitleIsThai) {
+              const titleTranslation = await translate(title, { to: 'en' });
+              result.translatedTitle = titleTranslation.text;
+              console.log(`      ✅ Fallback title: "${result.translatedTitle.substring(0, 60)}..."`);
+            }
+
+            if (!result.translatedContent || translatedContentIsThai) {
+              const contentTranslation = await translate(content, { to: 'en' });
+              result.translatedContent = `<p>${contentTranslation.text}</p>`;
+              console.log(`      ✅ Fallback content applied (Google Translate)`);
+            }
+
+            // Generate excerpt if missing
+            if (!result.excerpt) {
+              result.excerpt = result.translatedContent.replace(/<[^>]*>/g, '').substring(0, 200);
+            }
+          } catch (fallbackError) {
+            console.error(`      ❌ Fallback translation failed:`, fallbackError);
+            // Mark as non-news if we can't get English content
+            result.isActualNews = false;
+            console.warn(`      ⚠️  Marking as non-news due to translation failure`);
+          }
+        }
+      }
+
       // Log classification decision for debugging
       if (result.category && result.categoryReasoning) {
         console.log(`   🏷️  Category: ${result.category} - ${result.categoryReasoning}`);
