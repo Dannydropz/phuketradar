@@ -1444,6 +1444,29 @@ export async function runManualPostScrape(
       translation.excerpt
     );
 
+    // MANUAL SCRAPE PREMIUM ENRICHMENT
+    // Since admin manually chose this post, apply GPT-4o enrichment for high-quality journalism
+    console.log(`\n✨ MANUAL SCRAPE - Applying premium GPT-4o enrichment...`);
+    try {
+      const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
+        title: translation.translatedTitle,
+        content: translation.translatedContent,
+        excerpt: translation.excerpt,
+        category: translation.category,
+      }, "gpt-4o");
+
+      // Update translation with enriched content
+      translation.translatedTitle = enrichmentResult.enrichedTitle;
+      translation.translatedContent = enrichmentResult.enrichedContent;
+      translation.excerpt = enrichmentResult.enrichedExcerpt;
+
+      console.log(`   ✅ Premium enrichment complete`);
+      console.log(`   Enriched Title: ${translation.translatedTitle.substring(0, 80)}...`);
+    } catch (enrichmentError) {
+      console.warn(`   ⚠️  Premium enrichment failed, using base translation:`, enrichmentError);
+      // Continue with base translation if enrichment fails
+    }
+
     // Download images
     let localImageUrl = post.imageUrl;
     let localImageUrls = post.imageUrls;

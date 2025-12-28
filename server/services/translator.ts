@@ -214,8 +214,8 @@ function enrichWithPhuketContext(text: string): string {
 }
 
 export class TranslatorService {
-  // Premium GPT-4 enrichment for high-priority stories (score 4-5)
-  private async enrichWithPremiumGPT4(params: {
+  // Premium GPT-4 enrichment for high-priority stories (score 4-5) or manual scrapes
+  async enrichWithPremiumGPT4(params: {
     title: string;
     content: string;
     excerpt: string;
