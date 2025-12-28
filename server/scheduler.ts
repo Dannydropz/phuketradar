@@ -535,9 +535,21 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   // Compare entities
                   const entityMatch = entityExtractionService.compareEntities(extractedEntities, existingEntities);
 
-                  // If entity match score >= 60, it's likely the same story
-                  // This catches: same crime + same location + same organization
-                  if (entityMatch.score >= 60) {
+                  // FIXED: Require SPECIFIC matches, not just generic location+organization
+                  // Just matching "Phuket" + "Phuket Times" shouldn't trigger false duplicates
+                  const hasSpecificMatch =
+                    entityMatch.matchedNumbers > 0 ||      // Same quantity = strong signal
+                    entityMatch.matchedCrimeTypes > 0 ||   // Same crime type = strong signal
+                    entityMatch.matchedPeople > 0;         // Same person = strong signal
+
+                  // Two conditions for entity-based duplicate:
+                  // 1) Score >= 60 AND has at least one specific match (number/crime/person), OR
+                  // 2) Score >= 80 (very high match even without specific matches - rare but possible)
+                  const isEntityDuplicate =
+                    (entityMatch.score >= 60 && hasSpecificMatch) ||
+                    entityMatch.score >= 80;
+
+                  if (isEntityDuplicate) {
                     skippedSemanticDuplicates++;
                     foundEntityDuplicate = true;
                     skipReasons.push({
