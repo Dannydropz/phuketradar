@@ -964,9 +964,12 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     imageHash: imageHash || null, // Store perceptual hash for duplicate detection
                     videoUrl: post.videoUrl || null, // Store video URL for embedded playback
                     videoThumbnail: post.videoThumbnail || null, // High-quality video thumbnail
-                    // PHASE 1: Auto-embed for video posts without direct URLs
-                    // If it's a video but we couldn't get the direct video URL, use the source URL for Facebook embedding
-                    facebookEmbedUrl: (isVideoStory && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
+                    // PHASE 1: Auto-embed for ACTUAL video/reel URLs only (not just isVideo flag)
+                    // Only embed if URL contains video patterns - prevents photo posts from showing "Video Unavailable"
+                    facebookEmbedUrl: (isVideoStory && !post.videoUrl && post.sourceUrl &&
+                      (post.sourceUrl.includes('/reel/') || post.sourceUrl.includes('/reels/') ||
+                        post.sourceUrl.includes('/videos/') || post.sourceUrl.includes('/watch')))
+                      ? post.sourceUrl : null,
                     category: translation.category,
                     sourceUrl: post.sourceUrl,
                     sourceName: post.sourceName || "Facebook",
@@ -1573,8 +1576,12 @@ export async function runManualPostScrape(
       // VIDEO SUPPORT: Include video fields for manual scrapes
       videoUrl: post.videoUrl || null,
       videoThumbnail: post.videoThumbnail || null,
-      // PHASE 1 AUTO-EMBED: If it's a video but no direct URL, use source for embedding
-      facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl) ? post.sourceUrl : null,
+      // PHASE 1 AUTO-EMBED: Only embed for ACTUAL video/reel URLs (not just isVideo flag)
+      // This prevents photo posts from showing "Video Unavailable"
+      facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl &&
+        (post.sourceUrl.includes('/reel/') || post.sourceUrl.includes('/reels/') ||
+          post.sourceUrl.includes('/videos/') || post.sourceUrl.includes('/watch')))
+        ? post.sourceUrl : null,
       // VIDEO BOOST: Videos get minimum score of 4 for high engagement
       interestScore: post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore,
       engagementScore: (post.likeCount || 0) + ((post.commentCount || 0) * 2) + ((post.shareCount || 0) * 5),

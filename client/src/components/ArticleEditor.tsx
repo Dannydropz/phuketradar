@@ -41,7 +41,7 @@ interface ArticleEditorProps {
     imageUrl?: string;
     imageUrls?: string[];
     interestScore?: number;
-    facebookEmbedUrl?: string;
+    facebookEmbedUrl?: string | null;
     sourceUrl?: string;
     facebookHeadline?: string;
   }) => Promise<void>;
@@ -123,7 +123,7 @@ export function ArticleEditor({
       imageUrl: imageUrl || undefined,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       interestScore,
-      facebookEmbedUrl: facebookEmbedUrl || undefined,
+      facebookEmbedUrl: facebookEmbedUrl.trim() || null, // Use null to clear, undefined would be ignored
       sourceUrl: sourceUrl || undefined,
       facebookHeadline: facebookHeadline || undefined,
     });
