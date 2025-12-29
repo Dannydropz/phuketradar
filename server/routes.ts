@@ -1717,6 +1717,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fix broken video embeds - clears facebookEmbedUrl for non-video posts - PROTECTED
+  app.post("/api/admin/fix-video-embeds", requireAdminAuth, async (req, res) => {
+    try {
+      console.log(`🔧 [ADMIN] Fixing broken video embeds...`);
+
+      // Find all articles with facebookEmbedUrl that is NOT a video URL
+      const allArticles = await storage.getAllArticles();
+      const brokenArticles = allArticles.filter(article => {
+        const embedUrl = (article as any).facebookEmbedUrl;
+        if (!embedUrl) return false;
+
+        // Check if it's a valid video URL
+        const isValidVideoUrl =
+          embedUrl.includes('/reel/') ||
+          embedUrl.includes('/reels/') ||
+          embedUrl.includes('/videos/') ||
+          embedUrl.includes('/watch');
+
+        return !isValidVideoUrl;
+      });
+
+      console.log(`Found ${brokenArticles.length} articles with broken video embeds`);
+
+      const fixedArticles = [];
+      for (const article of brokenArticles) {
+        console.log(`   - Fixing: ${article.title.substring(0, 60)}...`);
+        await storage.updateArticle(article.id, { facebookEmbedUrl: null } as any);
+        fixedArticles.push({
+          id: article.id,
+          title: article.title,
+          clearedUrl: (article as any).facebookEmbedUrl,
+        });
+      }
+
+      // Invalidate caches
+      invalidateArticleCaches();
+
+      console.log(`✅ [ADMIN] Fixed ${brokenArticles.length} broken video embeds`);
+
+      res.json({
+        fixed: brokenArticles.length,
+        articles: fixedArticles,
+      });
+    } catch (error) {
+      console.error("Error fixing video embeds:", error);
+      res.status(500).json({ error: "Failed to fix video embeds" });
+    }
+  });
+
   // Cron endpoint for daily newsletter
   app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();

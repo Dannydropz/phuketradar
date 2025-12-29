@@ -1,64 +1,66 @@
 /**
- * URGENT FIX: Clear facebookEmbedUrl for a specific article
- * This fixes the "Video Unavailable" error for photo-only posts
- * 
- * Run with: npx tsx scripts/fix-video-embed.ts
+ * URGENT FIX: Clear the facebookEmbedUrl for the specific broken article
  */
 
 import { db } from "../server/db";
 import { articles } from "../shared/schema";
-import { sql, like } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
-async function fixVideoEmbed() {
-    console.log("🔧 URGENT FIX: Clearing incorrect facebookEmbedUrl...\n");
+async function fixSpecificArticle() {
+    console.log("🔧 Fixing the specific broken article...\n");
 
-    // Find articles with facebookEmbedUrl that contains /posts/ (not video URLs)
-    // These are incorrectly set and cause "Video Unavailable" errors
-    const brokenArticles = await db
+    // Find by the known sourceUrl from the facebookEmbedUrl
+    const result = await db
         .select({
             id: articles.id,
             title: articles.title,
+            slug: articles.slug,
             facebookEmbedUrl: articles.facebookEmbedUrl,
-            sourceUrl: articles.sourceUrl,
+            imageUrl: articles.imageUrl,
+            imageUrls: articles.imageUrls,
         })
         .from(articles)
-        .where(sql`${articles.facebookEmbedUrl} IS NOT NULL`);
+        .where(sql`${articles.facebookEmbedUrl} LIKE '%pfbid02T9XTzDKn8%'`);
 
-    console.log(`Found ${brokenArticles.length} articles with facebookEmbedUrl set\n`);
+    if (result.length === 0) {
+        console.log("❌ Article not found by facebookEmbedUrl pattern");
 
-    let fixedCount = 0;
-    for (const article of brokenArticles) {
-        const embedUrl = article.facebookEmbedUrl || "";
+        // Try finding by slug pattern
+        const bySlug = await db
+            .select({
+                id: articles.id,
+                title: articles.title,
+                slug: articles.slug,
+                facebookEmbedUrl: articles.facebookEmbedUrl,
+            })
+            .from(articles)
+            .where(sql`${articles.slug} ILIKE '%foreign-tourists%controversy%'`);
 
-        // Check if the URL is NOT a video URL (should not have facebookEmbedUrl set)
-        const isActualVideoUrl =
-            embedUrl.includes('/reel/') ||
-            embedUrl.includes('/reels/') ||
-            embedUrl.includes('/videos/') ||
-            embedUrl.includes('/watch');
-
-        if (!isActualVideoUrl) {
-            console.log(`❌ Fixing: ${article.title.substring(0, 60)}...`);
-            console.log(`   Bad URL: ${embedUrl}`);
-
-            // Clear the facebookEmbedUrl
-            await db
-                .update(articles)
-                .set({ facebookEmbedUrl: null })
-                .where(sql`${articles.id} = ${article.id}`);
-
-            fixedCount++;
-            console.log(`   ✅ Cleared facebookEmbedUrl\n`);
-        } else {
-            console.log(`✓ OK: ${article.title.substring(0, 60)}... (valid video URL)`);
-        }
+        console.log("Search by slug pattern found:", bySlug.length, "articles");
+        console.log(JSON.stringify(bySlug, null, 2));
+        process.exit(1);
     }
 
-    console.log(`\n🎉 Fixed ${fixedCount} articles with incorrect facebookEmbedUrl`);
+    const article = result[0];
+    console.log(`Found article: ${article.title}`);
+    console.log(`  Slug: ${article.slug}`);
+    console.log(`  ID: ${article.id}`);
+    console.log(`  Current facebookEmbedUrl: ${article.facebookEmbedUrl}`);
+    console.log(`  imageUrl: ${article.imageUrl}`);
+    console.log(`  imageUrls count: ${article.imageUrls?.length || 0}`);
+
+    // Clear the facebookEmbedUrl
+    console.log("\n🔧 Clearing facebookEmbedUrl...");
+    await db
+        .update(articles)
+        .set({ facebookEmbedUrl: null })
+        .where(sql`${articles.id} = ${article.id}`);
+
+    console.log("✅ Fixed! The article should now show images instead of video embed.");
     process.exit(0);
 }
 
-fixVideoEmbed().catch((error) => {
+fixSpecificArticle().catch((error) => {
     console.error("Error:", error);
     process.exit(1);
 });
