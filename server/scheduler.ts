@@ -789,12 +789,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 // Hot keywords indicate likely score 4-5 stories that benefit from comment context
                 const hotKeywords = [
                   "ไฟไหม้", "จมน้ำ", "จับกุม", "เสียชีวิต", "บาดเจ็บ", "ตาย", "ฆ่า", "ยิง", "แทง",
-                  "ชน", "รถชน", "ต่างชาติ", "ฝรั่ง", "นักท่องเที่ยว", "ปะทะ", "ทะเลาะ", "ชกต่อย"
+                  "ชน", "รถชน", "ต่างชาติ", "ฝรั่ง", "นักท่องเที่ยว", "ปะทะ", "ทะเลาะ", "ชกต่อย",
+                  // DRUG/CRIME KEYWORDS - Critical for proper context interpretation
+                  "ยาเสพติด", "โคเคน", "ยาบ้า", "กัญชา", "ยาไอซ์", "เฮโรอีน", "แก๊ง", "ค้ายา", "ขายยา",
+                  "QR", "คิวอาร์", "สติ๊กเกอร์", "ติดประกาศ", "Telegram", "เทเลแกรม"
                 ];
                 const combinedPostText = `${post.title} ${post.content}`;
                 const mightBeHighInterest = hotKeywords.some(kw => combinedPostText.includes(kw));
 
                 let communityComments: string[] | undefined;
+
                 if (mightBeHighInterest && post.sourceUrl) {
                   try {
                     console.log(`   🔥 Potential high-interest story detected - fetching community comments...`);

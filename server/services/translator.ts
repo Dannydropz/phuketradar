@@ -74,6 +74,109 @@ const HOT_KEYWORDS = [
   "ทะเลาะ", // quarrel/argue
   "ชกต่อย", // fistfight
   "ตบตี", // slap/hit fight
+  // DRUG/CRIME KEYWORDS - Critical for proper context interpretation
+  "ยาเสพติด", // drugs/narcotics
+  "โคเคน", // cocaine
+  "ยาบ้า", // methamphetamine/yaba
+  "กัญชา", // cannabis/marijuana
+  "ยาไอซ์", // ice/crystal meth
+  "เฮโรอีน", // heroin
+  "แก๊ง", // gang
+  "ค้ายา", // drug dealing
+  "ขายยา", // selling drugs
+  "QR", // QR code (often drug-related stickers)
+  "คิวอาร์", // QR code (Thai)
+  "สติ๊กเกอร์", // sticker (often drug ads)
+  "ติดประกาศ", // posting/sticking notices
+  "โฆษณา", // advertisement (illegal product ads)
+  "Telegram", // often drug sales channel
+  "เทเลแกรม", // Telegram (Thai)
+];
+
+// FEEL-GOOD / VIRAL POSITIVE keywords that boost interest scores
+// These heartwarming stories go viral and drive engagement - especially with expat audience
+const FEEL_GOOD_KEYWORDS = [
+  // WILDLIFE / ANIMAL CONSERVATION - Always viral
+  "เต่าทะเล", // sea turtle
+  "เต่า", // turtle
+  "วางไข่", // laying eggs / nesting
+  "ฟักไข่", // hatching eggs
+  "ลูกเต่า", // baby turtle
+  "ปล่อยเต่า", // releasing turtles
+  "โลมา", // dolphin
+  "ปลาวาฬ", // whale
+  "ฉลามวาฬ", // whale shark
+  "กระเบนราหู", // manta ray
+  "ช้าง", // elephant
+  "ลิง", // monkey
+  "นก", // bird (general)
+  "นกเงือก", // hornbill
+  "สัตว์ป่า", // wildlife
+  "สัตว์หายาก", // rare animal
+  "อนุรักษ์", // conservation
+  "ปล่อยคืนธรรมชาติ", // release back to nature
+  "ช่วยชีวิตสัตว์", // rescue animal
+  "พันธุ์หายาก", // rare species
+  "ทะเลสาบ", // lake (often wildlife context)
+  "ปะการัง", // coral
+  "ฟื้นฟูปะการัง", // coral restoration
+  // English wildlife keywords (from translated content)
+  "sea turtle",
+  "turtle eggs",
+  "turtle nest",
+  "turtle nesting",
+  "baby turtles",
+  "hatchling",
+  "dolphin",
+  "whale",
+  "whale shark",
+  "manta ray",
+  "elephant",
+  "wildlife",
+  "conservation",
+  "endangered",
+  "rare species",
+  "coral reef",
+  "marine life",
+  "marine conservation",
+  // GOOD SAMARITAN / RESCUE STORIES
+  "ช่วยเหลือ", // help/rescue (in positive context)
+  "กู้ชีพ", // rescue (life-saving)
+  "ช่วยชีวิต", // save life
+  "คนดี", // good person
+  "น้ำใจ", // kindness/generosity
+  "ช่วยนักท่องเที่ยว", // help tourist
+  "ช่วยฝรั่ง", // help foreigner
+  "ส่งคืน", // return (lost items)
+  "ส่งกระเป๋าคืน", // return bag
+  "ซื่อสัตย์", // honest
+  "ได้คืน", // got back (lost items)
+  "good samaritan",
+  "hero",
+  "saved",
+  "rescued",
+  "returned wallet",
+  "honest",
+  "kindness",
+  // POSITIVE FOREIGNER INVOLVEMENT
+  "ฝรั่งช่วย", // foreigner helps
+  "นักท่องเที่ยวช่วย", // tourist helps
+  "ต่างชาติช่วย", // foreigner assists
+  "expat hero",
+  "tourist saves",
+  "foreigner helps",
+  "foreign volunteer",
+  // COMMUNITY POSITIVE NEWS
+  "ข่าวดี", // good news
+  "ความสำเร็จ", // success
+  "รางวัล", // award (in positive context)
+  "ชุมชนรวมใจ", // community unites
+  "น่ารัก", // cute/lovely (viral animal content)
+  "heartwarming",
+  "feel-good",
+  "viral",
+  "amazing",
+  "incredible",
 ];
 
 // Low-priority keywords that lower interest scores (routine/boring news)
@@ -119,6 +222,32 @@ const COLD_KEYWORDS = [
   "Hello Phuket", // Hello Phuket event
   "sustainability", // sustainability event
   "ความยั่งยืน", // sustainability (Thai)
+  // REAL ESTATE / PROPERTY DEVELOPMENT - Business announcements, NOT breaking news
+  // Per scoring guide: "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
+  "villa", // villa (English)
+  "วิลล่า", // villa (Thai)
+  "luxury villa", // luxury villa development
+  "luxury development", // luxury development
+  "property development", // property development
+  "real estate", // real estate
+  "อสังหาริมทรัพย์", // real estate (Thai)
+  "คอนโด", // condo
+  "condominium", // condominium
+  "residential", // residential development
+  "hotel development", // hotel development
+  "resort development", // resort development
+  "billion baht", // billion baht investment (routine business)
+  "พันล้าน", // billion (Thai) - large investment announcements
+  "investment", // investment news
+  "การลงทุน", // investment (Thai)
+  "transform", // area transformation/development
+  "premier destination", // real estate marketing language
+  "high-end", // high-end property
+  "luxury market", // luxury market
+  "property launch", // property launch
+  "groundbreaking", // groundbreaking ceremony
+  "TITLE", // TITLE (real estate developer brand)
+  "Boat Pattana", // Boat Pattana (developer)
 ];
 
 // POLITICS KEYWORDS - Used to cap political stories at score 3 regardless of AI category
@@ -467,10 +596,36 @@ INSTRUCTION: High engagement (especially views > 10,000 or shares > 50) STRONGLY
 `;
       }
 
+      // COMMUNITY COMMENTS CONTEXT - Critical for understanding true story context
+      // Comments often reveal the REAL meaning when Thai captions are sarcastic/vague
+      let commentsContext = "";
+      if (communityComments && communityComments.length > 0) {
+        commentsContext = `
+🚨 COMMUNITY COMMENTS FROM FACEBOOK (CRITICAL FOR UNDERSTANDING TRUE CONTEXT):
+These comments reveal what the story is ACTUALLY about - Thai captions are often sarcastic, vague, or use euphemisms.
+
+${communityComments.slice(0, 10).map((c, i) => `${i + 1}. "${c}"`).join('\n')}
+
+⚠️ HOW TO USE THESE COMMENTS:
+1. **DECODE HIDDEN MEANING**: If caption says "mysterious stickers" but comments mention "drugs", "cocaine", "selling", "Telegram" → the story is about DRUG ADVERTISING, not just "mysterious stickers"
+2. **DETECT SARCASM**: If comments use "555", "นักท่องเที่ยวคุณภาพ" (quality tourist), laughing emojis → the post is MOCKING the subject
+3. **IDENTIFY CRIME/ILLEGAL ACTIVITY**: Look for keywords like ยาเสพติด (drugs), โคเคน (cocaine), ขายยา (drug dealing), แก๊ง (gang), illegal, arrest
+4. **CORRECT YOUR INTERPRETATION**: If your initial read seems too innocent but comments suggest crime/scandal, RE-INTERPRET the story correctly
+5. **BOOST SCORE APPROPRIATELY**: Drug-related stories, tourist scandals, crime = Score 4-5 (high interest)
+
+🚫 DO NOT:
+- Write a sanitized "mysterious curiosity" story when comments reveal it's about DRUG SALES
+- Score drug/crime stories at 3 just because the caption was vague
+- Ignore Thai slang for drugs/illegal activity
+`;
+        console.log(`   💬 Injected ${communityComments.length} community comments for context analysis`);
+      }
+
       const prompt = `You are a professional news editor for an English-language news site covering Phuket, Thailand. 
 
 Engagement Metrics:
 ${engagementContext}
+${commentsContext}
 
 Your task:
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
@@ -642,6 +797,22 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - 5 = FOREIGNER INCIDENTS: ANY story involving foreigners/tourists/expats doing something out of the ordinary - fights, accidents, disturbances, arrests, confrontations with locals. These stories go VIRAL with the expat audience. Keywords: foreigner, tourist, farang, expat, foreign national, American, British, Russian, Chinese tourist, etc.
 - 4 = SERIOUS INCIDENTS: Non-fatal accidents with injuries, arrests for serious crimes, active rescue operations, fights/assaults, hit-and-runs, robberies
 
+🐢 **FEEL-GOOD / VIRAL POSITIVE STORIES = SCORE 4-5 (AUTO-POST TO SOCIALS):**
+These heartwarming stories GO VIRAL and drive massive engagement. BOOST them:
+- **Wildlife/Animal Stories**: Sea turtle nesting/hatching, dolphin sightings, whale shark encounters, elephant rescues, rare wildlife spotted, baby animals, marine life conservation = Score 4-5
+- **Conservation Success**: Coral restoration, beach cleanups with visible results, endangered species protection, environmental wins = Score 4-5  
+- **Good Samaritan Stories**: Locals helping tourists, honest taxi/tuk-tuk drivers returning lost items, random acts of kindness, rescues = Score 4-5
+- **Positive Foreigner Involvement**: Expats volunteering, tourists helping locals, foreigners doing good deeds, cross-cultural positive stories = Score 5 (VERY viral with expat audience)
+- **Rescue/Hero Stories**: Lifeguard saves swimmer, local saves drowning tourist, community comes together = Score 4-5
+
+EXAMPLES OF FEEL-GOOD = SCORE 4-5:
+- "Sea turtle lays 124 eggs at Karon Beach" = Score 5 (wildlife + family destination = viral)
+- "Honest taxi driver returns tourist's wallet with 50,000 baht" = Score 5 (good samaritan + foreigner)
+- "Baby turtles released into Andaman Sea" = Score 4-5 (conservation, cute, shareable)
+- "Expat organizes beach cleanup, removes 500kg of trash" = Score 5 (foreigner + positive + environmental)
+- "Dolphin pod spotted near Phi Phi Islands" = Score 4 (wildlife, tourism, shareable)
+- "Local fishermen rescue stranded whale shark" = Score 5 (rescue + rare wildlife)
+
 **CAP ROUTINE NEWS AT 3 OR BELOW:**
 - 3 = NOTEWORTHY: Minor accidents (no injuries), infrastructure complaints (potholes, flooding damage), tourism developments, business openings, new property launches, missing persons
 - 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning, **community sports events, friendly matches, alumni gatherings, local football/futsal matches**
@@ -675,6 +846,8 @@ INTEREST SCORE (1-5) - BE VERY STRICT:
 - **"Tourist arrested for..." = Score 5 (foreigner incident)**
 - **"Expat involved in accident" = Score 5 (foreigner incident)**
 - **"Foreigner doing something weird/silly" = Score 5 (viral expat content - pot on head, funny behavior, etc.)**
+- **"Sea turtle eggs laid at beach" = Score 5 (wildlife, conservation, family-friendly viral)**
+- **"Good samaritan returns lost property" = Score 4-5 (heartwarming, shareable)**
 
 **CHARITY/DONATION EVENT RULES:**
 - Blood drives, donation ceremonies, fundraisers = ABSOLUTE MAX SCORE 3 (they're nice, but NOT high-engagement news)
@@ -802,6 +975,27 @@ Always output valid JSON.`,
         console.log(`   🔥 HOT KEYWORD BOOST: ${finalInterestScore - 1} → ${finalInterestScore}`);
       }
 
+      // Boost for feel-good keywords (wildlife, conservation, good samaritans, positive foreigner stories)
+      // These stories go viral and drive engagement on social media
+      const combinedTextForFeelGood = `${title} ${content} ${result.translatedTitle || ''} ${result.translatedContent || ''}`;
+      const hasFeelGoodKeyword = FEEL_GOOD_KEYWORDS.some(keyword =>
+        combinedTextForFeelGood.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      // Extra boost for positive foreigner involvement (very viral with expat audience)
+      const hasPositiveForeignerKeyword = [
+        "ฝรั่งช่วย", "นักท่องเที่ยวช่วย", "ต่างชาติช่วย",
+        "expat hero", "tourist saves", "foreigner helps", "foreign volunteer",
+        "tourist returned", "foreigner returned", "honest driver"
+      ].some(keyword => combinedTextForFeelGood.toLowerCase().includes(keyword.toLowerCase()));
+
+      if (hasFeelGoodKeyword) {
+        const boostAmount = hasPositiveForeignerKeyword ? 2 : 1; // Extra boost for positive foreigner stories
+        const oldScore = finalInterestScore;
+        finalInterestScore = Math.min(5, finalInterestScore + boostAmount);
+        console.log(`   🐢 FEEL-GOOD KEYWORD BOOST: ${oldScore} → ${finalInterestScore}${hasPositiveForeignerKeyword ? ' (positive foreigner bonus!)' : ''}`);
+      }
+
       // Reduce for cold keywords (boring news like meetings, ceremonies)
       const hasColdKeyword = COLD_KEYWORDS.some(keyword =>
         title.includes(keyword) || content.includes(keyword)
@@ -825,6 +1019,30 @@ Always output valid JSON.`,
       if ((category === "Politics" || hasPoliticsKeyword) && finalInterestScore > 3) {
         const reason = category === "Politics" ? "politics category" : `politics keyword detected`;
         console.log(`   🏛️  POLITICS CAP: ${finalInterestScore} → 3 (${reason})`);
+        finalInterestScore = 3;
+      }
+
+      // CAP BUSINESS/REAL ESTATE DEVELOPMENT NEWS AT SCORE 3
+      // Editorial decision: Property launches, hotel/villa developments, investment announcements
+      // are business news, NOT breaking news. Cap at 3 to prevent auto-posting.
+      const REAL_ESTATE_CAP_KEYWORDS = [
+        "villa", "วิลล่า", "luxury villa", "luxury development", "property development",
+        "real estate", "อสังหาริมทรัพย์", "hotel development", "resort development",
+        "billion baht", "พันล้าน", "property launch", "residential development",
+        "luxury market", "premier destination", "high-end villas", "TITLE", "Boat Pattana",
+        "Koh Kaew", // Common luxury development area
+      ];
+
+      const hasRealEstateKeyword = REAL_ESTATE_CAP_KEYWORDS.some(keyword =>
+        title.toLowerCase().includes(keyword.toLowerCase()) ||
+        content.toLowerCase().includes(keyword.toLowerCase()) ||
+        (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
+        (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
+      );
+
+      if ((category === "Business" || hasRealEstateKeyword) && finalInterestScore > 3) {
+        const reason = category === "Business" ? "business category" : `real estate/development keyword detected`;
+        console.log(`   🏗️  BUSINESS/REAL ESTATE CAP: ${finalInterestScore} → 3 (${reason})`);
         finalInterestScore = 3;
       }
 

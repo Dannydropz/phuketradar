@@ -185,6 +185,30 @@ export default function AdminDashboard() {
     },
   });
 
+  // Force Re-post to Facebook (for edited articles that were already posted)
+  const forceRepostToFacebookMutation = useMutation({
+    mutationFn: async (articleId: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${articleId}/facebook`, { force: true });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Re-posted to Facebook",
+        description: data.reposted
+          ? "Article has been re-posted to Facebook with updated content"
+          : "Article has been posted to Facebook successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Re-post",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Post timeline child to Facebook with parent link
   const postTimelineChildMutation = useMutation({
     mutationFn: async ({ articleId, parentId }: { articleId: string; parentId: string }) => {
@@ -1228,15 +1252,16 @@ export default function AdminDashboard() {
                                       variant="default"
                                       onClick={(e) => {
                                         if (e.shiftKey) {
-                                          // Shift+Click = Reset the facebook status
-                                          if (confirm('Reset Facebook status? This will allow you to re-post this article.')) {
-                                            updateMutation.mutate({ id: article.id, updates: { facebookPostId: null, facebookPostUrl: null } });
+                                          // Shift+Click = Force re-post with updated content
+                                          if (confirm('Re-post this article to Facebook with updated content? This will create a NEW Facebook post.')) {
+                                            forceRepostToFacebookMutation.mutate(article.id);
                                           }
                                         } else {
                                           // Normal click = View on Facebook
                                           window.open(`https://www.facebook.com/${article.facebookPostId!.replace('_', '/posts/')}`, '_blank');
                                         }
                                       }}
+                                      disabled={forceRepostToFacebookMutation.isPending}
                                       data-testid={`button-facebook-posted-${article.id}`}
                                       className="h-11 w-11 p-0 bg-blue-600 hover:bg-blue-700"
                                       aria-label="View on Facebook"
@@ -1244,7 +1269,7 @@ export default function AdminDashboard() {
                                       <Facebook className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Posted to Facebook (click to view, shift+click to reset)</TooltipContent>
+                                  <TooltipContent>Posted to Facebook (click to view, shift+click to RE-POST with updated content)</TooltipContent>
                                 </Tooltip>
                               ) : (
                                 <Tooltip>

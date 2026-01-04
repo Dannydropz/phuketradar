@@ -1447,9 +1447,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Post article to Facebook - PROTECTED
+  // Supports: { force: true } in body to re-post an already-posted article
   app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const { force } = req.body || {};
+
       const article = await storage.getArticleById(id);
 
       if (!article) {
@@ -1460,8 +1463,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Only published articles can be posted to Facebook" });
       }
 
-      if (article.facebookPostId) {
-        return res.status(400).json({ error: "Article already posted to Facebook" });
+      // If already posted and not forcing, return error
+      if (article.facebookPostId && !force) {
+        return res.status(400).json({
+          error: "Article already posted to Facebook",
+          hint: "Use { force: true } in request body to re-post with updated content"
+        });
+      }
+
+      // If forcing a re-post, clear the old Facebook post ID first
+      if (article.facebookPostId && force) {
+        console.log(`🔄 [FB-REPOST] Force re-posting article ${id} - clearing old facebookPostId: ${article.facebookPostId}`);
+        await storage.updateArticle(id, {
+          facebookPostId: null,
+          facebookPostUrl: null
+        });
+        // Reload article after clearing
+        const clearedArticle = await storage.getArticleById(id);
+        if (!clearedArticle) {
+          return res.status(404).json({ error: "Article not found after clearing" });
+        }
+        // Use the cleared article for posting
+        const fbResult = await postArticleToFacebook(clearedArticle, storage);
+
+        if (!fbResult) {
+          return res.status(500).json({ error: "Failed to re-post to Facebook" });
+        }
+
+        const updatedArticle = await storage.getArticleById(id);
+        console.log(`✅ [FB-REPOST] Successfully re-posted article with new post ID: ${fbResult.postId}`);
+
+        return res.json({
+          ...updatedArticle,
+          status: fbResult.status,
+          reposted: true,
+          note: "Article was re-posted to Facebook with updated content"
+        });
       }
 
       const fbResult = await postArticleToFacebook(article, storage);
@@ -1482,6 +1519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to post to Facebook" });
     }
   });
+
 
   // Batch post articles to Facebook - PROTECTED
   app.post("/api/admin/facebook/batch-post", requireAdminAuth, async (req, res) => {
