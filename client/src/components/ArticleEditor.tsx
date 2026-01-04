@@ -68,6 +68,8 @@ export function ArticleEditor({
   const [facebookHeadline, setFacebookHeadline] = useState(article?.facebookHeadline || '');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isGeneratingHeadline, setIsGeneratingHeadline] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [previousScore, setPreviousScore] = useState<number>(article?.interestScore ?? 3);
 
   const editor = useEditor({
     extensions: [
@@ -273,20 +275,91 @@ export function ArticleEditor({
       {/* Interest Score */}
       <div className="space-y-2">
         <Label htmlFor="article-interest-score">Interest Score</Label>
-        <Select value={interestScore.toString()} onValueChange={(val) => setInterestScore(parseInt(val))}>
-          <SelectTrigger id="article-interest-score" data-testid="select-article-interest-score">
-            <SelectValue placeholder="Select interest score" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">1 - Low (Draft only)</SelectItem>
-            <SelectItem value="2">2 - Minor (Draft only)</SelectItem>
-            <SelectItem value="3">3 - Moderate (Published, manual post)</SelectItem>
-            <SelectItem value="4">4 - High (Auto-posted to socials)</SelectItem>
-            <SelectItem value="5">5 - Urgent (Auto-posted to socials)</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select
+            value={interestScore.toString()}
+            onValueChange={(val) => {
+              const newScore = parseInt(val);
+              // Track previous score for upgrade detection
+              setPreviousScore(interestScore);
+              setInterestScore(newScore);
+            }}
+          >
+            <SelectTrigger id="article-interest-score" data-testid="select-article-interest-score" className="flex-1">
+              <SelectValue placeholder="Select interest score" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 - Low (Draft only)</SelectItem>
+              <SelectItem value="2">2 - Minor (Draft only)</SelectItem>
+              <SelectItem value="3">3 - Moderate (Published, manual post)</SelectItem>
+              <SelectItem value="4">4 - High (Auto-posted to socials)</SelectItem>
+              <SelectItem value="5">5 - Urgent (Auto-posted to socials)</SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Show Upgrade & Enrich button for existing articles with low scores */}
+          {article?.id && (article?.interestScore ?? 3) < 4 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={async () => {
+                if (!article?.id) return;
+                setIsUpgrading(true);
+                try {
+                  const response = await fetch(`/api/admin/articles/${article.id}/upgrade-enrich`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ targetScore: interestScore >= 4 ? interestScore : 4 }),
+                  });
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to upgrade article');
+                  }
+                  const data = await response.json();
+
+                  // Update editor with enriched content
+                  if (data.article) {
+                    setTitle(data.article.title);
+                    setExcerpt(data.article.excerpt);
+                    setInterestScore(data.article.interestScore);
+                    if (data.article.facebookHeadline) {
+                      setFacebookHeadline(data.article.facebookHeadline);
+                    }
+                    if (editor && data.article.content) {
+                      editor.commands.setContent(data.article.content);
+                    }
+                  }
+
+                  toast({
+                    title: "✨ Article Upgraded!",
+                    description: `Story enhanced with GPT-4o premium enrichment. Score: ${data.changes?.previousScore} → ${data.changes?.newScore}`,
+                  });
+                } catch (error) {
+                  toast({
+                    title: "Upgrade Failed",
+                    description: error instanceof Error ? error.message : "Failed to upgrade article",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsUpgrading(false);
+                }
+              }}
+              disabled={isUpgrading || isSaving}
+              data-testid="button-upgrade-enrich"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 border-0"
+            >
+              {isUpgrading ? '✨ Upgrading...' : '✨ Upgrade & Enrich'}
+            </Button>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
           Scores 4-5 trigger automatic posting to Facebook/Instagram/Threads when published.
+          {article?.id && (article?.interestScore ?? 3) < 4 && (
+            <span className="block mt-1 text-purple-600 dark:text-purple-400">
+              💡 Tip: Use "Upgrade & Enrich" to re-write this story with premium GPT-4o for high-quality journalism.
+            </span>
+          )}
         </p>
       </div>
 

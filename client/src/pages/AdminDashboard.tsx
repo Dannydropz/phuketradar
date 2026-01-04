@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp, Link, TrendingUp } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -379,6 +379,28 @@ export default function AdminDashboard() {
     },
   });
 
+  // Upgrade & Enrich article with GPT-4o premium enrichment
+  const upgradeEnrichMutation = useMutation({
+    mutationFn: async ({ id, targetScore = 4 }: { id: string; targetScore?: number }) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${id}/upgrade-enrich`, { targetScore });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      toast({
+        title: "✨ Article Upgraded!",
+        description: `Story enhanced with GPT-4o. Score: ${data.changes?.previousScore || 'N/A'} → ${data.changes?.newScore || data.article?.interestScore}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upgrade Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
 
   const createArticleMutation = useMutation({
@@ -1244,6 +1266,31 @@ export default function AdminDashboard() {
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
+                              {/* Upgrade & Enrich Button - Show for low score articles */}
+                              {(article.interestScore ?? 3) < 4 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => upgradeEnrichMutation.mutate({ id: article.id, targetScore: 4 })}
+                                      disabled={upgradeEnrichMutation.isPending}
+                                      data-testid={`button-upgrade-${article.id}`}
+                                      className="h-11 w-11 p-0 border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                                      aria-label="Upgrade & Enrich article"
+                                    >
+                                      {upgradeEnrichMutation.isPending ? (
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Sparkles className="w-4 h-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-semibold">Upgrade & Enrich</p>
+                                    <p className="text-xs text-muted-foreground">Re-write this story with premium GPT-4o enrichment</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
                               {/* Facebook Button - Always visible. Hollow = not posted, Filled = posted */}
                               {article.facebookPostId && !article.facebookPostId.startsWith('LOCK:') ? (
                                 <Tooltip>

@@ -1713,6 +1713,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upgrade & Enrich article with premium GPT-4o - PROTECTED
+  // Used to upgrade low-interest stories (score 1-3) to high-interest quality (score 4-5)
+  app.post("/api/admin/articles/:id/upgrade-enrich", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { targetScore = 4 } = req.body; // Default target score is 4
+
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      console.log(`\n✨ [UPGRADE-ENRICH] Starting premium enrichment for article: ${article.title.substring(0, 60)}...`);
+      console.log(`   📊 Current score: ${article.interestScore || 'N/A'} → Target: ${targetScore}`);
+      console.log(`   📝 Current content length: ${article.content?.length || 0} chars`);
+
+      // Run premium GPT-4o enrichment on the existing content
+      const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
+        title: article.title,
+        content: article.content || '',
+        excerpt: article.excerpt || '',
+        category: article.category,
+      }, "gpt-4o"); // Always use the premium model for upgrades
+
+      console.log(`   ✅ GPT-4o enrichment complete`);
+      console.log(`   📝 New content length: ${enrichmentResult.enrichedContent?.length || 0} chars`);
+
+      // Generate a new Facebook headline if one doesn't exist
+      let facebookHeadline = article.facebookHeadline;
+      if (!facebookHeadline && enrichmentResult.enrichedTitle) {
+        // Create a punchy Facebook headline from the enriched title
+        try {
+          const { default: OpenAI } = await import("openai");
+          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+          const headlineResponse = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: "You generate short, punchy Facebook headlines (max 15 words) that drive clicks. Use emotion, urgency, and curiosity. Third-person news perspective only.",
+              },
+              {
+                role: "user",
+                content: `Generate a high-CTR Facebook headline for this article:\n\nTitle: ${enrichmentResult.enrichedTitle}\nExcerpt: ${enrichmentResult.enrichedExcerpt}`,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 50,
+          });
+
+          facebookHeadline = headlineResponse.choices[0].message.content?.trim().replace(/^["']|["']$/g, '') || enrichmentResult.enrichedTitle;
+          console.log(`   📱 Generated Facebook headline: ${facebookHeadline}`);
+        } catch (headlineError) {
+          console.warn(`   ⚠️  Failed to generate Facebook headline:`, headlineError);
+          facebookHeadline = enrichmentResult.enrichedTitle;
+        }
+      }
+
+      // Record the score adjustment for learning
+      if (article.interestScore !== targetScore) {
+        const { scoreLearningService } = await import("./services/score-learning");
+        await scoreLearningService.recordAdjustment({
+          articleId: id,
+          originalScore: article.interestScore || 3,
+          adjustedScore: targetScore,
+          adjustmentReason: `Admin upgraded story with premium GPT-4o enrichment (${article.interestScore || 3} → ${targetScore})`,
+        });
+      }
+
+      // Update the article with enriched content and new score
+      const updatedArticle = await storage.updateArticle(id, {
+        title: enrichmentResult.enrichedTitle,
+        content: enrichmentResult.enrichedContent,
+        excerpt: enrichmentResult.enrichedExcerpt,
+        interestScore: targetScore,
+        facebookHeadline: facebookHeadline || undefined,
+        enrichmentCount: (article.enrichmentCount || 0) + 1,
+        lastEnrichedAt: new Date(),
+      });
+
+      if (!updatedArticle) {
+        return res.status(500).json({ error: "Failed to update article" });
+      }
+
+      // Invalidate caches
+      invalidateArticleCaches();
+
+      console.log(`   🎉 [UPGRADE-ENRICH] Complete! Article upgraded to score ${targetScore}`);
+
+      res.json({
+        success: true,
+        article: updatedArticle,
+        changes: {
+          titleChanged: article.title !== enrichmentResult.enrichedTitle,
+          contentEnriched: true,
+          excerptChanged: article.excerpt !== enrichmentResult.enrichedExcerpt,
+          scoreUpgraded: article.interestScore !== targetScore,
+          previousScore: article.interestScore || 3,
+          newScore: targetScore,
+          facebookHeadlineGenerated: !article.facebookHeadline && !!facebookHeadline,
+        },
+      });
+    } catch (error) {
+      console.error("Error upgrading/enriching article:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to upgrade article" });
+    }
+  });
 
 
   // Clear stuck Facebook posting locks - PROTECTED
