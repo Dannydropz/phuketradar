@@ -47,6 +47,18 @@ export class DuplicateDetectionService {
       return [];
     }
 
+    // Layer 1.5: Title similarity with location matching (NEW - catches "Fire at Chalong Bay" variations)
+    const titleMatches = this.findByTitleSimilarity(article.title, embeddingMatches);
+    if (titleMatches.length > 0) {
+      console.log(`[DUPLICATE DETECTION] Title similarity layer found ${titleMatches.length} strong matches - skipping GPT verification`);
+      return titleMatches.map(match => ({
+        isDuplicate: true,
+        confidence: match.similarity,
+        matchedArticle: match.article,
+        reason: `Title similarity: ${(match.similarity * 100).toFixed(0)}% match with "${match.article.title.substring(0, 50)}..."`
+      }));
+    }
+
     // Layer 2: Entity matching (filter)
     const entityMatches = await this.filterByEntities(article, embeddingMatches);
     console.log(`[DUPLICATE DETECTION] Entity layer filtered to ${entityMatches.length} candidates`);
@@ -136,12 +148,129 @@ export class DuplicateDetectionService {
   }
 
   /**
+   * Layer 1.5: Find articles with similar titles + matching key terms
+   * This catches obvious duplicates like "Fire at Chalong Bay" vs "Fire Breaks Out at Chalong Bay"
+   * that might have lower embedding similarity due to different wording
+   */
+  private findByTitleSimilarity(
+    newTitle: string,
+    candidates: Article[]
+  ): { article: Article; similarity: number }[] {
+    const matches: { article: Article; similarity: number }[] = [];
+
+    // Normalize and tokenize the new title
+    const newTokens = this.tokenizeTitle(newTitle);
+    const newBigrams = this.getBigrams(newTokens);
+
+    for (const candidate of candidates) {
+      const candidateTokens = this.tokenizeTitle(candidate.title);
+      const candidateBigrams = this.getBigrams(candidateTokens);
+
+      // Calculate Jaccard similarity on bigrams (more robust than word overlap)
+      const similarity = this.jaccardSimilarity(newBigrams, candidateBigrams);
+
+      // Also check for key term overlap (locations, event types)
+      const keyTermOverlap = this.calculateKeyTermOverlap(newTokens, candidateTokens);
+
+      // Combined score: if bigram similarity > 60% OR (>40% + strong key term overlap)
+      const combinedScore = Math.max(similarity, similarity * 0.7 + keyTermOverlap * 0.3);
+
+      // Threshold: 65% combined similarity = likely same event
+      if (combinedScore >= 0.65) {
+        console.log(`[DUPLICATE DETECTION] Title match found:`);
+        console.log(`   New: "${newTitle.substring(0, 60)}..."`);
+        console.log(`   Existing: "${candidate.title.substring(0, 60)}..."`);
+        console.log(`   Bigram similarity: ${(similarity * 100).toFixed(0)}%, Key terms: ${(keyTermOverlap * 100).toFixed(0)}%, Combined: ${(combinedScore * 100).toFixed(0)}%`);
+        matches.push({ article: candidate, similarity: combinedScore });
+      }
+    }
+
+    return matches;
+  }
+
+  /**
+   * Tokenize a title into lowercase words, removing common articles/prepositions
+   */
+  private tokenizeTitle(title: string): string[] {
+    const stopWords = new Set([
+      'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'by',
+      'with', 'as', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+      'after', 'before', 'during', 'while', 'about', 'into', 'through'
+    ]);
+
+    return title
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Remove punctuation
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.has(word));
+  }
+
+  /**
+   * Generate bigrams from tokens for more robust matching
+   */
+  private getBigrams(tokens: string[]): Set<string> {
+    const bigrams = new Set<string>();
+    for (let i = 0; i < tokens.length - 1; i++) {
+      bigrams.add(`${tokens[i]}_${tokens[i + 1]}`);
+    }
+    // Also add individual important words (locations, event types)
+    const importantPatterns = /^(fire|accident|crash|rescue|drowning|dead|killed|injured|arrest|police|phuket|patong|chalong|karon|kata|rawai|kamala|mai\s*khao|airport|beach|pier|bay|road|hospital)/i;
+    for (const token of tokens) {
+      if (importantPatterns.test(token)) {
+        bigrams.add(`_key_${token}`);
+      }
+    }
+    return bigrams;
+  }
+
+  /**
+   * Calculate Jaccard similarity between two sets
+   */
+  private jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
+    if (setA.size === 0 && setB.size === 0) return 0;
+
+    const intersection = new Set(Array.from(setA).filter(x => setB.has(x)));
+    const union = new Set([...Array.from(setA), ...Array.from(setB)]);
+
+    return intersection.size / union.size;
+  }
+
+  /**
+   * Calculate overlap of key terms (locations, event types, numbers)
+   */
+  private calculateKeyTermOverlap(tokensA: string[], tokensB: string[]): number {
+    // Key locations in Phuket
+    const locations = new Set([
+      'phuket', 'patong', 'chalong', 'karon', 'kata', 'rawai', 'kamala', 'surin',
+      'bang', 'tao', 'nai', 'harn', 'mai', 'khao', 'airport', 'town', 'pier',
+      'bay', 'beach', 'road', 'hospital', 'school', 'temple', 'market'
+    ]);
+
+    // Event types
+    const eventTypes = new Set([
+      'fire', 'accident', 'crash', 'rescue', 'drowning', 'dead', 'death', 'killed',
+      'injured', 'arrest', 'arrested', 'police', 'robbery', 'theft', 'assault',
+      'flood', 'storm', 'landslide', 'collapse', 'explosion', 'shooting'
+    ]);
+
+    const keyTermsA = new Set(tokensA.filter(t => locations.has(t) || eventTypes.has(t)));
+    const keyTermsB = new Set(tokensB.filter(t => locations.has(t) || eventTypes.has(t)));
+
+    if (keyTermsA.size === 0 || keyTermsB.size === 0) return 0;
+
+    const intersection = new Set(Array.from(keyTermsA).filter(x => keyTermsB.has(x)));
+    const minSize = Math.min(keyTermsA.size, keyTermsB.size);
+
+    return intersection.size / minSize;
+  }
+
+  /**
    * Layer 1: Find articles with similar embeddings
    */
   private async findByEmbedding(
     embedding: number[],
     storage: IStorage,
-    threshold: number = 0.75 // Lower threshold for better recall, relying on GPT layer for final confirmation
+    threshold: number = 0.55 // Lowered from 0.75 to match scheduler's pre-translation check - catches more duplicates
   ): Promise<Article[]> {
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');

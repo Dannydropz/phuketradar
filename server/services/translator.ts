@@ -342,6 +342,92 @@ function enrichWithPhuketContext(text: string): string {
   return enrichedText;
 }
 
+// CRITICAL: Ensure article content has proper paragraph formatting
+// This prevents "wall of text" issues when GPT returns poorly formatted content
+function ensureProperParagraphFormatting(content: string): string {
+  if (!content || content.trim() === '') return content;
+
+  // If content already has proper <p> tags with content, return as-is
+  const hasParagraphTags = /<p[^>]*>/.test(content) && /<\/p>/.test(content);
+  const paragraphTagCount = (content.match(/<p[^>]*>/g) || []).length;
+
+  // Check if content is mostly wrapped in <p> tags (good formatting)
+  if (hasParagraphTags && paragraphTagCount >= 2) {
+    // Content has multiple paragraphs, likely well-formatted
+    return content;
+  }
+
+  // Content needs formatting - either no <p> tags or just one giant paragraph
+  let formattedContent = content;
+
+  // First, handle existing line breaks and double newlines
+  // Convert \n\n to paragraph breaks
+  formattedContent = formattedContent.replace(/\n\n+/g, '</p><p>');
+
+  // Convert single \n to paragraph breaks (news articles should have paragraph breaks)
+  formattedContent = formattedContent.replace(/\n/g, '</p><p>');
+
+  // Handle <br> tags that should be paragraph breaks
+  formattedContent = formattedContent.replace(/<br\s*\/?>/gi, '</p><p>');
+
+  // If content is still one giant block (no breaks found), try to split at sentence boundaries
+  // This handles the "wall of text" case where GPT returns no breaks at all
+  if (!formattedContent.includes('</p><p>')) {
+    // Split at logical sentence boundaries (after periods followed by space and capital letter)
+    // This regex finds '. [A-Z]' patterns and inserts paragraph breaks every 2-3 sentences
+    const sentences = formattedContent.split(/(?<=[.!?])\s+(?=[A-Z])/);
+
+    if (sentences.length > 3) {
+      // Group sentences into paragraphs of 2-3 sentences each
+      const paragraphs: string[] = [];
+      let currentParagraph: string[] = [];
+
+      sentences.forEach((sentence, index) => {
+        currentParagraph.push(sentence);
+        // Create a new paragraph every 2-3 sentences, or at natural break points
+        const isNaturalBreak = sentence.includes('Context:') ||
+          sentence.includes('Public Reaction') ||
+          sentence.includes('Background');
+        if (currentParagraph.length >= 3 || isNaturalBreak || index === sentences.length - 1) {
+          paragraphs.push(currentParagraph.join(' '));
+          currentParagraph = [];
+        }
+      });
+
+      if (currentParagraph.length > 0) {
+        paragraphs.push(currentParagraph.join(' '));
+      }
+
+      formattedContent = paragraphs.join('</p><p>');
+    }
+  }
+
+  // Clean up any existing partial <p> tags before wrapping
+  formattedContent = formattedContent.replace(/^\s*<\/p>/, '');
+  formattedContent = formattedContent.replace(/<p>\s*$/, '');
+
+  // Ensure content starts with <p> and ends with </p>
+  if (!formattedContent.trim().startsWith('<p')) {
+    formattedContent = '<p>' + formattedContent;
+  }
+  if (!formattedContent.trim().endsWith('</p>')) {
+    formattedContent = formattedContent + '</p>';
+  }
+
+  // Clean up empty paragraphs and whitespace issues
+  formattedContent = formattedContent.replace(/<p>\s*<\/p>/g, '');
+  formattedContent = formattedContent.replace(/<p><p>/g, '<p>');
+  formattedContent = formattedContent.replace(/<\/p><\/p>/g, '</p>');
+
+  // Preserve h2, h3, and other HTML tags that shouldn't be inside <p> tags
+  formattedContent = formattedContent.replace(/<p>\s*(<h[1-6][^>]*>)/gi, '$1');
+  formattedContent = formattedContent.replace(/(<\/h[1-6]>)\s*<\/p>/gi, '$1');
+
+  console.log(`   📝 Paragraph formatting applied: ${paragraphTagCount} → ${(formattedContent.match(/<p[^>]*>/g) || []).length} paragraphs`);
+
+  return formattedContent;
+}
+
 export class TranslatorService {
   // Premium GPT-4 enrichment for high-priority stories (score 4-5) or manual scrapes
   async enrichWithPremiumGPT4(params: {
@@ -468,10 +554,17 @@ This incident highlights ongoing public safety concerns along Bangla Road, which
 <h3>Public Reaction</h3>
 The incident has drawn significant attention on social media, with local residents expressing [sentiment]..."` : ''}"
 
+CRITICAL FORMATTING REQUIREMENTS:
+- EVERY paragraph MUST be wrapped in <p></p> tags
+- Article MUST have at least 4-6 separate paragraphs for easy reading
+- Use <h3> tags for section headings (Context, Public Reaction)
+- NEVER return content as a single wall of text - this is UNACCEPTABLE
+- Break up long paragraphs into digestible chunks of 2-3 sentences each
+
 Respond in JSON format:
 {
   "enrichedTitle": "Compelling, AP-Style Headline (Title Case)",
-  "enrichedContent": "Full HTML article starting with DATELINE, including Context section${params.communityComments && params.communityComments.length > 0 ? ' and Public Reaction section' : ''}",
+  "enrichedContent": "Full HTML article with proper <p> paragraph tags, starting with DATELINE, including Context section${params.communityComments && params.communityComments.length > 0 ? ' and Public Reaction section' : ''}",
   "enrichedExcerpt": "2-3 sentence professional summary"
 }`;
 
@@ -493,9 +586,12 @@ Respond in JSON format:
 
     const result = JSON.parse(completion.choices[0].message.content || "{}");
 
+    // Apply paragraph formatting safeguard
+    const formattedContent = ensureProperParagraphFormatting(result.enrichedContent || params.content);
+
     return {
       enrichedTitle: result.enrichedTitle || params.title,
-      enrichedContent: result.enrichedContent || params.content,
+      enrichedContent: formattedContent,
       enrichedExcerpt: result.enrichedExcerpt || params.excerpt,
     };
   }
@@ -670,7 +766,7 @@ Respond in JSON format:
 {
   "isActualNews": true/false,
   "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
-  "translatedContent": "professional news article in HTML format with <p> tags and <h2> for subheadings, perfect grammar, natural Phuket context",
+  "translatedContent": "professional news article in HTML format. CRITICAL FORMATTING REQUIREMENTS: (1) MUST wrap EVERY paragraph in <p></p> tags, (2) MUST have at least 3-5 separate paragraphs for readability, (3) Use <h3> for section headings like Context, (4) NEVER return a single wall of text without paragraph breaks - this is UNACCEPTABLE and will result in poor user experience",
   "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
   "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime|National",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
@@ -1081,6 +1177,10 @@ Always output valid JSON.`,
           // Fall back to the GPT-4o-mini version if enrichment fails
         }
       }
+
+      // STEP 7: ENSURE PROPER PARAGRAPH FORMATTING (critical safeguard)
+      // This catches any "wall of text" issues that GPT may produce
+      enrichedContent = ensureProperParagraphFormatting(enrichedContent);
 
       // Use precomputed embedding (from Thai title) if provided
       // This ensures we always compare embeddings in the same language (Thai)
