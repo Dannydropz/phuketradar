@@ -187,6 +187,16 @@ export class StoryEnrichmentCoordinator {
           }
         }
 
+        // CRITICAL: Skip articles that have been manually edited by admin
+        // This prevents auto-enrichment from overwriting human edits
+        if ((article as any).lastManualEditAt) {
+          console.log(`🔒 [ENRICHMENT] Skipping "${article.title.substring(0, 40)}..." - manually edited by admin, will not auto-enrich`);
+          // Permanently disable developing status since it was manually edited
+          await storage.updateArticle(article.id, { isDeveloping: false });
+          completed++;
+          continue;
+        }
+
         console.log(`\n🔍 [ENRICHMENT] Checking for updates for: "${article.title.substring(0, 60)}..."`);
 
         // 2. Search for related stories (updates)

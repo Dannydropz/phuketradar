@@ -1318,6 +1318,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // CRITICAL: Prevent enrichment from overwriting manual edits
+      // If admin is editing content, title, or excerpt, disable auto-enrichment
+      const contentEditFields = ['content', 'title', 'excerpt'];
+      const isContentEdit = contentEditFields.some(field => updates[field] !== undefined);
+
+      if (isContentEdit) {
+        console.log(`🔒 [PATCH ARTICLE] Content field edited - disabling isDeveloping to prevent auto-enrichment overwrites`);
+        updates.isDeveloping = false;
+        // Track when this was manually edited so enrichment knows to skip it
+        updates.lastManualEditAt = new Date();
+      }
+
       // CRITICAL FIX: Sanitize timeline tags to ensure they're separate array elements
       if (updates.timelineTags) {
         console.log(`📝 [PATCH ARTICLE] Raw timelineTags received:`, updates.timelineTags);

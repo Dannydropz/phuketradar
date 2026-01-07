@@ -66,6 +66,7 @@ export const articles = pgTable("articles", {
   parentStoryId: varchar("parent_story_id"), // If this was created from merging stories, points to the main story
   mergedIntoId: varchar("merged_into_id"), // If this story was merged into another, points to the merged story
   lastEnrichedAt: timestamp("last_enriched_at"), // When the last enrichment pass was done
+  lastManualEditAt: timestamp("last_manual_edit_at"), // When admin last manually edited content - enrichment will skip
   enrichmentCount: integer("enrichment_count").default(0), // Number of times this story has been enriched
   seriesId: varchar("series_id"), // Groups related articles that are part of a developing story
   storySeriesTitle: text("story_series_title"), // Human-readable title for the timeline (e.g., "Southern Thailand Flooding Crisis")

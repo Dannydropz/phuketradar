@@ -108,6 +108,7 @@ const LEAN_ARTICLE_FIELDS = {
   parentStoryId: articles.parentStoryId,
   mergedIntoId: articles.mergedIntoId,
   lastEnrichedAt: articles.lastEnrichedAt,
+  lastManualEditAt: articles.lastManualEditAt,
   enrichmentCount: articles.enrichmentCount,
   seriesId: articles.seriesId,
   storySeriesTitle: articles.storySeriesTitle,
