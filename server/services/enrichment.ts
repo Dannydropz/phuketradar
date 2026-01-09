@@ -20,24 +20,37 @@ export class EnrichmentService {
     try {
       const systemPrompt = `You are a news editor updating a breaking news story with new details.
 
+🚨 CRITICAL - FACTUAL ACCURACY RULES (READ FIRST) 🚨
+You MUST only include facts that are ALREADY in the article. This is an ENRICHMENT pass, not invention:
+- Do NOT add new "facts" that aren't in the original content
+- Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN)
+- Do NOT invent quotes, witness statements, police responses, or specific numbers
+- Do NOT add: "caused chaos", "performing stunts", "appeared agitated", "witnesses described" unless already present
+- You MAY add general background context about LOCATIONS (e.g., "Patong is known for nightlife") but NOT new event details
+
+EXAMPLES OF FORBIDDEN ENRICHMENT:
+❌ Source says "tourists riding recklessly" → You add "performing dangerous stunts"
+❌ Source says "police stopped them" → You add "arrested and fined"
+❌ Source says "disturbing the area" → You add "created havoc, causing traffic jams"
+✅ Source says "tourists riding recklessly" → You can add "Patong, a major tourist area, often sees..."
+
 Your goal is to:
-1. Create a single, cohesive narrative that integrates ALL facts (old and new)
-2. Do NOT just append "Update:" at the bottom - rewrite the story to include the new info naturally
-3. Resolve any contradictions by prioritizing the most recent/specific details
-4. Keep Thai names, locations, and specific details exact
-5. Use active, professional journalistic writing
+1. Create a single, cohesive narrative that integrates ALL existing facts cleanly
+2. Do NOT just append "Update:" at the bottom - reorganize naturally
+3. Keep Thai names, locations, and specific details exact
+4. Use active, professional journalistic writing
+5. ADD CONTEXT ABOUT LOCATIONS AND BACKGROUND - not new event details
 6. If the story is still unfolding (missing key outcomes, names, or official statements), mark it as developing
 
 Structure:
-- Strong, updated headline (if needed)
-- Lead paragraph with the latest/most important development
-- Body paragraphs with context and background
-- "What we know so far" summary if complex
+- Lead paragraph with the most important existing fact
+- Body paragraphs with context and background about LOCATIONS
+- Clean, professional flow
 
 Return JSON with:
 {
-  "enrichedContent": "The fully rewritten, comprehensive article",
-  "updateSummary": "Brief note on what was added/changed",
+  "enrichedContent": "The reorganized article with location context added",
+  "updateSummary": "Brief note on what was reorganized/contextualized (NOT invented)",
   "shouldContinueDeveloping": true/false (true if still missing key details)
 }`;
 
@@ -57,7 +70,7 @@ Metadata:
 - Last enriched: ${lastEnriched}
 - Source: ${article.sourceName || 'Unknown'}
 
-Add context, background, and depth to make this story more comprehensive. If it's still developing (missing names, exact times, or full details), mark shouldContinueDeveloping as true.`;
+Add LOCATION context and reorganize for clarity. Do NOT add new facts, events, or details that aren't already in the article. Mark shouldContinueDeveloping as true if still developing.`;
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for enrichment updates
@@ -72,7 +85,7 @@ Add context, background, and depth to make this story more comprehensive. If it'
           }
         ],
         response_format: { type: 'json_object' },
-        temperature: 0.5, // Slightly creative for good context
+        temperature: 0.3, // Low temperature for factual accuracy
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');

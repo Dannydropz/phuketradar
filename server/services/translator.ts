@@ -492,16 +492,34 @@ If the caption says "Tourist enjoying Patong" but comments say "Quality tourist 
     }
 
     const prompt = `You are a Senior International Correspondent for a major wire service (like AP, Reuters, or AFP) stationed in Phuket, Thailand.
+
+🚨 ABSOLUTE PRIORITY - FACTUAL ACCURACY (READ FIRST) 🚨
+You MUST report ONLY what the source explicitly states. DO NOT embellish, dramatize, or expand the meaning of words:
+
+❌ FORBIDDEN SEMANTIC EXPANSIONS (EXAMPLES):
+- "reckless" or "คึกคะนอง" → Do NOT upgrade to "stunts", "wheelies", "acrobatic maneuvers"
+- "disturbing" or "ป่วน" → Do NOT upgrade to "caused chaos", "created havoc", "disrupted traffic"
+- "motorbike gang" → Do NOT upgrade to "organized crime ring", "gang performing stunts"
+- "group of tourists" → Do NOT upgrade to "rowdy mob", "gang of revelers"
+- "riding at night" → Do NOT add "speeding", "racing", "performing tricks"
+- "pulled over by police" → Do NOT add "arrested", "detained", "fined" unless source says so
+
+✅ ALLOWED:
+- Translate accurately ("คึกคะนอง" = "reckless" or "boisterous", NOT "performing stunts")
+- Add general location context (e.g., "Patong is known for its nightlife")
+- Describe what the source explicitly shows or says
+
+IF THE SOURCE IS VAGUE, KEEP YOUR ARTICLE VAGUE. Short sources = short articles.
     
 YOUR MISSION:
-Take the provided local news report and rewrite it into a WORLD-CLASS PIECE OF JOURNALISM that rivals the quality of the New York Times or BBC.
+Take the provided local news report and rewrite it into professional journalism while staying 100% FACTUAL to the source.
 
 INPUT ARTICLE:
 Title: ${params.title}
 Category: ${params.category}
 Content: ${params.content}
 
-AVAILABLE LOCAL CONTEXT (Use this to add depth):
+AVAILABLE LOCAL CONTEXT (Use this to add depth about LOCATIONS ONLY, NOT events):
 ${contextMapString}
 ${communityCommentsSection}
 CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
@@ -513,7 +531,7 @@ CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
 
 STRICT WRITING GUIDELINES:
 1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events.
-2. **LEDE PARAGRAPH:** Write a powerful, summary lede that answers Who, What, Where, When, and Why in the first sentence.
+2. **LEDE PARAGRAPH:** Write a summary lede that answers Who, What, Where, When using ONLY facts from the source.
 3. **TONE:** Professional, objective, and authoritative. Avoid "police speak" (e.g., change "proceeded to the scene" to "rushed to the scene"). Use active voice.
 4. **STRUCTURE:**
    - **The Narrative:** Tell the story chronologically or by importance.${params.communityComments && params.communityComments.length > 0 ? `
@@ -522,10 +540,11 @@ STRICT WRITING GUIDELINES:
    - **The "Public Reaction" Section:** After Context, add "<h3>Public Reaction</h3>" summarizing community sentiment.` : ''}
 5. **FACTUALITY - ZERO TOLERANCE FOR HALLUCINATION:**
    - Do NOT invent quotes, specific numbers, witness statements, or police responses.
-   - Do NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "witnesses described", "police responded to calls" unless the source says so.
+   - Do NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "witnesses described", "police responded to calls", "performing stunts", "doing wheelies" unless the source says so.
+   - Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN).
    - You MAY add general context about locations (e.g., "Patong is a major tourist area") but NOT specific details about the event.
    - For short/viral posts: write SHORT factual articles (2-3 paragraphs). Do NOT dramatize into full news stories with invented scenarios.
-6. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language.
+6. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language, but do not exaggerate it.
 
 🎭 THAI SOCIAL MEDIA HUMOR DETECTION (CRITICAL FOR VIRAL POSTS):
 Thai social media posts often use SARCASM and EUPHEMISMS. DO NOT take captions literally:
@@ -580,7 +599,7 @@ Respond in JSON format:
           content: prompt,
         },
       ],
-      temperature: 0.5, // Balanced for creativity and accuracy
+      temperature: 0.3, // Lower temperature for factual accuracy over creativity
       response_format: { type: "json_object" }, // Enabled for GPT-4o
     });
 
