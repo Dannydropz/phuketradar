@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Menu, Clock, Share2, ChevronLeft } from "lucide-react";
+import { Search, Menu, Clock, Share2, ChevronLeft, Play } from "lucide-react";
 import { SearchDialog } from "@/components/SearchDialog";
 import { SiFacebook } from "react-icons/si";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +39,7 @@ export default function ArticleDetailNew() {
     const [api, setApi] = useState<CarouselApi>();
     const [current, setCurrent] = useState(0);
     const [searchOpen, setSearchOpen] = useState(false);
+    const [videoStarted, setVideoStarted] = useState(false);
     const { trackViewContent } = useMetaPixel();
 
     const { data: article, isLoading, error, isError } = useQuery<Article>({
@@ -76,6 +77,11 @@ export default function ArticleDetailNew() {
                 content_type: 'article',
             });
         }
+    }, [article?.id]);
+
+    // Reset video playback state when article changes
+    useEffect(() => {
+        setVideoStarted(false);
     }, [article?.id]);
 
     if (isLoading) {
@@ -316,14 +322,47 @@ export default function ArticleDetailNew() {
                                 />
                             ) : article.videoUrl ? (
                                 <div className="space-y-2">
-                                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
-                                        <video
-                                            src={article.videoUrl}
-                                            poster={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
-                                            controls
-                                            playsInline
-                                            className="w-full max-h-[600px] object-contain mx-auto"
-                                        />
+                                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-black relative">
+                                        {!videoStarted ? (
+                                            /* Play Button Overlay - Shows thumbnail with centered play button */
+                                            <div
+                                                className="relative cursor-pointer group"
+                                                onClick={() => setVideoStarted(true)}
+                                            >
+                                                {/* Poster/Thumbnail Image */}
+                                                <img
+                                                    src={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
+                                                    alt={article.title}
+                                                    className="w-full max-h-[600px] object-contain mx-auto"
+                                                />
+
+                                                {/* Dark Gradient Overlay */}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10 group-hover:from-black/70 group-hover:via-black/30 transition-all duration-300" />
+
+                                                {/* Centered Play Button */}
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-2xl shadow-black/50 group-hover:scale-110 group-hover:bg-white transition-all duration-300">
+                                                        <Play className="w-10 h-10 md:w-12 md:h-12 text-zinc-900 ml-1" fill="currentColor" />
+                                                    </div>
+                                                </div>
+
+                                                {/* Video Badge */}
+                                                <div className="absolute bottom-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/10">
+                                                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                                    <span className="text-xs font-medium text-white">Video</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* Actual Video Player - Shows after clicking play */
+                                            <video
+                                                src={article.videoUrl}
+                                                poster={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
+                                                controls
+                                                autoPlay
+                                                playsInline
+                                                className="w-full max-h-[600px] object-contain mx-auto"
+                                            />
+                                        )}
                                     </div>
                                     {/* Video Source Credit */}
                                     <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 py-2">
