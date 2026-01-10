@@ -626,6 +626,12 @@ Respond in JSON format:
       commentCount?: number;
       shareCount?: number;
       viewCount?: number;
+    },
+    assets?: {
+      hasVideo?: boolean;      // True if videoUrl exists
+      hasMultipleImages?: boolean;  // True if imageUrls.length > 1
+      hasCCTV?: boolean;       // True if content mentions CCTV
+      isVideo?: boolean;       // True if scraped post is a video/reel
     }
   ): Promise<TranslationResult> {
     try {
@@ -1201,6 +1207,52 @@ Always output valid JSON.`,
       // This catches any "wall of text" issues that GPT may produce
       enrichedContent = ensureProperParagraphFormatting(enrichedContent);
 
+      // STEP 8: GENERATE CURIOSITY GAP FACEBOOK HEADLINE for high-interest stories
+      // For score 4-5, we use the advanced Curiosity Gap strategy for maximum CTR
+      // For score 1-3, we use the basic GPT-generated facebookHeadline
+      let facebookHeadline = result.facebookHeadline || enrichedTitle;
+
+      if (finalInterestScore >= 4 && result.isActualNews) {
+        console.log(`   📱 HIGH-INTEREST STORY - Generating Curiosity Gap headline...`);
+        try {
+          const { generateQuickFacebookHeadline } = await import('./facebook-headline-generator');
+
+          // Use REAL asset data from the caller (scheduler has access to videoUrl, imageUrls, etc.)
+          // Only fall back to content-based detection if assets not provided
+          const hasVideo = assets?.hasVideo ?? assets?.isVideo ?? (
+            content.toLowerCase().includes('วิดีโอ') ||
+            content.toLowerCase().includes('video') ||
+            content.toLowerCase().includes('คลิป')
+          );
+          const hasMultipleImages = assets?.hasMultipleImages ?? (
+            content.includes('ภาพ') || content.includes('รูป')
+          );
+
+          // Log what assets we're detecting
+          if (assets) {
+            console.log(`   📦 Assets from scraper: video=${!!assets.hasVideo || !!assets.isVideo}, images=${!!assets.hasMultipleImages}`);
+          } else {
+            console.log(`   ⚠️  No asset metadata provided - falling back to content-based detection`);
+          }
+
+          facebookHeadline = await generateQuickFacebookHeadline(
+            enrichedTitle,
+            enrichedContent,
+            enrichedExcerpt,
+            category,
+            finalInterestScore,
+            hasVideo,
+            hasMultipleImages
+          );
+
+          console.log(`   ✅ Curiosity Gap headline: "${facebookHeadline}"`);
+        } catch (headlineError) {
+          console.warn(`   ⚠️  Curiosity Gap headline generation failed, using fallback:`, headlineError);
+          // Fall back to the basic GPT-generated headline
+          facebookHeadline = result.facebookHeadline || enrichedTitle;
+        }
+      }
+
       // Use precomputed embedding (from Thai title) if provided
       // This ensures we always compare embeddings in the same language (Thai)
       const embedding = precomputedEmbedding;
@@ -1216,7 +1268,7 @@ Always output valid JSON.`,
         needsReview: result.needsReview || false,
         reviewReason: result.reviewReason,
         embedding,
-        facebookHeadline: result.facebookHeadline,
+        facebookHeadline,
       };
     } catch (error) {
       console.error("Error translating content:", error);

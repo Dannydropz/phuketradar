@@ -1835,6 +1835,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Regenerate Facebook headline using Curiosity Gap strategy - PROTECTED
+  // Generates all 3 headline variants and recommends the best one
+  app.post("/api/admin/articles/:id/regenerate-headline", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { angle } = req.body; // Optional: force a specific angle ('visualProof', 'specificConsequence', 'breakingUpdate')
+
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      console.log(`\n📱 [REGENERATE-HEADLINE] Generating Curiosity Gap headlines for: ${article.title.substring(0, 60)}...`);
+
+      // Import the headline generator
+      const { generateFacebookHeadlines, validateHeadline } = await import("./services/facebook-headline-generator");
+
+      // Detect available assets from content
+      const content = article.content || '';
+      const hasVideo = content.toLowerCase().includes('วิดีโอ') ||
+        content.toLowerCase().includes('video') ||
+        content.toLowerCase().includes('คลิป') ||
+        !!article.videoUrl;
+      const hasMultipleImages = (article.imageUrls && article.imageUrls.length > 1) ||
+        content.includes('ภาพ') ||
+        content.includes('รูป');
+      const hasCCTV = content.toLowerCase().includes('cctv') ||
+        content.toLowerCase().includes('กล้องวงจรปิด');
+      const hasMap = content.toLowerCase().includes('map') ||
+        content.toLowerCase().includes('แผนที่');
+
+      // Generate all headline variants
+      const variants = await generateFacebookHeadlines({
+        title: article.title,
+        content: content,
+        excerpt: article.excerpt || '',
+        category: article.category,
+        interestScore: article.interestScore || 3,
+        hasVideo,
+        hasMultipleImages,
+        hasCCTV,
+        hasMap,
+        isDeveloping: article.isDeveloping || false,
+      });
+
+      console.log(`   📸 Visual: "${variants.visualProof}"`);
+      console.log(`   ⚖️  Consequence: "${variants.specificConsequence}"`);
+      console.log(`   🚨 Breaking: "${variants.breakingUpdate}"`);
+      console.log(`   ✅ Recommended (${variants.recommendedAngle}): "${variants.recommended}"`);
+
+      // Validate all headlines
+      const validations = {
+        visualProof: validateHeadline(variants.visualProof),
+        specificConsequence: validateHeadline(variants.specificConsequence),
+        breakingUpdate: validateHeadline(variants.breakingUpdate),
+      };
+
+      // Determine which headline to use
+      let selectedHeadline: string;
+      let selectedAngle: string;
+
+      const validAngles = ['visualProof', 'specificConsequence', 'breakingUpdate'];
+      if (angle && validAngles.includes(angle)) {
+        // User requested a specific angle
+        selectedHeadline = variants[angle as keyof typeof variants] as string;
+        selectedAngle = angle;
+        console.log(`   🎯 Using requested angle: ${angle}`);
+      } else {
+        // Use the AI-recommended headline
+        selectedHeadline = variants.recommended;
+        selectedAngle = variants.recommendedAngle;
+      }
+
+      // Update the article with the new headline
+      const previousHeadline = article.facebookHeadline;
+      const updatedArticle = await storage.updateArticle(id, {
+        facebookHeadline: selectedHeadline,
+      });
+
+      if (!updatedArticle) {
+        return res.status(500).json({ error: "Failed to update article" });
+      }
+
+      // Invalidate caches
+      invalidateArticleCaches();
+
+      console.log(`   🎉 [REGENERATE-HEADLINE] Complete!`);
+
+      res.json({
+        success: true,
+        previousHeadline,
+        newHeadline: selectedHeadline,
+        selectedAngle,
+        variants: {
+          visualProof: {
+            headline: variants.visualProof,
+            valid: validations.visualProof.valid,
+            issues: validations.visualProof.issues,
+          },
+          specificConsequence: {
+            headline: variants.specificConsequence,
+            valid: validations.specificConsequence.valid,
+            issues: validations.specificConsequence.issues,
+          },
+          breakingUpdate: {
+            headline: variants.breakingUpdate,
+            valid: validations.breakingUpdate.valid,
+            issues: validations.breakingUpdate.issues,
+          },
+        },
+        recommendation: {
+          angle: variants.recommendedAngle,
+          reason: variants.recommendingReason,
+        },
+      });
+    } catch (error) {
+      console.error("Error regenerating headline:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to regenerate headline" });
+    }
+  });
 
   // Clear stuck Facebook posting locks - PROTECTED
   app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {

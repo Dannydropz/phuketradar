@@ -827,6 +827,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     commentCount: post.commentCount,
                     shareCount: post.shareCount,
                     viewCount: post.viewCount,
+                  },
+                  // ASSET METADATA: Pass REAL asset info so headlines don't lie about videos/photos
+                  {
+                    hasVideo: !!post.videoUrl,  // True only if actual video URL exists
+                    hasMultipleImages: (post.imageUrls?.length ?? 0) > 1,  // True only if multiple images
+                    hasCCTV: (post.content?.toLowerCase() || '').includes('cctv') ||
+                      (post.content || '').includes('กล้องวงจรปิด'),
+                    isVideo: post.isVideo,  // True if scraper detected this as a video/reel
                   }
                 );
               } catch (translationError) {
@@ -1427,6 +1435,14 @@ export async function runManualPostScrape(
           commentCount: post.commentCount,
           shareCount: post.shareCount,
           viewCount: post.viewCount,
+        },
+        // ASSET METADATA: Pass REAL asset info so headlines don't lie about videos/photos
+        {
+          hasVideo: !!post.videoUrl,
+          hasMultipleImages: (post.imageUrls?.length ?? 0) > 1,
+          hasCCTV: (post.content?.toLowerCase() || '').includes('cctv') ||
+            (post.content || '').includes('กล้องวงจรปิด'),
+          isVideo: post.isVideo,
         }
       );
     } catch (translationError) {
