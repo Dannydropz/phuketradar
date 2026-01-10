@@ -242,8 +242,17 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
               // STEP -4: Skip posts with no images (only publish posts with 1+ photos)
               // Note: Video posts should have their thumbnail set as imageUrl above
+              // EXCEPTION: Reel/video URLs can be embedded via Facebook widget even without thumbnails
+              const isEmbeddableVideoUrl = post.sourceUrl && (
+                post.sourceUrl.includes('/reel/') ||
+                post.sourceUrl.includes('/reels/') ||
+                post.sourceUrl.includes('/videos/') ||
+                post.sourceUrl.includes('/watch')
+              );
               const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl || (post.isVideo && post.videoThumbnail);
-              if (!hasImages) {
+              const canProceedWithEmbed = isEmbeddableVideoUrl && post.isVideo && !hasImages;
+
+              if (!hasImages && !canProceedWithEmbed) {
                 skippedNotNews++;
                 skipReasons.push({
                   reason: "No images",
@@ -267,6 +276,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   });
                 }
                 return;
+              }
+
+              // Log when using embed fallback for restricted videos
+              if (canProceedWithEmbed) {
+                console.log(`\n📺 EMBED FALLBACK - Video without thumbnail will use Facebook embed widget`);
+                console.log(`   Title: ${post.title.substring(0, 60)}...`);
+                console.log(`   Source URL: ${post.sourceUrl}`);
+                console.log(`   ⚡ Proceeding with Facebook embed (no thumbnail required)\n`);
               }
 
               // STEP -3: Skip Facebook "colored background text posts" (reliable filtering via API field)

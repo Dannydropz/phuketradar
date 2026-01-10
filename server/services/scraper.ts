@@ -879,6 +879,70 @@ export class ScraperService {
     return scrapedPosts;
   }
 
+  /**
+   * Enrich a reel post with missing thumbnail/video data by fetching from single post API
+   * The page feed API often returns empty videoDetails for reels, while the single post API has full data
+   */
+  private async enrichReelWithDetails(post: ScrapedPost): Promise<ScrapedPost> {
+    // Only enrich if it's a video/reel without a thumbnail
+    if (!post.isVideo || post.videoThumbnail || post.imageUrl) {
+      return post; // Already has thumbnail or not a video
+    }
+
+    const reelUrl = post.sourceUrl;
+    if (!reelUrl.includes('/reel/') && !reelUrl.includes('/reels/')) {
+      return post; // Not a reel URL
+    }
+
+    console.log(`\n📹 ENRICHING REEL: Fetching detailed video data for ${reelUrl.substring(0, 60)}...`);
+
+    try {
+      // Call the single post API to get full video details
+      const response = await fetch(`${this.scrapeCreatorsSinglePostUrl}?url=${encodeURIComponent(reelUrl)}`, {
+        headers: {
+          'x-api-key': this.apiKey!
+        }
+      });
+
+      if (!response.ok) {
+        console.log(`   ⚠️ Failed to fetch reel details (${response.status})`);
+        return post;
+      }
+
+      const data = await response.json();
+
+      // Check for error response
+      if (data.error || data.errorDescription) {
+        console.log(`   ⚠️ API returned error: ${data.error || data.errorDescription}`);
+        return post;
+      }
+
+      // Extract video details from single post response
+      const video = data.video;
+      if (video) {
+        console.log(`   ✅ Got video details from single post API`);
+
+        // Update post with video data
+        post.videoUrl = video.hd_url || video.sd_url || post.videoUrl;
+        post.videoThumbnail = video.thumbnail;
+
+        // Use thumbnail as image if no image exists
+        if (!post.imageUrl && video.thumbnail) {
+          post.imageUrl = video.thumbnail;
+          post.imageUrls = [video.thumbnail];
+          console.log(`   📸 Using video thumbnail as primary image: ${video.thumbnail.substring(0, 60)}...`);
+        }
+      } else {
+        console.log(`   ⚠️ No video object in response`);
+      }
+
+      return post;
+    } catch (error) {
+      console.error(`   ❌ Error enriching reel:`, error);
+      return post;
+    }
+  }
+
   // Method to fetch multiple pages of posts using cursor pagination
   async scrapeFacebookPageWithPagination(
     pageUrl: string,
@@ -950,12 +1014,21 @@ export class ScraperService {
         }
 
         const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
+
+        // CRITICAL FIX: Enrich reels that are missing thumbnails
+        // The page feed API returns empty videoDetails for reels, so we need to fetch full details
+        const enrichedParsed: ScrapedPost[] = [];
+        for (const post of parsed) {
+          const enrichedPost = await this.enrichReelWithDetails(post);
+          enrichedParsed.push(enrichedPost);
+        }
+
         let newPostsOnThisPage = 0;
         let duplicatesOnThisPage = 0;
 
         // If duplicate checker is provided, track consecutive duplicates
         if (checkForDuplicate) {
-          for (const post of parsed) {
+          for (const post of enrichedParsed) {
             const isDuplicate = await checkForDuplicate(post.sourceUrl);
             if (isDuplicate) {
               consecutiveDuplicates++;
@@ -983,11 +1056,11 @@ export class ScraperService {
           }
         } else {
           // No duplicate checking, add all posts
-          allPosts = [...allPosts, ...parsed];
-          newPostsOnThisPage = parsed.length;
+          allPosts = [...allPosts, ...enrichedParsed];
+          newPostsOnThisPage = enrichedParsed.length;
         }
 
-        console.log(`   Posts on page ${pageCount + 1}: ${parsed.length} total, ${newPostsOnThisPage} new, ${duplicatesOnThisPage} duplicates`);
+        console.log(`   Posts on page ${pageCount + 1}: ${enrichedParsed.length} total, ${newPostsOnThisPage} new, ${duplicatesOnThisPage} duplicates`);
         if (pageCount === 0) {
           console.log(`   ℹ️  Page 1 always fetched completely (ensures latest posts captured)`);
         }
