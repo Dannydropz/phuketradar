@@ -121,7 +121,32 @@ export async function postArticleToFacebook(
     // STEP 2: POST - Make the external API call (we hold the lock)
     // POST FORMAT: Teaser headline (curiosity gap) + CTA + hashtags
     // Goal: Hook them with intrigue, tell them where to find the link
-    const headline = article.facebookHeadline || article.title;
+
+    let headline = article.facebookHeadline;
+
+    // If no facebookHeadline exists (e.g., manually created articles), generate one
+    if (!headline) {
+      console.log(`📱 [FB-POST] No Facebook headline set - generating curiosity-gap teaser...`);
+      try {
+        const { generateQuickFacebookHeadline } = await import("../services/facebook-headline-generator");
+        headline = await generateQuickFacebookHeadline(
+          article.title,
+          article.content || '',
+          article.excerpt || '',
+          article.category,
+          article.interestScore || 3,
+          !!article.videoUrl,
+          (article.imageUrls?.length || 0) > 1
+        );
+        console.log(`✅ [FB-POST] Generated headline: "${headline}"`);
+
+        // Save for future use
+        await storage.updateArticle(article.id, { facebookHeadline: headline });
+      } catch (genError) {
+        console.warn(`⚠️ [FB-POST] Failed to generate headline, using title:`, genError);
+        headline = article.title;
+      }
+    }
 
     // Clean format: Teaser headline + simple CTA pointing to link in comment + hashtags
     const postMessage = `${headline}\n\n👇 Tap the link in the first comment for the full story\n\n${hashtags}`;
