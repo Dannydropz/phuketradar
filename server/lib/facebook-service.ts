@@ -149,7 +149,12 @@ export async function postArticleToFacebook(
     }
 
     // Clean format: Teaser headline + simple CTA pointing to link in comment + hashtags
-    const postMessage = `${headline}\n\n👇 Tap the link in the first comment for the full story\n\n${hashtags}`;
+    // Use different CTA when the story has video content
+    const hasVideo = !!(article.videoUrl || article.facebookEmbedUrl);
+    const ctaText = hasVideo
+      ? "👇 Tap the link in the first comment for the video and full story"
+      : "👇 Tap the link in the first comment for the full story";
+    const postMessage = `${headline}\n\n${ctaText}\n\n${hashtags}`;
 
     console.log(`📘 [FB-POST] Posting to Facebook API...`);
     console.log(`📘 [FB-POST] Page ID: ${FB_PAGE_ID}`);
