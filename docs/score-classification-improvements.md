@@ -39,24 +39,29 @@ Updated the AI scoring guidelines to be much more conservative:
 - "Students win robotics award" = Score 3 (achievement, NOT urgent)
 - "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
 
-### 2. **Score Learning System**
-Created a new system to track and learn from manual score adjustments:
+### 2. **Enhanced Self-Learning Score System** (v2.0 - January 2026)
+Created a comprehensive learning system that teaches the AI from your manual corrections:
 
 **New Database Table:** `score_adjustments`
 - Tracks every manual score change you make
 - Records original vs adjusted score
+- **NEW:** Extracts and stores Thai keywords from original source content
 - Stores article details for pattern analysis
 - Timestamps all adjustments
 
-**New Service:** `server/services/score-learning.ts`
-- `recordAdjustment()` - Logs when you change a score
+**Enhanced Service:** `server/services/score-learning.ts`
+- `recordAdjustment()` - Logs when you change a score with **rich context extraction**
 - `getLearningInsights()` - Analyzes patterns by category
 - `getStatistics()` - Shows overall scoring accuracy
+- **NEW:** `getCategoryBiases()` - Calculates how much the AI over/under-scores each category
+- **NEW:** `generateLearningContext()` - Creates rich prompt injection for GPT learning
 
-**Integration:**
-- When you change an article's interest score in the admin, it's automatically logged
-- The system tracks which categories are consistently over/under-scored
-- Future enhancement: Use this data to fine-tune the AI prompts
+**How It Teaches the Model:**
+When GPT-4o-mini scores new articles, it receives:
+1. **Category Bias Warnings**: "You OVER-SCORE 'Local' stories by ~0.8 points. REDUCE scores for this category."
+2. **Specific Example Corrections**: Shows exact stories you corrected with keywords
+3. **Overall Tendency Analysis**: "You over-scored 75% of the time. Be more conservative."
+4. **Pattern Recognition**: Identifies which Thai/English keywords led to mis-scoring
 
 ### 3. **Admin API Endpoints**
 Added new endpoints to view learning insights:

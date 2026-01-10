@@ -4,7 +4,10 @@
 
 **Issue:** Auto-scraping skips Facebook video/reel posts (e.g., `https://www.facebook.com/reel/838405052487476`) while manual scraping works correctly.
 
-**Status:** ✅ ROOT CAUSE CONFIRMED - Ready for Fix
+**Status:** ✅ FIXED & DEPLOYED (Commit: f0cea26)
+
+**Fix Applied:** Added `videoThumbnail` fallback chain to `parseScrapeCreatorsResponse()` (line 746 in `server/services/scraper.ts`)
+
 
 ---
 

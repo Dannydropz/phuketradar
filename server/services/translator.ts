@@ -684,20 +684,16 @@ Respond in JSON format:
 
       // STEP 4: Polish/rewrite with GPT-4o-mini
 
-      // SCORE LEARNING: Fetch recent manual adjustments to inject as learning examples
+      // SCORE LEARNING: Inject rich learning context from admin corrections
+      // This teaches the model from past mistakes with category biases and specific examples
       let learningContext = "";
       try {
         const { scoreLearningService } = await import("./score-learning");
-        // Get last 10 adjustments across all categories
-        const adjustments = await scoreLearningService.getAdjustmentsByCategory("all", 10);
+        // Use the new rich learning context generator (includes bias patterns, examples, and statistics)
+        learningContext = await scoreLearningService.generateLearningContext();
 
-        if (adjustments && adjustments.length > 0) {
-          learningContext = `
-SCORING CORRECTIONS FROM ADMIN (LEARN FROM THESE MISTAKES):
-The admin has previously corrected scores for similar stories. DO NOT repeat these mistakes:
-${adjustments.map(adj => `- "${adj.articleTitle.substring(0, 50)}..." was scored ${adj.originalScore} but Admin corrected it to ${adj.adjustedScore}. Reason: ${adj.adjustmentReason || "Over/underscored"}`).join('\n')}
-`;
-          console.log(`   🧠 Injected ${adjustments.length} learning examples into prompt`);
+        if (learningContext) {
+          console.log(`   🧠 Score learning context injected into prompt`);
         }
       } catch (err) {
         console.warn("   ⚠️ Failed to fetch score learning context:", err);
