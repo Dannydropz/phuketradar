@@ -2409,7 +2409,7 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     }
   });
 
-  // Image upload endpoint - PROTECTED
+  // Image upload endpoint - PROTECTED (uploads to Cloudinary)
   app.post("/api/admin/upload-image", requireAdminAuth, upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
@@ -2417,36 +2417,71 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
       }
 
       const originalPath = req.file.path;
-      const filenameWithoutExt = path.parse(req.file.filename).name;
-      const newFilename = `${filenameWithoutExt}.webp`;
-      const newPath = path.join(path.dirname(originalPath), newFilename);
 
-      // Optimize image: Resize to max 1200px width and convert to WebP (quality 80)
-      await sharp(originalPath)
-        .resize({ width: 1200, withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toFile(newPath);
-
-      // Delete original file if it's different from the new one
-      if (originalPath !== newPath) {
-        await fs.unlink(originalPath);
+      // Check if Cloudinary is configured
+      if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        console.error("❌ Cloudinary not configured for image upload");
+        // Clean up temp file
+        try { await fs.unlink(originalPath); } catch (e) { /* ignore */ }
+        return res.status(500).json({ error: "Image storage not configured" });
       }
 
-      // Generate URL for uploaded image - use relative path for both dev and prod
-      const imageUrl = `/uploads/${newFilename}`;
+      console.log(`📤 Processing uploaded image: ${req.file.originalname}`);
+
+      // Optimize image with sharp before uploading to Cloudinary
+      const optimizedBuffer = await sharp(originalPath)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+
+      // Clean up temp file after processing
+      try { await fs.unlink(originalPath); } catch (e) { /* ignore */ }
+
+      // Import and configure Cloudinary
+      const { v2: cloudinary } = await import("cloudinary");
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      // Upload to Cloudinary
+      const imageUrl = await new Promise<string>((resolve, reject) => {
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substring(2, 10);
+
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "phuketradar",
+            public_id: `manual-upload-${timestamp}-${randomSuffix}`,
+            resource_type: "image",
+            format: "webp",
+          },
+          (error, result) => {
+            if (error) {
+              console.error("❌ Cloudinary upload failed:", error.message);
+              reject(new Error(`Cloudinary upload failed: ${error.message}`));
+            } else if (result?.secure_url) {
+              console.log(`✅ Uploaded to Cloudinary: ${result.secure_url}`);
+              resolve(result.secure_url);
+            } else {
+              reject(new Error("No URL returned from Cloudinary"));
+            }
+          }
+        );
+
+        uploadStream.end(optimizedBuffer);
+      });
 
       res.json({ imageUrl });
     } catch (error) {
       console.error("Error uploading image:", error);
-      // Clean up file if processing failed
+      // Clean up temp file if it exists
       if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (e) {
-          // Ignore cleanup error
-        }
+        try { await fs.unlink(req.file.path); } catch (e) { /* ignore */ }
       }
-      res.status(500).json({ error: "Failed to upload image" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload image";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
