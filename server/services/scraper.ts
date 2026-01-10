@@ -743,7 +743,9 @@ export class ScraperService {
 
         const isVideo = !!(post.videoDetails?.sdUrl || post.videoDetails?.hdUrl) || isUrlVideo || hasVideoAttachment;
         const videoUrl = post.videoDetails?.hdUrl || post.videoDetails?.sdUrl;
-        const videoThumbnail = post.videoDetails?.thumbnail;
+        // FIX: Add fallback sources for video thumbnail (same as scrapeSingleFacebookPost)
+        // The page feed API often returns full_picture/image but not videoDetails.thumbnail
+        const videoThumbnail = post.videoDetails?.thumbnail || post.full_picture || post.image;
 
         // Skip posts without ANY text content - UNLESS they are video/reel posts!
         // Video/reel stories are often news-heavy even with short captions.
