@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import { IframeExtension, parseIframeHtml } from '@/components/tiptap/IframeExtension';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ import {
   Heading2,
   Link as LinkIcon,
   Image as ImageIcon,
+  Code,
   Undo,
   Redo,
 } from 'lucide-react';
@@ -92,6 +94,9 @@ export function ArticleEditor({
           style: null,
         },
       }),
+      IframeExtension.configure({
+        allowFullscreen: true,
+      }),
       Placeholder.configure({
         placeholder: 'Start writing your article content here...',
       }),
@@ -144,6 +149,35 @@ export function ArticleEditor({
     const url = window.prompt('Enter image URL:');
     if (url) {
       editor.chain().focus().setImage({ src: url }).run();
+    }
+  };
+
+  const addEmbed = () => {
+    if (!editor) return;
+    const embedCode = window.prompt(
+      'Paste iframe embed code (e.g., Facebook video embed):',
+      '<iframe src="https://www.facebook.com/plugins/video.php?..." width="267" height="476"></iframe>'
+    );
+    if (embedCode) {
+      // Try to parse the iframe HTML
+      const parsed = parseIframeHtml(embedCode);
+      if (parsed && parsed.src) {
+        editor.chain().focus().setIframe({
+          src: parsed.src,
+          width: parsed.width,
+          height: parsed.height,
+        }).run();
+        toast({
+          title: "Embed Added",
+          description: "Iframe embed inserted into content",
+        });
+      } else {
+        toast({
+          title: "Invalid Embed Code",
+          description: "Please paste a valid iframe HTML code",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -655,6 +689,16 @@ export function ArticleEditor({
               data-testid="button-editor-image"
             >
               <ImageIcon className="w-4 h-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={addEmbed}
+              data-testid="button-editor-embed"
+              title="Add embed (iframe)"
+            >
+              <Code className="w-4 h-4" />
             </Button>
             <div className="flex-1" />
             <Button
