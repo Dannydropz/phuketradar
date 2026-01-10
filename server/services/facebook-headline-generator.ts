@@ -1,15 +1,16 @@
 /**
- * Facebook Headline Generator - Curiosity Gap Strategy
+ * Facebook Headline Generator - STORY-LEVEL Curiosity Gap Strategy
  * 
- * Goal: Generate headlines that maximize CTR to PhuketRadar.com by leveraging
- * the "Curiosity Gap" strategy WITHOUT using "Withholding Information" clickbait.
+ * Goal: Generate headlines that maximize CTR by WITHHOLDING KEY STORY DETAILS
+ * so readers MUST click to learn what happened.
  * 
- * Core Strategy: "Tease the Asset" - Make users click to see a specific asset
- * or detail that cannot be fully conveyed in a headline.
+ * CRITICAL INSIGHT: "See the photos" is USELESS when photos are already in the post!
+ * Instead, withhold WHO/WHAT/WHY/HOW so readers must click for the story.
  * 
- * ❌ BAD (Penalty Risk): "You won't believe who was arrested." (Withholds the subject)
- * ❌ BAD (Penalty Risk): "This one thing happened in Patong." (Withholds the event)
- * ✅ GOOD (Curiosity Gap): "Patong Arrest: The viral moment police boxed in the biker gang." (States the subject/event, teases the visual)
+ * ❌ BAD: "See the photos of the accident" (photos already visible in post)
+ * ❌ BAD: "Tourist arrested for drug possession in Patong" (whole story given)
+ * ✅ GOOD: "Tourist arrested after police search at Patong checkpoint" (what did they find?)
+ * ✅ GOOD: "A man has been found dead in Phuket after..." (how? why?)
  */
 
 import OpenAI from 'openai';
@@ -17,16 +18,16 @@ import OpenAI from 'openai';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface FacebookHeadlineVariants {
-    /** "Visual Proof" Angle - Implies there's something to see on the site */
-    visualProof: string;
-    /** "Specific Consequence" Angle - Drills down into specific outcomes */
-    specificConsequence: string;
-    /** "Breaking/Update" Angle - Urgency and status updates */
-    breakingUpdate: string;
+    /** "What Happened?" Angle - States outcome, omits cause */
+    whatHappened: string;
+    /** "Who/Why?" Angle - States event, omits specifics */
+    whoWhy: string;
+    /** "Consequence?" Angle - States action, omits outcome */
+    consequence: string;
     /** The AI's recommended best headline for this story */
     recommended: string;
-    /** Which angle was recommended: 'visualProof' | 'specificConsequence' | 'breakingUpdate' */
-    recommendedAngle: 'visualProof' | 'specificConsequence' | 'breakingUpdate';
+    /** Which angle was recommended */
+    recommendedAngle: 'whatHappened' | 'whoWhy' | 'consequence';
     /** Reasoning for why this angle was recommended */
     recommendingReason: string;
 }
@@ -45,137 +46,99 @@ export interface HeadlineGenerationInput {
 }
 
 /**
- * Generate Facebook headlines using the Curiosity Gap strategy.
+ * Generate Facebook headlines using STORY-LEVEL Curiosity Gaps.
  * 
- * This function creates 3 distinct headline variants:
- * 1. Visual Proof Angle - Teases visuals (video, photos, CCTV, maps)
- * 2. Specific Consequence Angle - Teases specific outcomes (fines, charges, laws)
- * 3. Breaking/Update Angle - Urgency and status updates
+ * This function creates 3 distinct headline variants that withhold different
+ * story elements to force clicks:
+ * 1. What Happened? - States outcome, omits cause/circumstances
+ * 2. Who/Why? - States event, omits key details about who/why
+ * 3. Consequence? - States action, omits what happened next
  */
 export async function generateFacebookHeadlines(
     input: HeadlineGenerationInput
 ): Promise<FacebookHeadlineVariants> {
-    const systemPrompt = `You are a senior social media editor for PhuketRadar.com, a news site covering Phuket, Thailand.
+    const systemPrompt = `You are a senior social media editor for a news site.
 
-Your job is to write Facebook headlines that MAXIMIZE click-through rate (CTR) to the website using the "Curiosity Gap" strategy.
+Your job is to write Facebook teasers that MAXIMIZE click-through by creating STORY-LEVEL CURIOSITY GAPS.
 
-🚨 CRITICAL CONSTRAINT - NO WITHHOLDING CLICKBAIT 🚨
-Facebook PENALIZES posts that withhold information. You MUST state the subject and event clearly.
+🚨 CRITICAL: THE PHOTOS ARE ALREADY IN THE POST! 🚨
+NEVER say "see the photos", "watch the video", "see the footage" - readers can already see them!
+Your job is to withhold STORY DETAILS, not promise visual "assets".
 
-❌ FORBIDDEN (Will be penalized by Facebook):
-- "You won't believe who was arrested." (Withholds the subject)
-- "This one thing happened in Patong." (Withholds the event)
-- "Shocking twist in Phuket case." (Vague and withholds)
-- "What they found will shock you." (Classic clickbait)
+🎯 THE STRATEGY: WITHHOLD KEY STORY DETAILS
+Make readers curious about WHO/WHAT/WHY/HOW - things they can ONLY learn by clicking:
 
-✅ ALLOWED (Curiosity Gap - Teases the Asset):
-- "Patong Arrest: The viral moment police boxed in the biker gang." (States subject, teases the visual)
-- "French Tourist Arrested: See the 3 visa laws that were broken." (States event, teases the list)
-- "UPDATE: Kathu Floods - Drone footage shows the worst-hit streets." (States event, teases visual)
+PATTERN 1 - STATE OUTCOME, OMIT CAUSE:
+- "A man has been found dead after..." (how? why? click to find out)
+- "Tourist hospitalized after incident at..." (what happened?)
+- "Police arrest foreigner following..." (what did he do?)
 
-🎯 THE STRATEGY: "TEASE THE ASSET"
-Your goal is to make users click to see a specific asset that cannot be fully conveyed in a headline:
+PATTERN 2 - STATE EVENT, OMIT KEY DETAILS:
+- "Police investigating after incident in Patong" (what incident?)
+- "Locals fighting back as authorities issue notices" (what notices? why?)
+- "Cases surging once again in Phuket" (what cases?)
 
-1️⃣ **TEASE VISUALS**: Mention there's something to SEE
-   - "Video shows...", "CCTV captures...", "See the photos of...", "Watch the moment...", "Drone footage reveals..."
-   - "The viral clip of...", "See where it happened on the map"
-   
-2️⃣ **TEASE LISTS/SPECIFICS**: Mention there's a list or specific detail
-   - "The 3 charges filed", "The 5 locations affected", "The full list of..."
-   - "The exact laws broken", "All 7 items found", "The complete timeline"
-   
-3️⃣ **TEASE UTILITY**: Mention useful information
-   - "The fines you could face", "Deportation criteria explained", "Visa rules that apply"
-   - "What tourists need to know", "The emergency numbers to call"
+PATTERN 3 - STATE ACTION, OMIT CONSEQUENCE:
+- "Tourist arrested after altercation with taxi driver" (what happened next?)
+- "Authorities issue warning after discovery at beach" (what was found?)
+- "Expat faces deportation after police search" (what did they find?)
 
-📝 HEADLINE STRUCTURE TEMPLATES:
+❌ FORBIDDEN (Too much detail - no reason to click):
+- "Tourist arrested for drug possession at Patong Beach checkpoint"
+- "Man dies after drowning at Kata Beach despite lifeguard warnings"
+- "Russian tourist arrested for overstaying visa by 45 days"
 
-VISUAL PROOF ANGLE:
-- [Location]: [Event Summary] - [Visual Hook]
-- "[Event]: See the [video/photos/CCTV footage/drone footage] of [teaser]"
-- "[Subject] caught on camera: The [viral/shocking/dramatic] moment [teaser]"
+❌ FORBIDDEN (Useless CTAs - photos already visible):
+- "See the photos of..."
+- "Watch the moment..."
+- "See the video of..."
+- "Click to see..."
 
-SPECIFIC CONSEQUENCE ANGLE:
-- [Event] in [Location]: [The specific detail hook]
-- "[Subject] faces [consequence]: The exact [charges/fines/laws] that [teaser]"
-- "[Category] breakdown: The [number] [things] that [teaser]"
+✅ EXAMPLES THAT WORK:
+- "Foreigner found unconscious on Bangla Road" (what happened to him?)
+- "Tourist arrested after police discover..." (what did police discover?)
+- "Phuket vendor goes viral after encounter with..." (encounter with who?)
+- "Locals outraged after authorities announce..." (announce what?)
 
-BREAKING/UPDATE ANGLE:
-- "UPDATE: [New Development] - [status hook]"
-- "CONFIRMED: [Official statement] + [what this means]"
-- "BREAKING: [Event] - [current status hook]"
+📝 STYLE RULES:
+- Maximum 20 words
+- Third-person news perspective (never "we", "our", "join us")
+- Be specific about locations (Patong, Kata, Karon, Bangla Road, etc.)
+- Use "after", "following", "as" to create trailing suspense
+- Active voice
+- No exclamation marks`;
 
-🎨 STYLE RULES:
-- Maximum 15 words per headline
-- Use colons to separate hooks
-- Be specific about locations (Patong, Kata, Karon, etc.)
-- Never use first-person ("Join us", "We", "Our")
-- Write from third-person news perspective
-- Use active voice
-- Include numbers when possible ("3 arrests", "5 locations")
-- No exclamation marks (they trigger spam filters)
-- AVOID these words: "shocking", "unbelievable", "incredible", "amazing" (clickbait triggers)
-- PREFER these words: "viral", "dramatic", "intense", "critical", "full", "exact"
-
-📊 CATEGORY-SPECIFIC HOOKS:
-
-CRIME: "The charges", "arrest footage", "what police found", "the evidence"
-TRAFFIC: "collision photos", "the vehicles involved", "road closure map", "the moment of impact"
-WEATHER: "drone footage", "satellite imagery", "affected areas map"
-TOURISM: "the regulations", "official rules", "what visitors need to know"
-LOCAL: "community response", "the timeline", "eyewitness accounts"`;
-
-    const userPrompt = `Generate 3 Facebook headline variants for this article:
+    const userPrompt = `Generate 3 Facebook teaser variants for this article:
 
 ARTICLE DETAILS:
 - Title: ${input.title}
 - Category: ${input.category}
-- Interest Score: ${input.interestScore}/5
 - Excerpt: ${input.excerpt}
 
-CONTENT:
-${input.content.substring(0, 1500)}
+CONTENT (summarized):
+${input.content.substring(0, 1200)}
 
-AVAILABLE ASSETS:
-- Has Video: ${input.hasVideo ? 'YES - You CAN say "See the video" or "Watch the footage"' : 'NO - Do NOT mention video/footage/watch - USE PHOTOS INSTEAD'}
-- Has Multiple Images: ${input.hasMultipleImages ? 'YES - You CAN say "See the photos" or "images"' : 'NO - Do NOT say "photos" or "images" (only 1 image exists)'}
-- Has CCTV Footage: ${input.hasCCTV ? 'YES - You CAN mention "CCTV footage"' : 'NO - Do NOT mention CCTV'}
-- Has Map: ${input.hasMap ? 'YES' : 'NO'}
-- Is Developing Story: ${input.isDeveloping ? 'YES (use UPDATE angle)' : 'NO'}
+TASK: Generate 3 teasers that WITHHOLD different story elements:
 
-🚨 CRITICAL ASSET RULE - NO FALSE PROMISES 🚨
-- If "Has Video" is NO: Do NOT use words like "video", "footage", "watch", "clip" - instead use "details", "report", "story"
-- If "Has Video" is YES: You CAN use "See the video", "Watch the moment", "footage shows"
-- If "Has Multiple Images" is YES but no video: Use "See the photos" instead of "Watch the video"
-- For the visual angle when no video exists: Focus on "the full story", "exclusive details", or specific consequences
+1. **WHAT HAPPENED?** - State the outcome but omit the cause/circumstances
+   Example: "A man has been found dead after incident at Patong hotel"
+   
+2. **WHO/WHY?** - State the event but omit specifics about who did it or why
+   Example: "Police investigating after discovery at Kata Beach"
+   
+3. **CONSEQUENCE?** - State the action but omit what happened next
+   Example: "Tourist arrested following altercation with local vendor"
 
-TASK: Generate exactly 3 headline variants following these angles:
-
-1. **VISUAL PROOF ANGLE** - Imply there's something to see on the site
-   Structure: [Event Summary] + [Visual Hook]
-   ${input.hasVideo ? 'Example: "Flash floods hit Kathu: See the drone footage of the worst-hit areas."' : 'Example (NO VIDEO): "Jet ski scam exposed: See the photos and full victim account."'}
-
-2. **SPECIFIC CONSEQUENCE ANGLE** - Drill into specific outcomes (fines, laws, charges)
-   Structure: [Event] + [Specific Detail Hook]
-   Example: "French motorbike racer arrested: The exact visa laws that were broken."
-
-3. **BREAKING/UPDATE ANGLE** - Urgency and status updates
-   Structure: "UPDATE:" or "CONFIRMED:" + [New Development]
-   Example: "UPDATE: Patong Police confirm checkpoints will continue tonight at these 3 locations."
-
-Then recommend which ONE headline to use based on:
-- The available assets (if video exists, visual angle is strong; if no video, prefer consequence or update angle)
-- The story type (crime stories → consequence angle, developing stories → update angle)
-- Maximum CTR potential
+Then recommend which ONE works best based on story type and maximum curiosity potential.
 
 Respond in JSON:
 {
-  "visualProof": "Your Visual Proof headline here",
-  "specificConsequence": "Your Specific Consequence headline here",
-  "breakingUpdate": "Your Breaking/Update headline here",
-  "recommended": "Copy of the best headline from above",
-  "recommendedAngle": "visualProof" | "specificConsequence" | "breakingUpdate",
-  "recommendingReason": "Brief explanation of why this angle works best for this story"
+  "whatHappened": "Your 'what happened?' teaser here",
+  "whoWhy": "Your 'who/why?' teaser here", 
+  "consequence": "Your 'consequence?' teaser here",
+  "recommended": "Copy of the best teaser from above",
+  "recommendedAngle": "whatHappened" | "whoWhy" | "consequence",
+  "recommendingReason": "Brief explanation of why this angle creates the most curiosity"
 }`;
 
     try {
@@ -185,24 +148,24 @@ Respond in JSON:
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
             ],
-            temperature: 0.7, // Slightly higher for creative headlines
+            temperature: 0.7,
             response_format: { type: 'json_object' },
         });
 
         const result = JSON.parse(completion.choices[0].message.content || '{}');
 
         // Validate and clean up the response
-        const validAngles = ['visualProof', 'specificConsequence', 'breakingUpdate'];
+        const validAngles = ['whatHappened', 'whoWhy', 'consequence'];
         const recommendedAngle = validAngles.includes(result.recommendedAngle)
             ? result.recommendedAngle
-            : 'visualProof';
+            : 'whatHappened';
 
         return {
-            visualProof: result.visualProof || input.title,
-            specificConsequence: result.specificConsequence || input.title,
-            breakingUpdate: result.breakingUpdate || `UPDATE: ${input.title}`,
+            whatHappened: result.whatHappened || input.title,
+            whoWhy: result.whoWhy || input.title,
+            consequence: result.consequence || input.title,
             recommended: result.recommended || result[recommendedAngle] || input.title,
-            recommendedAngle: recommendedAngle as 'visualProof' | 'specificConsequence' | 'breakingUpdate',
+            recommendedAngle: recommendedAngle as 'whatHappened' | 'whoWhy' | 'consequence',
             recommendingReason: result.recommendingReason || 'Default recommendation based on story type',
         };
     } catch (error) {
@@ -210,11 +173,11 @@ Respond in JSON:
 
         // Fallback to simple headline construction
         return {
-            visualProof: `${input.category} Update: ${input.title.substring(0, 80)}`,
-            specificConsequence: input.title,
-            breakingUpdate: `UPDATE: ${input.title.substring(0, 80)}`,
+            whatHappened: input.title,
+            whoWhy: input.title,
+            consequence: input.title,
             recommended: input.title,
-            recommendedAngle: 'visualProof',
+            recommendedAngle: 'whatHappened',
             recommendingReason: 'Fallback due to generation error',
         };
     }
@@ -243,10 +206,10 @@ export async function generateQuickFacebookHeadline(
         hasMultipleImages,
     });
 
-    console.log(`[FB-HEADLINE] Generated variants:`);
-    console.log(`   📸 Visual: "${variants.visualProof}"`);
-    console.log(`   ⚖️  Consequence: "${variants.specificConsequence}"`);
-    console.log(`   🚨 Breaking: "${variants.breakingUpdate}"`);
+    console.log(`[FB-HEADLINE] Generated curiosity-gap variants:`);
+    console.log(`   ❓ What Happened: "${variants.whatHappened}"`);
+    console.log(`   🔍 Who/Why: "${variants.whoWhy}"`);
+    console.log(`   ⚖️  Consequence: "${variants.consequence}"`);
     console.log(`   ✅ Recommended (${variants.recommendedAngle}): "${variants.recommended}"`);
     console.log(`   💡 Reason: ${variants.recommendingReason}`);
 
@@ -255,28 +218,24 @@ export async function generateQuickFacebookHeadline(
 
 /**
  * Validate that a headline follows Curiosity Gap principles
- * and doesn't use forbidden clickbait patterns.
+ * and doesn't use forbidden patterns.
  */
 export function validateHeadline(headline: string): { valid: boolean; issues: string[] } {
     const issues: string[] = [];
 
-    // Check for withholding clickbait patterns
-    const withholdingPatterns = [
-        /you won't believe/i,
-        /this one thing/i,
-        /what happened next/i,
-        /shocking twist/i,
-        /will shock you/i,
-        /can't believe/i,
-        /\.\.\.$/, // Trailing ellipsis (withholding)
-        /you'll never guess/i,
-        /what they found/i,
-        /the reason why/i,
+    // Check for useless "see the photos" type CTAs (photos are already visible!)
+    const uselessCTAs = [
+        /see the photos/i,
+        /watch the video/i,
+        /see the footage/i,
+        /click to see/i,
+        /see the moment/i,
+        /watch the moment/i,
     ];
 
-    for (const pattern of withholdingPatterns) {
+    for (const pattern of uselessCTAs) {
         if (pattern.test(headline)) {
-            issues.push(`Contains withholding pattern: "${headline.match(pattern)?.[0]}"`);
+            issues.push(`Contains useless CTA (photos already in post): "${headline.match(pattern)?.[0]}"`);
         }
     }
 
@@ -294,10 +253,10 @@ export function validateHeadline(headline: string): { valid: boolean; issues: st
         }
     }
 
-    // Check length (max 15 words)
+    // Check length (max 20 words)
     const wordCount = headline.split(/\s+/).length;
-    if (wordCount > 15) {
-        issues.push(`Too long: ${wordCount} words (max 15)`);
+    if (wordCount > 20) {
+        issues.push(`Too long: ${wordCount} words (max 20)`);
     }
 
     // Check for exclamation marks (spam trigger)

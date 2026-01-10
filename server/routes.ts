@@ -1756,7 +1756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate a new Facebook headline if one doesn't exist
       let facebookHeadline = article.facebookHeadline;
       if (!facebookHeadline && enrichmentResult.enrichedTitle) {
-        // Create a punchy Facebook headline from the enriched title
+        // Create a CURIOSITY GAP teaser headline that withholds details to drive clicks
         try {
           const { default: OpenAI } = await import("openai");
           const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -1766,24 +1766,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
             messages: [
               {
                 role: "system",
-                content: "You generate short, punchy Facebook headlines (max 15 words) that drive clicks. Use emotion, urgency, and curiosity. Third-person news perspective only.",
+                content: `You generate CURIOSITY GAP teasers for Facebook (max 20 words). 
+                
+THE GOAL: Hook readers but WITHHOLD key details so they MUST click to learn more.
+
+PATTERNS THAT WORK:
+- State outcome but omit cause: "A man has been found dead after..." (click to learn how)
+- Hint at drama without details: "Police investigating after incident at..." (what happened?)
+- Vague but intriguing: "Tourist arrested after altercation in Patong" (click to learn why)
+
+NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
               },
               {
                 role: "user",
-                content: `Generate a high-CTR Facebook headline for this article:\n\nTitle: ${enrichmentResult.enrichedTitle}\nExcerpt: ${enrichmentResult.enrichedExcerpt}`,
+                content: `Generate a curiosity-gap teaser for Facebook (withhold key details to force clicks):\n\nFull Title: ${enrichmentResult.enrichedTitle}\nExcerpt: ${enrichmentResult.enrichedExcerpt}`,
               },
             ],
             temperature: 0.7,
-            max_tokens: 50,
+            max_tokens: 60,
           });
 
           facebookHeadline = headlineResponse.choices[0].message.content?.trim().replace(/^["']|["']$/g, '') || enrichmentResult.enrichedTitle;
-          console.log(`   📱 Generated Facebook headline: ${facebookHeadline}`);
+          console.log(`   📱 Generated curiosity-gap headline: ${facebookHeadline}`);
         } catch (headlineError) {
           console.warn(`   ⚠️  Failed to generate Facebook headline:`, headlineError);
           facebookHeadline = enrichmentResult.enrichedTitle;
         }
       }
+
 
       // Record the score adjustment for learning
       if (article.interestScore !== targetScore) {
@@ -1840,7 +1850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/articles/:id/regenerate-headline", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { angle } = req.body; // Optional: force a specific angle ('visualProof', 'specificConsequence', 'breakingUpdate')
+      const { angle } = req.body; // Optional: force a specific angle ('whatHappened', 'whoWhy', 'consequence')
 
       const article = await storage.getArticleById(id);
 
@@ -1853,7 +1863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the headline generator
       const { generateFacebookHeadlines, validateHeadline } = await import("./services/facebook-headline-generator");
 
-      // Detect available assets from content
+      // Detect available assets from content (kept for context but no longer used to say "see the photos")
       const content = article.content || '';
       const hasVideo = content.toLowerCase().includes('วิดีโอ') ||
         content.toLowerCase().includes('video') ||
@@ -1867,7 +1877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasMap = content.toLowerCase().includes('map') ||
         content.toLowerCase().includes('แผนที่');
 
-      // Generate all headline variants
+      // Generate all headline variants (now uses story-level curiosity gaps)
       const variants = await generateFacebookHeadlines({
         title: article.title,
         content: content,
@@ -1881,23 +1891,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isDeveloping: article.isDeveloping || false,
       });
 
-      console.log(`   📸 Visual: "${variants.visualProof}"`);
-      console.log(`   ⚖️  Consequence: "${variants.specificConsequence}"`);
-      console.log(`   🚨 Breaking: "${variants.breakingUpdate}"`);
+      console.log(`   ❓ What Happened: "${variants.whatHappened}"`);
+      console.log(`   🔍 Who/Why: "${variants.whoWhy}"`);
+      console.log(`   ⚖️  Consequence: "${variants.consequence}"`);
       console.log(`   ✅ Recommended (${variants.recommendedAngle}): "${variants.recommended}"`);
 
       // Validate all headlines
       const validations = {
-        visualProof: validateHeadline(variants.visualProof),
-        specificConsequence: validateHeadline(variants.specificConsequence),
-        breakingUpdate: validateHeadline(variants.breakingUpdate),
+        whatHappened: validateHeadline(variants.whatHappened),
+        whoWhy: validateHeadline(variants.whoWhy),
+        consequence: validateHeadline(variants.consequence),
       };
 
       // Determine which headline to use
       let selectedHeadline: string;
       let selectedAngle: string;
 
-      const validAngles = ['visualProof', 'specificConsequence', 'breakingUpdate'];
+      const validAngles = ['whatHappened', 'whoWhy', 'consequence'];
       if (angle && validAngles.includes(angle)) {
         // User requested a specific angle
         selectedHeadline = variants[angle as keyof typeof variants] as string;
@@ -1930,20 +1940,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newHeadline: selectedHeadline,
         selectedAngle,
         variants: {
-          visualProof: {
-            headline: variants.visualProof,
-            valid: validations.visualProof.valid,
-            issues: validations.visualProof.issues,
+          whatHappened: {
+            headline: variants.whatHappened,
+            valid: validations.whatHappened.valid,
+            issues: validations.whatHappened.issues,
           },
-          specificConsequence: {
-            headline: variants.specificConsequence,
-            valid: validations.specificConsequence.valid,
-            issues: validations.specificConsequence.issues,
+          whoWhy: {
+            headline: variants.whoWhy,
+            valid: validations.whoWhy.valid,
+            issues: validations.whoWhy.issues,
           },
-          breakingUpdate: {
-            headline: variants.breakingUpdate,
-            valid: validations.breakingUpdate.valid,
-            issues: validations.breakingUpdate.issues,
+          consequence: {
+            headline: variants.consequence,
+            valid: validations.consequence.valid,
+            issues: validations.consequence.issues,
           },
         },
         recommendation: {
@@ -1956,6 +1966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to regenerate headline" });
     }
   });
+
 
   // Clear stuck Facebook posting locks - PROTECTED
   app.post("/api/admin/facebook/clear-locks", requireAdminAuth, async (req, res) => {
