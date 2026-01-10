@@ -119,14 +119,12 @@ export async function postArticleToFacebook(
     const articleUrl = getArticleUrl(article);
 
     // STEP 2: POST - Make the external API call (we hold the lock)
-    // NEW POST FORMAT: Teaser headline ONLY - no excerpt, no "see the photos" nonsense
-    // Goal: Create curiosity gap - give just enough to hook them, but withhold key details
-    // Pattern from Telegraph/Independent: Brief hook + "Read the full story below" + link in comment
+    // POST FORMAT: Teaser headline (curiosity gap) + CTA + hashtags
+    // Goal: Hook them with intrigue, tell them where to find the link
     const headline = article.facebookHeadline || article.title;
 
-    // Simple, clean format: Just the teaser headline + hashtags
-    // The full story link goes in a pinned first comment (handled below)
-    const postMessage = `${headline}\n\n${hashtags}`;
+    // Clean format: Teaser headline + simple CTA pointing to link in comment + hashtags
+    const postMessage = `${headline}\n\n👇 Tap the link in the first comment for the full story\n\n${hashtags}`;
 
     console.log(`📘 [FB-POST] Posting to Facebook API...`);
     console.log(`📘 [FB-POST] Page ID: ${FB_PAGE_ID}`);
