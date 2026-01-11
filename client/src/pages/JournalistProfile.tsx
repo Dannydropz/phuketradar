@@ -9,6 +9,8 @@ import { SEO } from "@/components/SEO";
 import { Sparkles, Search } from "lucide-react";
 import logoWhite from "@assets/logo-white-transparent.png";
 import { useState } from "react";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { SiThreads } from "react-icons/si";
 import { SearchDialog } from "@/components/SearchDialog";
 
 interface JournalistWithArticles extends Journalist {
@@ -106,8 +108,38 @@ export default function JournalistProfile() {
               ))}
             </div>
 
-            {/* Search Icon */}
-            <div className="flex items-center gap-4">
+            {/* Actions */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-1 mr-2 px-2 border-r border-white/10">
+                <a
+                  href="https://www.facebook.com/phuketradar/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-zinc-400 hover:text-[#1877F2] transition-colors"
+                  aria-label="Facebook"
+                >
+                  <FaFacebook className="w-5 h-5" />
+                </a>
+                <a
+                  href="https://www.instagram.com/phuketradar/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-zinc-400 hover:text-[#E1306C] transition-colors"
+                  aria-label="Instagram"
+                >
+                  <FaInstagram className="w-5 h-5" />
+                </a>
+                <a
+                  href="https://www.threads.net/@phuketradar"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-zinc-400 hover:text-white transition-colors"
+                  aria-label="Threads"
+                >
+                  <SiThreads className="w-5 h-5" />
+                </a>
+              </div>
+
               <button
                 onClick={() => setSearchOpen(true)}
                 className="p-2 text-zinc-400 hover:text-white transition-colors rounded-full hover:bg-white/5"

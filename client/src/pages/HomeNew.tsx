@@ -4,6 +4,9 @@ import { useRoute, Link } from "wouter";
 import { Search, Menu, Clock, MapPin, Share2, Bookmark } from "lucide-react";
 import { SearchDialog } from "@/components/SearchDialog";
 import { formatDistanceToNow } from "date-fns";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { SiThreads } from "react-icons/si";
+import { Footer } from "@/components/Footer";
 import type { ArticleListItem, Journalist } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import { ArticleImage } from "@/components/ArticleImage";
@@ -229,7 +232,37 @@ export default function HomeNew() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <div className="flex items-center gap-1 mr-2 px-2 border-r border-white/10">
+                                <a
+                                    href="https://www.facebook.com/phuketradar/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-zinc-400 hover:text-[#1877F2] transition-colors"
+                                    aria-label="Facebook"
+                                >
+                                    <FaFacebook className="w-5 h-5" />
+                                </a>
+                                <a
+                                    href="https://www.instagram.com/phuketradar/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-zinc-400 hover:text-[#E1306C] transition-colors"
+                                    aria-label="Instagram"
+                                >
+                                    <FaInstagram className="w-5 h-5" />
+                                </a>
+                                <a
+                                    href="https://www.threads.net/@phuketradar"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                    aria-label="Threads"
+                                >
+                                    <SiThreads className="w-5 h-5" />
+                                </a>
+                            </div>
+
                             <button
                                 onClick={() => setSearchOpen(true)}
                                 className="p-2 text-zinc-400 hover:text-white transition-colors"
@@ -497,6 +530,9 @@ export default function HomeNew() {
                 </section>
 
             </main>
+
+            {/* Footer */}
+            <Footer />
 
             {/* Search Dialog */}
             <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />

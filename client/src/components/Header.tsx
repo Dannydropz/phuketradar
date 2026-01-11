@@ -123,7 +123,7 @@ export function Header() {
 
           <div className="flex items-center space-x-2">
             {/* Social Media Follow Icons */}
-            <div className="hidden sm:flex items-center space-x-1">
+            <div className="flex items-center space-x-1">
               <a
                 href="https://www.facebook.com/phuketradar/"
                 target="_blank"

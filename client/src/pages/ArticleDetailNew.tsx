@@ -3,7 +3,9 @@ import { Link, useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { Search, Menu, Clock, Share2, ChevronLeft, Play } from "lucide-react";
 import { SearchDialog } from "@/components/SearchDialog";
-import { SiFacebook } from "react-icons/si";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { SiThreads } from "react-icons/si";
+import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import type { Article, ArticleListItem, Journalist } from "@shared/schema";
 import { ArticleImage } from "@/components/ArticleImage";
@@ -29,7 +31,7 @@ const getJournalistImageUrl = (url?: string | null) => {
     if (!url) return null;
     if (url.startsWith("http")) return url;
     if (url.startsWith("/assets/")) return url;
-    return `/assets/${url}`;
+    return `/ assets / ${url} `;
 };
 
 export default function ArticleDetailNew() {
@@ -49,7 +51,7 @@ export default function ArticleDetailNew() {
 
     // Use lightweight sidebar endpoint instead of fetching ALL articles
     const { data: sidebarData } = useQuery<{ latestArticles: ArticleListItem[], relatedArticles: ArticleListItem[] }>({
-        queryKey: [`/api/articles/${article?.id}/sidebar`],
+        queryKey: [`/ api / articles / ${article?.id}/sidebar`],
         enabled: !!article?.id,
     });
 
@@ -199,7 +201,37 @@ export default function ArticleDetailNew() {
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <div className="flex items-center gap-1 mr-2 px-2 border-r border-white/10">
+                                <a
+                                    href="https://www.facebook.com/phuketradar/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-zinc-400 hover:text-[#1877F2] transition-colors"
+                                    aria-label="Facebook"
+                                >
+                                    <FaFacebook className="w-5 h-5" />
+                                </a>
+                                <a
+                                    href="https://www.instagram.com/phuketradar/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-zinc-400 hover:text-[#E1306C] transition-colors"
+                                    aria-label="Instagram"
+                                >
+                                    <FaInstagram className="w-5 h-5" />
+                                </a>
+                                <a
+                                    href="https://www.threads.net/@phuketradar"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                    aria-label="Threads"
+                                >
+                                    <SiThreads className="w-5 h-5" />
+                                </a>
+                            </div>
+
                             <button
                                 onClick={() => setSearchOpen(true)}
                                 className="p-2 text-zinc-400 hover:text-white transition-colors"
@@ -366,7 +398,7 @@ export default function ArticleDetailNew() {
                                     </div>
                                     {/* Video Source Credit */}
                                     <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 py-2">
-                                        <SiFacebook className="w-4 h-4 text-[#1877F2]" />
+                                        <FaFacebook className="w-4 h-4 text-[#1877F2]" />
                                         <span>
                                             Video source:{" "}
                                             <a
@@ -446,7 +478,7 @@ export default function ArticleDetailNew() {
 
                         {/* Source */}
                         <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-2 text-sm text-zinc-500">
-                            <SiFacebook className="w-5 h-5 text-[#1877F2]" />
+                            <FaFacebook className="w-5 h-5 text-[#1877F2]" />
                             <span>
                                 Source: <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">{article.sourceName || "Facebook"}</a> - translated from Thai
                             </span>
@@ -527,6 +559,9 @@ export default function ArticleDetailNew() {
                     </section>
                 )}
             </main>
+
+            {/* Footer */}
+            <Footer />
 
             {/* Search Dialog */}
             <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
