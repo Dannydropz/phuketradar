@@ -1341,6 +1341,343 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 }
 
 /**
+ * Manual scrape of an entire Facebook PAGE by URL or page name
+ * 
+ * This allows scraping any Facebook page (not just pre-configured sources).
+ * Useful for one-off scrapes of pages that occasionally have interesting stories
+ * but don't warrant being added to the regular scrape rotation.
+ * 
+ * IMPORTANT: Manual page scrapes still apply quality filters (colored background, 
+ * no images) but skip duplicate detection on existing articles. The intention is
+ * to catch interesting stories from new sources.
+ * 
+ * @param pageIdentifier - Facebook page URL or page name (e.g., "PhuketTimeNews" or "https://facebook.com/PhuketTimeNews")
+ * @param callbacks - Optional progress callbacks
+ * @returns Result object with success status and articles created
+ */
+export async function runManualPageScrape(
+  pageIdentifier: string,
+  callbacks?: ScrapeProgressCallback
+): Promise<{
+  success: boolean;
+  message: string;
+  articlesCreated: number;
+  articlesSkipped: number;
+}> {
+  // Normalize page identifier to full URL
+  let pageUrl: string;
+  if (pageIdentifier.startsWith('http')) {
+    pageUrl = pageIdentifier;
+  } else if (pageIdentifier.startsWith('facebook.com') || pageIdentifier.startsWith('www.facebook.com')) {
+    pageUrl = `https://${pageIdentifier}`;
+  } else {
+    // Just a page name - construct URL
+    pageUrl = `https://www.facebook.com/${pageIdentifier}`;
+  }
+
+  console.log(`\n🎯 MANUAL PAGE SCRAPE - Scraping arbitrary Facebook page\n`);
+  console.log(`   Input: ${pageIdentifier}`);
+  console.log(`   Resolved URL: ${pageUrl}`);
+  console.log(`   Note: Quality filters apply, articles saved as DRAFT\n`);
+
+  try {
+    // Get the scraper service
+    const scraperService = await getScraperService();
+
+    // Get journalists for assignment
+    const journalists = await storage.getAllJournalists();
+    const getRandomJournalist = () => {
+      return journalists[Math.floor(Math.random() * journalists.length)];
+    };
+
+    // Scrape the page (get latest posts)
+    console.log(`📡 Fetching posts from page...`);
+    const posts = await scraperService.scrapeFacebookPageWithPagination(
+      pageUrl,
+      1, // Only 1 page of results for manual scrapes (most recent posts)
+      undefined // Don't stop early on duplicates for manual scrapes
+    );
+
+    console.log(`📥 Found ${posts.length} posts from page`);
+
+    if (posts.length === 0) {
+      return {
+        success: false,
+        message: `No posts found from ${pageIdentifier}. The page may be private, the name may be incorrect, or there are no recent posts.`,
+        articlesCreated: 0,
+        articlesSkipped: 0,
+      };
+    }
+
+    // Initialize progress
+    if (callbacks?.onProgress) {
+      callbacks.onProgress({
+        totalPosts: posts.length,
+        processedPosts: 0,
+        createdArticles: 0,
+        skippedNotNews: 0,
+      });
+    }
+
+    let articlesCreated = 0;
+    let articlesSkipped = 0;
+
+    // Process each post
+    for (let i = 0; i < posts.length; i++) {
+      const post = posts[i];
+
+      console.log(`\n─────────────────────────────────────────────────────────`);
+      console.log(`Processing post ${i + 1}/${posts.length}`);
+      console.log(`   Title: ${post.title.substring(0, 60)}...`);
+
+      try {
+        // Skip posts with no images (unless video)
+        const hasImages = (post.imageUrls && post.imageUrls.length > 0) || post.imageUrl || (post.isVideo && post.videoThumbnail);
+        const isEmbeddableVideoUrl = post.sourceUrl && (
+          post.sourceUrl.includes('/reel/') ||
+          post.sourceUrl.includes('/reels/') ||
+          post.sourceUrl.includes('/videos/') ||
+          post.sourceUrl.includes('/watch')
+        );
+
+        if (!hasImages && !(isEmbeddableVideoUrl && post.isVideo)) {
+          console.log(`   ⏭️  Skipped (no images)`);
+          articlesSkipped++;
+          continue;
+        }
+
+        // Skip colored background text posts
+        if (post.textFormatPresetId) {
+          console.log(`   ⏭️  Skipped (colored background text)`);
+          articlesSkipped++;
+          continue;
+        }
+
+        // Check if already exists by source URL (before expensive translation)
+        const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
+        if (existingBySourceUrl) {
+          console.log(`   ⏭️  Skipped (already exists by source URL)`);
+          articlesSkipped++;
+          continue;
+        }
+
+        // Check by Facebook post ID
+        if (post.facebookPostId) {
+          const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
+          if (existingByPostId) {
+            console.log(`   ⏭️  Skipped (already exists by FB post ID)`);
+            articlesSkipped++;
+            continue;
+          }
+        }
+
+        // Video post handling - use thumbnail as image
+        if (post.isVideo && !post.imageUrl && post.videoThumbnail) {
+          post.imageUrl = post.videoThumbnail;
+          if (!post.imageUrls || post.imageUrls.length === 0) {
+            post.imageUrls = [post.videoThumbnail];
+          }
+        }
+
+        // Generate embedding
+        let contentEmbedding: number[] | undefined;
+        try {
+          contentEmbedding = await translatorService.generateEmbeddingFromContent(post.title, post.content);
+        } catch (e) {
+          console.log(`   ⚠️  Embedding generation failed (continuing anyway)`);
+        }
+
+        // Translate and rewrite
+        console.log(`   📝 Translating content...`);
+        const translation = await translatorService.translateAndRewrite(
+          post.title,
+          post.content,
+          contentEmbedding,
+          post.location,
+          undefined, // No community comments for page scrapes
+          {
+            likeCount: post.likeCount,
+            commentCount: post.commentCount,
+            shareCount: post.shareCount,
+            viewCount: post.viewCount,
+          },
+          {
+            hasVideo: !!post.videoUrl,
+            hasMultipleImages: (post.imageUrls?.length ?? 0) > 1,
+            hasCCTV: (post.content?.toLowerCase() || '').includes('cctv') ||
+              (post.content || '').includes('กล้องวงจรปิด'),
+            isVideo: post.isVideo,
+          }
+        );
+
+        // Skip if not classified as news
+        if (!translation.isActualNews) {
+          console.log(`   ⏭️  Skipped (not classified as news)`);
+          articlesSkipped++;
+          continue;
+        }
+
+        console.log(`   ✅ Classification: ${translation.category}, Interest: ${translation.interestScore}/5`);
+
+        // Classify article
+        const classification = await classificationService.classifyArticle(
+          translation.translatedTitle,
+          translation.excerpt
+        );
+
+        // MANUAL PAGE SCRAPE PREMIUM ENRICHMENT
+        // Since admin manually chose this source, apply GPT-4o enrichment for high-quality journalism
+        console.log(`   ✨ Applying premium GPT-4o enrichment...`);
+        try {
+          const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
+            title: translation.translatedTitle,
+            content: translation.translatedContent,
+            excerpt: translation.excerpt,
+            category: translation.category,
+          }, "gpt-4o");
+
+          // Update translation with enriched content
+          translation.translatedTitle = enrichmentResult.enrichedTitle;
+          translation.translatedContent = enrichmentResult.enrichedContent;
+          translation.excerpt = enrichmentResult.enrichedExcerpt;
+
+          console.log(`   ✅ Premium enrichment applied`);
+        } catch (enrichmentError) {
+          console.warn(`   ⚠️  Premium enrichment failed (using base translation):`, enrichmentError);
+          // Continue with base translation if enrichment fails
+        }
+
+        // Download images
+        let localImageUrl = post.imageUrl;
+        let localImageUrls = post.imageUrls;
+
+        try {
+          if (post.imageUrl) {
+            const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news");
+            if (savedPath) {
+              localImageUrl = savedPath;
+            }
+          }
+
+          if (post.imageUrls && post.imageUrls.length > 0) {
+            const savedUrls: string[] = [];
+            for (const url of post.imageUrls) {
+              const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery");
+              if (savedPath) {
+                savedUrls.push(savedPath);
+              } else {
+                savedUrls.push(url);
+              }
+            }
+            localImageUrls = savedUrls;
+          }
+        } catch (downloadError) {
+          console.log(`   ⚠️  Image download failed (using original URLs)`);
+        }
+
+        // Extract entities
+        let extractedEntities = null;
+        try {
+          const { entityExtractionService } = await import("./services/entity-extraction");
+          extractedEntities = await entityExtractionService.extractEntities(post.title, post.content);
+        } catch (e) {
+          // Non-critical
+        }
+
+        // Extract source name from page URL
+        const sourceNameMatch = pageUrl.match(/facebook\.com\/([^\/\?]+)/);
+        const sourceName = sourceNameMatch ? sourceNameMatch[1] : pageIdentifier;
+
+        // Create article data - ALWAYS as DRAFT
+        const assignedJournalist = getRandomJournalist();
+        const articleData: InsertArticle = {
+          title: translation.translatedTitle,
+          content: translation.translatedContent,
+          excerpt: translation.excerpt,
+          originalTitle: post.title,
+          originalContent: post.content,
+          facebookHeadline: translation.facebookHeadline,
+          imageUrl: localImageUrl || null,
+          imageUrls: localImageUrls || null,
+          imageHash: null,
+          category: translation.category,
+          sourceUrl: post.sourceUrl,
+          sourceName,
+          sourceFacebookPostId: post.facebookPostId || null,
+          facebookPostId: null,
+          journalistId: assignedJournalist.id,
+          isPublished: false, // ALWAYS DRAFT for manual page scrapes
+          originalLanguage: "th",
+          translatedBy: "openai",
+          embedding: translation.embedding,
+          eventType: classification.eventType,
+          severity: classification.severity,
+          videoUrl: post.videoUrl || null,
+          videoThumbnail: post.videoThumbnail || null,
+          facebookEmbedUrl: (post.isVideo && !post.videoUrl && post.sourceUrl &&
+            (post.sourceUrl.includes('/reel/') || post.sourceUrl.includes('/reels/') ||
+              post.sourceUrl.includes('/videos/') || post.sourceUrl.includes('/watch')))
+            ? post.sourceUrl : null,
+          interestScore: post.isVideo ? Math.max(translation.interestScore, 4) : translation.interestScore,
+          engagementScore: (post.likeCount || 0) + ((post.commentCount || 0) * 2) + ((post.shareCount || 0) * 5),
+          viewCount: post.viewCount || 0,
+          isDeveloping: translation.isDeveloping || false,
+          entities: extractedEntities || null,
+        };
+
+        // Auto-detect tags
+        articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
+
+        // Create the article
+        const article = await storage.createArticle(articleData);
+        console.log(`   ✅ Created article: ${article.title.substring(0, 50)}...`);
+        articlesCreated++;
+
+        // Update progress
+        if (callbacks?.onProgress) {
+          callbacks.onProgress({
+            totalPosts: posts.length,
+            processedPosts: i + 1,
+            createdArticles: articlesCreated,
+            skippedNotNews: articlesSkipped,
+          });
+        }
+
+      } catch (postError) {
+        console.error(`   ❌ Error processing post:`, postError);
+        articlesSkipped++;
+        continue;
+      }
+    }
+
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📊 MANUAL PAGE SCRAPE COMPLETE`);
+    console.log(`   Page: ${pageIdentifier}`);
+    console.log(`   Posts found: ${posts.length}`);
+    console.log(`   Articles created: ${articlesCreated} (as drafts)`);
+    console.log(`   Posts skipped: ${articlesSkipped}`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+    return {
+      success: true,
+      message: articlesCreated > 0
+        ? `Created ${articlesCreated} article(s) as drafts from ${pageIdentifier}`
+        : `No new articles from ${pageIdentifier} (${articlesSkipped} posts skipped - may be duplicates or non-news)`,
+      articlesCreated,
+      articlesSkipped,
+    };
+  } catch (error) {
+    console.error("❌ Error during manual page scrape:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+      articlesCreated: 0,
+      articlesSkipped: 0,
+    };
+  }
+}
+
+/**
  * Manual scrape of a single Facebook post by URL
  * 
  * IMPORTANT: Manual scrapes skip quality/duplicate checks since the admin user

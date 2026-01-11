@@ -1,4 +1,6 @@
 import { Moon, Sun, Menu, Search } from "lucide-react";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { SiThreads } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Link, useLocation } from "wouter";
@@ -120,6 +122,39 @@ export function Header() {
           )}
 
           <div className="flex items-center space-x-2">
+            {/* Social Media Follow Icons */}
+            <div className="hidden sm:flex items-center space-x-1">
+              <a
+                href="https://www.facebook.com/phuketradar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                aria-label="Follow us on Facebook"
+                data-testid="social-facebook"
+              >
+                <FaFacebook className="h-5 w-5" style={{ color: '#1877F2' }} />
+              </a>
+              <a
+                href="https://www.instagram.com/phuketradar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                aria-label="Follow us on Instagram"
+                data-testid="social-instagram"
+              >
+                <FaInstagram className="h-5 w-5" style={{ color: '#E1306C' }} />
+              </a>
+              <a
+                href="https://www.threads.net/@phuketradar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                aria-label="Follow us on Threads"
+                data-testid="social-threads"
+              >
+                <SiThreads className="h-5 w-5 text-header-foreground" />
+              </a>
+            </div>
             <Button
               variant="ghost"
               size="icon"

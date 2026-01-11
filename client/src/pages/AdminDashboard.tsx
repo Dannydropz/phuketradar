@@ -481,22 +481,17 @@ export default function AdminDashboard() {
   const handleManualScrape = () => {
     if (!manualScrapeUrl.trim()) {
       toast({
-        title: "URL Required",
-        description: "Please enter a Facebook post URL",
+        title: "Input Required",
+        description: "Please enter a Facebook page name or post URL",
         variant: "destructive",
       });
       return;
     }
 
-    if (!manualScrapeUrl.includes('facebook.com')) {
-      toast({
-        title: "Invalid URL",
-        description: "Please enter a valid Facebook post URL",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Accept either:
+    // - Just the page name (e.g., "PhuketTimeNews")
+    // - Full Facebook URL (e.g., "https://facebook.com/PhuketTimeNews")
+    // - Post URL (e.g., "https://facebook.com/share/p/xxx")
     manualScrapeMutation.mutate(manualScrapeUrl);
   };
 
@@ -1537,16 +1532,16 @@ export default function AdminDashboard() {
       <Dialog open={manualScrapeDialogOpen} onOpenChange={setManualScrapeDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Manual Page Scrape</DialogTitle>
+            <DialogTitle>Manual Facebook Scrape</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label htmlFor="post-url" className="text-sm font-medium">
-                Facebook Page URL
+                Facebook Page Name or Post URL
               </label>
               <Input
                 id="post-url"
-                placeholder="PhuketTimeNews (page name works best)"
+                placeholder="PageName or facebook.com/share/p/xxx..."
                 value={manualScrapeUrl}
                 onChange={(e) => setManualScrapeUrl(e.target.value)}
                 onKeyDown={(e) => {
@@ -1557,11 +1552,11 @@ export default function AdminDashboard() {
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground">
-                Enter a <strong>Facebook page name</strong> like <code className="bg-muted px-1">PhuketTimeNews</code> or full URL like <code className="bg-muted px-1">facebook.com/PageName</code>
+                Enter a <strong>page name</strong> to scrape all recent posts, or a <strong>specific post URL</strong> to scrape just that post
               </p>
               <p className="text-xs text-green-600 dark:text-green-500 flex items-start gap-1 mt-1">
                 <Check className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                <span>Just the page name works! No need for full URLs</span>
+                <span>Works with any Facebook source (not just pre-configured ones)</span>
               </p>
             </div>
 
@@ -1570,10 +1565,10 @@ export default function AdminDashboard() {
               <div className="text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">How it works:</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>Scrapes latest posts from the page</li>
-                  <li>Manual scrapes skip quality & duplicate checks</li>
-                  <li>Always saved as DRAFT for your review</li>
-                  <li>Goes through translation & enrichment</li>
+                  <li><strong>Page name:</strong> Scrapes latest posts from the page</li>
+                  <li><strong>Post URL:</strong> Scrapes that specific post (bypasses filters)</li>
+                  <li>All articles saved as DRAFT for your review</li>
+                  <li>Full translation & enrichment included</li>
                 </ul>
               </div>
             </div>
@@ -1614,7 +1609,7 @@ export default function AdminDashboard() {
                 ) : (
                   <>
                     <Download className="w-4 h-4 mr-2" />
-                    Scrape Post
+                    Scrape
                   </>
                 )}
               </Button>

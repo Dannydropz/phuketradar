@@ -1,132 +1,141 @@
-# Manual Post Scrape Feature
+# Manual Facebook Scrape Feature
 
 ## Overview
-Added a manual scraping feature that allows admins to scrape individual Facebook posts by URL.
+Added a manual scraping feature that allows admins to scrape:
+1. **Individual Facebook posts** by URL (single post)
+2. **Entire Facebook pages** by page name or URL (all recent posts)
+
+This is useful for scraping interesting stories from sources not in the regular rotation.
 
 ## Key Features
 
 ### ✅ What It Does
-- Allows manual scraping of individual Facebook posts via URL
-- **Skips all quality and duplicate checks** (user has already vetted the post)
+- Allows manual scraping of any Facebook source (not just pre-configured ones)
+- **Page name:** Scrapes all recent posts from the page
+- **Post URL:** Scrapes a single specific post (bypasses quality filters)
+- Goes through full translation and premium GPT-4o enrichment
 - **Always saves as DRAFT** for admin review before publishing
-- Goes through full translation and enrichment pipeline
 - Tracks progress like automated scraping
-- Auto-matches to timelines if applicable
 
 ### 🎯 User Flow
-1. Admin clicks "Scrape Post URL" button in dashboard
-2. Dialog opens with URL input field
-3. Admin pastes Facebook post share URL (e.g., `https://www.facebook.com/share/p/1BkUiuMKhr/`)
-4. Click "Scrape Post" button
-5. Post is processed in background
-6. Article appears in "Pending Review" as a DRAFT
+1. Admin clicks "Manual Scrape" button in dashboard
+2. Dialog opens with input field
+3. Admin enters either:
+   - **Page name:** e.g., `PhuketTimeNews` → Scrapes all recent posts from that page
+   - **Post URL:** e.g., `https://www.facebook.com/share/p/1BkUiuMKhr/` → Scrapes just that post
+4. Click "Scrape" button
+5. Posts are processed in background with premium enrichment
+6. Articles appear in "Pending Review" as DRAFTs
 7. Admin can review and publish manually
+
+## Input Modes
+
+### Page Scrape (Page Name)
+- Input: `PhuketTimeNews` or `facebook.com/PhuketTimeNews`
+- Behavior: Scrapes latest posts from the page
+- Filters: Quality filters still apply (no colored backgrounds, requires images)
+- Duplicates: Skips posts already in database (by source URL or FB post ID)
+- Enrichment: Premium GPT-4o applied to all articles
+
+### Single Post Scrape (Post URL)
+- Input: URLs containing `/posts/`, `/share/`, `/reel/`, `/videos/`, `/watch`, or `pfbid`
+- Behavior: Scrapes just that specific post
+- Filters: **BYPASSES** quality filters (user already vetted it)
+- Duplicates: Still checked but user can force-add anyway
+- Enrichment: Premium GPT-4o applied
 
 ## Backend Changes
 
-### New API Endpoint
+### API Endpoint
 - **Route**: `POST /api/admin/scrape/manual`
-- **Body**: `{ postUrl: string }`
+- **Body**: `{ postUrl: string }` (can be page name or post URL)
 - **Returns**: `{ success: boolean, jobId: string, message: string }`
 - **Protected**: Requires admin authentication
 
-### New Function: `runManualPostScrape()`
+### Functions
+
+#### `runManualPageScrape(pageIdentifier, callbacks)`
 **Location**: `server/scheduler.ts`
 
-**What it does**:
+Scrapes all recent posts from any Facebook page:
+1. ✅ Resolves page name to URL
+2. ✅ Scrapes latest posts from page
+3. ⏭️ Applies quality filters (colored backgrounds, no-image posts)
+4. ⏭️ Checks for existing duplicates by source URL/FB post ID
+5. ✅ Translates content (Thai → English)
+6. ✅ **Premium GPT-4o enrichment** (manual = pre-selected = highest quality)
+7. ✅ Downloads and saves images
+8. ✅ Classifies article category
+9. ✅ Auto-detects tags
+10. ✅ **Always creates as DRAFT** (isPublished: false)
+
+#### `runManualPostScrape(postUrl, callbacks)`
+**Location**: `server/scheduler.ts`
+
+Scrapes a single specific Facebook post:
 1. ✅ Scrapes the post (works with share URLs)
 2. ❌ **SKIPS** image quality checks
-3. ❌ **SKIPS** colored background/text graphic filtering
-4. ❌ **SKIPS** video post filtering  
+3. ❌ **SKIPS** colored background filtering
+4. ❌ **SKIPS** video post filtering
 5. ❌ **SKIPS** duplicate detection
 6. ✅ Translates content (Thai → English)
-7. ✅ Classifies article category
-8. ✅ Downloads and saves images
-9. ✅ Runs enrichment (timeline matching, merge detection)
-10. ✅ **Always creates as DRAFT** (isPublished: false)
-11. ✅ Auto-detects tags
-12. ✅ Auto-matches to timelines
-
-**Key Differences from Auto-Scrape**:
-- Manual scrapes trust the user's judgment
-- No quality filtering (the user already checked it's news)
-- No duplicate prevention (user may want to manually add anyway)
-- Always saves as draft for final review
+7. ✅ **Premium GPT-4o enrichment**
+8. ✅ Fetches community comments for context
+9. ✅ Downloads and saves images
+10. ✅ Auto-detects tags
+11. ✅ Auto-matches to timelines
+12. ✅ **Always creates as DRAFT**
 
 ## Frontend Changes
 
-### New UI Components
+### UI Components
 **Location**: `client/src/pages/AdminDashboard.tsx`
 
-1. **"Scrape Post URL" Button**
-   - Located next to "Scrape New Articles" button
+1. **"Manual Scrape" Button**
    - Opens manual scrape dialog
    - Disabled when a scrape is already running
 
 2. **Manual Scrape Dialog**
-   - Clean, focused UI for URL input
-   - Validates Facebook URLs
-   - Shows helpful notes about the process
-   - Press Enter to submit
-   - Loading states during scraping
+   - Accepts page names OR post URLs
+   - Clear instructions for each mode
+   - Shows progress during scraping
 
-### State Management
-- `manualScrapeUrl`: Stores the input URL
-- `manualScrapeDialogOpen`: Controls dialog visibility
-- `manualScrapeMutation`: Handles API call and progress
+## Usage Examples
 
-## Usage in Screenshot Example
-
-For the post shown in your screenshot:
+### Scrape a specific page
 ```
-URL: https://www.facebook.com/share/p/1BkUiuMKhr/
+Input: PhuketTimeNews
+Mode: PAGE SCRAPE
+Result: All recent posts from facebook.com/PhuketTimeNews processed
 ```
 
-1. Click "Scrape Post URL"
-2. Paste: `https://www.facebook.com/share/p/1BkUiuMKhr/`
-3. Click "Scrape Post"
-4. Wait for translation (background)
-5. Article appears in "Pending Review" tab as DRAFT
-6. Review, edit if needed, then publish
+### Scrape from share link
+```
+Input: https://www.facebook.com/share/p/1BkUiuMKhr/
+Mode: SINGLE POST SCRAPE
+Result: Just that post is scraped (bypasses filters)
+```
 
 ## Technical Notes
 
-### Why Skip Checks?
-The automated scraper uses conservative filtering to avoid publishing low-quality content. But when an admin manually selects a post, they've already made the editorial decision that it's news-worthy. Bypassing checks prevents:
-- False rejections of breaking news
-- Missing important stories due to image quality heuristics
-- Losing posts that look "text-graphic-like" but are actually news
+### Premium Enrichment
+All manually scraped content receives premium GPT-4o enrichment because:
+- Admin manually selected the source/post
+- Pre-selected content deserves highest quality journalism
+- Ensures professional output for stories from non-regular sources
 
-### Always Draft Why?
-Even though the user selected the post, the translation might need editing or the category might need adjustment. Saving as draft allows final review before publication.
-
-### Error Handling
-- Invalid URLs are caught client-side
-- Scraping failures return helpful error messages
-- Database constraint violations are caught (though duplicate check is skipped, the DB unique constraint still applies)
-- Translation failures are reported to the user
-
-## Browser Testing
-
-Build completed successfully ✅
-- No TypeScript errors
-- No compilation errors
-- All components properly imported
-- All handlers properly defined
-
-## Next Steps
-
-To use:
-1. Deploy the changes
-2. Go to Admin Dashboard
-3. Click "Scrape Post URL"
-4. Test with the example URL from your screenshot
+### Always Draft
+Even though the user selected the source, articles are saved as drafts to allow:
+- Final review of translated content
+- Category adjustments
+- Title/headline editing before publication
 
 ## Files Modified
 
 ### Backend
-- `server/routes.ts` - Added `/api/admin/scrape/manual` endpoint
-- `server/scheduler.ts` - Added `runManualPostScrape()` function
+- `server/routes.ts` - Updated `/api/admin/scrape/manual` to handle both modes
+- `server/scheduler.ts` - Added `runManualPageScrape()`, enhanced `runManualPostScrape()`
 
 ### Frontend  
-- `client/src/pages/AdminDashboard.tsx` - Added UI, state, mutations, handlers
+- `client/src/pages/AdminDashboard.tsx` - Updated dialog UI and validation
+

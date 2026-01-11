@@ -1220,26 +1220,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Manual scrape of individual post by URL - PROTECTED
+  // Manual scrape of individual post OR entire page by URL - PROTECTED
   app.post("/api/admin/scrape/manual", requireAdminAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
     const { postUrl } = req.body;
 
     if (!postUrl) {
-      return res.status(400).json({ error: "Post URL is required" });
+      return res.status(400).json({ error: "URL or page name is required" });
     }
 
     console.log("\n".repeat(3) + "=".repeat(80));
     console.log("🎯 MANUAL SCRAPE TRIGGERED 🎯");
     console.log(`Time: ${timestamp}`);
     console.log(`Trigger: MANUAL (Admin Dashboard)`);
-    console.log(`Post URL: ${postUrl}`);
+    console.log(`Input: ${postUrl}`);
     console.log("=".repeat(80) + "\n");
 
-    // Validate URL is a Facebook post
-    if (!postUrl.includes('facebook.com')) {
-      return res.status(400).json({ error: "URL must be a Facebook post" });
-    }
+    // Determine if this is a single post URL or a page URL/name
+    // Single posts have: /posts/, /share/, /reel/, /videos/, /watch, pfbid
+    const isSinglePostUrl = postUrl.includes('/posts/') ||
+      postUrl.includes('/share/') ||
+      postUrl.includes('/reel/') ||
+      postUrl.includes('/reels/') ||
+      postUrl.includes('/videos/') ||
+      postUrl.includes('/watch') ||
+      postUrl.includes('pfbid');
+
+    // If it's just a page name (no facebook.com) or a bare facebook.com page URL, treat as page scrape
+    const isPageScrape = !isSinglePostUrl;
+
+    console.log(`Mode: ${isPageScrape ? 'PAGE SCRAPE (all recent posts)' : 'SINGLE POST SCRAPE'}`);
 
     // Create job and respond immediately
     const job = scrapeJobManager.createJob();
@@ -1248,7 +1258,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       success: true,
       jobId: job.id,
-      message: "Manual scrape started in background",
+      message: isPageScrape
+        ? "Scraping page for recent posts in background..."
+        : "Scraping single post in background...",
     });
 
     // Process in background
@@ -1256,38 +1268,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         scrapeJobManager.updateJob(job.id, { status: 'processing' });
 
-        console.log(`[Job ${job.id}] Starting manual scrape for: ${postUrl}`);
+        if (isPageScrape) {
+          // PAGE SCRAPE - scrape all recent posts from a Facebook page
+          console.log(`[Job ${job.id}] Starting manual PAGE scrape for: ${postUrl}`);
 
-        // Import runManualPostScrape function
-        const { runManualPostScrape } = await import("./scheduler");
+          const { runManualPageScrape } = await import("./scheduler");
 
-        const result = await runManualPostScrape(postUrl, {
-          onProgress: (stats: {
-            totalPosts: number;
-            processedPosts: number;
-            createdArticles: number;
-            skippedNotNews: number;
-          }) => {
-            scrapeJobManager.updateProgress(job.id, {
-              totalPosts: stats.totalPosts,
-              processedPosts: stats.processedPosts,
-              createdArticles: stats.createdArticles,
-              skippedNotNews: stats.skippedNotNews,
-            });
-          },
-        });
+          const result = await runManualPageScrape(postUrl, {
+            onProgress: (stats: {
+              totalPosts: number;
+              processedPosts: number;
+              createdArticles: number;
+              skippedNotNews: number;
+            }) => {
+              scrapeJobManager.updateProgress(job.id, {
+                totalPosts: stats.totalPosts,
+                processedPosts: stats.processedPosts,
+                createdArticles: stats.createdArticles,
+                skippedNotNews: stats.skippedNotNews,
+              });
+            },
+          });
 
-        if (result.success) {
-          console.log(`[Job ${job.id}] Manual scrape completed successfully`);
-          if (result.article) {
-            console.log(`[Job ${job.id}] Created article: ${result.article.title.substring(0, 60)}...`);
+          if (result.success) {
+            console.log(`[Job ${job.id}] Manual page scrape completed successfully`);
+            console.log(`[Job ${job.id}] Articles created: ${result.articlesCreated}`);
+            console.log(`[Job ${job.id}] Posts skipped: ${result.articlesSkipped}`);
+            scrapeJobManager.markCompleted(job.id);
           } else {
-            console.log(`[Job ${job.id}] Post was skipped: ${result.message}`);
+            console.error(`[Job ${job.id}] Manual page scrape failed: ${result.message}`);
+            scrapeJobManager.markFailed(job.id, result.message || "Manual page scrape failed");
           }
-          scrapeJobManager.markCompleted(job.id);
         } else {
-          console.error(`[Job ${job.id}] Manual scrape failed: ${result.message}`);
-          scrapeJobManager.markFailed(job.id, result.message || "Manual scrape failed");
+          // SINGLE POST SCRAPE - scrape just one specific post
+          console.log(`[Job ${job.id}] Starting manual SINGLE POST scrape for: ${postUrl}`);
+
+          const { runManualPostScrape } = await import("./scheduler");
+
+          const result = await runManualPostScrape(postUrl, {
+            onProgress: (stats: {
+              totalPosts: number;
+              processedPosts: number;
+              createdArticles: number;
+              skippedNotNews: number;
+            }) => {
+              scrapeJobManager.updateProgress(job.id, {
+                totalPosts: stats.totalPosts,
+                processedPosts: stats.processedPosts,
+                createdArticles: stats.createdArticles,
+                skippedNotNews: stats.skippedNotNews,
+              });
+            },
+          });
+
+          if (result.success) {
+            console.log(`[Job ${job.id}] Manual post scrape completed successfully`);
+            if (result.article) {
+              console.log(`[Job ${job.id}] Created article: ${result.article.title.substring(0, 60)}...`);
+            } else {
+              console.log(`[Job ${job.id}] Post was skipped: ${result.message}`);
+            }
+            scrapeJobManager.markCompleted(job.id);
+          } else {
+            console.error(`[Job ${job.id}] Manual post scrape failed: ${result.message}`);
+            scrapeJobManager.markFailed(job.id, result.message || "Manual post scrape failed");
+          }
         }
       } catch (error) {
         console.error(`[Job ${job.id}] MANUAL SCRAPE ERROR:`, error);
@@ -1296,6 +1341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     })();
   });
+
 
   // Update article (approve/reject/edit) - PROTECTED
   app.patch("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
