@@ -308,7 +308,66 @@ const PHUKET_CONTEXT_MAP: Record<string, string> = {
   "Bang Tao": "Bang Tao, home to luxury resorts and Laguna Phuket",
   "สุรินทร์": "Surin, an upscale beach area with fine dining",
   "Surin": "Surin, an upscale beach area with fine dining",
+  // PHUKET TOWN STREETS - Named after other Thai cities, DO NOT confuse with those cities!
+  "ถนนกรุงเทพ": "Bangkok Road, a major road in PHUKET TOWN (NOT Bangkok city!)",
+  "Bangkok Road": "Bangkok Road, a major road in PHUKET TOWN (NOT Bangkok city!)",
+  "ถนนกระบี่": "Krabi Road, a road in PHUKET TOWN (NOT Krabi province!)",
+  "Krabi Road": "Krabi Road, a road in PHUKET TOWN (NOT Krabi province!)",
+  "ถนนพังงา": "Phang Nga Road, a major road in PHUKET TOWN (NOT Phang Nga province!)",
+  "Phang Nga Road": "Phang Nga Road, a major road in PHUKET TOWN (NOT Phang Nga province!)",
+  "ถนนทวีวงศ์": "Thaweewong Road, the main beach road in Patong",
+  "Thaweewong Road": "Thaweewong Road, the main beach road in Patong",
+  "ถนนราศฎร์อุทิศ 200 ปี": "Rat Uthit 200 Pee Road, a parallel road in Patong",
+  "ถนนบางลา": "Bangla Road, Patong's famous walking street and nightlife area",
+  "Bangla Road": "Bangla Road, Patong's famous walking street and nightlife area",
+  "ซอยบางลา": "Bangla Road/Soi Bangla, Patong's famous nightlife strip",
+  "ถนนเทพกษัตรี": "Thepkasattri Road, the main highway running north-south through Phuket",
+  "Thepkasattri Road": "Thepkasattri Road, the main highway running north-south through Phuket",
+  "ถนนวิชิต": "Wichit Road, a major road in Phuket Town",
+  "ถนนเจ้าฟ้า": "Chao Fa Road, a major commercial road in Phuket",
+  "Chao Fa Road": "Chao Fa Road, a major commercial road in Phuket",
+  // PHUKET DISTRICTS/AREAS
+  "ตลาดใหญ่": "Talat Yai, the old town market district in Phuket Town",
+  "วิชิต": "Wichit, a residential district near Phuket Town",
+  "กะทู้": "Kathu, the district containing Patong Beach",
+  "Kathu": "Kathu, the district containing Patong Beach",
+  "ถลาง": "Thalang, the historical district in northern Phuket",
+  "Thalang": "Thalang, the historical district in northern Phuket",
+  "เกาะแก้ว": "Koh Kaew, an upscale residential area near Phuket Town",
+  "Koh Kaew": "Koh Kaew, an upscale residential area near Phuket Town",
+  "ไม้ขาว": "Mai Khao, northern Phuket beach near the airport",
+  "Mai Khao": "Mai Khao, northern Phuket beach near the airport",
+  "นายยาง": "Nai Yang, a local beach near Phuket Airport",
+  "Nai Yang": "Nai Yang, a local beach near Phuket Airport",
+  "ในหาน": "Nai Harn, a beautiful beach in southern Phuket",
+  "Nai Harn": "Nai Harn, a beautiful beach in southern Phuket",
+  "อ่าวฉลอง": "Chalong Bay, home to the main yacht marina",
+  "Chalong Bay": "Chalong Bay, home to the main yacht marina",
+  "ท่าเรือฉลอง": "Chalong Pier, departure point for island tours",
+  "Chalong Pier": "Chalong Pier, departure point for island tours",
 };
+
+// CRITICAL: Street names that could be confused with cities
+// These are streets IN PHUKET named after other places - do NOT misinterpret as events happening in those places!
+const PHUKET_STREET_DISAMBIGUATION = `
+🚨 CRITICAL - PHUKET STREET NAME DISAMBIGUATION (READ BEFORE WRITING DATELINE):
+
+Phuket Town has many streets NAMED AFTER other Thai cities. These are STREETS IN PHUKET, not locations in those cities:
+
+- "ถนนกรุงเทพ" / "Bangkok Road" / "Thanon Krung Thep" = A street in PHUKET TOWN, NOT Bangkok city
+- "ถนนกระบี่" / "Krabi Road" / "Thanon Krabi" = A street in PHUKET TOWN, NOT Krabi province  
+- "ถนนพังงา" / "Phang Nga Road" / "Thanon Phang Nga" = A street in PHUKET TOWN, NOT Phang Nga province
+- "ถนนรัษฎา" / "Rasada Road" = A street in PHUKET TOWN
+
+⚠️ COMMON MISTAKE TO AVOID:
+If source says "accident on Bangkok Road" or "เกิดเหตุที่ถนนกรุงเทพ", the event is in PHUKET TOWN, NOT Bangkok.
+The CORRECT dateline is "**PHUKET TOWN, PHUKET –**", NOT "**BANGKOK –**"
+
+✅ CORRECT: "A fatal collision occurred on Bangkok Road in Phuket Town..."
+❌ WRONG: "A fatal collision occurred in Bangkok..." (This is FACTUALLY INCORRECT!)
+
+THIS IS A CRITICAL FACTUAL ACCURACY ISSUE - misidentifying the location is a major journalism error.
+`;
 
 
 // Detect if Thai text is complex and needs Google Translate first
@@ -529,8 +588,10 @@ CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
 - **READ THE CATEGORY:** If the category is "National", the event is likely NOT in Phuket.
 - **VERIFY BEFORE WRITING:** Look at the content - does it mention specific non-Phuket cities, provinces, or landmarks? If yes, use THAT location in the dateline.
 
+${PHUKET_STREET_DISAMBIGUATION}
+
 STRICT WRITING GUIDELINES:
-1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events.
+1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events. **CRITICAL: If source mentions "Bangkok Road" or "ถนนกรุงเทพ", the dateline is "**PHUKET TOWN, PHUKET –**" NOT "**BANGKOK –**"**
 2. **LEDE PARAGRAPH:** Write a summary lede that answers Who, What, Where, When using ONLY facts from the source.
 3. **TONE:** Professional, objective, and authoritative. Avoid "police speak" (e.g., change "proceeded to the scene" to "rushed to the scene"). Use active voice.
 4. **STRUCTURE:**
@@ -813,6 +874,8 @@ CRITICAL LOCATION VERIFICATION:
 - PHUKET SOURCE ≠ PHUKET STORY: Sources like "Phuket Info Center" often report on Southern Thailand events (Hat Yai, Trang, Narathiwat).
 - CHECK LANDMARKS: "Pholphichai Road", "Wat Plakrim", "Wat Phutthikaram" are in HAT YAI, not Phuket.
 - CRITICAL: PERSON'S ORIGIN ≠ EVENT LOCATION: If "Patong Jet Ski team helps with floods", READ CAREFULLY to see WHERE they are helping. They might be FROM Patong but HELPING IN Hat Yai. DO NOT assume the event is in Phuket just because the people are from Phuket.
+
+${PHUKET_STREET_DISAMBIGUATION}
 
 CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - DO NOT INVENT FACTS: Do not add details, numbers, quotes, or events not in the source text.

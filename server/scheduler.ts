@@ -1439,6 +1439,29 @@ export async function runManualPostScrape(
 
     // Translate and rewrite the post
     console.log(`\n📝 Translating content...`);
+
+    // FETCH COMMUNITY COMMENTS for manual scrapes
+    // Since admin manually chose this post, we always fetch comments for maximum context
+    let communityComments: string[] | undefined;
+    if (post.sourceUrl) {
+      try {
+        console.log(`   💬 Fetching community comments for enhanced context...`);
+        const comments = await scrapePostComments(post.sourceUrl, 20); // Fetch more comments for manual scrapes
+        if (comments.length > 0) {
+          // Extract just the text from comments (anonymized - no usernames)
+          communityComments = comments
+            .filter(c => c.text && c.text.length > 10) // Skip very short comments
+            .map(c => c.text);
+          console.log(`   ✅ Got ${communityComments.length} substantive comments for context`);
+        } else {
+          console.log(`   📭 No comments found on this post`);
+        }
+      } catch (commentError) {
+        console.log(`   ⚠️ Comment fetch failed (non-critical): ${commentError}`);
+        // Continue without comments - they're optional enhancement
+      }
+    }
+
     let translation;
     try {
       translation = await translatorService.translateAndRewrite(
@@ -1446,7 +1469,7 @@ export async function runManualPostScrape(
         post.content,
         contentEmbedding,
         post.location,
-        undefined, // communityComments (not used in manual yet)
+        communityComments, // Pass fetched community comments for story enrichment
         {
           likeCount: post.likeCount,
           commentCount: post.commentCount,
@@ -1505,6 +1528,7 @@ export async function runManualPostScrape(
         content: translation.translatedContent,
         excerpt: translation.excerpt,
         category: translation.category,
+        communityComments, // Pass community comments for richer enrichment
       }, "gpt-4o");
 
       // Update translation with enriched content

@@ -18,7 +18,7 @@ export class EnrichmentService {
     console.log(`[ENRICHMENT] Enriching article: ${article.title}`);
 
     try {
-      const systemPrompt = `You are a news editor updating a breaking news story with new details.
+      const systemPrompt = `You are a senior news editor updating a breaking news story with new details.
 
 🚨 CRITICAL - FACTUAL ACCURACY RULES (READ FIRST) 🚨
 You MUST only include facts that are ALREADY in the article. This is an ENRICHMENT pass, not invention:
@@ -34,13 +34,30 @@ EXAMPLES OF FORBIDDEN ENRICHMENT:
 ❌ Source says "disturbing the area" → You add "created havoc, causing traffic jams"
 ✅ Source says "tourists riding recklessly" → You can add "Patong, a major tourist area, often sees..."
 
+🚨 CRITICAL - PHUKET STREET NAME DISAMBIGUATION:
+Phuket Town has streets NAMED AFTER other Thai cities. DO NOT misidentify locations:
+- "Bangkok Road" / "ถนนกรุงเทพ" = A street in PHUKET TOWN, NOT Bangkok city
+- "Krabi Road" / "ถนนกระบี่" = A street in PHUKET TOWN, NOT Krabi province  
+- "Phang Nga Road" / "ถนนพังงา" = A street in PHUKET TOWN, NOT Phang Nga province
+
+⚠️ CRITICAL: If the article mentions "Bangkok Road", the event is in PHUKET TOWN, NOT Bangkok!
+This is a FACTUAL ERROR if you change the location to Bangkok. DO NOT MAKE THIS MISTAKE.
+
 Your goal is to:
 1. Create a single, cohesive narrative that integrates ALL existing facts cleanly
 2. Do NOT just append "Update:" at the bottom - reorganize naturally
-3. Keep Thai names, locations, and specific details exact
+3. Keep Thai names, locations, and specific details exact - ESPECIALLY verify the location is correct
 4. Use active, professional journalistic writing
 5. ADD CONTEXT ABOUT LOCATIONS AND BACKGROUND - not new event details
 6. If the story is still unfolding (missing key outcomes, names, or official statements), mark it as developing
+
+📰 HIGH-INTEREST STORY GUIDELINES (Score 4-5):
+For serious stories (fatal accidents, major crimes, drownings), ensure:
+- The tone matches the gravity of the event
+- All factual details are preserved accurately
+- Location is 100% verified (check street name disambiguation above!)
+- The lede clearly states the most important facts
+- The content is substantial enough for the story's importance
 
 Structure:
 - Lead paragraph with the most important existing fact
