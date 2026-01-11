@@ -9,8 +9,8 @@ export function Footer() {
   const { theme } = useTheme();
 
   return (
-    <footer className="border-t bg-card mt-20">
-      <div className="container mx-auto px-4 py-12">
+    <footer className="border-t bg-card mt-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col items-center md:items-start gap-3">
             <div>
