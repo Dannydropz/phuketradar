@@ -50,7 +50,7 @@ export function Footer() {
               <FaInstagram className="w-5 h-5" style={{ color: '#E1306C' }} />
             </a>
             <a
-              href="https://www.threads.net/@phuket_radar"
+              href="https://www.threads.com/@phuket_radar"
               target="_blank"
               rel="noopener noreferrer"
               className="hover-elevate rounded-lg p-2"

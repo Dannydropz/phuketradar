@@ -145,7 +145,7 @@ export function Header() {
                 <FaInstagram className="h-5 w-5" style={{ color: '#E1306C' }} />
               </a>
               <a
-                href="https://www.threads.net/@phuket_radar"
+                href="https://www.threads.com/@phuket_radar"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
@@ -301,7 +301,7 @@ export function Header() {
                 <FaInstagram className="h-6 w-6" style={{ color: '#E1306C' }} />
               </a>
               <a
-                href="https://www.threads.net/@phuket_radar"
+                href="https://www.threads.com/@phuket_radar"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
