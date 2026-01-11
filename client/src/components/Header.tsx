@@ -279,6 +279,37 @@ export function Header() {
                 Weather
               </Button>
             </Link>
+
+            {/* Mobile Social Icons */}
+            <div className="flex items-center justify-center space-x-4 pt-4 mt-2 border-t border-border">
+              <a
+                href="https://www.facebook.com/phuketradar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                aria-label="Follow us on Facebook"
+              >
+                <FaFacebook className="h-6 w-6" style={{ color: '#1877F2' }} />
+              </a>
+              <a
+                href="https://www.instagram.com/phuketradar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                aria-label="Follow us on Instagram"
+              >
+                <FaInstagram className="h-6 w-6" style={{ color: '#E1306C' }} />
+              </a>
+              <a
+                href="https://www.threads.net/@phuketradar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                aria-label="Follow us on Threads"
+              >
+                <SiThreads className="h-6 w-6 text-header-foreground" />
+              </a>
+            </div>
           </nav>
         )}
       </div>

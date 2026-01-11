@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { Facebook } from "lucide-react";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { SiThreads } from "react-icons/si";
 import { useTheme } from "./ThemeProvider";
 import logoDark from "@assets/PhuketRadar_1759933943849.png";
 import logoWhite from "@assets/logo-white-transparent.png";
@@ -33,9 +34,30 @@ export function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               className="hover-elevate rounded-lg p-2"
+              aria-label="Follow us on Facebook"
               data-testid="link-facebook"
             >
-              <Facebook className="w-5 h-5" />
+              <FaFacebook className="w-5 h-5" style={{ color: '#1877F2' }} />
+            </a>
+            <a
+              href="https://www.instagram.com/phuketradar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover-elevate rounded-lg p-2"
+              aria-label="Follow us on Instagram"
+              data-testid="link-instagram"
+            >
+              <FaInstagram className="w-5 h-5" style={{ color: '#E1306C' }} />
+            </a>
+            <a
+              href="https://www.threads.net/@phuketradar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover-elevate rounded-lg p-2"
+              aria-label="Follow us on Threads"
+              data-testid="link-threads"
+            >
+              <SiThreads className="w-5 h-5 text-muted-foreground hover:text-foreground" />
             </a>
           </div>
         </div>
