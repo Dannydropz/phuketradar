@@ -74,6 +74,23 @@ const HOT_KEYWORDS = [
   "ทะเลาะ", // quarrel/argue
   "ชกต่อย", // fistfight
   "ตบตี", // slap/hit fight
+  // BOAT/MARITIME KEYWORDS - Critical for Phuket tourism news
+  // Many tourist incidents occur on boat tours to Phi Phi, Kai Island, Similan, etc.
+  "เรือ", // boat (general)
+  "เรือเร็ว", // speedboat
+  "สปีดโบ๊ท", // speedboat (transliteration)
+  "เรือชน", // boat collision
+  "เรือล่ม", // boat capsized
+  "เรือจม", // boat sinking
+  "ล่ม", // capsized
+  "อับปาง", // shipwreck
+  "speedboat",
+  "boat collision",
+  "boat accident",
+  "capsized",
+  "ferry", // ferry incidents
+  "longtail", // longtail boat accidents
+  "เรือหางยาว", // longtail boat (Thai)
   // DRUG/CRIME KEYWORDS - Critical for proper context interpretation
   "ยาเสพติด", // drugs/narcotics
   "โคเคน", // cocaine
@@ -1044,8 +1061,17 @@ LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
 - Phuket stories: Score normally (1-5)
 - Nearby provinces (Phang Nga, Krabi): Score normally if relevant to Phuket
+- **BOAT TOUR DESTINATIONS ARE PHUKET-RELEVANT**: Phi Phi Islands, Kai Island (เกาะไก่), Similan Islands, Racha Island (Raya), James Bond Island (Khao Phing Kan), Koh Yao, Coral Island (Koh Hei) - these are where PHUKET TOURISTS go! Boat accidents, drownings, or incidents at these locations = Score 4-5, NOT "National"
+- **SPEEDBOAT/BOAT ACCIDENTS involving tourists = Score 5**: These stories are extremely relevant to Phuket readers as most tourists depart from Phuket piers
+- **"Phuket authorities respond" = PHUKET-RELEVANT**: Even if the incident location is technically in Krabi province, if Phuket officials/rescue teams are involved, it's high-interest for Phuket readers
 - ALL OTHER LOCATIONS (Hat Yai, Songkhla, Bangkok, etc.): Category="National", ABSOLUTE MAX SCORE=3. NO EXCEPTIONS.
 - SPECIFIC BAN: HAT YAI / SOUTHERN FLOODING stories must NEVER be scored above 3. Even if it's a disaster, if it's not in Phuket, it is NOT high interest for this site.
+
+**BOAT ACCIDENT SCORING EXAMPLES:**
+- "Speedboat collision near Kai Island injures 11 tourists" = Score 5 (tourists + injuries + boat accident = HIGHLY relevant)
+- "Speedboat capsizes near Phi Phi, tourists rescued" = Score 5 (tourist safety, local tour route)
+- "Ferry collision at Rassada Pier" = Score 5 (major Phuket pier incident)
+- "Tourist drowns during snorkeling trip to Coral Island" = Score 5 (death + tourist + popular destination)
 
 CRITICAL RULES:
 - Officials tackle/inspect/discuss = Score 2 (just talk, not action)
