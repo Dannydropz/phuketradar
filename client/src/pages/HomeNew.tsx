@@ -244,7 +244,7 @@ export default function HomeNew() {
                                     <FaFacebook className="w-5 h-5" />
                                 </a>
                                 <a
-                                    href="https://www.instagram.com/phuketradar/"
+                                    href="https://www.instagram.com/phuket_radar/"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-2 text-zinc-400 hover:text-[#E1306C] transition-colors"
@@ -253,7 +253,7 @@ export default function HomeNew() {
                                     <FaInstagram className="w-5 h-5" />
                                 </a>
                                 <a
-                                    href="https://www.threads.net/@phuketradar"
+                                    href="https://www.threads.net/@phuket_radar"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-2 text-zinc-400 hover:text-white transition-colors"
