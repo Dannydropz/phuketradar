@@ -51,7 +51,7 @@ export default function ArticleDetailNew() {
 
     // Use lightweight sidebar endpoint instead of fetching ALL articles
     const { data: sidebarData } = useQuery<{ latestArticles: ArticleListItem[], relatedArticles: ArticleListItem[] }>({
-        queryKey: [`/ api / articles / ${article?.id}/sidebar`],
+        queryKey: ["/api/articles", article?.id, "sidebar"],
         enabled: !!article?.id,
     });
 
