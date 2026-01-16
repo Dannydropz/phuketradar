@@ -353,15 +353,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cacheKey,
         CACHE_TTL.ARTICLES_LIST,
         async () => {
-          // Get latest 6 articles (we'll filter out current in frontend)
+          // Get latest 5 articles for the "Latest" sidebar section (excluding current)
           const allArticles = await storage.getPublishedArticles();
           const latestArticles = allArticles
             .filter(a => a.id !== id)
             .slice(0, 5);
 
-          // Get related articles (same category, excluding current)
-          const relatedArticles = allArticles
-            .filter(a => a.id !== id && a.category === article.category)
+          // Get trending articles for the "Trending in Phuket" section
+          // We fetch 4 to ensure we have at least 3 if the current one is in the trending list
+          const trendingArticles = await smartLearningService.getTrendingArticles(4);
+          const relatedArticles = trendingArticles
+            .filter(a => a.id !== id)
             .slice(0, 3);
 
           return { latestArticles, relatedArticles };
