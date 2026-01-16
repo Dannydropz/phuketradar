@@ -1,16 +1,19 @@
 /**
- * Facebook Headline Generator - STORY-LEVEL Curiosity Gap Strategy
+ * Facebook Headline Generator - FACTUAL + SPECIFIC Strategy
  * 
- * Goal: Generate headlines that maximize CTR by WITHHOLDING KEY STORY DETAILS
- * so readers MUST click to learn what happened.
+ * Goal: Generate headlines that are FACTUAL about what happened,
+ * using real names, places, and events - while withholding enough
+ * detail that readers want to click for the full story.
  * 
- * CRITICAL INSIGHT: "See the photos" is USELESS when photos are already in the post!
- * Instead, withhold WHO/WHAT/WHY/HOW so readers must click for the story.
+ * KEY PRINCIPLES:
+ * 1. Be factual - state what actually happened with real names/places
+ * 2. Don't make up context - no "raises concerns", "unexpected", etc.
+ * 3. Withhold full details - don't give the whole story away
  * 
- * ❌ BAD: "See the photos of the accident" (photos already visible in post)
- * ❌ BAD: "Tourist arrested for drug possession in Patong" (whole story given)
- * ✅ GOOD: "Tourist arrested after police search at Patong checkpoint" (what did they find?)
- * ✅ GOOD: "A man has been found dead in Phuket after..." (how? why?)
+ * ❌ BAD: "A collision in Patong raises concerns about traffic safety" (vague, made-up context)
+ * ❌ BAD: "Festival attracts unexpected crowds" (editorializing, if it's a known event)
+ * ✅ GOOD: "Car crashes into garbage truck in Patong" (factual, specific, leaving details unknown)
+ * ✅ GOOD: "EDM Thailand 2026 kicks off in Thalang" (names the actual event)
  */
 
 import OpenAI from 'openai';
@@ -57,56 +60,59 @@ export interface HeadlineGenerationInput {
 export async function generateFacebookHeadlines(
     input: HeadlineGenerationInput
 ): Promise<FacebookHeadlineVariants> {
-    const systemPrompt = `You are a senior social media editor for a news site.
+    const systemPrompt = `You are a senior social media editor for Phuket Radar, a local news site.
 
-Your job is to write Facebook teasers that MAXIMIZE click-through by creating STORY-LEVEL CURIOSITY GAPS.
+Your job is to write Facebook teasers that are FACTUAL and SPECIFIC, while withholding enough detail to encourage clicks.
 
-🚨 CRITICAL: THE PHOTOS ARE ALREADY IN THE POST! 🚨
-NEVER say "see the photos", "watch the video", "see the footage" - readers can already see them!
-Your job is to withhold STORY DETAILS, not promise visual "assets".
+🚨 CRITICAL RULES 🚨
 
-🎯 THE STRATEGY: WITHHOLD KEY STORY DETAILS
-Make readers curious about WHO/WHAT/WHY/HOW - things they can ONLY learn by clicking:
+1. BE FACTUAL - State what ACTUALLY happened with REAL names, places, and events
+   ✅ "Car crashes into garbage truck in Patong"
+   ✅ "EDM Thailand 2026 kicks off in Thalang with massive crowds"
+   ❌ "A collision in Patong raises concerns about traffic safety" (vague, made-up context)
+   ❌ "Festival in Thalang attracts unexpected crowds" (if it's a known event, it's not unexpected!)
 
-PATTERN 1 - STATE OUTCOME, OMIT CAUSE:
-- "A man has been found dead after..." (how? why? click to find out)
-- "Tourist hospitalized after incident at..." (what happened?)
-- "Police arrest foreigner following..." (what did he do?)
+2. DON'T MAKE UP CONTEXT - Never invent implications or reactions that aren't in the story
+   ❌ "...raises concerns about..." (editorializing)
+   ❌ "...sparks debate about..." (invented reaction)
+   ❌ "...unexpected..." (for known/scheduled events)
+   ❌ "...leaves residents wondering..." (invented sentiment)
 
-PATTERN 2 - STATE EVENT, OMIT KEY DETAILS:
-- "Police investigating after incident in Patong" (what incident?)
-- "Locals fighting back as authorities issue notices" (what notices? why?)
-- "Cases surging once again in Phuket" (what cases?)
+3. THE PHOTOS ARE ALREADY IN THE POST
+   NEVER say "see the photos", "watch the video", "see the footage" - readers can already see them!
 
-PATTERN 3 - STATE ACTION, OMIT CONSEQUENCE:
-- "Tourist arrested after altercation with taxi driver" (what happened next?)
-- "Authorities issue warning after discovery at beach" (what was found?)
-- "Expat faces deportation after police search" (what did they find?)
+🎯 THE STRATEGY: STATE THE FACTS, WITHHOLD THE FULL STORY
+Describe what happened clearly, but don't reveal everything so readers want the full story:
 
-❌ FORBIDDEN (Too much detail - no reason to click):
-- "Tourist arrested for drug possession at Patong Beach checkpoint"
-- "Man dies after drowning at Kata Beach despite lifeguard warnings"
-- "Russian tourist arrested for overstaying visa by 45 days"
+GOOD PATTERNS:
+- "Car crashes into garbage truck on Patong Hill" (readers want to know: injuries? cause? road closed?)
+- "Tourist arrested at Patong checkpoint" (readers want to know: what for? nationality?)  
+- "Man found dead at Karon hotel" (readers want to know: how? who? foul play?)
+- "Fire breaks out at Bangla Road nightclub" (readers want to know: damage? injuries? which club?)
 
-❌ FORBIDDEN (Useless CTAs - photos already visible):
-- "See the photos of..."
-- "Watch the moment..."
-- "See the video of..."
-- "Click to see..."
+BAD PATTERNS (Too vague/generic):
+- "Incident on Patong Hill raises safety concerns" (what incident??)
+- "A collision in Patong sparks discussion" (just say what crashed!)
+- "Authorities respond to situation in Kata" (what situation??)
 
-✅ EXAMPLES THAT WORK:
-- "Foreigner found unconscious on Bangla Road" (what happened to him?)
-- "Tourist arrested after police discover..." (what did police discover?)
-- "Phuket vendor goes viral after encounter with..." (encounter with who?)
-- "Locals outraged after authorities announce..." (announce what?)
+BAD PATTERNS (Too complete - no reason to click):
+- "Russian tourist arrested for overstaying visa by 45 days at airport" (whole story given)
+- "Fire at XYZ Bar destroys building, no injuries reported" (nothing left to learn)
+
+REAL STORY GUIDELINES:
+- For EVENTS (festivals, concerts): Name the actual event, don't call it "unexpected" if it's known
+- For ACCIDENTS: Say what crashed into what, where (e.g., "Car crashes into garbage truck in Patong")
+- For CRIMES: Say who was arrested and where, withhold the specific charge
+- For DEATHS: Say where the body was found, withhold cause/identity
+- For FIRES: Say what's on fire and where, withhold damage/injuries
 
 📝 STYLE RULES:
-- Maximum 20 words
+- Maximum 15 words (shorter is better for Facebook)
 - Third-person news perspective (never "we", "our", "join us")
-- Be specific about locations (Patong, Kata, Karon, Bangla Road, etc.)
-- Use "after", "following", "as" to create trailing suspense
-- Active voice
-- No exclamation marks`;
+- Use specific locations (Patong, Kata, Karon, Bangla Road, Thalang, etc.)
+- Active voice, present tense preferred for breaking news
+- No exclamation marks
+- No editorializing or invented reactions`;
 
     const userPrompt = `Generate 3 Facebook teaser variants for this article:
 
@@ -118,18 +124,25 @@ ARTICLE DETAILS:
 CONTENT (summarized):
 ${input.content.substring(0, 1200)}
 
-TASK: Generate 3 teasers that WITHHOLD different story elements:
+TASK: Generate 3 FACTUAL headline variants (each max 15 words):
 
-1. **WHAT HAPPENED?** - State the outcome but omit the cause/circumstances
-   Example: "A man has been found dead after incident at Patong hotel"
-   
-2. **WHO/WHY?** - State the event but omit specifics about who did it or why
-   Example: "Police investigating after discovery at Kata Beach"
-   
-3. **CONSEQUENCE?** - State the action but omit what happened next
-   Example: "Tourist arrested following altercation with local vendor"
+IMPORTANT: Be specific about what happened! Use real names, places, and events from the article.
 
-Then recommend which ONE works best based on story type and maximum curiosity potential.
+1. **WHAT HAPPENED?** - State what occurred clearly, withhold details like cause or injuries
+   Example: "Car crashes into garbage truck on Patong Hill"
+   Example: "Man found dead at Karon Beach hotel"
+   
+2. **WHO/WHAT?** - State the event/action, withhold specifics like charges or motive
+   Example: "Tourist arrested at Patong checkpoint"
+   Example: "EDM Thailand 2026 draws thousands to Thalang"
+   
+3. **WHERE/WHEN?** - Lead with specific location, withhold full outcome
+   Example: "Fire breaks out at Bangla Road nightclub"
+   Example: "Motorbike collision closes Kamala Beach road"
+
+REMEMBER: Be FACTUAL. Don't add phrases like "raises concerns", "sparks debate", or "unexpected" unless the article actually says that.
+
+Then recommend which ONE works best - pick the most specific and factual option.
 
 Respond in JSON:
 {
@@ -217,7 +230,7 @@ export async function generateQuickFacebookHeadline(
 }
 
 /**
- * Validate that a headline follows Curiosity Gap principles
+ * Validate that a headline is factual and specific,
  * and doesn't use forbidden patterns.
  */
 export function validateHeadline(headline: string): { valid: boolean; issues: string[] } {
@@ -239,6 +252,24 @@ export function validateHeadline(headline: string): { valid: boolean; issues: st
         }
     }
 
+    // Check for vague editorializing patterns (makes up context not in story)
+    const vaguePatterns = [
+        /raises concerns/i,
+        /sparks debate/i,
+        /leaves residents wondering/i,
+        /sparks outrage/i,
+        /raises questions/i,
+        /sparks controversy/i,
+        /leaves locals/i,
+        /prompts safety concerns/i,
+    ];
+
+    for (const pattern of vaguePatterns) {
+        if (pattern.test(headline)) {
+            issues.push(`Contains vague editorializing: "${headline.match(pattern)?.[0]}"`);
+        }
+    }
+
     // Check for first-person language
     const firstPersonPatterns = [
         /\bjoin us\b/i,
@@ -253,10 +284,10 @@ export function validateHeadline(headline: string): { valid: boolean; issues: st
         }
     }
 
-    // Check length (max 20 words)
+    // Check length (max 15 words for better Facebook engagement)
     const wordCount = headline.split(/\s+/).length;
-    if (wordCount > 20) {
-        issues.push(`Too long: ${wordCount} words (max 20)`);
+    if (wordCount > 15) {
+        issues.push(`Too long: ${wordCount} words (max 15)`);
     }
 
     // Check for exclamation marks (spam trigger)
