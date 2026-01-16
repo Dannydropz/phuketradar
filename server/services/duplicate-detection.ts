@@ -23,6 +23,8 @@ export class DuplicateDetectionService {
 
   /**
    * Main duplicate detection method - uses multi-layer approach
+   * CRITICAL: GPT verification is ALWAYS run on embedding matches to catch
+   * semantically-same stories with different wording (e.g., "iron rods" vs "steel pipe")
    */
   async findDuplicates(article: {
     title: string;
@@ -39,7 +41,7 @@ export class DuplicateDetectionService {
       return [];
     }
 
-    // Layer 1: Embedding similarity (fast)
+    // Layer 1: Embedding similarity (threshold lowered to 40% to catch more candidates)
     const embeddingMatches = await this.findByEmbedding(article.embedding, storage);
     console.log(`[DUPLICATE DETECTION] Embedding layer found ${embeddingMatches.length} potential matches`);
 
@@ -47,10 +49,10 @@ export class DuplicateDetectionService {
       return [];
     }
 
-    // Layer 1.5: Title similarity with location matching (NEW - catches "Fire at Chalong Bay" variations)
+    // Layer 1.5: Title similarity with location matching (catches "Fire at Chalong Bay" variations)
     const titleMatches = this.findByTitleSimilarity(article.title, embeddingMatches);
     if (titleMatches.length > 0) {
-      console.log(`[DUPLICATE DETECTION] Title similarity layer found ${titleMatches.length} strong matches - skipping GPT verification`);
+      console.log(`[DUPLICATE DETECTION] Title similarity layer found ${titleMatches.length} strong matches - returning immediately`);
       return titleMatches.map(match => ({
         isDuplicate: true,
         confidence: match.similarity,
@@ -59,16 +61,25 @@ export class DuplicateDetectionService {
       }));
     }
 
-    // Layer 2: Entity matching (filter)
+    // Layer 2: Entity matching (filter) - Don't fail if no entities match, as GPT will verify
     const entityMatches = await this.filterByEntities(article, embeddingMatches);
     console.log(`[DUPLICATE DETECTION] Entity layer filtered to ${entityMatches.length} candidates`);
 
-    if (entityMatches.length === 0) {
+    // CRITICAL FIX: If entity matching returns zero, still use GPT to verify TOP embedding matches
+    // This catches cases like "iron rods from crane" vs "steel pipe from crane" where
+    // entity extraction might not find matches but they're the same event
+    const candidatesForGPT = entityMatches.length > 0
+      ? entityMatches
+      : embeddingMatches.slice(0, 3); // Use top 3 embedding matches as fallback
+
+    if (candidatesForGPT.length === 0) {
       return [];
     }
 
-    // Layer 3: GPT-4 verification (precise)
-    const verifiedMatches = await this.verifyWithGPT4(article, entityMatches);
+    console.log(`[DUPLICATE DETECTION] Running GPT verification on ${candidatesForGPT.length} candidates...`);
+
+    // Layer 3: GPT-4 verification (precise) - ALWAYS run, never skip
+    const verifiedMatches = await this.verifyWithGPT4(article, candidatesForGPT);
     console.log(`[DUPLICATE DETECTION] GPT-4 verification confirmed ${verifiedMatches.length} duplicates`);
 
     return verifiedMatches;
@@ -213,8 +224,8 @@ export class DuplicateDetectionService {
     for (let i = 0; i < tokens.length - 1; i++) {
       bigrams.add(`${tokens[i]}_${tokens[i + 1]}`);
     }
-    // Also add individual important words (locations, event types)
-    const importantPatterns = /^(fire|accident|crash|rescue|drowning|dead|killed|injured|arrest|police|phuket|patong|chalong|karon|kata|rawai|kamala|mai\s*khao|airport|beach|pier|bay|road|hospital)/i;
+    // Also add individual important words (locations, event types, construction terms)
+    const importantPatterns = /^(fire|accident|crash|rescue|drowning|dead|killed|injured|arrest|police|phuket|patong|chalong|karon|kata|rawai|kamala|mai\s*khao|airport|beach|pier|bay|road|hospital|crane|construction|condo|building|collapse|fall|falls|fell|pipe|steel|iron|rods|roof|damage)/i;
     for (const token of tokens) {
       if (importantPatterns.test(token)) {
         bigrams.add(`_key_${token}`);
@@ -246,11 +257,14 @@ export class DuplicateDetectionService {
       'bay', 'beach', 'road', 'hospital', 'school', 'temple', 'market'
     ]);
 
-    // Event types
+    // Event types - expanded to include construction accidents
     const eventTypes = new Set([
       'fire', 'accident', 'crash', 'rescue', 'drowning', 'dead', 'death', 'killed',
       'injured', 'arrest', 'arrested', 'police', 'robbery', 'theft', 'assault',
-      'flood', 'storm', 'landslide', 'collapse', 'explosion', 'shooting'
+      'flood', 'storm', 'landslide', 'collapse', 'explosion', 'shooting',
+      // Construction-related (for crane/building accidents)
+      'crane', 'construction', 'condo', 'building', 'tower', 'site', 'fall', 'falls', 'fell',
+      'pipe', 'steel', 'iron', 'rods', 'roof', 'home', 'house', 'damage'
     ]);
 
     const keyTermsA = new Set(tokensA.filter(t => locations.has(t) || eventTypes.has(t)));
@@ -270,7 +284,7 @@ export class DuplicateDetectionService {
   private async findByEmbedding(
     embedding: number[],
     storage: IStorage,
-    threshold: number = 0.55 // Lowered from 0.75 to match scheduler's pre-translation check - catches more duplicates
+    threshold: number = 0.40 // Lowered from 0.55 to catch duplicates with different wording (e.g., "iron rods" vs "steel pipe")
   ): Promise<Article[]> {
     if (!embedding || embedding.length === 0) {
       console.log('[DUPLICATE DETECTION] No embedding provided, skipping embedding search');

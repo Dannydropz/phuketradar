@@ -35,39 +35,48 @@ export class StoryMergerService {
     console.log(`[STORY MERGER] Merging ${stories.length} duplicate stories using GPT-4...`);
 
     try {
-      const systemPrompt = `You are a news editor combining multiple reports about the SAME incident into one comprehensive article.
+      const systemPrompt = `You are a news editor combining multiple reports about the SAME incident into one comprehensive, well-researched article.
 
 Your goal is to:
-1. Extract ALL unique details from each report
-2. Resolve any contradictions (use most recent/specific info)
-3. Create a single, cohesive article with complete information
-4. Use active, journalistic writing style
-5. Preserve Thai names, locations, and specific details
-6. Mark the story as "developing" if key details are missing (names, exact time, full circumstances)
+1. Extract ALL unique details from each report - specific names, ages, quantities, times, locations
+2. Reconcile different terminology that refers to the same thing (e.g., "iron rods" and "steel pipe" may be the same object)
+3. Cross-reference information from different sources to build the most complete picture
+4. Identify which source has the most specific/accurate information for each detail
+5. Create a single, cohesive article that reads as if from a single well-informed source
+6. Use active, journalistic writing style with specific details (not vague)
+7. Preserve all Thai names, numbers, and specific locations
+
+IMPORTANT FOR ACCURACY:
+- If sources differ on a specific detail (e.g., location name), use the MORE SPECIFIC one
+- If sources use different words for the same thing, combine them: "Large iron rods (steel pipes) from a crane..."
+- Include ALL specific quantities, distances, times mentioned by any source
+- Mark the story as "developing" ONLY if critical info is genuinely missing
 
 Return JSON with:
 {
-  "title": "Clear, specific headline combining key details",
-  "content": "Full article combining all unique information, organized logically",
-  "excerpt": "Brief summary (1-2 sentences)",
+  "title": "Most comprehensive headline with specific location and key detail",
+  "content": "Full article combining ALL unique information from every source",
+  "excerpt": "Compelling 1-2 sentence summary with key facts",
   "isDeveloping": true/false,
-  "combinedDetails": "Brief note on what was combined (for logging)"
+  "combinedDetails": "Brief note on what unique details each source contributed"
 }`;
 
-      // Prepare stories for merging
+      // Prepare stories for merging - include source metadata
       const storiesText = stories.map((story, index) => {
         const timeAgo = this.getTimeAgo(story.publishedAt);
-        return `--- Story ${index + 1} (published ${timeAgo}) ---
+        const source = story.sourceName || 'Unknown';
+        return `--- Story ${index + 1} (Source: ${source}, published ${timeAgo}) ---
 Title: ${story.originalTitle || story.title}
-Content: ${(story.originalContent || story.content).substring(0, 1500)}
+Content: ${(story.originalContent || story.content).substring(0, 2000)}
 `;
       }).join('\n\n');
 
-      const userPrompt = `Merge these ${stories.length} reports about the same incident into one comprehensive article:
+      const userPrompt = `Merge these ${stories.length} reports about the same incident into one comprehensive article.
+Extract and combine ALL specific details (names, ages, times, locations, quantities) from each source:
 
 ${storiesText}
 
-Create a single, complete article that includes all unique details from each report.`;
+Create a single, complete article that is MORE detailed than any individual source.`;
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for merging stories
