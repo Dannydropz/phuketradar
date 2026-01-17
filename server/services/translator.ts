@@ -660,9 +660,9 @@ CRITICAL FORMATTING REQUIREMENTS:
 
 Respond in JSON format:
 {
-  "enrichedTitle": "Compelling, AP-Style Headline (Title Case)",
+  "enrichedTitle": "FACTUAL headline describing what happened (Title Case, AP-Style). FORBIDDEN: 'highlights concerns', 'raises concerns', 'sparks debate'. GOOD: 'Tourists Fight on Bangla Road'. BAD: 'Tourist Altercation Highlights Safety Concerns'.",
   "enrichedContent": "Full HTML article with proper <p> paragraph tags, starting with DATELINE, including Context section${params.communityComments && params.communityComments.length > 0 ? ' and Public Reaction section' : ''}",
-  "enrichedExcerpt": "2-3 sentence professional summary"
+  "enrichedExcerpt": "2-3 sentence FACTUAL summary. FORBIDDEN: 'highlights concerns', 'raises questions'. MUST describe what happened, not vague implications."
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -864,16 +864,16 @@ ${checkInLocation ? `\nOFFICIAL CHECK-IN LOCATION: "${checkInLocation}"\n(CRITIC
 Respond in JSON format:
 {
   "isActualNews": true/false,
-  "translatedTitle": "clear, compelling English headline following AP Style with proper company names and context",
+  "translatedTitle": "FACTUAL headline describing what happened. MUST state the actual event with specific details. FORBIDDEN PHRASES that are too vague or editorialize: 'highlights concerns', 'raises concerns', 'sparks debate', 'leaves residents wondering', 'draws attention', 'prompts questions'. GOOD: 'Tourists Fight on Bangla Road', 'Car Crashes Into Garbage Truck in Patong'. BAD: 'Tourist Altercation Highlights Safety Concerns' (too vague, editorializing). Follow AP Style, Title Case.",
   "translatedContent": "professional news article in HTML format. CRITICAL FORMATTING REQUIREMENTS: (1) MUST wrap EVERY paragraph in <p></p> tags, (2) MUST have at least 3-5 separate paragraphs for readability, (3) Use <h3> for section headings like Context, (4) NEVER return a single wall of text without paragraph breaks - this is UNACCEPTABLE and will result in poor user experience",
-  "excerpt": "2-3 sentence summary with flawless grammar and complete sentences",
+  "excerpt": "2-3 sentence FACTUAL summary describing what happened. FORBIDDEN: 'highlights concerns', 'raises questions', 'sparks debate', 'draws attention'. MUST describe the actual event, not vague implications. GOOD: 'A street fight between tourists broke out in Patong.' BAD: 'The incident highlights ongoing concerns about tourist behavior.'",
   "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime|National",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer),
   "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts),
   "needsReview": true/false (Set to TRUE if: 1. You are unsure about the location 2. The story seems like a rumor 3. You had to guess any details 4. It mentions a province outside Phuket but you aren't 100% sure if it's relevant 5. The source text is very short or ambiguous),
   "reviewReason": "Explanation of why this needs human review (required if needsReview is true)",
-  "facebookHeadline": "CURIOSITY GAP TEASER (CRITICAL FOR CTR): A brief hook that WITHHOLDS KEY DETAILS to force clicks. This is NOT a traditional headline - it should create intrigue without revealing the punchline. THE GOAL: Give just enough context to hook readers, but omit WHO/WHAT/WHY/HOW so they MUST click to learn more. PATTERNS THAT WORK: (1) State outcome but omit cause: 'A man has been found dead after...' (click to learn how), (2) Hint at drama without details: 'Police investigating after incident at...' (click to learn what happened), (3) Quote without context: '\"Very sorry my opponent died\"' (click to learn why), (4) Vague but intriguing: 'Cases are surging once again' (click to learn what cases). NEVER: Don't reveal the whole story, don't say 'see the photos' (useless), don't write a full news headline. MAX 20 WORDS. Examples: 'A tourist was arrested after an altercation in Patong' (GOOD - what happened?), 'Locals are fighting back as authorities issue demolition notices' (GOOD - why?), 'Foreigner found unconscious on Bangla Road' (GOOD - what happened?), 'Tourist arrested for drug possession in Patong Beach' (BAD - gives whole story), 'Man arrested for illegal duel: opponent died' (BAD - too much detail).""
+  "facebookHeadline": "FACTUAL TEASER (max 15 words): Describe what happened with real names/places, but withhold full details. MUST BE FACTUAL - state the actual event clearly. FORBIDDEN: 'raises concerns', 'highlights concerns', 'sparks debate', 'unexpected' (for known events). GOOD EXAMPLES: 'Tourists fight on Bangla Road' (factual, readers want details), 'Car crashes into garbage truck in Patong' (factual, readers want to know injuries/cause), 'Man found dead at Karon hotel' (factual, readers want to know how/who). BAD EXAMPLES: 'Collision in Patong raises safety concerns' (vague, made-up context), 'Festival attracts unexpected crowds' (if it's a known event, not unexpected). DON'T over-dramatize or invent context."
 }
 
 If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
