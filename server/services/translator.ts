@@ -622,7 +622,12 @@ STRICT WRITING GUIDELINES:
    - Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN).
    - You MAY add general context about locations (e.g., "Patong is a major tourist area") but NOT specific details about the event.
    - For short/viral posts: write SHORT factual articles (2-3 paragraphs). Do NOT dramatize into full news stories with invented scenarios.
-6. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language, but do not exaggerate it.
+6. **NO VAGUE FILLER PHRASES (CRITICAL):** These lazy phrases add no value and make articles sound generic:
+   - FORBIDDEN in article body: "underscores concerns", "highlights concerns", "raises questions about", "sparks debate", "highlights the challenges", "remains a concern", "is a reminder of"
+   - Instead, be SPECIFIC: If there's a concern, say WHOSE concern and WHAT specifically. If there's no specific concern mentioned in the source, don't make one up.
+   - GOOD: "Police said they will increase patrols in the area."
+   - BAD: "The incident underscores ongoing concerns about tourist behavior." (vague, made-up concern)
+7. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language, but do not exaggerate it.
 
 🎭 THAI SOCIAL MEDIA HUMOR DETECTION (CRITICAL FOR VIRAL POSTS):
 Thai social media posts often use SARCASM and EUPHEMISMS. DO NOT take captions literally:
