@@ -1047,7 +1047,52 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   }
 
                   // If enrichment returned modified article data, use it
-                  const finalArticleData = enrichmentResult.article || articleData;
+                  let finalArticleData = enrichmentResult.article || articleData;
+
+                  // STEP 5.8: Check for story UPDATES (not duplicates, but follow-up stories)
+                  // This catches cases like "missing person" → "body found" where the stories
+                  // are related but not duplicates. Links them together with an update notice.
+                  try {
+                    const { getStoryUpdateDetectorService } = await import("./services/story-update-detector");
+                    const storyUpdateDetector = getStoryUpdateDetectorService();
+
+                    const updateResult = await storyUpdateDetector.detectStoryUpdate(finalArticleData, storage);
+
+                    if (updateResult.isUpdate && updateResult.originalStory) {
+                      console.log(`\n📰 STORY UPDATE DETECTED!`);
+                      console.log(`   This is an update to: "${updateResult.originalStory.title.substring(0, 50)}..."`);
+                      console.log(`   Confidence: ${updateResult.confidence}%`);
+                      console.log(`   Progression: ${updateResult.progressionType || 'General update'}`);
+                      console.log(`   Reasoning: ${updateResult.reasoning}`);
+
+                      // Link the articles together
+                      const linkResult = await storyUpdateDetector.linkAsUpdate(
+                        finalArticleData,
+                        updateResult.originalStory,
+                        storage,
+                        updateResult.progressionType
+                      );
+
+                      if (linkResult.success) {
+                        // Update the article content with the update notice
+                        finalArticleData = {
+                          ...finalArticleData,
+                          content: linkResult.modifiedContent || finalArticleData.content,
+                          relatedArticleIds: [updateResult.originalStory.id],
+                          seriesId: linkResult.seriesId || undefined,
+                          storySeriesTitle: updateResult.originalStory.storySeriesTitle || undefined,
+                        };
+
+                        console.log(`   ✅ Linked to original story: ${updateResult.originalStory.id}`);
+                        if (linkResult.timelineCreated) {
+                          console.log(`   📅 Timeline created: ${linkResult.seriesId}`);
+                        }
+                      }
+                    }
+                  } catch (updateError) {
+                    console.error(`   ⚠️ Story update detection failed (non-critical):`, updateError);
+                    // Continue without update detection if it fails
+                  }
 
                   // Create article - auto-publish if interest score >= 3
                   article = await storage.createArticle(finalArticleData);
@@ -1089,9 +1134,19 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   createdCount++;
 
                   // STEP 6: Check for timeline auto-match with smart keyword counting
+                  // Also handles articles that were detected as story updates in Step 5.8
                   try {
                     const { getTimelineService } = await import("./services/timeline-service");
                     const timelineService = getTimelineService(storage);
+
+                    // If this article was detected as a story update, add it to the timeline
+                    if (finalArticleData.seriesId) {
+                      console.log(`📅 Adding story update to timeline: ${finalArticleData.seriesId}`);
+                      await timelineService.addArticleToTimeline(article.id, finalArticleData.seriesId);
+                      console.log(`   ✅ Added to timeline successfully`);
+                    }
+
+                    // Also check keyword-based auto-match (for timelines with auto-match enabled)
                     const matchResult = await timelineService.findMatchingTimeline(article);
 
                     if (matchResult.matched && matchResult.seriesId) {

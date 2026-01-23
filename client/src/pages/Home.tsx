@@ -1,22 +1,20 @@
 import { Header } from "@/components/Header";
-import { HeroSection } from "@/components/HeroSection";
-import { ArticleCard } from "@/components/ArticleCard";
-import { TrendingArticles } from "@/components/TrendingArticles";
-import { Footer } from "@/components/Footer";
+import { ModernArticleCard } from "@/components/ModernArticleCard";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { useState, useMemo } from "react";
-import type { ArticleListItem, Journalist } from "@shared/schema";
+import type { ArticleListItem } from "@shared/schema";
 import NotFound from "@/pages/not-found";
+import { Footer } from "@/components/Footer";
 
 const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
 
 export default function Home() {
   const [, params] = useRoute("/:category");
   const category = params?.category?.toLowerCase();
-  const [displayCount, setDisplayCount] = useState(12);
+  const [displayCount, setDisplayCount] = useState(20);
 
-  // Validate category - if invalid, show 404
+  // Validate category
   if (category && !VALID_CATEGORIES.includes(category)) {
     return <NotFound />;
   }
@@ -25,254 +23,82 @@ export default function Home() {
     queryKey: category ? [`/api/articles/category/${category}`] : ["/api/articles"],
   });
 
-  const { data: journalists = [] } = useQuery<Journalist[]>({
-    queryKey: ["/api/journalists"],
-  });
-
-  // Create journalist lookup map
-  const journalistMap = useMemo(() => {
-    const map = new Map<string, Journalist>();
-    journalists.forEach(j => map.set(j.id, j));
-    return map;
-  }, [journalists]);
-
-  // Sort articles by date (newest first)
+  // Sort articles by date
   const articles = useMemo(() => {
     return [...allArticles].sort((a, b) => {
       return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     });
   }, [allArticles]);
 
-  // Get high-interest articles (score >= 4) for hero section
-  const highInterestArticles = useMemo(() => {
-    return articles.filter(article => (article.interestScore ?? 0) >= 4);
-  }, [articles]);
-
-  // Hero section: Prioritize high-interest articles (score >= 4), but fill with recent articles if needed
-  const heroArticles = useMemo(() => {
-    // If we have enough high-interest articles (6+), use them exclusively
-    if (highInterestArticles.length >= 6) {
-      return highInterestArticles;
-    }
-
-    // Otherwise, take all high-interest articles and fill the rest with recent articles
-    const highInterestIds = new Set(highInterestArticles.map(a => a.id));
-    const remainingArticles = articles.filter(a => !highInterestIds.has(a.id));
-
-    return [...highInterestArticles, ...remainingArticles];
-  }, [highInterestArticles, articles]);
-
-  // Get live stories (developing OR breaking/high-interest, < 24 hours old)
-  const liveStories = useMemo(() => {
-    const now = Date.now();
-    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
-
-    // Get hero article IDs to exclude
-    const heroIds = new Set([
-      heroArticles[0]?.id,
-      ...heroArticles.slice(1, 6).map(a => a.id)
-    ].filter(Boolean));
-
-    return articles.filter(article => {
-      const isDeveloping = article.isDeveloping === true;
-      const isBreaking = (article.interestScore ?? 0) >= 4;
-      const isFresh = new Date(article.publishedAt).getTime() > twentyFourHoursAgo;
-      const notInHero = !heroIds.has(article.id);
-
-      return (isDeveloping || isBreaking) && isFresh && notInHero;
-    }).slice(0, 6); // Limit to 6 live stories total
-  }, [articles, heroArticles]);
-
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen bg-background">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading latest news...</p>
+        <div className="shapes-container flex items-center justify-center min-h-[60vh]">
+          <div className="animate-pulse text-4xl font-black text-muted-foreground uppercase opacity-20 tracking-tighter">
+            RADAR LOADING...
           </div>
-        </main>
-        <Footer />
+        </div>
       </div>
     );
   }
 
-  const featured = heroArticles[0];
-  const sidebar = heroArticles.slice(1, 6); // Show 5 trending stories
-
-  // Get IDs of articles already shown in hero section
-  const heroArticleIds = new Set([
-    featured?.id,
-    ...sidebar.map(a => a.id)
-  ].filter(Boolean));
-
-  // Get IDs of articles shown in hero and live sections to avoid duplicates
-  const excludedArticleIds = new Set([
-    ...Array.from(heroArticleIds),
-    ...liveStories.map(a => a.id)
-  ]);
-
-  // Latest articles: Show ALL recent articles, excluding those already in hero/urgent sections
-  const latestArticles = articles
-    .filter(article => !excludedArticleIds.has(article.id))
-    .slice(0, displayCount);
-  const hasMore = articles.filter(article => !excludedArticleIds.has(article.id)).length > displayCount;
-
-  // If no articles at all, show empty state
-  if (!featured) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md px-4">
-            <h2 className="text-2xl font-bold mb-4">No Articles Yet</h2>
-            <p className="text-muted-foreground mb-6">
-              Articles will appear here once the scraper runs. Visit the admin dashboard to scrape new content.
-            </p>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  const categoryTitle = category
-    ? category.charAt(0).toUpperCase() + category.slice(1)
-    : "All News";
+  const latestArticles = articles.slice(0, displayCount);
+  const hasMore = articles.length > displayCount;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-background">
       <Header />
-      <main className="flex-1">
-        <div className="container mx-auto px-4 py-8">
+
+      <main className="shapes-container">
+        <header className="shapes-header">
+          <h1 className="shapes-title">RADAR</h1>
+          <p className="shapes-subtitle">
+            Phuket's high-interest news radar. Breaking incidents, real-time tracking,
+            and deep-dive reporting for the island.
+          </p>
           {category && (
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold" data-testid="text-category-title">{categoryTitle}</h1>
-              <p className="text-muted-foreground mt-2">Latest {categoryTitle.toLowerCase()} news from Phuket</p>
+            <div className="mt-8 flex items-center gap-4">
+              <div className="h-1 w-12 bg-primary"></div>
+              <span className="text-2xl font-black uppercase tracking-tight text-primary">
+                {category}
+              </span>
             </div>
           )}
+        </header>
 
-          <HeroSection
-            featured={{
-              id: featured.id,
-              slug: featured.slug,
-              title: featured.title,
-              excerpt: featured.excerpt,
-              imageUrl: featured.imageUrl || "",
-              videoThumbnail: featured.videoThumbnail,
-              facebookEmbedUrl: featured.facebookEmbedUrl,
-              category: featured.category,
-              publishedAt: new Date(featured.publishedAt),
-              interestScore: featured.interestScore,
-            }}
-            sidebar={sidebar.map((article) => ({
-              id: article.id,
-              slug: article.slug,
-              title: article.title,
-              excerpt: article.excerpt,
-              imageUrl: article.imageUrl || "",
-              videoThumbnail: article.videoThumbnail,
-              facebookEmbedUrl: article.facebookEmbedUrl,
-              category: article.category,
-              publishedAt: new Date(article.publishedAt),
-              interestScore: article.interestScore,
-            }))}
-          />
+        <section className="shapes-grid">
+          {latestArticles.map((article) => (
+            <ModernArticleCard
+              key={article.id}
+              id={article.id}
+              slug={article.slug}
+              title={article.title}
+              excerpt={article.excerpt}
+              imageUrl={article.imageUrl || undefined}
+              videoThumbnail={article.videoThumbnail || undefined}
+              category={article.category}
+              publishedAt={new Date(article.publishedAt)}
+              interestScore={article.interestScore}
+              seriesId={article.seriesId}
+              isParentStory={article.isParentStory}
+              sourceName={article.sourceName}
+            />
+          ))}
+        </section>
 
-          {liveStories.length > 0 && (
-            <section className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="relative flex items-center justify-center">
-                  <div className="w-3 h-3 bg-red-600 dark:bg-red-500 rounded-full animate-pulse"></div>
-                  <div className="absolute w-3 h-3 bg-red-600 dark:bg-red-500 rounded-full animate-ping opacity-75"></div>
-                </div>
-                <h2 className="text-3xl font-bold">Live</h2>
-                <span className="text-sm text-muted-foreground">Developing stories</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {liveStories.map((article) => {
-                  const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
-                  return (
-                    <ArticleCard
-                      key={article.id}
-                      id={article.id}
-                      slug={article.slug}
-                      title={article.title}
-                      excerpt={article.excerpt}
-                      imageUrl={article.imageUrl || undefined}
-                      videoThumbnail={article.videoThumbnail || undefined}
-                      category={article.category}
-                      publishedAt={new Date(article.publishedAt)}
-                      interestScore={article.interestScore}
-                      eventType={article.eventType}
-                      severity={article.severity}
-                      isDeveloping={article.isDeveloping}
-                      lastEnrichedAt={article.lastEnrichedAt}
-                      journalist={journalist ? {
-                        id: journalist.id,
-                        nickname: journalist.nickname,
-                        surname: journalist.surname,
-                        headshot: journalist.headshot,
-                      } : undefined}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Trending Section - Only show on home page */}
-          {!category && <TrendingArticles />}
-        </div>
-
-        <div className="container mx-auto px-4 py-8">
-          {latestArticles.length > 0 && (
-            <section className="mt-16">
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold">{category ? "More Stories" : "Latest News"}</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                {latestArticles.map((article) => {
-                  const journalist = article.journalistId ? journalistMap.get(article.journalistId) : undefined;
-                  return (
-                    <ArticleCard
-                      key={article.id}
-                      id={article.id}
-                      slug={article.slug}
-                      title={article.title}
-                      excerpt={article.excerpt}
-                      imageUrl={article.imageUrl || undefined}
-                      category={article.category}
-                      publishedAt={new Date(article.publishedAt)}
-                      interestScore={article.interestScore}
-                      eventType={article.eventType}
-                      severity={article.severity}
-                      journalist={journalist ? {
-                        id: journalist.id,
-                        nickname: journalist.nickname,
-                        surname: journalist.surname,
-                        headshot: journalist.headshot,
-                      } : undefined}
-                    />
-                  );
-                })}
-              </div>
-              {hasMore && (
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => setDisplayCount(prev => prev + 12)}
-                    className="px-8 py-3 bg-primary text-primary-foreground rounded-md font-semibold hover-elevate active-elevate-2 transition-colors"
-                    data-testid="button-load-more"
-                  >
-                    Load More Stories
-                  </button>
-                </div>
-              )}
-            </section>
-          )}
-        </div>
+        {hasMore && (
+          <div className="flex justify-start pt-8">
+            <button
+              onClick={() => setDisplayCount(prev => prev + 20)}
+              className="text-sm font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors border-b-2 border-muted hover:border-primary pb-1"
+            >
+              Load More Intel +
+            </button>
+          </div>
+        )}
       </main>
+
       <Footer />
     </div>
   );

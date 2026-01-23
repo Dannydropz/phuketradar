@@ -4,15 +4,16 @@
 
 /* LIGHT MODE */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0, 0, 0, .10);
+  --badge-outline: rgba(0, 0, 0, .05);
 
   /* Automatic computation of border around primary / danger buttons */
-  --opaque-button-border-intensity: -8; /* In terms of percentages */
+  --opaque-button-border-intensity: -8;
+  /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0, 0, 0, .03);
+  --elevate-2: rgba(0, 0, 0, .08);
 
   --background: 0 0% 100%;
 
@@ -90,7 +91,8 @@
   --font-sans: 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
-  --radius: .5rem; /* 8px */
+  --radius: .5rem;
+  /* 8px */
   --shadow-2xs: 0px 1px 2px 0px hsl(220 13% 13% / 0.05);
   --shadow-xs: 0px 1px 3px 0px hsl(220 13% 13% / 0.10);
   --shadow-sm: 0px 2px 4px -1px hsl(220 13% 13% / 0.06), 0px 1px 2px -1px hsl(220 13% 13% / 0.06);
@@ -142,25 +144,29 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255, 255, 255, .10);
+  --badge-outline: rgba(255, 255, 255, .05);
 
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+  --opaque-button-border-intensity: 9;
+  /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-1: rgba(255, 255, 255, .04);
+  --elevate-2: rgba(255, 255, 255, .09);
 
-  --background: 0 0% 2%; /* #050505 */
+  --background: 0 0% 2%;
+  /* #050505 */
 
   --foreground: 0 0% 98%;
 
   --header: 0 0% 2%;
   --header-foreground: 0 0% 98%;
 
-  --border: 240 3.7% 15.9%; /* Zinc-800 */
+  --border: 240 3.7% 15.9%;
+  /* Zinc-800 */
 
-  --card: 0 0% 4%; /* #0A0A0A */
+  --card: 0 0% 4%;
+  /* #0A0A0A */
 
   --card-foreground: 0 0% 98%;
 
@@ -411,17 +417,340 @@
     display: block;
   }
 
-  /* Force responsive images on mobile - override any inline width/height attributes */
-  @media (max-width: 768px) {
-    .prose img[width],
-    .prose img[height],
-    .prose-sm img[width],
-    .prose-sm img[height],
-    .prose-lg img[width],
-    .prose-lg img[height] {
-      width: 100% !important;
-      max-width: 100% !important;
-      height: auto !important;
-    }
+  /* Story Update Notice - links to original story in developing stories */
+  .story-update-notice {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0d2137 100%);
+    border-left: 4px solid #3b82f6;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .story-update-notice p:first-child {
+    margin: 0 0 8px 0;
+    font-size: 0.875rem;
+    color: #60a5fa;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .story-update-notice p:last-child {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+  }
+
+  .story-update-notice a {
+    color: #60a5fa;
+    text-decoration: underline;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .story-update-notice a:hover {
+    color: #93c5fd;
+  }
+
+  /* Light mode variant */
+  :root .story-update-notice {
+    background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+    border-left-color: #2563eb;
+  }
+
+  :root .story-update-notice p:first-child {
+    color: #1e40af;
+  }
+
+  :root .story-update-notice p:last-child {
+    color: #1e293b;
+  }
+
+  :root .story-update-notice a {
+    color: #2563eb;
+  }
+
+  :root .story-update-notice a:hover {
+    color: #1d4ed8;
+  }
+
+  /* =============================================================================
+     Shapes Gallery Inspired Design System (RADAR V1)
+     ============================================================================= */
+
+  .shapes-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+  }
+
+  .shapes-header {
+    margin-bottom: 4rem;
+    text-align: left;
+  }
+
+  .shapes-title {
+    font-size: clamp(4rem, 15vw, 10rem);
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 0.85;
+    margin: 0;
+    text-transform: uppercase;
+    color: hsl(var(--foreground));
+    opacity: 0.95;
+  }
+
+  .shapes-subtitle {
+    color: hsl(var(--muted-foreground));
+    font-size: 0.85rem;
+    margin-top: 1.5rem;
+    max-width: 450px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1.6;
+    font-weight: 500;
+  }
+
+  /* Premium Card Grid */
+  .shapes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding-bottom: 4rem;
+  }
+
+  /* Card Tile */
+  .card-tile {
+    background-color: hsl(var(--card));
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+    gap: 16px;
+    border: 1px solid hsl(var(--border) / 0.5);
+    transition: all 0.4s cubic-bezier(0.2, 0, 0, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-tile:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    background-color: hsl(var(--elevate-1));
+  }
+
+  /* Flipping Mechanism */
+  .flip-card {
+    width: 100%;
+    aspect-ratio: 1.58 / 1;
+    perspective: 2000px;
+    cursor: pointer;
+    align-self: center;
+  }
+
+  .flip-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+
+  .card-tile:hover .flip-card-inner,
+  .card-tile.active .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flip-card-front,
+  .flip-card-back {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .flip-card-back {
+    transform: rotateY(180deg);
+    background: hsl(var(--accent));
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid hsl(var(--border));
+  }
+
+  .flip-card-front {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    position: relative;
+  }
+
+  .flip-card-front::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Realistic Glassmorphism Details */
+  .card-glass {
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+  }
+
+  .card-tag {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: rgba(var(--primary), 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-blur: 4px;
+    display: inline-block;
+  }
+
+  .back-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 12px;
+    color: hsl(var(--foreground));
+  }
+
+  .back-excerpt {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground));
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-action-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+  }
+
+  .card-btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-align: center;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  /* High-Fidelity Mockup Additions */
+
+  .badge-glow-container {
+    padding: 6px 12px;
+    border: 2px solid #f97316;
+    border-radius: 6px;
+    box-shadow: 0 0 15px rgba(249, 115, 22, 0.4), inset 0 0 5px rgba(249, 115, 22, 0.2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .badge-glow-text {
+    font-size: 10px;
+    font-weight: 900;
+    color: white;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Concentric circles texture for card front */
+  .card-radial-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-radial-gradient(circle at 50% 50%,
+        transparent 0,
+        transparent 4px,
+        rgba(255, 255, 255, 0.03) 4px,
+        rgba(255, 255, 255, 0.03) 5px);
+    opacity: 1;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .card-numbers-dots {
+    font-family: 'Inter', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .card-actions-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .action-btn-mockup {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-orange {
+    background: #f97316;
+    color: white;
+    box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+  }
+
+  .btn-orange:hover {
+    background: #ea580c;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4);
+  }
+
+  .btn-green {
+    background: #22c55e;
+    color: white;
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+  }
+
+  .btn-green:hover {
+    background: #16a34a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+  }
+
+  /* Refine Card Tile for the mockup look */
+  .card-tile {
+    padding: 24px;
+    background-color: #121212;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
   }
 }

@@ -265,6 +265,50 @@ const COLD_KEYWORDS = [
   "groundbreaking", // groundbreaking ceremony
   "TITLE", // TITLE (real estate developer brand)
   "Boat Pattana", // Boat Pattana (developer)
+  // UNIVERSITY / STUDENT ANNOUNCEMENT KEYWORDS - Routine academic news, NOT breaking
+  // Per: "Students win robotics award" = Score 3 (achievement, NOT urgent)
+  "นักศึกษา", // student(s)
+  "มหาวิทยาลัย", // university
+  "ราชภัฏ", // Rajabhat (university type)
+  "วิทยาลัย", // college
+  "internship", // internship programs
+  "intern", // intern placement
+  "ฝึกงาน", // internship/training (Thai)
+  "ฝึกประสบการณ์", // gain experience (Thai)
+  "staffing", // staffing events
+  "selected to staff", // selected to work at event
+  "selected to work", // selected for job
+  "partnership", // university partnership
+  "MOU", // Memorandum of Understanding (common for academic agreements)
+  "บันทึกข้อตกลง", // MOU (Thai)
+  "students from", // students from university
+  "university students", // university students
+  // FOUNDATION / ORGANIZATIONAL / ADMINISTRATIVE NEWS - Routine governance, NOT breaking news
+  // Per scoring guide: "Board appointments", "organizational changes" = Score 2-3 (routine administrative)
+  "มูลนิธิ", // foundation (Thai)
+  "foundation", // foundation (English)
+  "แต่งตั้ง", // appoint/appointment
+  "appoint", // appoint (English)
+  "appointment", // appointment
+  "กรรมการ", // director/board member
+  "คณะกรรมการ", // board of directors
+  "board of directors", // board of directors
+  "temporary representative", // temporary representative
+  "ตัวแทน", // representative
+  "ลาออก", // resign/resignation
+  "resignation", // resignation
+  "สมาชิกสภา", // council member
+  "องค์กร", // organization
+  "organizational", // organizational
+  "governance", // governance
+  "administrative", // administrative
+  "anniversary", // anniversary celebration
+  "ครบรอบ", // anniversary (Thai)
+  "internal", // internal organizational matters
+  "restructuring", // organizational restructuring
+  "legal proceedings", // legal proceedings (routine)
+  "legal dispute", // legal dispute (internal org)
+  "court case", // court case (unless crime)
 ];
 
 // POLITICS KEYWORDS - Used to cap political stories at score 3 regardless of AI category
@@ -290,12 +334,17 @@ const POLITICS_KEYWORDS = [
   // English political terms (from translated content)
   "election",
   "campaign",
+  "campaign atmosphere", // campaign events
+  "election campaign",
   "candidate",
   "politician",
   "political party",
+  "political event",
   "MP ", // Member of Parliament with space to avoid false matches
   "parliament",
   "voting",
+  "vote",
+  "voters",
   "ballot",
   "constituency",
   "People's Party", // Thai political party
@@ -303,6 +352,8 @@ const POLITICS_KEYWORDS = [
   "Move Forward", // Thai political party
   "Democrat Party", // Thai political party
   "Bhumjaithai", // Thai political party
+  "encouraging residents to vote", // campaign messaging
+  "encourage to vote",
 ];
 
 // Phuket location context map for richer rewrites
@@ -568,6 +619,14 @@ If the caption says "Tourist enjoying Patong" but comments say "Quality tourist 
     }
 
     const prompt = `You are a Senior International Correspondent for a major wire service (like AP, Reuters, or AFP) stationed in Phuket, Thailand.
+
+📅 CURRENT DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' })} (Thailand Time)
+
+⏰ CRITICAL - TENSE VERIFICATION:
+- CHECK EVENT DATES: Compare any event dates in the source to TODAY's date above.
+- PAST EVENTS = PAST TENSE: If an event has already occurred, write in past tense.
+- FUTURE EVENTS = FUTURE TENSE: Only use future tense if the event is genuinely upcoming.
+- NEVER copy future tense from an outdated source if the event has passed.
 
 🚨 ABSOLUTE PRIORITY - FACTUAL ACCURACY (READ FIRST) 🚨
 You MUST report ONLY what the source explicitly states. DO NOT embellish, dramatize, or expand the meaning of words:
@@ -890,6 +949,15 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
             role: "system",
             content: `You are a professional news editor and translator for Phuket Radar, an English-language news site covering Phuket, Thailand.
 
+📅 CURRENT DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' })} (Thailand Time)
+
+⏰ CRITICAL - TENSE VERIFICATION (READ BEFORE WRITING):
+- CHECK EVENT DATES: If the source mentions specific dates for an event, compare them to TODAY's date above.
+- PAST EVENTS = PAST TENSE: If an event date has already passed, write in PAST TENSE ("The festival took place...", "Students staffed the event...").
+- FUTURE EVENTS = FUTURE TENSE: Only use future tense ("will be held", "is scheduled for") if the event date is AFTER today's date.
+- EXAMPLE: If source says "festival on January 16-18" and today is January 21, write: "Students staffed the Electric Daisy Carnival, which took place January 16-18..." NOT "Students will staff..."
+- NEVER copy future tense from an outdated source article if the event has already happened.
+
 CRITICAL LOCATION VERIFICATION:
 - VERIFY THE LOCATION: Determine EXACTLY where the event happened.
 - DO NOT HALLUCINATE PHUKET: If the story mentions Hat Yai, Songkhla, Bangkok, Chiang Mai, or other provinces, DO NOT change the location to Phuket.
@@ -1061,6 +1129,29 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - Shopping center celebrations, sustainability events = Score 2 (marketing fluff)
 - Photo opportunities, performances, festivities = Score 2 (entertainment, NOT news)
 - If it sounds like a press release or promotional content = Score 1-2
+
+**UNIVERSITY/STUDENT ANNOUNCEMENT RULES:**
+- Students selected to staff/work at events = ABSOLUTE MAX SCORE 2-3 (routine academic news, NOT breaking)
+- University internship/training programs = Score 2-3 (educational news, NOT urgent)
+- Students win awards/competitions = Score 3 MAX (achievement, nice but NOT breaking)
+- University partnerships/MOUs = Score 2 (administrative news)
+- Student volunteer programs = Score 2-3 (community news)
+- EXAMPLE: \"Rajabhat University students selected to staff EDC festival\" = Score 2-3 (routine staffing announcement)
+- These stories are nice LOCAL news but do NOT warrant social media auto-posting (score 4-5)
+
+**FOUNDATION/ORGANIZATIONAL GOVERNANCE RULES:**
+- Foundation board appointments, director changes = ABSOLUTE MAX SCORE 2-3 (routine organizational news)
+- NGO/charity leadership changes, resignations = Score 2-3 (administrative news, NOT breaking)
+- "Legal dispute" or "legal proceedings" involving organizations/foundations = Score 3 MAX (internal organizational matters)
+- Organizational restructuring, representative appointments = Score 2-3 (routine governance)
+- Anniversary celebrations of foundations/organizations = Score 2-3 (ceremonial news)
+- EXAMPLES of what to CAP at Score 2-3:
+  - "Foundation appoints temporary representatives" = Score 2-3 (routine admin)
+  - "15 directors resign from foundation board" = Score 3 (organizational change, not a crime/scandal affecting public)
+  - "Organization celebrates 135th anniversary" = Score 2 (ceremonial, NOT news)
+  - "Foundation faces legal dispute over governance" = Score 3 (internal org matter)
+- EXCEPTION: If foundation/org news involves financial fraud, embezzlement, or criminal charges = Score 4-5 (actual crime)
+
 
 LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
@@ -1254,6 +1345,34 @@ Always output valid JSON.`,
       if ((category === "Business" || hasRealEstateKeyword) && finalInterestScore > 3) {
         const reason = category === "Business" ? "business category" : `real estate/development keyword detected`;
         console.log(`   🏗️  BUSINESS/REAL ESTATE CAP: ${finalInterestScore} → 3 (${reason})`);
+        finalInterestScore = 3;
+      }
+
+      // CAP FOUNDATION/ORGANIZATIONAL GOVERNANCE NEWS AT SCORE 3
+      // Editorial decision: Foundation board appointments, director changes, organizational 
+      // governance matters are routine administrative news, NOT breaking news.
+      const FOUNDATION_GOVERNANCE_CAP_KEYWORDS = [
+        "foundation", "มูลนิธิ", // foundation
+        "board of directors", "คณะกรรมการ", "กรรมการ", // board/directors
+        "appoint", "แต่งตั้ง", "appointment", // appointment
+        "temporary representative", "ตัวแทน", // representative
+        "resignation", "ลาออก", // resignation
+        "organizational", "องค์กร", // organizational
+        "governance", "administrative", // governance/admin terms
+        "anniversary celebration", "ครบรอบ", // anniversary
+        "legal dispute", "legal proceedings", // legal matters (internal org)
+        "restructuring", // organizational restructuring
+      ];
+
+      const hasFoundationGovernanceKeyword = FOUNDATION_GOVERNANCE_CAP_KEYWORDS.some(keyword =>
+        title.toLowerCase().includes(keyword.toLowerCase()) ||
+        content.toLowerCase().includes(keyword.toLowerCase()) ||
+        (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
+        (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
+      );
+
+      if (hasFoundationGovernanceKeyword && finalInterestScore > 3) {
+        console.log(`   🏛️  FOUNDATION/ORG GOVERNANCE CAP: ${finalInterestScore} → 3 (organizational governance keyword detected)`);
         finalInterestScore = 3;
       }
 
