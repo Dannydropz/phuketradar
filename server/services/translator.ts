@@ -1139,18 +1139,20 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - EXAMPLE: \"Rajabhat University students selected to staff EDC festival\" = Score 2-3 (routine staffing announcement)
 - These stories are nice LOCAL news but do NOT warrant social media auto-posting (score 4-5)
 
-**FOUNDATION/ORGANIZATIONAL GOVERNANCE RULES:**
-- Foundation board appointments, director changes = ABSOLUTE MAX SCORE 2-3 (routine organizational news)
-- NGO/charity leadership changes, resignations = Score 2-3 (administrative news, NOT breaking)
-- "Legal dispute" or "legal proceedings" involving organizations/foundations = Score 3 MAX (internal organizational matters)
-- Organizational restructuring, representative appointments = Score 2-3 (routine governance)
-- Anniversary celebrations of foundations/organizations = Score 2-3 (ceremonial news)
-- EXAMPLES of what to CAP at Score 2-3:
-  - "Foundation appoints temporary representatives" = Score 2-3 (routine admin)
-  - "15 directors resign from foundation board" = Score 3 (organizational change, not a crime/scandal affecting public)
+**FOUNDATION/COMPANY/ORGANIZATIONAL GOVERNANCE RULES:**
+- Foundation board appointments, director changes = ABSOLUTE MAX SCORE 2 (routine organizational news)
+- Company board news, corporate governance = Score 2 MAX (business admin, NOT breaking)
+- NGO/charity leadership changes, resignations = Score 2 (administrative news, NOT breaking)
+- "Legal dispute" or "legal proceedings" involving organizations/foundations = Score 2 MAX (internal organizational matters)
+- Organizational restructuring, representative appointments = Score 2 (routine governance)
+- Anniversary celebrations of foundations/organizations = Score 2 (ceremonial news)
+- EXAMPLES of what to CAP at Score 2:
+  - "Foundation appoints temporary representatives" = Score 2 (routine admin)
+  - "15 directors resign from foundation board" = Score 2 (organizational change, not a crime/scandal affecting public)
   - "Organization celebrates 135th anniversary" = Score 2 (ceremonial, NOT news)
-  - "Foundation faces legal dispute over governance" = Score 3 (internal org matter)
-- EXCEPTION: If foundation/org news involves financial fraud, embezzlement, or criminal charges = Score 4-5 (actual crime)
+  - "Company board announces new director" = Score 2 (corporate admin)
+  - "Foundation faces legal dispute over governance" = Score 2 (internal org matter)
+- EXCEPTION: If foundation/org/company news involves financial fraud, embezzlement, or criminal charges = Score 4-5 (actual crime)
 
 
 LOCATION-BASED SCORING:
@@ -1371,9 +1373,9 @@ Always output valid JSON.`,
         (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
       );
 
-      if (hasFoundationGovernanceKeyword && finalInterestScore > 3) {
-        console.log(`   🏛️  FOUNDATION/ORG GOVERNANCE CAP: ${finalInterestScore} → 3 (organizational governance keyword detected)`);
-        finalInterestScore = 3;
+      if (hasFoundationGovernanceKeyword && finalInterestScore > 2) {
+        console.log(`   🏛️  FOUNDATION/ORG/COMPANY BOARD CAP: ${finalInterestScore} → 2 (organizational governance keyword detected)`);
+        finalInterestScore = 2;
       }
 
       // Ensure score stays within 1-5 range
