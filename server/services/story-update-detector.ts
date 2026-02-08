@@ -331,48 +331,142 @@ Is the NEW article an update/follow-up to the EXISTING article?`;
 
     /**
      * Generate a timeline series title from the stories
+     * Creates descriptive titles that include key identifying information
      */
     private generateSeriesTitle(originalStory: Article, updateStory: InsertArticle): string {
-        // Extract key details from titles
-        const combinedTitle = originalStory.title + ' ' + (updateStory.title || '');
+        const originalTitle = originalStory.title;
+        const combinedTitle = originalTitle + ' ' + (updateStory.title || '');
+        const combinedLower = combinedTitle.toLowerCase();
 
-        // Look for location patterns
+        // Look for location patterns - expanded list
         const locationPatterns = [
-            /at\s+([^,]+(?:Beach|Road|Pier|Bay|Island))/i,
-            /in\s+(Patong|Chalong|Karon|Kata|Rawai|Kamala|Phuket Town|Bang Tao)/i,
+            /at\s+([^,]+(?:Beach|Road|Pier|Bay|Island|Hospital|Hotel|Airport))/i,
+            /in\s+(Patong|Chalong|Karon|Kata|Rawai|Kamala|Phuket Town|Bang Tao|Thalang|Wichit|Kathu|Rassada|Saphan Hin|Phuket City)/i,
+            /near\s+([^,]+)/i,
         ];
 
         let location = '';
         for (const pattern of locationPatterns) {
             const match = combinedTitle.match(pattern);
             if (match) {
-                location = match[1];
+                location = match[1].trim();
                 break;
             }
         }
 
-        // Look for event type
-        const eventPatterns = [
-            { pattern: /drown|missing|swimming/i, event: 'Drowning Incident' },
-            { pattern: /fire|blaze|burn/i, event: 'Fire Incident' },
-            { pattern: /crash|accident|collision/i, event: 'Traffic Accident' },
-            { pattern: /arrest|police|drug/i, event: 'Police Case' },
-            { pattern: /rescue|stranded|trapped/i, event: 'Rescue Operation' },
-            { pattern: /flood|storm|weather/i, event: 'Weather Event' },
+        // Extract victim/subject info patterns (nationality, age, etc.)
+        const victimPatterns = [
+            // "Iraqi National Ameer Mundher..." -> "Iraqi National"
+            /(\w+)\s+(?:National|Citizen|Tourist|Man|Woman|Expat)/i,
+            // "24-year-old Iraqi" -> "Iraqi"
+            /(\d+)[\s-]*year[\s-]*old\s+(\w+)/i,
+            // "Russian tourist" -> "Russian Tourist"
+            /(Russian|Chinese|British|American|German|French|Thai|Burmese|Myanmar|Iraqi|Iranian|Indian|Australian|Swedish|Norwegian|Finnish|Danish|Korean|Japanese)\s+(tourist|national|citizen|man|woman|expat)/i,
         ];
 
-        let eventType = 'Developing Story';
-        for (const { pattern, event } of eventPatterns) {
-            if (pattern.test(combinedTitle)) {
-                eventType = event;
+        let victimInfo = '';
+        for (const pattern of victimPatterns) {
+            const match = combinedTitle.match(pattern);
+            if (match) {
+                if (pattern.source.includes('year')) {
+                    // Pattern like "24-year-old Iraqi"
+                    victimInfo = `${match[2]} National`;
+                } else if (match[2]) {
+                    // Pattern like "Russian tourist"
+                    victimInfo = `${match[1]} ${match[2].charAt(0).toUpperCase() + match[2].slice(1)}`;
+                } else {
+                    victimInfo = match[1] + ' National';
+                }
                 break;
             }
         }
 
-        if (location) {
-            return `${eventType} at ${location}`;
+        // Look for event type - expanded with more patterns
+        const eventPatterns = [
+            { pattern: /shoot|shot|gunshot|gun|firearm/i, event: 'Shooting Incident', prefix: 'Phuket' },
+            { pattern: /stab|stabbing|stabbed|knife/i, event: 'Stabbing Incident', prefix: 'Phuket' },
+            { pattern: /murder|murdered|homicide|killed|killing/i, event: 'Fatal Incident', prefix: 'Phuket' },
+            { pattern: /assault|attack|beaten|violence/i, event: 'Assault Case', prefix: 'Phuket' },
+            { pattern: /drown|drowning|drowned|missing.*sea|missing.*water/i, event: 'Drowning Incident', prefix: 'Phuket' },
+            { pattern: /fire|blaze|burn|inferno/i, event: 'Fire Incident', prefix: '' },
+            { pattern: /crash|accident|collision|vehicle|motorcycle|car/i, event: 'Traffic Accident', prefix: '' },
+            { pattern: /arrest|apprehend|custody|charged/i, event: 'Police Investigation', prefix: '' },
+            { pattern: /drug|narcotics|trafficking|smuggling/i, event: 'Drug Case', prefix: 'Phuket' },
+            { pattern: /rescue|stranded|trapped|saved/i, event: 'Rescue Operation', prefix: '' },
+            { pattern: /flood|flooding|flooded|storm|weather|rain/i, event: 'Weather Event', prefix: '' },
+            { pattern: /explosion|bomb|blast/i, event: 'Explosion Incident', prefix: 'Phuket' },
+            { pattern: /robbery|robbed|theft|stolen/i, event: 'Robbery Case', prefix: '' },
+            { pattern: /scam|fraud|deceived/i, event: 'Fraud Case', prefix: '' },
+        ];
+
+        let eventType = '';
+        let prefix = 'Phuket';
+        for (const { pattern, event, prefix: eventPrefix } of eventPatterns) {
+            if (pattern.test(combinedLower)) {
+                eventType = event;
+                prefix = eventPrefix || 'Phuket';
+                break;
+            }
         }
-        return eventType;
+
+        // If we have a specific event type and victim info, create a detailed title
+        if (eventType && victimInfo) {
+            if (location) {
+                return `${prefix ? prefix + ' ' : ''}${eventType}: ${victimInfo} in ${location} - Developing`;
+            }
+            return `${prefix ? prefix + ' ' : ''}${eventType}: ${victimInfo} - Developing`;
+        }
+
+        // If we have event type with location but no victim info
+        if (eventType && location) {
+            return `${prefix ? prefix + ' ' : ''}${eventType} in ${location} - Developing`;
+        }
+
+        // If we just have event type
+        if (eventType) {
+            return `${prefix ? prefix + ' ' : ''}${eventType} - Developing`;
+        }
+
+        // Fallback: Use a cleaned version of the original title with "- Developing" suffix
+        // This preserves the most descriptive information from the original story
+        const cleanedTitle = this.cleanTitleForSeries(originalTitle);
+        if (cleanedTitle.length > 0) {
+            return cleanedTitle + ' - Developing';
+        }
+
+        // Ultimate fallback
+        if (location) {
+            return `Developing Story in ${location}`;
+        }
+        return 'Developing Story';
+    }
+
+    /**
+     * Clean a title for use as a series title
+     * Removes time-specific phrases, source attributions, etc.
+     */
+    private cleanTitleForSeries(title: string): string {
+        let cleaned = title
+            // Remove time-specific phrases
+            .replace(/\b(breaking|just in|update|latest|now|today|yesterday|this morning|this evening|hours ago)\b:?\s*/gi, '')
+            // Remove source attributions
+            .replace(/[-–]\s*(source|report|reports|says|according to)[^,]*/gi, '')
+            // Remove trailing punctuation and clean up
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // If the title is too long, try to extract the most meaningful part
+        if (cleaned.length > 80) {
+            // Try to cut at a natural break point
+            const colonIndex = cleaned.indexOf(':');
+            if (colonIndex > 10 && colonIndex < 60) {
+                cleaned = cleaned.substring(0, colonIndex + 1) + cleaned.substring(colonIndex + 1, 80).trim();
+            } else {
+                cleaned = cleaned.substring(0, 77).trim() + '...';
+            }
+        }
+
+        return cleaned;
     }
 
     /**
