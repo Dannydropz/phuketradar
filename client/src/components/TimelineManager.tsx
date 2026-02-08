@@ -21,7 +21,7 @@ import { useState } from "react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Article } from "@shared/schema";
+import type { ArticleListItem } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 interface TimelineSuggestion {
@@ -33,7 +33,7 @@ interface TimelineSuggestion {
 }
 
 interface TimelineManagerProps {
-    article: Article;
+    article: ArticleListItem;
     onClose: () => void;
 }
 
@@ -56,7 +56,7 @@ export function TimelineManager({ article, onClose }: TimelineManagerProps) {
     });
 
     // Search articles
-    const { data: searchResults = [], isLoading: isSearching } = useQuery<Article[]>({
+    const { data: searchResults = [], isLoading: isSearching } = useQuery<ArticleListItem[]>({
         queryKey: ["/api/admin/articles/search", searchQuery],
         queryFn: async () => {
             if (!searchQuery.trim()) return [];

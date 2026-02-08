@@ -48,7 +48,7 @@ export class GoogleSearchConsoleService {
                 requestBody: {
                     startDate: startDateStr,
                     endDate: endDateStr,
-                    dimensions: ['page'],
+                    dimensions: ['page', 'date'],
                     rowLimit: 5000,
                 },
             });
@@ -66,11 +66,12 @@ export class GoogleSearchConsoleService {
             let errorCount = 0;
 
             for (const row of rows) {
-                const pageUrl = row.keys?.[0] || '';
-                if (!pageUrl) continue;
+                const pageUrl = (row.keys?.[0] || '').split('?')[0].split('#')[0];
+                const dateStr = row.keys?.[1] || ''; // YYYY-MM-DD
+
+                if (!pageUrl || !dateStr) continue;
 
                 // Extract slug from full URL
-                // e.g., https://phuketradar.com/news/crime/some-slug -> some-slug
                 const parts = pageUrl.split('/').filter(p => p);
                 const slug = parts[parts.length - 1];
 
@@ -79,7 +80,7 @@ export class GoogleSearchConsoleService {
                 // Find article by slug
                 const article = await db.query.articles.findFirst({
                     where: eq(articles.slug, slug),
-                    columns: { id: true }
+                    columns: { id: true, title: true }
                 });
 
                 if (article) {
@@ -89,27 +90,27 @@ export class GoogleSearchConsoleService {
                         const ctr = row.ctr || 0;
                         const position = row.position || 0;
 
-                        const today = new Date();
+                        console.log(`[GSC SERVICE] Updating metrics for "${article.title}" on ${dateStr}: ${clicks} clicks`);
 
                         await db
                             .insert(articleMetrics)
                             .values({
                                 articleId: article.id,
                                 source: 'google_search_console',
-                                metricDate: today,
-                                gscClicks: clicks,
-                                gscImpressions: impressions,
-                                gscCtr: ctr,
-                                gscPosition: position,
+                                metricDate: dateStr,
+                                scClicks: clicks,
+                                scImpressions: impressions,
+                                scCtr: ctr,
+                                scAvgPosition: position,
                                 syncedAt: new Date(),
                             })
                             .onConflictDoUpdate({
                                 target: [articleMetrics.articleId, articleMetrics.source, articleMetrics.metricDate],
                                 set: {
-                                    gscClicks: clicks,
-                                    gscImpressions: impressions,
-                                    gscCtr: ctr,
-                                    gscPosition: position,
+                                    scClicks: clicks,
+                                    scImpressions: impressions,
+                                    scCtr: ctr,
+                                    scAvgPosition: position,
                                     syncedAt: new Date(),
                                 }
                             });

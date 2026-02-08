@@ -964,7 +964,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
                   // Determine if this is a video story and calculate boosted score early
                   const isVideoStory = post.isVideo;
-                  const finalInterestScore = isVideoStory ? Math.max(translation.interestScore, 4) : translation.interestScore;
+                  const canBoost = translation.autoBoostScore !== false;
+
+                  // Video stories generally get a boost to interest score 4, but NOT if they are capped
+                  // as boring (politics, routine business, foundation news)
+                  const finalInterestScore = (isVideoStory && canBoost) ? Math.max(translation.interestScore, 4) : translation.interestScore;
 
                   // Use original source image (AI generation disabled - synthetic images looked poor)
                   const finalImageUrl = localImageUrl;

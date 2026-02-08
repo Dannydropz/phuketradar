@@ -17,6 +17,8 @@ export interface TranslationResult {
   facebookHeadline?: string;
   needsReview?: boolean;
   reviewReason?: string;
+  isPolitics?: boolean;
+  autoBoostScore?: boolean; // Set to false for "boring" stories that shouldn't be boosted to score 4+ even if video/hot
 }
 
 // BLOCKED KEYWORDS - Auto-reject these stories due to legal/editorial policy
@@ -331,6 +333,16 @@ const POLITICS_KEYWORDS = [
   "อบจ", // Provincial Administrative Organization
   "อบต", // Subdistrict Administrative Organization
   "เทศบาล", // municipality
+  "ปราศรัย", // speech/rally
+  "นโยบาย", // policy
+  "คะแนนเสียง", // votes/ballots
+  "เพื่อไทย", // Pheu Thai (Thai)
+  "ก้าวไกล", // Move Forward (Thai)
+  "ประชาชน", // People's Party (Thai)
+  "ภูมิใจไทย", // Bhumjaithai (Thai)
+  "ประชาธิปัตย์", // Democrat Party (Thai)
+  "พลังประชารัฐ", // Palang Pracharath (Thai)
+  "รวมไทยสร้างชาติ", // United Thai Nation (Thai)
   // English political terms (from translated content)
   "election",
   "campaign",
@@ -340,6 +352,18 @@ const POLITICS_KEYWORDS = [
   "politician",
   "political party",
   "political event",
+  "political rally",
+  "mini-speech", // "mini-speech" mentioned in user's example
+  "Pheu Thai Party", // Pheu Thai Party (full name)
+  "Pheu Thai", // Pheu Thai
+  "People's Party", // People's Party
+  "Move Forward Party", // Move Forward
+  "Move Forward",
+  "Democrat Party", // Democrat Party
+  "Bhumjaithai Party", // Bhumjaithai
+  "Bhumjaithai",
+  "Palang Pracharath", // Palang Pracharath
+  "United Thai Nation", // UTN
   "MP ", // Member of Parliament with space to avoid false matches
   "parliament",
   "voting",
@@ -347,72 +371,24 @@ const POLITICS_KEYWORDS = [
   "voters",
   "ballot",
   "constituency",
-  "People's Party", // Thai political party
-  "Pheu Thai", // Thai political party
-  "Move Forward", // Thai political party
-  "Democrat Party", // Thai political party
-  "Bhumjaithai", // Thai political party
   "encouraging residents to vote", // campaign messaging
   "encourage to vote",
 ];
 
-// Phuket location context map for richer rewrites
+// Phuket location context map - CRITICAL DISAMBIGUATION ONLY
+// NOTE: We intentionally DO NOT include generic tourist descriptions like "bustling tourist area" or
+// "family-friendly beach" - our readers are locals and expats who already know Phuket well.
+// These descriptions come off as condescending and "dumbing down" the content.
+// We ONLY include context that prevents FACTUAL ERRORS (e.g., street name disambiguation).
 const PHUKET_CONTEXT_MAP: Record<string, string> = {
-  "ป่าตอง": "Patong, a major tourist beach area on Phuket's west coast",
-  "Patong": "Patong, a major tourist beach area on Phuket's west coast",
-  "กะตะ": "Kata, a family-friendly beach known for surfing",
-  "Kata": "Kata, a family-friendly beach known for surfing",
-  "ราวัย": "Rawai, a local seafood area in southern Phuket",
-  "Rawai": "Rawai, a local seafood area in southern Phuket",
-  "กมลา": "Kamala, a quiet beach community north of Patong",
-  "Kamala": "Kamala, a quiet beach community north of Patong",
-  "เมืองภูเก็ต": "Phuket Town, the island's cultural and administrative center",
-  "Phuket Town": "Phuket Town, the island's cultural and administrative center",
-  "ฉลอง": "Chalong, a district known for the Big Buddha and pier area",
-  "Chalong": "Chalong, a district known for the Big Buddha and pier area",
-  "กะรน": "Karon, a long beach popular with families and tourists",
-  "Karon": "Karon, a long beach popular with families and tourists",
-  "บางเทา": "Bang Tao, home to luxury resorts and Laguna Phuket",
-  "Bang Tao": "Bang Tao, home to luxury resorts and Laguna Phuket",
-  "สุรินทร์": "Surin, an upscale beach area with fine dining",
-  "Surin": "Surin, an upscale beach area with fine dining",
   // PHUKET TOWN STREETS - Named after other Thai cities, DO NOT confuse with those cities!
-  "ถนนกรุงเทพ": "Bangkok Road, a major road in PHUKET TOWN (NOT Bangkok city!)",
-  "Bangkok Road": "Bangkok Road, a major road in PHUKET TOWN (NOT Bangkok city!)",
-  "ถนนกระบี่": "Krabi Road, a road in PHUKET TOWN (NOT Krabi province!)",
-  "Krabi Road": "Krabi Road, a road in PHUKET TOWN (NOT Krabi province!)",
-  "ถนนพังงา": "Phang Nga Road, a major road in PHUKET TOWN (NOT Phang Nga province!)",
-  "Phang Nga Road": "Phang Nga Road, a major road in PHUKET TOWN (NOT Phang Nga province!)",
-  "ถนนทวีวงศ์": "Thaweewong Road, the main beach road in Patong",
-  "Thaweewong Road": "Thaweewong Road, the main beach road in Patong",
-  "ถนนราศฎร์อุทิศ 200 ปี": "Rat Uthit 200 Pee Road, a parallel road in Patong",
-  "ถนนบางลา": "Bangla Road, Patong's famous walking street and nightlife area",
-  "Bangla Road": "Bangla Road, Patong's famous walking street and nightlife area",
-  "ซอยบางลา": "Bangla Road/Soi Bangla, Patong's famous nightlife strip",
-  "ถนนเทพกษัตรี": "Thepkasattri Road, the main highway running north-south through Phuket",
-  "Thepkasattri Road": "Thepkasattri Road, the main highway running north-south through Phuket",
-  "ถนนวิชิต": "Wichit Road, a major road in Phuket Town",
-  "ถนนเจ้าฟ้า": "Chao Fa Road, a major commercial road in Phuket",
-  "Chao Fa Road": "Chao Fa Road, a major commercial road in Phuket",
-  // PHUKET DISTRICTS/AREAS
-  "ตลาดใหญ่": "Talat Yai, the old town market district in Phuket Town",
-  "วิชิต": "Wichit, a residential district near Phuket Town",
-  "กะทู้": "Kathu, the district containing Patong Beach",
-  "Kathu": "Kathu, the district containing Patong Beach",
-  "ถลาง": "Thalang, the historical district in northern Phuket",
-  "Thalang": "Thalang, the historical district in northern Phuket",
-  "เกาะแก้ว": "Koh Kaew, an upscale residential area near Phuket Town",
-  "Koh Kaew": "Koh Kaew, an upscale residential area near Phuket Town",
-  "ไม้ขาว": "Mai Khao, northern Phuket beach near the airport",
-  "Mai Khao": "Mai Khao, northern Phuket beach near the airport",
-  "นายยาง": "Nai Yang, a local beach near Phuket Airport",
-  "Nai Yang": "Nai Yang, a local beach near Phuket Airport",
-  "ในหาน": "Nai Harn, a beautiful beach in southern Phuket",
-  "Nai Harn": "Nai Harn, a beautiful beach in southern Phuket",
-  "อ่าวฉลอง": "Chalong Bay, home to the main yacht marina",
-  "Chalong Bay": "Chalong Bay, home to the main yacht marina",
-  "ท่าเรือฉลอง": "Chalong Pier, departure point for island tours",
-  "Chalong Pier": "Chalong Pier, departure point for island tours",
+  // These are the ONLY critical disambiguations needed to prevent location errors
+  "ถนนกรุงเทพ": "Bangkok Road in PHUKET TOWN (NOT Bangkok city!)",
+  "Bangkok Road": "Bangkok Road in PHUKET TOWN (NOT Bangkok city!)",
+  "ถนนกระบี่": "Krabi Road in PHUKET TOWN (NOT Krabi province!)",
+  "Krabi Road": "Krabi Road in PHUKET TOWN (NOT Krabi province!)",
+  "ถนนพังงา": "Phang Nga Road in PHUKET TOWN (NOT Phang Nga province!)",
+  "Phang Nga Road": "Phang Nga Road in PHUKET TOWN (NOT Phang Nga province!)",
 };
 
 // CRITICAL: Street names that could be confused with cities
@@ -641,21 +617,27 @@ You MUST report ONLY what the source explicitly states. DO NOT embellish, dramat
 
 ✅ ALLOWED:
 - Translate accurately ("คึกคะนอง" = "reckless" or "boisterous", NOT "performing stunts")
-- Add general location context (e.g., "Patong is known for its nightlife")
 - Describe what the source explicitly shows or says
+
+🚫 DO NOT ADD GENERIC AREA DESCRIPTIONS (CRITICAL - READ THIS):
+Our readers are LOCAL RESIDENTS and EXPATS who know Phuket extremely well. DO NOT add condescending tourist-guide fluff like:
+- "Patong, a bustling tourist area on Phuket's west coast" - LOCALS KNOW WHAT PATONG IS
+- "Bangla Road, famous for its nightlife" - EVERYONE KNOWS THIS
+- "Chalong, known for the Big Buddha" - THIS IS PATRONIZING
+
+Write like you're talking to an INSIDER who reads this site every day, not a clueless tourist visiting for the first time.
+The ONLY exception: If a story relates to a RECURRING THEME in that area (e.g., another Bangla Road fight, another Patong parking dispute), you may briefly note that this is part of an ongoing pattern.
 
 IF THE SOURCE IS VAGUE, KEEP YOUR ARTICLE VAGUE. Short sources = short articles.
     
 YOUR MISSION:
-Take the provided local news report and rewrite it into professional journalism while staying 100% FACTUAL to the source.
+Take the provided local news report and rewrite it into professional journalism while staying 100% FACTUAL to the source. Write for LOCALS AND EXPATS who know the island intimately.
 
 INPUT ARTICLE:
 Title: ${params.title}
 Category: ${params.category}
 Content: ${params.content}
 
-AVAILABLE LOCAL CONTEXT (Use this to add depth about LOCATIONS ONLY, NOT events):
-${contextMapString}
 ${communityCommentsSection}
 CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
 - **DATELINE = EVENT LOCATION, NOT PERSON'S ORIGIN:** If "KB Jetski Phuket team helps in Songkhla floods", the dateline should be "**SONGKHLA –**" or "**HAT YAI, SONGKHLA –**" (where the event is), NOT "**PHUKET TOWN –**" (where the team is from).
@@ -673,13 +655,13 @@ STRICT WRITING GUIDELINES:
 4. **STRUCTURE:**
    - **The Narrative:** Tell the story chronologically or by importance.${params.communityComments && params.communityComments.length > 0 ? `
    - **Additional Context from Community:** Weave in alleged details from comments using hedging language.` : ''}
-   - **The "Context" Section:** End the main article with a distinct section titled "<h3>Context: [Topic]</h3>". Explain the broader background.${params.communityComments && params.communityComments.length > 0 ? `
-   - **The "Public Reaction" Section:** After Context, add "<h3>Public Reaction</h3>" summarizing community sentiment.` : ''}
+   - **The "Context" Section:** ONLY add a Context section if this story relates to a RECURRING THEME or ONGOING PATTERN (e.g., "This is the third parking dispute on this soi this month", "Bangla Road fights have increased during high season"). DO NOT add generic area descriptions that locals already know.${params.communityComments && params.communityComments.length > 0 ? `
+   - **The "Public Reaction" Section (PRIORITY):** This is MORE IMPORTANT than Context. Add "<h3>Public Reaction</h3>" summarizing what locals are saying about this story. Our readers want to hear community sentiment, not generic area fluff.` : ''}
 5. **FACTUALITY - ZERO TOLERANCE FOR HALLUCINATION:**
    - Do NOT invent quotes, specific numbers, witness statements, or police responses.
    - Do NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "witnesses described", "police responded to calls", "performing stunts", "doing wheelies" unless the source says so.
    - Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN).
-   - You MAY add general context about locations (e.g., "Patong is a major tourist area") but NOT specific details about the event.
+   - Do NOT add generic area descriptions like "bustling tourist area" or "famous for nightlife" - our readers are locals who already know this.
    - For short/viral posts: write SHORT factual articles (2-3 paragraphs). Do NOT dramatize into full news stories with invented scenarios.
 6. **NO VAGUE FILLER PHRASES (CRITICAL):** These lazy phrases add no value and make articles sound generic:
    - FORBIDDEN in article body: "underscores concerns", "highlights concerns", "raises questions about", "sparks debate", "highlights the challenges", "remains a concern", "is a reminder of"
@@ -903,17 +885,23 @@ Your task:
 
 3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style.
 
-CONTEXT & ENRICHMENT REQUIREMENTS:
-- If you see location descriptions in parentheses (e.g., "Patong, a major tourist area"), preserve and incorporate them naturally.
-- Add brief LOCAL CONTEXT about Phuket locations when relevant to help international readers understand the setting.
-- Include BACKGROUND INFORMATION when it adds depth (e.g., "Bangla Road, Patong's famous nightlife strip").
-- Maintain all factual details, names, times, and numbers exactly as provided.
+🚫 DO NOT ADD GENERIC AREA DESCRIPTIONS (CRITICAL):
+Our readers are LOCAL RESIDENTS and EXPATS who know Phuket extremely well. Writing like a tourist guide is CONDESCENDING. DO NOT add:
+- "Patong, a bustling tourist area on Phuket's west coast" - LOCALS KNOW WHAT PATONG IS
+- "Bangla Road, Patong's famous nightlife strip" - EVERYONE KNOWS THIS
+- "Chalong, known for the Big Buddha" - THIS IS PATRONIZING
+
+Write like you're talking to an INSIDER who reads this site every day, not a clueless tourist.
+The ONLY exception for area context: If this story relates to a RECURRING THEME in that area (e.g., "This is the latest in a series of Bangla Road altercations" or "Parking disputes in this soi have been escalating").
+
+PUBLIC SENTIMENT IS PRIORITY:
+If community comments are available, readers want to hear what locals are saying about this story - NOT generic tourist-guide descriptions of the area.
 
 ⚠️ CRITICAL - ZERO HALLUCINATION POLICY (READ CAREFULLY):
 - ONLY write about what is explicitly stated or shown in the source.
 - DO NOT INVENT actions, behaviors, or events that aren't described (e.g., "shouted", "appeared agitated", "caused chaos").
 - If source shows tourists on motorbike being stopped by police, report ONLY that - do NOT add that they "shouted at passersby" unless the source says so.
-- Context = explaining what Patong is. Hallucination = inventing what the person did.
+- DO NOT add generic area fluff like "bustling tourist area" - this is hallucination of a different kind.
 - When in doubt, write LESS. A short factual article is better than a long invented one.
 - If source is just a video caption like "Farangs showing off at traffic lights, police pulled them over", your article should describe ONLY: tourists on motorbikes at traffic lights, police stopped them. Do NOT add "agitated", "outburst", "disruption" unless source says so.
 
@@ -1478,6 +1466,9 @@ Always output valid JSON.`,
         isDeveloping: result.isDeveloping || false,
         needsReview: result.needsReview || false,
         reviewReason: result.reviewReason,
+        isPolitics: category === "Politics" || hasPoliticsKeyword,
+        // Block auto-boosting for categories editorial team finds "boring" even as videos
+        autoBoostScore: !(category === "Politics" || hasPoliticsKeyword || category === "Business" || hasRealEstateKeyword || hasFoundationGovernanceKeyword),
         embedding,
         facebookHeadline,
       };

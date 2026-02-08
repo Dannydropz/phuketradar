@@ -26,13 +26,29 @@ You MUST only include facts that are ALREADY in the article. This is an ENRICHME
 - Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN)
 - Do NOT invent quotes, witness statements, police responses, or specific numbers
 - Do NOT add: "caused chaos", "performing stunts", "appeared agitated", "witnesses described" unless already present
-- You MAY add general background context about LOCATIONS (e.g., "Patong is known for nightlife") but NOT new event details
+
+🚫 DO NOT ADD GENERIC AREA DESCRIPTIONS (CRITICAL - OUR READERS KNOW PHUKET):
+Our readers are LOCAL RESIDENTS and EXPATS who know Phuket extremely well. DO NOT add condescending tourist-guide fluff like:
+- "Patong, a bustling tourist area on Phuket's west coast" - LOCALS KNOW WHAT PATONG IS
+- "Bangla Road, famous for its nightlife" - EVERYONE KNOWS THIS  
+- "Patong is known for nightlife" - THIS IS PATRONIZING
+- "Chalong, known for the Big Buddha" - LOCALS LIVE HERE
+
+Write like you're talking to an INSIDER who reads this site every day, not a clueless tourist visiting for the first time.
+
+✅ WHAT YOU MAY ADD (if applicable):
+- RECURRING PATTERN context: "This is the latest in a series of similar incidents in the area" (ONLY if actually true)
+- PUBLIC SENTIMENT: If there are comments or reactions, summarize what locals are saying
+- UPDATES: New information from official sources
+- BETTER ORGANIZATION: Clean up the narrative flow
 
 EXAMPLES OF FORBIDDEN ENRICHMENT:
 ❌ Source says "tourists riding recklessly" → You add "performing dangerous stunts"
 ❌ Source says "police stopped them" → You add "arrested and fined"
 ❌ Source says "disturbing the area" → You add "created havoc, causing traffic jams"
-✅ Source says "tourists riding recklessly" → You can add "Patong, a major tourist area, often sees..."
+❌ You add "Patong, a major tourist area, often sees..." - LOCALS KNOW THIS, STOP ADDING IT
+✅ You reorganize facts into better narrative flow
+✅ You add "Residents on social media expressed frustration..." (if comments exist)
 
 🚨 CRITICAL - PHUKET STREET NAME DISAMBIGUATION:
 Phuket Town has streets NAMED AFTER other Thai cities. DO NOT misidentify locations:
@@ -48,7 +64,7 @@ Your goal is to:
 2. Do NOT just append "Update:" at the bottom - reorganize naturally
 3. Keep Thai names, locations, and specific details exact - ESPECIALLY verify the location is correct
 4. Use active, professional journalistic writing
-5. ADD CONTEXT ABOUT LOCATIONS AND BACKGROUND - not new event details
+5. DO NOT add generic area descriptions - our readers are locals who know Phuket
 6. If the story is still unfolding (missing key outcomes, names, or official statements), mark it as developing
 
 📰 HIGH-INTEREST STORY GUIDELINES (Score 4-5):
@@ -61,13 +77,14 @@ For serious stories (fatal accidents, major crimes, drownings), ensure:
 
 Structure:
 - Lead paragraph with the most important existing fact
-- Body paragraphs with context and background about LOCATIONS
+- Body paragraphs organized logically
+- Public reaction/sentiment (if available)
 - Clean, professional flow
 
 Return JSON with:
 {
-  "enrichedContent": "The reorganized article with location context added",
-  "updateSummary": "Brief note on what was reorganized/contextualized (NOT invented)",
+  "enrichedContent": "The reorganized article - NO generic area descriptions added",
+  "updateSummary": "Brief note on what was reorganized (NOT 'added location context')",
   "shouldContinueDeveloping": true/false (true if still missing key details)
 }`;
 
@@ -87,7 +104,9 @@ Metadata:
 - Last enriched: ${lastEnriched}
 - Source: ${article.sourceName || 'Unknown'}
 
-Add LOCATION context and reorganize for clarity. Do NOT add new facts, events, or details that aren't already in the article. Mark shouldContinueDeveloping as true if still developing.`;
+Reorganize for clarity. Do NOT add new facts, events, or details that aren't already in the article. 
+CRITICAL: Do NOT add generic area descriptions like "bustling tourist area" or "known for nightlife" - our readers are locals who already know Phuket.
+Mark shouldContinueDeveloping as true if still developing.`;
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for enrichment updates

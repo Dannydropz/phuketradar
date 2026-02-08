@@ -845,7 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             a.title,
             a.engagement_score as "engagementScore",
             a.published_at as "publishedAt",
-            COALESCE(m.total_views, 0) as views,
+            GREATEST(a.view_count, COALESCE(m.total_views, 0)) as views,
             COALESCE(s.total_reactions, 0) as "fbReactions",
             COALESCE(s.total_comments, 0) as "fbComments",
             COALESCE(s.total_shares, 0) as "fbShares"
@@ -863,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT 
             category, 
             COUNT(*) as article_count,
-            SUM(COALESCE(am.ga_views, 0)) as total_views,
+            SUM(GREATEST(COALESCE(a.view_count, 0), COALESCE(am.ga_views, 0))) as total_views,
             AVG(COALESCE(a.engagement_score, 0)) as avg_engagement
         FROM articles a
         LEFT JOIN article_metrics am ON a.id = am.article_id
@@ -896,10 +896,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY metric_date ASC
       `);
 
+      // 4. Summary Stats (Total 7 days)
+      const summaryStats = await db.execute(sql`
+        SELECT 
+            SUM(GREATEST(COALESCE(a.view_count, 0), COALESCE(v.total_views, 0))) as "totalViews7Days"
+        FROM articles a
+        LEFT JOIN (
+            SELECT article_id, SUM(ga_views) as total_views
+            FROM article_metrics
+            WHERE metric_date >= NOW() - INTERVAL '7 days'
+            GROUP BY article_id
+        ) v ON a.id = v.article_id
+        WHERE a.published_at >= NOW() - INTERVAL '7 days'
+      `);
+
       res.json({
         topArticles,
         categoryStats: categoryStats.rows,
-        dailyStats: dailyStats.rows
+        dailyStats: dailyStats.rows,
+        summary: summaryStats.rows[0]
       });
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -908,9 +923,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all articles (including unpublished) - PROTECTED
+  // Uses optimized lean query that excludes heavy fields (content, embedding, entities) for fast loading
   app.get("/api/admin/articles", requireAdminAuth, async (req, res) => {
     try {
-      const articles = await storage.getAllArticles();
+      // Use lean version that excludes content, embedding, entities for MUCH faster loading
+      // These fields can add megabytes of data when there are hundreds of articles
+      const articles = await storage.getAllArticlesLean(500, 0);
+
+      // Add cache headers for browser-side caching (short TTL since admin may refresh often)
+      res.set({
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+      });
+
       res.json(articles);
     } catch (error) {
       console.error("Error fetching all articles:", error);
@@ -937,6 +961,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching articles needing review:", error);
       res.status(500).json({ error: "Failed to fetch articles needing review" });
+    }
+  });
+
+  // Get single article by ID with full content (for editing) - PROTECTED
+  app.get("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      res.json(article);
+    } catch (error) {
+      console.error("Error fetching article:", error);
+      res.status(500).json({ error: "Failed to fetch article" });
     }
   });
 

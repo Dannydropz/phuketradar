@@ -103,14 +103,14 @@ export class GoogleAnalyticsService {
                 ],
                 dimensions: [
                     { name: 'pagePath' },
+                    { name: 'date' }, // YYYYMMDD
                 ],
                 metrics: [
                     { name: 'screenPageViews' },
                     { name: 'averageSessionDuration' },
                     { name: 'bounceRate' },
-                    { name: 'scrolledUsers' }, // Proxy for scroll depth/engagement
                 ],
-                limit: 1000, // Fetch top 1000 pages
+                limit: 5000,
             });
 
             if (!response.rows) {
@@ -125,7 +125,10 @@ export class GoogleAnalyticsService {
 
             // 2. Map GA paths to Articles
             for (const row of response.rows) {
-                const pagePath = row.dimensionValues?.[0]?.value || '';
+                const pagePath = (row.dimensionValues?.[0]?.value || '').split('?')[0].split('#')[0];
+                const dateStr = row.dimensionValues?.[1]?.value || ''; // YYYYMMDD
+
+                if (!pagePath || !dateStr) continue;
 
                 // Extract slug from path (e.g., "/news/crime/some-slug" -> "some-slug")
                 const parts = pagePath.split('/').filter(p => p);
@@ -133,10 +136,12 @@ export class GoogleAnalyticsService {
 
                 const slug = parts[parts.length - 1];
 
+                const metricDateStr = dateStr.substring(0, 4) + '-' + dateStr.substring(4, 6) + '-' + dateStr.substring(6, 8);
+
                 // Find article by slug
                 const article = await db.query.articles.findFirst({
                     where: eq(articles.slug, slug),
-                    columns: { id: true }
+                    columns: { id: true, title: true }
                 });
 
                 if (article) {
@@ -145,15 +150,14 @@ export class GoogleAnalyticsService {
                         const avgTime = parseFloat(row.metricValues?.[1]?.value || '0');
                         const bounceRate = parseFloat(row.metricValues?.[2]?.value || '0');
 
-                        // Update article_metrics table
-                        const today = new Date();
+                        console.log(`[GA SERVICE] Updating metrics for "${article.title}" on ${dateStr}: ${views} views`);
 
                         await db
                             .insert(articleMetrics)
                             .values({
                                 articleId: article.id,
                                 source: 'google_analytics',
-                                metricDate: today, // Using today as the sync date
+                                metricDate: metricDateStr,
                                 gaViews: views,
                                 gaAvgTimeOnPage: avgTime,
                                 gaBounceRate: bounceRate,

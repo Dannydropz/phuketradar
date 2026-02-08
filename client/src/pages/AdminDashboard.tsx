@@ -21,7 +21,7 @@ import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Article, Category } from "@shared/schema";
+import type { Article, ArticleListItem, Category } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
@@ -55,17 +55,19 @@ export default function AdminDashboard() {
   const { logout, isAuthenticated } = useAdminAuth();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
-  const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
+  const [previewArticle, setPreviewArticle] = useState<ArticleListItem | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
-  const [timelineArticle, setTimelineArticle] = useState<Article | null>(null);
+  const [isLoadingFullArticle, setIsLoadingFullArticle] = useState(false);
+  const [timelineArticle, setTimelineArticle] = useState<ArticleListItem | null>(null);
   const [bulkTimelineOpen, setBulkTimelineOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [collapsedTimelines, setCollapsedTimelines] = useState<Set<string>>(new Set());
   const [manualScrapeUrl, setManualScrapeUrl] = useState("");
   const [manualScrapeDialogOpen, setManualScrapeDialogOpen] = useState(false);
 
-  const { data: articles = [], isLoading, error } = useQuery<Article[]>({
+  // Use ArticleListItem (lean type without content/embedding) for faster loading
+  const { data: articles = [], isLoading, error } = useQuery<ArticleListItem[]>({
     queryKey: ["/api/admin/articles"],
     enabled: isAuthenticated,
     retry: 1,
@@ -511,11 +513,11 @@ export default function AdminDashboard() {
     deleteMutation.mutate(id);
   };
 
-  const handlePreview = (article: Article) => {
+  const handlePreview = (article: ArticleListItem) => {
     setPreviewArticle(article);
   };
 
-  const handleOpenTimeline = (article: Article) => {
+  const handleOpenTimeline = (article: ArticleListItem) => {
     setTimelineArticle(article);
   };
 
@@ -555,14 +557,30 @@ export default function AdminDashboard() {
     refetchCategories();
   };
 
-  const handleEditArticle = (article: Article) => {
-    setEditingArticle(article);
+  // Fetch full article content before opening editor (list items don't have content)
+  const handleEditArticle = async (article: ArticleListItem) => {
+    setIsLoadingFullArticle(true);
     setEditorOpen(true);
-    // Refetch categories to ensure they're loaded
     refetchCategories();
+
+    try {
+      const res = await apiRequest("GET", `/api/admin/articles/${article.id}`);
+      const fullArticle = await res.json() as Article;
+      setEditingArticle(fullArticle);
+    } catch (error) {
+      console.error("Error fetching full article:", error);
+      toast({
+        title: "Failed to Load Article",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+      setEditorOpen(false);
+    } finally {
+      setIsLoadingFullArticle(false);
+    }
   };
 
-  const handlePostTimelineChildToFacebook = (child: Article, parent: Article) => {
+  const handlePostTimelineChildToFacebook = (child: ArticleListItem, parent: ArticleListItem) => {
     postTimelineChildMutation.mutate({
       articleId: child.id,
       parentId: parent.id,
@@ -1465,11 +1483,19 @@ export default function AdminDashboard() {
                   <p className="text-lg text-muted-foreground" data-testid="text-preview-excerpt">
                     {previewArticle.excerpt}
                   </p>
-                  <div
-                    className="mt-4"
-                    data-testid="text-preview-body"
-                    dangerouslySetInnerHTML={{ __html: previewArticle.content }}
-                  />
+                  <div className="mt-4 p-4 bg-muted/50 rounded-md text-sm text-muted-foreground">
+                    <p>Preview shows excerpt only. Click below to view the full article.</p>
+                    {previewArticle.slug && (
+                      <a
+                        href={`/article/${previewArticle.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline font-medium"
+                      >
+                        View full article →
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t">
@@ -1496,9 +1522,14 @@ export default function AdminDashboard() {
               {editingArticle ? "Edit Article" : "Create New Article"}
             </DialogTitle>
           </DialogHeader>
-          {categoriesLoading ? (
+          {isLoadingFullArticle || categoriesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <p className="text-muted-foreground">Loading editor...</p>
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+                <p className="text-muted-foreground text-sm">
+                  {isLoadingFullArticle ? "Loading article content..." : "Loading editor..."}
+                </p>
+              </div>
             </div>
           ) : categories.length > 0 ? (
             <ArticleEditor

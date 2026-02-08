@@ -1,6 +1,7 @@
 import type { Article } from "@shared/schema";
 import { format } from "date-fns";
 import { getUncachableResendClient } from "../lib/resend-client";
+import { isMaillayerConfigured, sendMaillayerRawEmail, getMaillayerConfig } from "../lib/maillayer-client";
 import { buildArticleUrl } from "@shared/category-map";
 
 const SITE_URL = process.env.REPLIT_DEPLOYMENT === '1'
@@ -194,7 +195,6 @@ export async function sendNewsletter(
   unsubscribeToken: string
 ): Promise<boolean> {
   try {
-    const { client, fromEmail } = await getUncachableResendClient();
     const date = new Date();
     const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
 
@@ -202,14 +202,38 @@ export async function sendNewsletter(
     const unsubscribeUrl = `${SITE_URL}/api/unsubscribe/${unsubscribeToken}`;
     htmlContent = htmlContent.replace('{{UNSUBSCRIBE_URL}}', unsubscribeUrl);
 
+    const subject = `Phuket Radar - ${formattedDate}`;
+
+    // Try Maillayer first (primary provider)
+    if (isMaillayerConfigured()) {
+      console.log(`📧 Sending newsletter via Maillayer to ${to}`);
+      const result = await sendMaillayerRawEmail({
+        to,
+        subject,
+        html: htmlContent,
+      });
+
+      if (result.success) {
+        console.log(`✅ Newsletter sent via Maillayer to ${to}: ${result.messageId}`);
+        return true;
+      } else {
+        console.error(`❌ Maillayer failed for ${to}: ${result.error}`);
+        // Fall through to try Resend as backup
+      }
+    }
+
+    // Fall back to Resend
+    console.log(`📧 Sending newsletter via Resend to ${to}`);
+    const { client, fromEmail } = await getUncachableResendClient();
+
     const result = await client.emails.send({
       from: fromEmail,
       to,
-      subject: `Phuket Radar - ${formattedDate}`,
+      subject,
       html: htmlContent,
     });
 
-    console.log(`✅ Newsletter sent to ${to}: ${result.data?.id}`);
+    console.log(`✅ Newsletter sent via Resend to ${to}: ${result.data?.id}`);
     return true;
   } catch (error) {
     console.error(`❌ Failed to send newsletter to ${to}:`, error);

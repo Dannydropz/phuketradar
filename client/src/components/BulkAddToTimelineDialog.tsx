@@ -8,12 +8,12 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Plus, Clock } from "lucide-react";
-import type { Article } from "@shared/schema";
+import type { ArticleListItem } from "@shared/schema";
 
 interface BulkAddToTimelineDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    selectedArticles: Article[];
+    selectedArticles: ArticleListItem[];
     onSuccess: () => void;
 }
 
@@ -43,7 +43,7 @@ export function BulkAddToTimelineDialog({
     }
 
     // Fetch active timelines (parent stories)
-    const { data: timelines = [], isLoading: timelinesLoading } = useQuery<Article[]>({
+    const { data: timelines = [], isLoading: timelinesLoading } = useQuery<ArticleListItem[]>({
         queryKey: ["/api/admin/timelines"],
         enabled: open,
     });

@@ -13,6 +13,7 @@ export interface IStorage {
 
   // Article methods
   getAllArticles(): Promise<Article[]>;
+  getAllArticlesLean(limit?: number, offset?: number): Promise<ArticleListItem[]>;
   getArticleById(id: string): Promise<Article | undefined>;
   getArticleBySlug(slug: string): Promise<Article | undefined>;
   getArticleBySourceUrl(sourceUrl: string): Promise<Article | undefined>;
@@ -152,6 +153,17 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(articles)
       .orderBy(desc(articles.publishedAt));
+  }
+
+  // Optimized version of getAllArticles that excludes heavy fields (content, embedding, entities)
+  // Use this for admin dashboard and list views where full content isn't needed
+  async getAllArticlesLean(limit: number = 200, offset: number = 0): Promise<ArticleListItem[]> {
+    return await db
+      .select(LEAN_ARTICLE_FIELDS)
+      .from(articles)
+      .orderBy(desc(articles.publishedAt))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getArticleById(id: string): Promise<Article | undefined> {

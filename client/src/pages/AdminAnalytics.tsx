@@ -30,7 +30,12 @@ export default function AdminAnalytics() {
         );
     }
 
-    const { topArticles, categoryStats, dailyStats } = data || { topArticles: [], categoryStats: [], dailyStats: [] };
+    const { topArticles, categoryStats, dailyStats, summary } = data || {
+        topArticles: [],
+        categoryStats: [],
+        dailyStats: [],
+        summary: { totalViews7Days: 0 }
+    };
 
     // Format daily stats for chart
     const formattedDailyStats = dailyStats.map((d: any) => ({
@@ -76,7 +81,10 @@ export default function AdminAnalytics() {
                             <CardContent>
                                 <div className="text-3xl font-bold flex items-center gap-2">
                                     <Eye className="w-6 h-6 text-blue-500" />
-                                    {formattedDailyStats.reduce((acc: number, curr: any) => acc + curr.views, 0).toLocaleString()}
+                                    {(data?.summary?.totalViews7Days !== undefined
+                                        ? parseInt(data.summary.totalViews7Days)
+                                        : formattedDailyStats.reduce((acc: number, curr: any) => acc + curr.views, 0)
+                                    ).toLocaleString()}
                                 </div>
                             </CardContent>
                         </Card>
