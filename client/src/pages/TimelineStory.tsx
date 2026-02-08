@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ArticleImage } from "@/components/ArticleImage";
@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Clock, Share2, ArrowLeft, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Clock, Share2, ArrowLeft, AlertCircle, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { formatDistanceToNow, format, differenceInHours, isToday, isYesterday } from "date-fns";
 import type { Article } from "@shared/schema";
 import { useState } from "react";
 import { Helmet } from "react-helmet";
 import { Timeline } from "@/components/ui/timeline";
+import { buildArticleUrl } from "@shared/category-map";
 
 // Format time for articles older than 24 hours
 const formatTimeAgo = (date: Date) => {
@@ -100,8 +101,11 @@ export default function TimelineStory() {
 
     const { parentStory, updates, updateCount } = timeline;
 
-    // Filter out the parent story from updates if it's included (it shouldn't be, but safety first)
-    const timelineUpdates = updates.filter(u => u.id !== parentStory.id);
+    // Include ALL stories in the timeline (updates already includes parent from API)
+    // Sort chronologically (oldest first) so readers can follow the story progression
+    const allTimelineStories = [...updates].sort((a, b) =>
+        new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
+    );
 
     return (
         <div className="min-h-screen flex flex-col bg-background">
@@ -141,7 +145,7 @@ export default function TimelineStory() {
                                 </div>
                                 <Separator orientation="vertical" className="h-4" />
                                 <div>
-                                    {updates.length} updates
+                                    {allTimelineStories.length} updates
                                 </div>
                             </div>
 
@@ -161,80 +165,113 @@ export default function TimelineStory() {
                 {/* Timeline Content */}
                 <div className="w-full">
                     <Timeline
-                        data={timelineUpdates.map(update => ({
-                            title: formatTimeLabel(new Date(update.publishedAt)),
-                            content: (
-                                <Card key={update.id} className="overflow-hidden transition-all duration-300 hover:shadow-md border-l-4 border-l-primary/20 hover:border-l-primary">
-                                    <div className="p-5">
-                                        <div className="flex items-start justify-between gap-4 mb-3">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2 md:hidden">
-                                                    <span className="text-xs font-bold text-muted-foreground">
-                                                        {format(new Date(update.publishedAt), "HH:mm")}
-                                                    </span>
+                        data={allTimelineStories.map(update => {
+                            const articleUrl = buildArticleUrl({
+                                category: update.category,
+                                slug: update.slug || null,
+                                id: update.id
+                            });
+                            const isOriginalStory = update.isParentStory === true;
+
+                            return {
+                                title: formatTimeLabel(new Date(update.publishedAt)),
+                                content: (
+                                    <Card key={update.id} className={`overflow-hidden transition-all duration-300 hover:shadow-md border-l-4 ${isOriginalStory ? 'border-l-amber-500 bg-amber-500/5' : 'border-l-primary/20 hover:border-l-primary'}`}>
+                                        <div className="p-5">
+                                            {/* Header with time, badge, and title */}
+                                            <div className="flex items-start justify-between gap-4 mb-3">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        {isOriginalStory ? (
+                                                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-300 text-xs font-semibold">
+                                                                Original Report
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-300 text-xs font-semibold">
+                                                                Update
+                                                            </Badge>
+                                                        )}
+                                                        <span className="text-xs text-muted-foreground md:hidden">
+                                                            {format(new Date(update.publishedAt), "HH:mm")} · {format(new Date(update.publishedAt), "MMM d")}
+                                                        </span>
+                                                    </div>
+                                                    <Link href={articleUrl}>
+                                                        <h3 className="text-xl font-bold leading-snug hover:text-primary transition-colors cursor-pointer">
+                                                            {update.title}
+                                                        </h3>
+                                                    </Link>
+                                                </div>
+                                            </div>
+
+                                            {/* ALWAYS VISIBLE: Excerpt as readable overview */}
+                                            {update.excerpt && (
+                                                <p className="text-base text-muted-foreground leading-relaxed mb-4">
+                                                    {update.excerpt}
+                                                </p>
+                                            )}
+
+                                            {/* Image (if available) */}
+                                            {update.imageUrl && (
+                                                <div className="mb-4 rounded-lg overflow-hidden bg-muted">
+                                                    <img
+                                                        src={update.imageUrl}
+                                                        alt={update.title}
+                                                        className="w-full h-auto object-cover max-h-64"
+                                                        loading="lazy"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Expandable full content section */}
+                                            {expandedUpdates.has(update.id) && (
+                                                <div className="prose prose-sm dark:prose-invert max-w-none mt-4 pt-4 border-t border-dashed">
+                                                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Full Article Content</h4>
+                                                    <div dangerouslySetInnerHTML={{ __html: update.content }} />
+                                                </div>
+                                            )}
+
+                                            {/* Action buttons */}
+                                            <div className="mt-4 pt-4 border-t flex items-center justify-between flex-wrap gap-2">
+                                                <div className="flex items-center gap-2">
                                                     <span className="text-xs text-muted-foreground">
-                                                        · {format(new Date(update.publishedAt), "MMM d")}
+                                                        {formatTimeAgo(new Date(update.publishedAt))}
                                                     </span>
                                                 </div>
-                                                <h3 className="text-xl font-bold leading-snug hover:text-primary transition-colors">
-                                                    {update.title}
-                                                </h3>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 text-xs"
+                                                        onClick={() => toggleUpdate(update.id)}
+                                                    >
+                                                        {expandedUpdates.has(update.id) ? (
+                                                            <>
+                                                                <ChevronUp className="w-3 h-3 mr-1" />
+                                                                Hide details
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <ChevronDown className="w-3 h-3 mr-1" />
+                                                                Show full article
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                    <Link href={articleUrl}>
+                                                        <Button variant="default" size="sm" className="h-8 text-xs">
+                                                            <ExternalLink className="w-3 h-3 mr-1" />
+                                                            Read full story
+                                                        </Button>
+                                                    </Link>
+                                                </div>
                                             </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="shrink-0"
-                                                onClick={() => toggleUpdate(update.id)}
-                                            >
-                                                {expandedUpdates.has(update.id) ? (
-                                                    <ChevronUp className="w-4 h-4" />
-                                                ) : (
-                                                    <ChevronDown className="w-4 h-4" />
-                                                )}
-                                            </Button>
                                         </div>
-
-                                        <div className={`prose prose-sm dark:prose-invert max-w-none ${expandedUpdates.has(update.id) ? '' : 'line-clamp-3'}`}>
-                                            <div dangerouslySetInnerHTML={{ __html: update.content }} />
-                                        </div>
-
-                                        {!expandedUpdates.has(update.id) && (
-                                            <Button
-                                                variant="ghost"
-                                                className="p-0 h-auto mt-2 text-primary hover:bg-transparent hover:underline"
-                                                onClick={() => toggleUpdate(update.id)}
-                                            >
-                                                Read more
-                                            </Button>
-                                        )}
-
-                                        {update.imageUrl && (
-                                            <div className="mt-4 rounded-lg overflow-hidden bg-muted">
-                                                <img
-                                                    src={update.imageUrl}
-                                                    alt={update.title}
-                                                    className="w-full h-auto object-cover max-h-96"
-                                                    loading="lazy"
-                                                    onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                                            <span className="text-xs text-muted-foreground">
-                                                {formatTimeAgo(new Date(update.publishedAt))}
-                                            </span>
-                                            <Button variant="ghost" size="sm" className="h-8 text-xs">
-                                                <Share2 className="w-3 h-3 mr-2" />
-                                                Share
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </Card>
-                            )
-                        }))}
+                                    </Card>
+                                )
+                            };
+                        })}
                     />
                 </div>
             </main>
