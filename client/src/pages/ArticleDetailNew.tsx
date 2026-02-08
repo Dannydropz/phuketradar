@@ -267,7 +267,33 @@ export default function ArticleDetailNew() {
                             { label: article.title, href: `/${article.category.toLowerCase()}/${article.slug || article.id}` }
                         ]} />
 
-                        {/* Article Header */}
+                        {/* Timeline Banner - Show when article is part of a developing story */}
+                        {article.seriesId && (
+                            <Link href={`/story/${article.seriesId}`}>
+                                <a className="block mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-lg hover:border-amber-400/50 hover:from-amber-500/20 hover:to-orange-500/20 transition-all group">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                                                <Clock className="w-5 h-5 text-amber-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-amber-400">
+                                                    📋 Developing Story Timeline
+                                                </p>
+                                                <p className="text-xs text-zinc-400">
+                                                    {article.storySeriesTitle || 'View all updates on this story'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-amber-400 group-hover:translate-x-1 transition-transform">
+                                            <ChevronLeft className="w-5 h-5 rotate-180" />
+                                        </div>
+                                    </div>
+                                </a>
+                            </Link>
+                        )}
+
+
                         <div className="mb-8">
                             <div className="flex items-center gap-3 mb-4 flex-wrap">
                                 {(() => {

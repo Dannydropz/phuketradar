@@ -454,8 +454,9 @@ function ensureProperParagraphFormatting(content: string): string {
   const hasParagraphTags = /<p[^>]*>/.test(content) && /<\/p>/.test(content);
   const paragraphTagCount = (content.match(/<p[^>]*>/g) || []).length;
 
-  // Check if content is mostly wrapped in <p> tags (good formatting)
-  if (hasParagraphTags && paragraphTagCount >= 2) {
+  // STRICTER CHECK: Require at least 3 paragraph tags to consider content well-formatted
+  // This catches cases where content has 1-2 <p> tags but is still mostly a wall of text
+  if (hasParagraphTags && paragraphTagCount >= 3) {
     // Content has multiple paragraphs, likely well-formatted
     return content;
   }
@@ -463,7 +464,13 @@ function ensureProperParagraphFormatting(content: string): string {
   // Content needs formatting - either no <p> tags or just one giant paragraph
   let formattedContent = content;
 
-  // First, handle existing line breaks and double newlines
+  // IMPORTANT: Handle escaped newlines (\\n) which may appear in JSON or improperly stored content
+  // This was the bug that caused the "wall of text" issue for some articles
+  formattedContent = formattedContent.replace(/\\n\\n/g, '\n\n'); // Double escaped newlines
+  formattedContent = formattedContent.replace(/\\n/g, '\n'); // Single escaped newlines
+  formattedContent = formattedContent.replace(/\r\n/g, '\n'); // Windows-style newlines
+
+  // Now handle actual newlines
   // Convert \n\n to paragraph breaks
   formattedContent = formattedContent.replace(/\n\n+/g, '</p><p>');
 
@@ -473,14 +480,25 @@ function ensureProperParagraphFormatting(content: string): string {
   // Handle <br> tags that should be paragraph breaks
   formattedContent = formattedContent.replace(/<br\s*\/?>/gi, '</p><p>');
 
-  // If content is still one giant block (no breaks found), try to split at sentence boundaries
-  // This handles the "wall of text" case where GPT returns no breaks at all
-  if (!formattedContent.includes('</p><p>')) {
-    // Split at logical sentence boundaries (after periods followed by space and capital letter)
-    // This regex finds '. [A-Z]' patterns and inserts paragraph breaks every 2-3 sentences
-    const sentences = formattedContent.split(/(?<=[.!?])\s+(?=[A-Z])/);
+  // IMPROVED: Check if content is still one giant block even after newline conversion
+  // Count paragraph breaks created so far
+  const hasNewParagraphs = formattedContent.includes('</p><p>');
+  const newParagraphCount = hasNewParagraphs ? (formattedContent.match(/<\/p><p>/g) || []).length + 1 : 0;
 
-    if (sentences.length > 3) {
+  // If we still don't have enough paragraphs (less than 3), try to split at sentence boundaries
+  // This handles "wall of text" cases where content has inline HTML but no line breaks
+  if (newParagraphCount < 3) {
+    // Strip existing incomplete paragraph wrapping for sentence splitting
+    let textContent = formattedContent
+      .replace(/<\/p><p>/g, ' ')
+      .replace(/<\/?p>/g, '')
+      .trim();
+
+    // Split at logical sentence boundaries (after periods followed by space and capital letter)
+    // Preserve HTML tags during splitting by using a more careful approach
+    const sentences = textContent.split(/(?<=[.!?])\s+(?=[A-Z])/);
+
+    if (sentences.length >= 4) {
       // Group sentences into paragraphs of 2-3 sentences each
       const paragraphs: string[] = [];
       let currentParagraph: string[] = [];
@@ -488,9 +506,13 @@ function ensureProperParagraphFormatting(content: string): string {
       sentences.forEach((sentence, index) => {
         currentParagraph.push(sentence);
         // Create a new paragraph every 2-3 sentences, or at natural break points
-        const isNaturalBreak = sentence.includes('Context:') ||
-          sentence.includes('Public Reaction') ||
-          sentence.includes('Background');
+        const isNaturalBreak = sentence.toLowerCase().includes('context') ||
+          sentence.toLowerCase().includes('public reaction') ||
+          sentence.toLowerCase().includes('background') ||
+          sentence.toLowerCase().includes('according to') ||
+          sentence.toLowerCase().includes('meanwhile') ||
+          sentence.toLowerCase().includes('however') ||
+          sentence.toLowerCase().includes('additionally');
         if (currentParagraph.length >= 3 || isNaturalBreak || index === sentences.length - 1) {
           paragraphs.push(currentParagraph.join(' '));
           currentParagraph = [];
@@ -502,6 +524,7 @@ function ensureProperParagraphFormatting(content: string): string {
       }
 
       formattedContent = paragraphs.join('</p><p>');
+      console.log(`   🔄 Sentence-based splitting: ${sentences.length} sentences → ${paragraphs.length} paragraphs`);
     }
   }
 
@@ -526,7 +549,8 @@ function ensureProperParagraphFormatting(content: string): string {
   formattedContent = formattedContent.replace(/<p>\s*(<h[1-6][^>]*>)/gi, '$1');
   formattedContent = formattedContent.replace(/(<\/h[1-6]>)\s*<\/p>/gi, '$1');
 
-  console.log(`   📝 Paragraph formatting applied: ${paragraphTagCount} → ${(formattedContent.match(/<p[^>]*>/g) || []).length} paragraphs`);
+  const finalParagraphCount = (formattedContent.match(/<p[^>]*>/g) || []).length;
+  console.log(`   📝 Paragraph formatting applied: ${paragraphTagCount} → ${finalParagraphCount} paragraphs`);
 
   return formattedContent;
 }
