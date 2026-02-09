@@ -375,6 +375,49 @@ const POLITICS_KEYWORDS = [
   "encourage to vote",
 ];
 
+// LOST PET / MISSING ANIMAL KEYWORDS - Cap at score 2-3
+// These are community notice-board type posts, NOT high-interest breaking news
+// A missing cat or lost dog is not a crime, accident, or tourist incident
+const LOST_PET_CAP_KEYWORDS = [
+  // Thai keywords
+  "หาย", // lost/missing
+  "สูญหาย", // missing/lost (formal)
+  "หายไป", // disappeared/went missing
+  "ตามหา", // looking for/searching
+  "ช่วยตามหา", // help find
+  "แมวหาย", // cat missing
+  "หมาหาย", // dog missing
+  "สุนัขหาย", // dog missing (formal)
+  "สัตว์เลี้ยงหาย", // pet missing
+  "หลุดจากบ้าน", // escaped from home
+  "วิ่งหนี", // ran away
+  "หลงทาง", // got lost
+  // English keywords (from translated content)
+  "missing cat",
+  "missing dog",
+  "lost cat",
+  "lost dog",
+  "lost pet",
+  "missing pet",
+  "help locate",
+  "help find",
+  "help finding",
+  "seeking help locating",
+  "family seeks help",
+  "owners searching",
+  "have you seen",
+  "reward for return",
+  "escaped from home",
+  "ran away from home",
+  "beloved pet",
+  "furry friend",
+  "missing since",
+  "last seen wearing", // collar description
+  "wearing a collar",
+  "red collar",
+  "lost and found",
+];
+
 // Phuket location context map - CRITICAL DISAMBIGUATION ONLY
 // NOTE: We intentionally DO NOT include generic tourist descriptions like "bustling tourist area" or
 // "family-friendly beach" - our readers are locals and expats who already know Phuket well.
@@ -1166,6 +1209,18 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
   - "Foundation faces legal dispute over governance" = Score 2 (internal org matter)
 - EXCEPTION: If foundation/org/company news involves financial fraud, embezzlement, or criminal charges = Score 4-5 (actual crime)
 
+**LOST PET / MISSING ANIMAL RULES (CRITICAL - READ THIS):**
+- Missing cats, lost dogs, escaped pets = ABSOLUTE MAX SCORE 2 (community notice-board posts, NOT news)
+- "Help find my cat" or "Family seeks help locating pet" = Score 2 MAX
+- These are NOT high-interest stories. They are routine community posts.
+- DO NOT boost lost pet stories just because they mention cute animals or ask for "help"
+- DO NOT confuse "help find my pet" with actual rescue/good samaritan stories
+- EXAMPLES of what to CAP at Score 2:
+  - "Family Seeks Help Locating Missing Cat" = Score 2 (lost pet notice)
+  - "Missing Black Cat in Takua Pa" = Score 2 (lost pet notice)
+  - "Lost Dog - Reward Offered" = Score 2 (lost pet notice)
+  - "Have You Seen This Cat?" = Score 2 (lost pet notice)
+- EXCEPTION: If an animal story involves RESCUE (e.g., "Cat rescued from burning building"), that's newsworthy = Score 4
 
 LOCATION-BASED SCORING:
 This is a HYPER-LOCAL PHUKET site.
@@ -1387,6 +1442,21 @@ Always output valid JSON.`,
 
       if (hasFoundationGovernanceKeyword && finalInterestScore > 2) {
         console.log(`   🏛️  FOUNDATION/ORG/COMPANY BOARD CAP: ${finalInterestScore} → 2 (organizational governance keyword detected)`);
+        finalInterestScore = 2;
+      }
+
+      // CAP LOST PET / MISSING ANIMAL STORIES AT SCORE 2
+      // Editorial decision: Missing cats, lost dogs, etc. are community notice-board posts,
+      // NOT high-interest breaking news. They don't belong on the front page with crime/accidents.
+      const hasLostPetKeyword = LOST_PET_CAP_KEYWORDS.some(keyword =>
+        title.toLowerCase().includes(keyword.toLowerCase()) ||
+        content.toLowerCase().includes(keyword.toLowerCase()) ||
+        (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
+        (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
+      );
+
+      if (hasLostPetKeyword && finalInterestScore > 2) {
+        console.log(`   🐱 LOST PET CAP: ${finalInterestScore} → 2 (missing/lost pet story detected)`);
         finalInterestScore = 2;
       }
 
