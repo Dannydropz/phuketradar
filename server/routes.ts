@@ -2240,12 +2240,11 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
             alreadySubscribed: true
           });
         } else {
-          // Reactivate subscription
-          await storage.unsubscribeByToken(existing.unsubscribeToken);
-          const reactivated = await storage.createSubscriber(result.data);
+          // Reactivate subscription by updating existing record
+          await storage.reactivateSubscriber(existing.id);
           return res.status(200).json({
             message: "Welcome back! Your subscription has been reactivated.",
-            subscriber: { email: reactivated.email }
+            subscriber: { email: existing.email }
           });
         }
       }

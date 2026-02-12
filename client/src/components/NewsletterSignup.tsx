@@ -45,7 +45,7 @@ export function NewsletterSignup() {
                 const data = await response.json();
                 toast({
                     title: "Subscription failed",
-                    description: data.message || "Please try again later",
+                    description: data.message || data.error || "Please try again later",
                     variant: "destructive",
                 });
             }

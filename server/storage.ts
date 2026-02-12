@@ -46,6 +46,7 @@ export interface IStorage {
   getSubscriberByEmail(email: string): Promise<Subscriber | undefined>;
   getAllActiveSubscribers(): Promise<Subscriber[]>;
   unsubscribeByToken(token: string): Promise<boolean>;
+  reactivateSubscriber(id: string): Promise<Subscriber>;
 
   // Journalist methods
   getAllJournalists(): Promise<Journalist[]>;
@@ -574,6 +575,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(subscribers.unsubscribeToken, token))
       .returning();
     return result.length > 0;
+  }
+
+  async reactivateSubscriber(id: string): Promise<Subscriber> {
+    const [subscriber] = await db
+      .update(subscribers)
+      .set({
+        isActive: true,
+        subscribedAt: new Date(),
+        unsubscribeToken: sql`gen_random_uuid()`,
+      })
+      .where(eq(subscribers.id, id))
+      .returning();
+    return subscriber;
   }
 
   // Journalist methods
