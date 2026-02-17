@@ -93,6 +93,20 @@ const HOT_KEYWORDS = [
   "ferry", // ferry incidents
   "longtail", // longtail boat accidents
   "เรือหางยาว", // longtail boat (Thai)
+  // EARTHQUAKE / SEISMIC KEYWORDS - Safety-relevant natural events
+  // Earthquakes are inherently newsworthy for southern Thailand / Andaman coast readers
+  "แผ่นดินไหว", // earthquake
+  "earthquake",
+  "สึนามิ", // tsunami
+  "tsunami",
+  "แรงสั่นสะเทือน", // tremor/vibration
+  "tremor",
+  "seismic",
+  "magnitude",
+  "ริกเตอร์", // Richter (Thai)
+  "Richter",
+  "อาฟเตอร์ช็อก", // aftershock (Thai)
+  "aftershock",
   // DRUG/CRIME KEYWORDS - Critical for proper context interpretation
   "ยาเสพติด", // drugs/narcotics
   "โคเคน", // cocaine
@@ -110,6 +124,35 @@ const HOT_KEYWORDS = [
   "โฆษณา", // advertisement (illegal product ads)
   "Telegram", // often drug sales channel
   "เทเลแกรม", // Telegram (Thai)
+  // ENGLISH HOT KEYWORDS (for English sources or translated verification)
+  "arrest",
+  "arrested",
+  "detained",
+  "foreigner",
+  "farang",
+  "tourist",
+  "expat",
+  "shoot",
+  "shooting",
+  "killed",
+  "death",
+  "died",
+  "drown",
+  "drowning",
+  "accident",
+  "collision",
+  "crash",
+  "fire",
+  "robbery",
+  "theft",
+  "fight",
+  "brawl",
+  "assault",
+  "drugs",
+  "cocaine",
+  "prostitution",
+  "work permit",
+  "illegal work",
 ];
 
 // FEEL-GOOD / VIRAL POSITIVE keywords that boost interest scores
@@ -418,6 +461,37 @@ const LOST_PET_CAP_KEYWORDS = [
   "lost and found",
 ];
 
+// LOCAL ENTERTAINMENT / CONCERT KEYWORDS - Cap at score 2
+// Small concerts, live music events with unknown/local acts are NOT high-interest news for expat readers
+// Only major international acts or music festivals with wide appeal should score higher
+const LOCAL_ENTERTAINMENT_CAP_KEYWORDS = [
+  // Thai keywords
+  "คอนเสิร์ต", // concert
+  "ไลฟ์สด", // live performance
+  "เล่นสด", // live music
+  "วงดนตรี", // band/music group
+  "ศิลปิน", // artist/performer
+  "เวทีดนตรี", // music stage
+  "โชว์สด", // live show
+  "มินิคอนเสิร์ต", // mini concert
+  "คอนเสิร์ตสด", // live concert
+  // English keywords (from translated content)
+  "live concert",
+  "live music",
+  "live performance",
+  "live show",
+  "music event",
+  "concert event",
+  "mini concert",
+  "local band",
+  "local act",
+  "local artist",
+  "performing live",
+  "energize", // marketing language for small gigs e.g. "Energize Saphan Hin"
+  "lively atmosphere", // marketing fluff for small events
+  "special deals", // promotional concert language
+];
+
 // Phuket location context map - CRITICAL DISAMBIGUATION ONLY
 // NOTE: We intentionally DO NOT include generic tourist descriptions like "bustling tourist area" or
 // "family-friendly beach" - our readers are locals and expats who already know Phuket well.
@@ -432,6 +506,11 @@ const PHUKET_CONTEXT_MAP: Record<string, string> = {
   "Krabi Road": "Krabi Road in PHUKET TOWN (NOT Krabi province!)",
   "ถนนพังงา": "Phang Nga Road in PHUKET TOWN (NOT Phang Nga province!)",
   "Phang Nga Road": "Phang Nga Road in PHUKET TOWN (NOT Phang Nga province!)",
+  // SAPHAN HIN - "สะพาน" means "bridge" but Saphan Hin is a PLACE NAME, not a bridge!
+  // DO NOT translate literally as "bridge" - it's a public park/promenade area in Phuket Town
+  "สะพานหิน": "Saphan Hin - a public park and promenade area in PHUKET TOWN (NOT a bridge! สะพาน means bridge but this is a PLACE NAME)",
+  "สะพานภูเก็ต": "Saphan Phuket area near Saphan Hin in PHUKET TOWN (NOT a bridge! This is a PLACE NAME - use 'Saphan Hin area')",
+  "Saphan Hin": "Saphan Hin - a public park and promenade area in Phuket Town (this is a place name, NOT a bridge)",
 };
 
 // CRITICAL: Street names that could be confused with cities
@@ -445,6 +524,11 @@ Phuket Town has many streets NAMED AFTER other Thai cities. These are STREETS IN
 - "ถนนกระบี่" / "Krabi Road" / "Thanon Krabi" = A street in PHUKET TOWN, NOT Krabi province  
 - "ถนนพังงา" / "Phang Nga Road" / "Thanon Phang Nga" = A street in PHUKET TOWN, NOT Phang Nga province
 - "ถนนรัษฎา" / "Rasada Road" = A street in PHUKET TOWN
+
+🏞️ PLACE NAME vs LITERAL TRANSLATION:
+- "สะพานหิน" / "Saphan Hin" = A PUBLIC PARK/PROMENADE in PHUKET TOWN, NOT a bridge! "สะพาน" means "bridge" in Thai but "Saphan Hin" is a PROPER NOUN / PLACE NAME. NEVER translate as "bridge" or "Phuket Bridge".
+- "สะพานภูเก็ต" = Refers to the Saphan Hin area. Use "Saphan Hin" in English. Do NOT write "Phuket Bridge".
+- "งานสะพานหิน" / "event at Saphan Hin" = An event at Saphan Hin park, NOT a "bridge event".
 
 ⚠️ COMMON MISTAKE TO AVOID:
 If source says "accident on Bangkok Road" or "เกิดเหตุที่ถนนกรุงเทพ", the event is in PHUKET TOWN, NOT Bangkok.
@@ -1140,8 +1224,29 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 
 **CAP ROUTINE NEWS AT 3 OR BELOW:**
 - 3 = NOTEWORTHY: Minor accidents (no injuries), infrastructure complaints (potholes, flooding damage), tourism developments, business openings, new property launches, missing persons
-- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning, **community sports events, friendly matches, alumni gatherings, local football/futsal matches**
+- 2 = ROUTINE: Officials inspecting/visiting, meetings, announcements, cultural events, preparations, planning, **community sports events, friendly matches, alumni gatherings, local football/futsal matches**, **small concerts/live music with unknown or local-only acts**
 - 1 = TRIVIAL: Ceremonial events, ribbon cuttings, photo ops
+
+**EARTHQUAKE / NATURAL DISASTER SCORING (CRITICAL):**
+- Earthquakes ANYWHERE in southern Thailand, Andaman coast, or nearby regions (Surat Thani, Ranong, Phang Nga, Krabi, Myanmar border) = Score 4 MINIMUM
+- Earthquakes are safety-relevant events for ALL Phuket residents (earthquake → potential tsunami risk for Andaman coast)
+- Even "small" earthquakes (magnitude 3+) are newsworthy because readers worry about aftershocks and bigger quakes
+- Earthquake with casualties or structural damage = Score 5
+- EXAMPLES:
+  - "Earthquake hits Surat Thani, magnitude 3.2" = Score 4 (nearby seismic event, safety concern)
+  - "Series of tremors in southern Thailand" = Score 4 (developing seismic situation)
+  - "Strong earthquake near Myanmar border felt in Phuket" = Score 5 (directly affects readers)
+  - "Tsunami warning issued" = Score 5 (BREAKING, life-threatening)
+
+**LOCAL CONCERT / ENTERTAINMENT EVENT RULES (CRITICAL - READ THIS):**
+- Small concerts, live music events, and local entertainment with mostly unknown or local-only acts = ABSOLUTE MAX SCORE 2
+- Ask: "Would an expat reader specifically go out of their way for this?" If the answer is no, cap at 2.
+- EXAMPLES of what to CAP at Score 2:
+  - "T-Conic Live Concert at Saphan Hin" = Score 2 (local entertainment, unknown acts)
+  - "Local band performs at beach bar" = Score 2 (routine entertainment)
+  - "Mini concert with local artists" = Score 2 (small-scale event)
+  - "Live music night at [venue]" = Score 2 (routine nightlife)
+- EXCEPTION: Major international acts, large-scale music festivals (e.g. EDC, Wonderfruit), or events featuring well-known artists = Score 3-4
 
 **CRITICAL DISTINCTIONS:**
 - \"Road damaged by flooding\" = Score 3 (infrastructure complaint, NOT a disaster)
@@ -1164,6 +1269,7 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - **"Alumni football match" = Score 2 MAX (community sports, NOT breaking)**
 - **"Friendly match at stadium" = Score 2 MAX (local sports event, NOT urgent)**
 - **"Community sports event" = Score 2 MAX (routine local activity)**
+- **"Local concert with unknown acts" = Score 2 MAX (routine entertainment, NOT news)**
 - "Car crash with injuries" = Score 4 (actual incident with victims)
 - "Drowning at beach" = Score 5 (death/urgent)
 - "Arrest for theft" = Score 4 (crime with action)
@@ -1337,13 +1443,33 @@ Always output valid JSON.`,
       // Start with GPT's base score
       let finalInterestScore = result.interestScore || 3;
 
-      // Boost for hot keywords (urgent news like drownings, crime, accidents)
+      // Combined text for keyword matching (both original and translated)
+      const combinedTextForScoring = `${title} ${content} ${result.translatedTitle || ''} ${result.translatedContent || ''}`.toLowerCase();
+
+      // Boost for hot keywords (urgent news like drownings, crime, accidents, foreigner incidents)
       const hasHotKeyword = HOT_KEYWORDS.some(keyword =>
-        title.includes(keyword) || content.includes(keyword)
+        combinedTextForScoring.includes(keyword.toLowerCase())
       );
+
+      // SPECIFIC BOOST FOR FOREIGNER ARRESTS / INDECENCY (High-engagement "abnormal" behavior)
+      const isForeignerStory = [
+        "foreigner", "foreign", "tourist", "farang", "expat", "ต่างชาติ", "นักท่องเที่ยว"
+      ].some(kw => combinedTextForScoring.includes(kw.toLowerCase()));
+
+      const isArrestOrAbnormal = [
+        "arrest", "จับกุม", "prostitution", "ค้าประเวณี", "work permit", "permit", "แรงงาน",
+        "illegal", "ผิดกฎหมาย", "sexual", "indecency", "naked", "drunk", "เมา"
+      ].some(kw => combinedTextForScoring.includes(kw.toLowerCase()));
+
       if (hasHotKeyword) {
         finalInterestScore = Math.min(5, finalInterestScore + 1);
         console.log(`   🔥 HOT KEYWORD BOOST: ${finalInterestScore - 1} → ${finalInterestScore}`);
+      }
+
+      // If it's a foreigner story involving arrest or abnormal behavior, ensure at least score 4
+      if (isForeignerStory && isArrestOrAbnormal && finalInterestScore < 4) {
+        console.log(`   🌍 FOREIGNER INCIDENT MINIMUM: ${finalInterestScore} → 4 (foreigner + arrest/abnormal detected)`);
+        finalInterestScore = 4;
       }
 
       // Boost for feel-good keywords (wildlife, conservation, good samaritans, positive foreigner stories)
@@ -1387,7 +1513,7 @@ Always output valid JSON.`,
         (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
       );
 
-      if ((category === "Politics" || hasPoliticsKeyword) && finalInterestScore > 3) {
+      if ((category === "Politics" || hasPoliticsKeyword) && finalInterestScore > 3 && !isForeignerStory) {
         const reason = category === "Politics" ? "politics category" : `politics keyword detected`;
         console.log(`   🏛️  POLITICS CAP: ${finalInterestScore} → 3 (${reason})`);
         finalInterestScore = 3;
@@ -1396,6 +1522,7 @@ Always output valid JSON.`,
       // CAP BUSINESS/REAL ESTATE DEVELOPMENT NEWS AT SCORE 3
       // Editorial decision: Property launches, hotel/villa developments, investment announcements
       // are business news, NOT breaking news. Cap at 3 to prevent auto-posting.
+      // EXCEPTION: Foreigner-related arrests or work violations should NOT be capped.
       const REAL_ESTATE_CAP_KEYWORDS = [
         "villa", "วิลล่า", "luxury villa", "luxury development", "property development",
         "real estate", "อสังหาริมทรัพย์", "hotel development", "resort development",
@@ -1405,13 +1532,10 @@ Always output valid JSON.`,
       ];
 
       const hasRealEstateKeyword = REAL_ESTATE_CAP_KEYWORDS.some(keyword =>
-        title.toLowerCase().includes(keyword.toLowerCase()) ||
-        content.toLowerCase().includes(keyword.toLowerCase()) ||
-        (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
-        (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
+        combinedTextForScoring.includes(keyword.toLowerCase())
       );
 
-      if ((category === "Business" || hasRealEstateKeyword) && finalInterestScore > 3) {
+      if ((category === "Business" || hasRealEstateKeyword) && finalInterestScore > 3 && !isArrestOrAbnormal) {
         const reason = category === "Business" ? "business category" : `real estate/development keyword detected`;
         console.log(`   🏗️  BUSINESS/REAL ESTATE CAP: ${finalInterestScore} → 3 (${reason})`);
         finalInterestScore = 3;
@@ -1434,13 +1558,10 @@ Always output valid JSON.`,
       ];
 
       const hasFoundationGovernanceKeyword = FOUNDATION_GOVERNANCE_CAP_KEYWORDS.some(keyword =>
-        title.toLowerCase().includes(keyword.toLowerCase()) ||
-        content.toLowerCase().includes(keyword.toLowerCase()) ||
-        (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
-        (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
+        combinedTextForScoring.includes(keyword.toLowerCase())
       );
 
-      if (hasFoundationGovernanceKeyword && finalInterestScore > 2) {
+      if (hasFoundationGovernanceKeyword && finalInterestScore > 2 && !isForeignerStory) {
         console.log(`   🏛️  FOUNDATION/ORG/COMPANY BOARD CAP: ${finalInterestScore} → 2 (organizational governance keyword detected)`);
         finalInterestScore = 2;
       }
@@ -1449,14 +1570,35 @@ Always output valid JSON.`,
       // Editorial decision: Missing cats, lost dogs, etc. are community notice-board posts,
       // NOT high-interest breaking news. They don't belong on the front page with crime/accidents.
       const hasLostPetKeyword = LOST_PET_CAP_KEYWORDS.some(keyword =>
+        combinedTextForScoring.includes(keyword.toLowerCase())
+      );
+
+      if (hasLostPetKeyword && finalInterestScore > 2 && !isForeignerStory) {
+        console.log(`   🐱 LOST PET CAP: ${finalInterestScore} → 2 (missing/lost pet story detected)`);
+        finalInterestScore = 2;
+      }
+
+      // CAP LOCAL ENTERTAINMENT / CONCERT STORIES AT SCORE 2
+      // Editorial decision: Small concerts with unknown/local-only acts are routine entertainment,
+      // NOT high-interest news for the expat readership. Only major international acts/festivals should score higher.
+      const hasLocalEntertainmentKeyword = LOCAL_ENTERTAINMENT_CAP_KEYWORDS.some(keyword =>
         title.toLowerCase().includes(keyword.toLowerCase()) ||
         content.toLowerCase().includes(keyword.toLowerCase()) ||
         (result.translatedTitle && result.translatedTitle.toLowerCase().includes(keyword.toLowerCase())) ||
         (result.translatedContent && result.translatedContent.toLowerCase().includes(keyword.toLowerCase()))
       );
 
-      if (hasLostPetKeyword && finalInterestScore > 2) {
-        console.log(`   🐱 LOST PET CAP: ${finalInterestScore} → 2 (missing/lost pet story detected)`);
+      // Only cap if it's NOT a major event (check for major festival/international act indicators)
+      const MAJOR_EVENT_EXCEPTIONS = [
+        "EDC", "Electric Daisy", "Wonderfruit", "S2O", "Full Moon Party",
+        "international", "world tour", "Grammy", "sold out", "festival",
+      ];
+      const isMajorEvent = MAJOR_EVENT_EXCEPTIONS.some(keyword =>
+        combinedTextForScoring.includes(keyword.toLowerCase())
+      );
+
+      if (hasLocalEntertainmentKeyword && !isMajorEvent && finalInterestScore > 2 && !isArrestOrAbnormal) {
+        console.log(`   🎵 LOCAL ENTERTAINMENT CAP: ${finalInterestScore} → 2 (small concert/local entertainment detected)`);
         finalInterestScore = 2;
       }
 

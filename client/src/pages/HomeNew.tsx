@@ -12,6 +12,7 @@ import NotFound from "@/pages/not-found";
 import { ArticleImage } from "@/components/ArticleImage";
 import { TrendingArticles } from "@/components/TrendingArticles";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
+import { KastBanner } from "@/components/KastBanner";
 
 import logoWhite from "@assets/logo-white-transparent.png";
 
@@ -280,6 +281,7 @@ export default function HomeNew() {
 
             {/* Main Content */}
             <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                <KastBanner />
 
                 {/* Breaking News - Hero Section */}
                 {heroArticle && (

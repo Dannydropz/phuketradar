@@ -5,6 +5,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import type { ArticleListItem } from "@shared/schema";
+import { KastBanner } from "@/components/KastBanner";
 
 export default function TagPage() {
     const { tag } = useParams<{ tag: string }>();
@@ -27,6 +28,10 @@ export default function TagPage() {
             </Helmet>
 
             <Header />
+
+            <div className="pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <KastBanner />
+            </div>
 
             <main className="flex-grow container mx-auto px-4 py-8">
                 {/* Breadcrumb */}

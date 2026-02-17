@@ -16,6 +16,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleUrl } from "@shared/category-map";
 import { TagPills } from "@/components/TagPills";
 import { useMetaPixel } from "@/hooks/use-meta-pixel";
+import { KastBanner } from "@/components/KastBanner";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
     Carousel,
@@ -249,6 +250,7 @@ export default function ArticleDetailNew() {
 
             {/* Main Content */}
             <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                <KastBanner />
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Article Content */}
                     <article className="lg:col-span-8">

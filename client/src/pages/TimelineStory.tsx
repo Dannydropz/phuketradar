@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Helmet } from "react-helmet";
 import { Timeline } from "@/components/ui/timeline";
 import { buildArticleUrl } from "@shared/category-map";
+import { KastBanner } from "@/components/KastBanner";
 
 // Format time for articles older than 24 hours
 const formatTimeAgo = (date: Date) => {
@@ -117,6 +118,10 @@ export default function TimelineStory() {
             <Header />
 
             <main className="flex-1">
+                <div className="pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <KastBanner />
+                </div>
+
                 {/* Hero Section */}
                 <div className="relative bg-muted/30 border-b">
                     <div className="container mx-auto px-4 py-8 md:py-12">
