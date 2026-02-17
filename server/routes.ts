@@ -1457,6 +1457,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manually trigger face blur for an existing article - PROTECTED
+  app.post("/api/admin/articles/:id/blur", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      console.log(`🛡️  MANUAL BLUR: Triggered face blur for article: ${article.title}`);
+
+      // We need the original source image to re-process it
+      // Since Cloudinary URLs are stored, we can use those as source, 
+      // but re-uploading them with the blur transformation
+      const { imageDownloaderService } = await import("./services/image-downloader");
+
+      let newImageUrl = article.imageUrl;
+      let newImageUrls = article.imageUrls;
+
+      if (article.imageUrl) {
+        console.log(`⬇️  Re-processing primary image...`);
+        const savedPath = await imageDownloaderService.downloadAndSaveImage(article.imageUrl, "news-blurred", { blurFaces: true });
+        if (savedPath) newImageUrl = savedPath;
+      }
+
+      if (article.imageUrls && article.imageUrls.length > 0) {
+        console.log(`⬇️  Re-processing ${article.imageUrls.length} gallery images...`);
+        const savedUrls: string[] = [];
+        for (const url of article.imageUrls) {
+          const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery-blurred", { blurFaces: true });
+          savedUrls.push(savedPath || url);
+        }
+        newImageUrls = savedUrls;
+      }
+
+      const updatedArticle = await storage.updateArticle(id, {
+        imageUrl: newImageUrl,
+        imageUrls: newImageUrls,
+      });
+
+      // Invalidate caches
+      invalidateArticleCaches();
+
+      res.json({
+        success: true,
+        message: "Images re-processed with face blurring",
+        article: updatedArticle
+      });
+    } catch (error) {
+      console.error("Error blurring article images:", error);
+      res.status(500).json({ error: "Failed to blur images" });
+    }
+  });
+
   // Delete article - PROTECTED
   app.delete("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
     try {

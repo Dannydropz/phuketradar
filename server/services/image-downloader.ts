@@ -37,12 +37,16 @@ export class ImageDownloaderService {
      * Download an image from a URL, optimize it, and upload to Cloudinary.
      * Returns the secure Cloudinary URL.
      */
-    async downloadAndSaveImage(url: string, prefix: string = "img"): Promise<string | null> {
+    async downloadAndSaveImage(
+        url: string,
+        prefix: string = "img",
+        options: { blurFaces?: boolean } = {}
+    ): Promise<string | null> {
         try {
             // Check if Cloudinary is configured
             if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
                 console.warn("⚠️ Cloudinary not configured. Falling back to local storage.");
-                return this.downloadAndSaveImageLocal(url, prefix);
+                return this.downloadAndSaveImageLocal(url, prefix, options);
             }
 
             console.log(`⬇️  Downloading image: ${url}`);
@@ -59,8 +63,7 @@ export class ImageDownloaderService {
             const arrayBuffer = await response.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
 
-            // Optimize with sharp before upload (optional, but good for bandwidth)
-            // Cloudinary can also do this, but resizing locally saves upload time
+            // Optimize with sharp before upload
             const optimizedBuffer = await sharp(buffer)
                 .resize({ width: 1000, withoutEnlargement: true })
                 .webp({ quality: 75 })
@@ -73,6 +76,12 @@ export class ImageDownloaderService {
                         folder: "phuketradar",
                         public_id: `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
                         resource_type: "image",
+                        // Apply face blur effect if requested
+                        transformation: options.blurFaces ? [
+                            { width: 1000, crop: "limit" },
+                            { effect: "blur_faces:2000" }, // High blur for privacy
+                            { quality: "auto" }
+                        ] : undefined
                     },
                     (error, result) => {
                         if (error) {
@@ -85,7 +94,11 @@ export class ImageDownloaderService {
                             // Fallback to original URL instead of null
                             resolve(url);
                         } else {
-                            console.log(`✅ Uploaded to Cloudinary: ${result?.secure_url}`);
+                            if (options.blurFaces) {
+                                console.log(`✅ Uploaded to Cloudinary with FACE BLUR: ${result?.secure_url}`);
+                            } else {
+                                console.log(`✅ Uploaded to Cloudinary: ${result?.secure_url}`);
+                            }
                             resolve(result?.secure_url || null);
                         }
                     }
@@ -104,7 +117,11 @@ export class ImageDownloaderService {
     /**
      * Legacy local download method (Fallback)
      */
-    async downloadAndSaveImageLocal(url: string, prefix: string = "img"): Promise<string | null> {
+    async downloadAndSaveImageLocal(
+        url: string,
+        prefix: string = "img",
+        options: { blurFaces?: boolean } = {}
+    ): Promise<string | null> {
         try {
             await this.ensureUploadDir();
 
@@ -119,8 +136,18 @@ export class ImageDownloaderService {
             const filename = `${prefix}-${timestamp}-${random}.webp`;
             const filepath = path.join(this.uploadDir, filename);
 
-            await sharp(buffer)
-                .resize({ width: 1000, withoutEnlargement: true })
+            let sharpInstance = sharp(buffer)
+                .resize({ width: 1000, withoutEnlargement: true });
+
+            // Note: Sharp doesn't have built-in face detection.
+            // For local fallback, we'd need a library like face-api.js or opencv.
+            // As a basic fallback, we could blur the whole image if requested, 
+            // but that's not ideal. For now, we'll log a warning.
+            if (options.blurFaces) {
+                console.warn("⚠️ Local face blurring not implemented. Image saved without blur.");
+            }
+
+            await sharpInstance
                 .webp({ quality: 75 })
                 .toFile(filepath);
 

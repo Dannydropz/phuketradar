@@ -56,6 +56,15 @@ interface SkipReason {
   details?: string;
 }
 
+// Helper to detect if image should be blurred (Privacy/Ethics check)
+function getBlurSetting(classification: { eventType: string; severity: string }): { blurFaces: boolean } {
+  // Only blur for Accidents to respect victim privacy (requested by user)
+  // Crimes are left unblurred for perpertrator visibility
+  const shouldBlur = classification.eventType === "Accident";
+
+  return { blurFaces: shouldBlur };
+}
+
 // Timeout wrapper to prevent posts from hanging indefinitely
 async function withTimeout<T>(
   promise: Promise<T>,
@@ -927,10 +936,16 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   let localImageUrls = post.imageUrls;
 
                   try {
+                    // STEP 5.2: Detect if image should be blurred (Privacy/Ethics check)
+                    const blurOptions = getBlurSetting(classification);
+                    if (blurOptions.blurFaces) {
+                      console.log(`🛡️  PRIVACY: Sensitive story detected (${classification.eventType}). Enabling face blur for images.`);
+                    }
+
                     // Download primary image
                     if (post.imageUrl) {
                       console.log(`⬇️  Downloading primary image: ${post.imageUrl.substring(0, 60)}...`);
-                      const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news");
+                      const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news", blurOptions);
                       if (savedPath) {
                         localImageUrl = savedPath;
                       } else {
@@ -943,7 +958,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                       console.log(`⬇️  Downloading ${post.imageUrls.length} additional images...`);
                       const savedUrls: string[] = [];
                       for (const url of post.imageUrls) {
-                        const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery");
+                        const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery", blurOptions);
                         if (savedPath) {
                           savedUrls.push(savedPath);
                         } else {
@@ -1606,13 +1621,18 @@ export async function runManualPageScrape(
           // Continue with base translation if enrichment fails
         }
 
-        // Download images
+        // Download images with privacy check
         let localImageUrl = post.imageUrl;
         let localImageUrls = post.imageUrls;
 
+        const blurOptions = getBlurSetting(classification);
+        if (blurOptions.blurFaces) {
+          console.log(`🛡️  PRIVACY: Sensitive story detected (${classification.eventType}). Enabling face blur for images.`);
+        }
+
         try {
           if (post.imageUrl) {
-            const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news");
+            const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news", blurOptions);
             if (savedPath) {
               localImageUrl = savedPath;
             }
@@ -1621,7 +1641,7 @@ export async function runManualPageScrape(
           if (post.imageUrls && post.imageUrls.length > 0) {
             const savedUrls: string[] = [];
             for (const url of post.imageUrls) {
-              const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery");
+              const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery", blurOptions);
               if (savedPath) {
                 savedUrls.push(savedPath);
               } else {
@@ -1939,22 +1959,27 @@ export async function runManualPostScrape(
       // Continue with base translation if enrichment fails
     }
 
-    // Download images
+    // Download images with privacy check
     let localImageUrl = post.imageUrl;
     let localImageUrls = post.imageUrls;
+
+    const blurOptions = getBlurSetting(classification);
+    if (blurOptions.blurFaces) {
+      console.log(`🛡️  PRIVACY: Sensitive story detected (${classification.eventType}). Enabling face blur for images.`);
+    }
 
     try {
       // If it's a video/reel and we have no primary image but have a thumbnail, use it
       if (!localImageUrl && post.videoThumbnail) {
         console.log(`\n📸 No primary image, using video thumbnail instead...`);
-        const savedPath = await imageDownloaderService.downloadAndSaveImage(post.videoThumbnail, "news-video");
+        const savedPath = await imageDownloaderService.downloadAndSaveImage(post.videoThumbnail, "news-video", blurOptions);
         if (savedPath) {
           localImageUrl = savedPath;
           console.log(`   ✅ Saved to: ${savedPath}`);
         }
       } else if (post.imageUrl) {
         console.log(`\n⬇️  Downloading primary image...`);
-        const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news");
+        const savedPath = await imageDownloaderService.downloadAndSaveImage(post.imageUrl, "news", blurOptions);
         if (savedPath) {
           localImageUrl = savedPath;
           console.log(`   ✅ Saved to: ${savedPath}`);
@@ -1965,7 +1990,7 @@ export async function runManualPostScrape(
         console.log(`⬇️  Downloading ${post.imageUrls.length} additional images...`);
         const savedUrls: string[] = [];
         for (const url of post.imageUrls) {
-          const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery");
+          const savedPath = await imageDownloaderService.downloadAndSaveImage(url, "news-gallery", blurOptions);
           if (savedPath) {
             savedUrls.push(savedPath);
           } else {
