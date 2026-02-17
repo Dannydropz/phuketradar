@@ -203,6 +203,79 @@ export function isMaillayerConfigured(): boolean {
 }
 
 /**
+ * Add a contact to a Maillayer list
+ * This uses the public contacts API: /api/public/contacts/{brandApiKey}
+ */
+export async function addMaillayerContact(email: string, options: {
+    listId?: string,
+    firstName?: string,
+    lastName?: string,
+    tags?: string[]
+} = {}): Promise<MaillayerSendResponse> {
+    const apiUrl = process.env.MAILLAYER_API_URL;
+    const brandApiKey = process.env.MAILLAYER_API_KEY; // This should be the Brand API Key (starts with br_)
+    const listId = options.listId || process.env.MAILLAYER_LIST_ID;
+
+    if (!apiUrl || !brandApiKey) {
+        return {
+            success: false,
+            error: 'Maillayer not configured (missing URL or API Key)'
+        };
+    }
+
+    if (!listId) {
+        return {
+            success: false,
+            error: 'Maillayer List ID not configured'
+        };
+    }
+
+    try {
+        const baseUrl = apiUrl.replace(/\/$/, '');
+        // New correct endpoint: /api/public/contacts/{brandApiKey}
+        const endpoint = `${baseUrl}/api/public/contacts/${brandApiKey}`;
+
+        console.log(`👤 Maillayer: Adding contact ${email} to list ${listId} via public API`);
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email,
+                listId,
+                firstName: options.firstName,
+                lastName: options.lastName,
+                tags: options.tags || ['website-signup'],
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            console.error('❌ Maillayer API error (Add Contact):', data);
+            return {
+                success: false,
+                error: data.message || data.error || `HTTP ${response.status}: ${JSON.stringify(data)}`
+            };
+        }
+
+        console.log(`✅ Maillayer contact added successfully:`, data);
+        return {
+            success: true,
+            messageId: data.contactId || data.id || (data.data && data.data.id)
+        };
+    } catch (error) {
+        console.error('❌ Failed to add contact via Maillayer:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
  * Get Maillayer configuration status for debugging
  */
 export function getMaillayerConfig() {
@@ -210,6 +283,7 @@ export function getMaillayerConfig() {
         isConfigured: isMaillayerConfigured(),
         apiUrl: process.env.MAILLAYER_API_URL ? '***configured***' : 'NOT SET',
         apiKey: process.env.MAILLAYER_API_KEY ? '***configured***' : 'NOT SET',
+        listId: process.env.MAILLAYER_LIST_ID ? '***configured***' : 'NOT SET',
         fromEmail: process.env.MAILLAYER_FROM_EMAIL || 'newsletter@phuketradar.com (default)',
     };
 }

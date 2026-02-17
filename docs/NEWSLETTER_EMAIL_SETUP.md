@@ -46,8 +46,11 @@ Maillayer is a self-hosted email marketing platform that connects to providers l
    # Maillayer Configuration
    MAILLAYER_API_URL=https://your-maillayer-instance.com
    MAILLAYER_API_KEY=txn_xxxxx_xxxxxxxx
+   MAILLAYER_LIST_ID=your_list_id_here
    MAILLAYER_FROM_EMAIL=newsletter@phuketradar.com
    ```
+
+   **Note on List ID**: You can find your List ID in the Maillayer dashboard under **Contacts** > **Contact Lists**. If you haven't created a list yet, create one named "Phuket Radar" (or similar) and copy its ID.
 
 ### Testing
 After configuration, the newsletter subscription should work immediately. Check the server logs for:

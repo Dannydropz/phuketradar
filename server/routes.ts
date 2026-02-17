@@ -28,6 +28,7 @@ import { detectTags } from "./lib/tag-detector";
 import { TAG_DEFINITIONS } from "@shared/core-tags";
 import sharp from "sharp";
 import { cache, CACHE_KEYS, CACHE_TTL, withCache, invalidateArticleCaches } from "./lib/cache";
+import { addMaillayerContact, isMaillayerConfigured } from "./lib/maillayer-client";
 
 // Extend session type
 declare module "express-session" {
@@ -2242,6 +2243,17 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
         } else {
           // Reactivate subscription by updating existing record
           await storage.reactivateSubscriber(existing.id);
+
+          // Also sync to Maillayer if configured
+          if (isMaillayerConfigured()) {
+            try {
+              console.log(`👤 Syncing reactivated subscriber ${existing.email} to Maillayer...`);
+              await addMaillayerContact(existing.email);
+            } catch (maillayerError) {
+              console.error(`❌ Error syncing reactivated subscriber to Maillayer:`, maillayerError);
+            }
+          }
+
           return res.status(200).json({
             message: "Welcome back! Your subscription has been reactivated.",
             subscriber: { email: existing.email }
@@ -2250,6 +2262,23 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
       }
 
       const subscriber = await storage.createSubscriber(result.data);
+
+      // Also add to Maillayer if configured
+      if (isMaillayerConfigured()) {
+        try {
+          console.log(`👤 Syncing new subscriber ${subscriber.email} to Maillayer...`);
+          const maillayerResult = await addMaillayerContact(subscriber.email);
+          if (maillayerResult.success) {
+            console.log(`✅ Subscriber ${subscriber.email} added to Maillayer`);
+          } else {
+            console.warn(`⚠️ Failed to sync subscriber ${subscriber.email} to Maillayer: ${maillayerResult.error}`);
+          }
+        } catch (maillayerError) {
+          console.error(`❌ Error syncing to Maillayer:`, maillayerError);
+          // Don't fail the whole request if Maillayer sync fails
+        }
+      }
+
       res.status(201).json({
         message: "Successfully subscribed to Phuket Radar!",
         subscriber: { email: subscriber.email }
