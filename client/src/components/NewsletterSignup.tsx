@@ -62,7 +62,7 @@ export function NewsletterSignup() {
 
     return (
         <section className="my-12">
-            <div className="relative overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 md:p-12">
+            <div className="relative overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 md:p-12 shadow-[0_0_25px_rgba(59,130,246,0.25)] dark:shadow-[0_0_40px_rgba(59,130,246,0.3)]">
                 {/* Background decorative elements */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-zinc-200/50 dark:bg-zinc-800/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-zinc-300/30 dark:bg-zinc-700/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />

@@ -17,6 +17,7 @@ import { buildArticleUrl } from "@shared/category-map";
 import { TagPills } from "@/components/TagPills";
 import { useMetaPixel } from "@/hooks/use-meta-pixel";
 import { KastBanner } from "@/components/KastBanner";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
     Carousel,
@@ -550,6 +551,8 @@ export default function ArticleDetailNew() {
                         </div>
                     </aside>
                 </div>
+
+                <NewsletterSignup />
 
                 {/* Related Articles */}
                 {relatedArticles.length > 0 && (
