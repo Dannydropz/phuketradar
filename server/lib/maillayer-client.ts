@@ -6,12 +6,16 @@
  * 
  * Required environment variables:
  * - MAILLAYER_API_URL: The base URL of your Maillayer instance (e.g., https://mail.phuketradar.com)
- * - MAILLAYER_API_KEY: The transactional template API key from Maillayer
+ * - MAILLAYER_TRANSACTIONAL_KEY: The transactional template API key (starts with txn_)
+ * - MAILLAYER_BRAND_KEY: The brand API key for contact management (starts with br_)
+ * - MAILLAYER_API_KEY: Fallback API key if specific keys aren't set
  * - MAILLAYER_FROM_EMAIL: The sender email address (optional, defaults to newsletter@phuketradar.com)
  * 
  * For Maillayer integration, you need to:
  * 1. Create a transactional template in your Maillayer dashboard
- * 2. The template should have variables: {{subject}}, {{htmlContent}} (or just use raw HTML in body)
+ * 2. TIP: For a custom-designed newsletter from code, use a "Pass-through" template:
+ *    Switch to HTML mode in the Maillayer editor and use: {{{content}}} 
+ *    (Triple brackets prevent Maillayer from stripping your custom CSS/HTML)
  * 3. Copy the API key from the template settings
  */
 
@@ -35,7 +39,7 @@ export interface MaillayerEmailOptions {
  */
 export async function sendMaillayerEmail(options: MaillayerEmailOptions): Promise<MaillayerSendResponse> {
     const apiUrl = process.env.MAILLAYER_API_URL;
-    const apiKey = process.env.MAILLAYER_API_KEY;
+    const apiKey = process.env.MAILLAYER_TRANSACTIONAL_KEY || process.env.MAILLAYER_API_KEY;
 
     if (!apiUrl || !apiKey) {
         console.error('❌ Maillayer not configured. Missing MAILLAYER_API_URL or MAILLAYER_API_KEY');
@@ -97,7 +101,7 @@ export async function sendMaillayerEmail(options: MaillayerEmailOptions): Promis
  */
 export async function sendMaillayerRawEmail(options: MaillayerEmailOptions): Promise<MaillayerSendResponse> {
     const apiUrl = process.env.MAILLAYER_API_URL;
-    const apiKey = process.env.MAILLAYER_API_KEY;
+    const apiKey = process.env.MAILLAYER_TRANSACTIONAL_KEY || process.env.MAILLAYER_API_KEY;
     const fromEmail = process.env.MAILLAYER_FROM_EMAIL || 'newsletter@phuketradar.com';
 
     if (!apiUrl || !apiKey) {
@@ -199,7 +203,9 @@ export async function sendMaillayerRawEmail(options: MaillayerEmailOptions): Pro
  * Check if Maillayer is properly configured
  */
 export function isMaillayerConfigured(): boolean {
-    return !!(process.env.MAILLAYER_API_URL && process.env.MAILLAYER_API_KEY);
+    const hasUrl = !!process.env.MAILLAYER_API_URL;
+    const hasKey = !!(process.env.MAILLAYER_TRANSACTIONAL_KEY || process.env.MAILLAYER_BRAND_KEY || process.env.MAILLAYER_API_KEY);
+    return hasUrl && hasKey;
 }
 
 /**
@@ -213,7 +219,7 @@ export async function addMaillayerContact(email: string, options: {
     tags?: string[]
 } = {}): Promise<MaillayerSendResponse> {
     const apiUrl = process.env.MAILLAYER_API_URL;
-    const brandApiKey = process.env.MAILLAYER_API_KEY; // This should be the Brand API Key (starts with br_)
+    const brandApiKey = process.env.MAILLAYER_BRAND_KEY || process.env.MAILLAYER_API_KEY; // Use brand key specifically if available
     const listId = options.listId || process.env.MAILLAYER_LIST_ID;
 
     if (!apiUrl || !brandApiKey) {

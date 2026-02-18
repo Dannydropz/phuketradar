@@ -31,6 +31,8 @@ export const articles = pgTable("articles", {
   imageUrl: text("image_url"),
   imageUrls: text("image_urls").array(),
   imageHash: text("image_hash"),
+  sourceImageUrl: text("source_image_url"), // Original CDN image URL before local download (for cross-source duplicate detection)
+  sourceImageUrls: text("source_image_urls").array(), // All original CDN image URLs before local download
   videoUrl: text("video_url"),
   videoThumbnail: text("video_thumbnail"),
   facebookEmbedUrl: text("facebook_embed_url"), // Facebook video/reel URL to embed on article page

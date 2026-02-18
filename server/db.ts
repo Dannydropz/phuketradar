@@ -23,7 +23,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000, // Standard 10s is enough with TCP
   query_timeout: 60000,
   allowExitOnIdle: false,
-  ssl: { rejectUnauthorized: false }, // Neon/Supabase requires SSL
+  ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false }, // Neon/Supabase requires SSL
   // Explicitly set host to force DNS resolution (helps with IPv6 issues on Railway)
   host: dbHost,
 });

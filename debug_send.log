@@ -1,0 +1,16 @@
+📤 Maillayer: Sending to dannyjkeegan@gmail.com via https://mail.nintai.co/api/transactional/send
+⚠️ Maillayer transactional endpoint returned: {
+  message: 'Email address is not verified. The following identities failed the check in region AP-SOUTHEAST-1: dannyjkeegan@gmail.com',
+  success: false
+}
+📤 Maillayer: Trying raw endpoint https://mail.nintai.co/api/email/send
+❌ Failed to send raw email via Maillayer: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at parseJSONFromBytes (node:internal/deps/undici/undici:5738:19)
+    at successSteps (node:internal/deps/undici/undici:5719:27)
+    at fullyReadBody (node:internal/deps/undici/undici:4609:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async consumeBody (node:internal/deps/undici/undici:5728:7)
+    at async sendMaillayerRawEmail (/Users/dannykeegan/Github Repository/phuketradar/server/lib/maillayer-client.ts:177:22)
+    at async test (file:///Users/dannykeegan/Github%20Repository/phuketradar/[eval1]:4:18)
+FINAL_RESULT: {"success":false,"error":"Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"}

@@ -1,267 +1,168 @@
-import type { Article } from "@shared/schema";
-import { format } from "date-fns";
-import { getUncachableResendClient } from "../lib/resend-client";
-import { isMaillayerConfigured, sendMaillayerRawEmail, getMaillayerConfig } from "../lib/maillayer-client";
+
+import { storage } from "../storage";
 import { buildArticleUrl } from "@shared/category-map";
+import { isMaillayerConfigured, sendMaillayerRawEmail } from "../lib/maillayer-client";
+import { getUncachableResendClient } from "../lib/resend-client";
+import fs from "fs";
+import path from "path";
+import { format } from "date-fns";
+import { type Article } from "@shared/schema";
 
-const SITE_URL = process.env.REPLIT_DEPLOYMENT === '1'
-  ? 'https://phuketradar.com'
-  : 'http://localhost:5000';
+const SITE_URL = 'https://phuketradar.com';
 
-interface NewsletterArticle {
+export interface NewsletterArticle {
   title: string;
   excerpt: string;
   category: string;
   imageUrl: string | null;
   slug: string | null;
   id: string;
-  articleType?: string;
+  publishedAt: Date | string;
+  engagementScore?: number;
+  interestScore?: number;
 }
 
-export function generateNewsletterHTML(articles: NewsletterArticle[], date: Date): string {
-  const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
+export async function generateDailyNewsletterHTML(): Promise<string | null> {
+  console.log("🚀 Generating daily newsletter HTML...");
 
-  // Separate Insights from breaking news
-  const insights = articles.filter(a => a.articleType === 'insight');
-  const breakingNews = articles.filter(a => a.articleType !== 'insight');
+  // 1. Fetch top stories from last 24 hours
+  const hoursAgo = 24;
+  const articles = await storage.getPublishedArticles(100, 0);
+  const twentyFourHoursAgo = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
 
-  const categoryColors: Record<string, string> = {
-    'Breaking': '#ef4444',
-    'Tourism': '#3b82f6',
-    'Business': '#10b981',
-    'Events': '#f59e0b',
-    'Other': '#6b7280',
+  const recentArticles = articles.filter(a => new Date(a.publishedAt) >= twentyFourHoursAgo);
+
+  if (recentArticles.length === 0) {
+    console.log("⚠️ No articles found in the last 24 hours. Using recent published articles instead.");
+    recentArticles.push(...articles.slice(0, 10));
+  }
+
+  if (recentArticles.length === 0) return null;
+
+  const rankedArticles = recentArticles.sort((a, b) => {
+    const scoreA = (a.engagementScore || 0) + (a.interestScore || 0);
+    const scoreB = (b.engagementScore || 0) + (b.interestScore || 0);
+    return scoreB - scoreA;
+  });
+
+  const topStory = rankedArticles[0];
+  const trendingStories = rankedArticles.slice(1, 4);
+  const radarStories = rankedArticles.slice(4, 9);
+
+  // 2. Load template
+  const templatePath = path.join(process.cwd(), "docs", "newsletter-template.html");
+  if (!fs.existsSync(templatePath)) {
+    console.error("❌ Newsletter template not found at", templatePath);
+    return null;
+  }
+  let html = fs.readFileSync(templatePath, "utf-8");
+
+  // 3. Populate Template
+  const formattedDate = format(new Date(), 'EEEE, MMMM d, yyyy');
+  html = html.replace(/{{DATE}}/g, formattedDate);
+
+  // Helper to get time string
+  const getTimeString = (date: Date | string) => {
+    const d = new Date(date);
+    return format(d, 'h:mm a');
   };
 
-  // Featured Insight section (if any)
-  const insightsHTML = insights.map(article => {
-    const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
-    const articleUrl = `${SITE_URL}${articlePath}`;
+  // Top Story
+  const topStoryPath = buildArticleUrl({ category: topStory.category, slug: topStory.slug, id: topStory.id });
+  html = html.replace(/{{TOP_STORY_URL}}/g, `${SITE_URL}${topStoryPath}`);
+  html = html.replace(/{{TOP_STORY_IMAGE}}/g, topStory.imageUrl || 'https://phuketradar.com/assets/placeholder.png');
+  html = html.replace(/{{TOP_STORY_TITLE}}/g, topStory.title);
+  html = html.replace(/{{TOP_STORY_CATEGORY}}/g, topStory.category.toUpperCase());
+  html = html.replace(/{{TOP_STORY_EXCERPT}}/g, topStory.excerpt);
 
-    return `
-      <tr>
-        <td style="padding: 24px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; margin: 0 24px 24px 24px;">
-          <div style="display: inline-block; background-color: #78350f; color: #fef3c7; padding: 6px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px;">
-            ✨ FEATURED INSIGHT
-          </div>
-          ${article.imageUrl ? `
-            <a href="${articleUrl}" style="display: block; margin-bottom: 16px;">
-              <img src="${article.imageUrl}" alt="${article.title}" style="width: 100%; max-width: 552px; height: auto; border-radius: 8px; border: 2px solid #f59e0b;" />
-            </a>
-          ` : ''}
-          <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 800; color: #78350f; line-height: 1.3;">
-            <a href="${articleUrl}" style="color: #78350f; text-decoration: none;">
-              ${article.title}
-            </a>
-          </h2>
-          <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.7; color: #92400e;">
-            ${article.excerpt}
-          </p>
-          <a href="${articleUrl}" style="display: inline-block; background-color: #78350f; color: #fef3c7; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px;">
-            Read Full Analysis →
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td style="height: 24px;"></td>
-      </tr>
-    `;
-  }).join('');
+  // Trending Stories
+  trendingStories.forEach((s, i) => {
+    const idx = i + 1;
+    const sPath = buildArticleUrl({ category: s.category, slug: s.slug, id: s.id });
+    html = html.replace(new RegExp(`{{STORY_${idx}_URL}}`, 'g'), `${SITE_URL}${sPath}`);
+    html = html.replace(new RegExp(`{{STORY_${idx}_IMAGE}}`, 'g'), s.imageUrl || 'https://phuketradar.com/assets/placeholder.png');
+    html = html.replace(new RegExp(`{{STORY_${idx}_TITLE}}`, 'g'), s.title);
+    html = html.replace(new RegExp(`{{STORY_${idx}_CATEGORY}}`, 'g'), s.category.toUpperCase());
+    html = html.replace(new RegExp(`{{STORY_${idx}_TIME}}`, 'g'), getTimeString(s.publishedAt));
+  });
 
-  // Regular breaking news articles
-  const articlesHTML = breakingNews.map(article => {
-    const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
-    const articleUrl = `${SITE_URL}${articlePath}`;
+  // Radar Stories
+  radarStories.forEach((s, i) => {
+    const idx = i + 1;
+    const sPath = buildArticleUrl({ category: s.category, slug: s.slug, id: s.id });
+    html = html.replace(new RegExp(`{{RADAR_${idx}_URL}}`, 'g'), `${SITE_URL}${sPath}`);
+    html = html.replace(new RegExp(`{{RADAR_${idx}_TITLE}}`, 'g'), s.title);
+  });
 
-    const categoryColor = categoryColors[article.category] || categoryColors['Other'];
+  // Clean up remaining placeholders
+  html = html.replace(/{{STORY_\d_URL}}/g, '#');
+  html = html.replace(/{{STORY_\d_IMAGE}}/g, 'https://phuketradar.com/assets/placeholder.png');
+  html = html.replace(/{{STORY_\d_TITLE}}/g, 'More news coming soon');
+  html = html.replace(/{{STORY_\d_CATEGORY}}/g, 'NEWS');
+  html = html.replace(/{{STORY_\d_TIME}}/g, '');
+  html = html.replace(/{{RADAR_\d_URL}}/g, '#');
+  html = html.replace(/{{RADAR_\d_TITLE}}/g, '');
 
-    return `
-      <tr>
-        <td style="padding: 24px 0; border-bottom: 1px solid #e5e7eb;">
-          ${article.imageUrl ? `
-            <a href="${articleUrl}" style="display: block; margin-bottom: 16px;">
-              <img src="${article.imageUrl}" alt="${article.title}" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;" />
-            </a>
-          ` : ''}
-          <div style="display: inline-block; background-color: ${categoryColor}; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 12px;">
-            ${article.category.toUpperCase()}
-          </div>
-          <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #111827;">
-            <a href="${articleUrl}" style="color: #111827; text-decoration: none;">
-              ${article.title}
-            </a>
-          </h2>
-          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #4b5563;">
-            ${article.excerpt}
-          </p>
-          <a href="${articleUrl}" style="display: inline-block; color: #3b82f6; text-decoration: none; font-weight: 600; font-size: 14px;">
-            Read more →
-          </a>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Phuket Radar - ${formattedDate}</title>
-    </head>
-    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 20px;">
-        <tr>
-          <td align="center">
-            <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden;">
-              <!-- Header -->
-              <tr>
-                <td style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 32px 24px; text-align: center;">
-                  <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 800; letter-spacing: -0.5px;">
-                    Phuket Radar
-                  </h1>
-                  <p style="margin: 8px 0 0 0; color: #dbeafe; font-size: 14px; font-weight: 500;">
-                    ${formattedDate}
-                  </p>
-                </td>
-              </tr>
-              
-              <!-- Intro -->
-              <tr>
-                <td style="padding: 24px; background-color: #eff6ff;">
-                  <p style="margin: 0; font-size: 16px; color: #1e40af; font-weight: 600; text-align: center;">
-                    ☀️ Good morning! Here's what's happening in Phuket today.
-                  </p>
-                </td>
-              </tr>
-              
-              <!-- Featured Insights -->
-              ${insights.length > 0 ? `
-              <tr>
-                <td style="padding: 0 24px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    ${insightsHTML}
-                  </table>
-                </td>
-              </tr>
-              ` : ''}
-              
-              <!-- Breaking News Section Header -->
-              ${insights.length > 0 && breakingNews.length > 0 ? `
-              <tr>
-                <td style="padding: 0 24px;">
-                  <h3 style="margin: 24px 0 16px 0; font-size: 18px; font-weight: 700; color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">
-                    Latest Breaking News
-                  </h3>
-                </td>
-              </tr>
-              ` : ''}
-              
-              <!-- Articles -->
-              ${breakingNews.length > 0 ? `
-              <tr>
-                <td style="padding: 0 24px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    ${articlesHTML}
-                  </table>
-                </td>
-              </tr>
-              ` : ''}
-              
-              <!-- Footer -->
-              <tr>
-                <td style="padding: 32px 24px; background-color: #f9fafb; text-align: center; border-top: 1px solid #e5e7eb;">
-                  <p style="margin: 0 0 16px 0; font-size: 14px; color: #6b7280;">
-                    Read more stories at <a href="${SITE_URL}" style="color: #3b82f6; text-decoration: none; font-weight: 600;">phuketradar.com</a>
-                  </p>
-                  <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    <a href="{{UNSUBSCRIBE_URL}}" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-  `;
+  return html;
 }
 
-export async function sendNewsletter(
-  to: string,
-  articles: NewsletterArticle[],
-  unsubscribeToken: string
-): Promise<boolean> {
-  try {
-    const date = new Date();
-    const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
+export async function processDailyNewsletterSession() {
+  console.log("📨 Starting daily newsletter dispatch session...");
 
-    let htmlContent = generateNewsletterHTML(articles, date);
-    const unsubscribeUrl = `${SITE_URL}/api/unsubscribe/${unsubscribeToken}`;
-    htmlContent = htmlContent.replace('{{UNSUBSCRIBE_URL}}', unsubscribeUrl);
-
-    const subject = `Phuket Radar - ${formattedDate}`;
-
-    // Try Maillayer first (primary provider)
-    if (isMaillayerConfigured()) {
-      console.log(`📧 Sending newsletter via Maillayer to ${to}`);
-      const result = await sendMaillayerRawEmail({
-        to,
-        subject,
-        html: htmlContent,
-      });
-
-      if (result.success) {
-        console.log(`✅ Newsletter sent via Maillayer to ${to}: ${result.messageId}`);
-        return true;
-      } else {
-        console.error(`❌ Maillayer failed for ${to}: ${result.error}`);
-        // Fall through to try Resend as backup
-      }
-    }
-
-    // Fall back to Resend
-    console.log(`📧 Sending newsletter via Resend to ${to}`);
-    const { client, fromEmail } = await getUncachableResendClient();
-
-    const result = await client.emails.send({
-      from: fromEmail,
-      to,
-      subject,
-      html: htmlContent,
-    });
-
-    console.log(`✅ Newsletter sent via Resend to ${to}: ${result.data?.id}`);
-    return true;
-  } catch (error) {
-    console.error(`❌ Failed to send newsletter to ${to}:`, error);
-    return false;
+  const html = await generateDailyNewsletterHTML();
+  if (!html) {
+    console.log("⏭️ No newsletter generated (no articles).");
+    return;
   }
-}
 
-export async function sendBulkNewsletter(
-  subscribers: Array<{ email: string; unsubscribeToken: string }>,
-  articles: NewsletterArticle[]
-): Promise<{ sent: number; failed: number }> {
+  const subscribers = await storage.getAllActiveSubscribers();
+  console.log(`👥 Found ${subscribers.length} active subscribers.`);
+
+  const subject = `Phuket Radar - ${format(new Date(), 'EEEE, MMMM d, yyyy')}`;
+
   let sent = 0;
   let failed = 0;
 
-  console.log(`📧 Sending newsletter to ${subscribers.length} subscribers...`);
+  for (const sub of subscribers) {
+    try {
+      // Replace unsubscribe link for each user
+      const personalHtml = html.replace('{{UNSUBSCRIBE_URL}}', `${SITE_URL}/api/unsubscribe/${sub.unsubscribeToken || 'default'}`);
 
-  for (const subscriber of subscribers) {
-    const success = await sendNewsletter(subscriber.email, articles, subscriber.unsubscribeToken);
-    if (success) {
-      sent++;
-    } else {
+      let success = false;
+      if (isMaillayerConfigured()) {
+        const result = await sendMaillayerRawEmail({
+          to: sub.email,
+          subject,
+          html: personalHtml
+        });
+        success = result.success;
+      } else {
+        const { client, fromEmail } = await getUncachableResendClient();
+        const result = await client.emails.send({
+          from: fromEmail,
+          to: sub.email,
+          subject,
+          html: personalHtml
+        });
+        success = !!result.data?.id;
+      }
+
+      if (success) {
+        sent++;
+        console.log(`✅ Sent to ${sub.email}`);
+      } else {
+        failed++;
+        console.log(`❌ Failed for ${sub.email}`);
+      }
+
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (err) {
       failed++;
+      console.error(`❌ Error sending to ${sub.email}:`, err);
     }
-
-    // Rate limiting: wait 100ms between sends to avoid hitting Resend limits
-    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  console.log(`📧 Newsletter campaign complete: ${sent} sent, ${failed} failed`);
+  console.log(`🏁 Dispatch complete. Sent: ${sent}, Failed: ${failed}`);
   return { sent, failed };
 }

@@ -748,6 +748,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })();
   });
 
+  // Daily Newsletter endpoint - triggered by external cron at 8am Bangkok time
+  app.post("/api/cron/newsletter/send", requireCronAuth, async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log("\n".repeat(3) + "=".repeat(80));
+    console.log("📨 DAILY NEWSLETTER TRIGGERED 🚨");
+    console.log(`Time: ${timestamp}`);
+    console.log(`Trigger: AUTOMATED CRON`);
+    console.log("=".repeat(80) + "\n");
+
+    // Respond immediately
+    res.json({
+      success: true,
+      message: "Newsletter dispatch started in background",
+      timestamp,
+    });
+
+    // Process in background
+    (async () => {
+      try {
+        const { processDailyNewsletterSession } = await import("./services/newsletter");
+        await processDailyNewsletterSession();
+        console.log(`[NEWSLETTER-CRON] ✅ Newsletter session completed`);
+      } catch (error) {
+        console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
+      }
+    })();
+  });
+
   // Enrichment endpoint - triggered by GitHub Actions
   app.post("/api/cron/enrich", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
@@ -2273,6 +2301,18 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
         error: errorMessage,
         timestamp,
       });
+    }
+  });
+
+  // Admin Newsletter Preview - PROTECTED
+  app.get("/api/admin/newsletter/preview", requireAdminAuth, async (req, res) => {
+    try {
+      const previewPath = path.join(process.cwd(), "newsletter_approval_preview.html");
+      const html = await fs.readFile(previewPath, "utf-8");
+      res.header("Content-Type", "text/html");
+      res.send(html);
+    } catch (error) {
+      res.status(404).json({ error: "Preview not found. Run the generation script first." });
     }
   });
 

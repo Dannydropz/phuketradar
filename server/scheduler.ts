@@ -1010,6 +1010,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     imageUrl: finalImageUrl || null,
                     imageUrls: localImageUrls || null,
                     imageHash: imageHash || null, // Store perceptual hash for duplicate detection
+                    sourceImageUrl: post.imageUrl || null, // Original CDN URL for cross-source duplicate detection
+                    sourceImageUrls: post.imageUrls || null, // All original CDN URLs for cross-source duplicate detection
                     videoUrl: post.videoUrl || null, // Store video URL for embedded playback
                     videoThumbnail: post.videoThumbnail || null, // High-quality video thumbnail
                     // PHASE 1: Auto-embed for ACTUAL video/reel URLs only (not just isVideo flag)
@@ -1679,6 +1681,8 @@ export async function runManualPageScrape(
           imageUrl: localImageUrl || null,
           imageUrls: localImageUrls || null,
           imageHash: null,
+          sourceImageUrl: post.imageUrl || null, // Original CDN URL for cross-source duplicate detection
+          sourceImageUrls: post.imageUrls || null, // All original CDN URLs for cross-source duplicate detection
           category: translation.category,
           sourceUrl: post.sourceUrl,
           sourceName,
@@ -2043,6 +2047,8 @@ export async function runManualPostScrape(
       imageUrl: finalImageUrl || null,
       imageUrls: localImageUrls || null,
       imageHash: null,
+      sourceImageUrl: post.imageUrl || null, // Original CDN URL for cross-source duplicate detection
+      sourceImageUrls: post.imageUrls || null, // All original CDN URLs for cross-source duplicate detection
       category: translation.category,
       sourceUrl: post.sourceUrl,
       sourceName,

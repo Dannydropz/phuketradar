@@ -476,13 +476,16 @@ Are these about the same incident?`;
 
         const result = JSON.parse(response.choices[0].message.content || '{}');
 
-        if (result.isSameIncident && result.confidence >= 70) {
+        if (result.isSameIncident && result.confidence >= 60) {
+          console.log(`[DUPLICATE DETECTION] GPT confirmed duplicate (${result.confidence}% confidence): "${candidate.title?.substring(0, 50)}..." [${candidate.sourceName || 'Unknown source'}]`);
           results.push({
             isDuplicate: true,
             confidence: result.confidence / 100,
             matchedArticle: candidate,
             reason: result.reason
           });
+        } else if (result.isSameIncident) {
+          console.log(`[DUPLICATE DETECTION] GPT found possible duplicate but confidence too low (${result.confidence}% < 60%): "${candidate.title?.substring(0, 50)}..."`);
         }
       } catch (error) {
         console.error('[DUPLICATE DETECTION] Error in GPT-4 verification:', error);

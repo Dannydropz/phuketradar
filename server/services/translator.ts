@@ -525,6 +525,11 @@ Phuket Town has many streets NAMED AFTER other Thai cities. These are STREETS IN
 - "ถนนพังงา" / "Phang Nga Road" / "Thanon Phang Nga" = A street in PHUKET TOWN, NOT Phang Nga province
 - "ถนนรัษฎา" / "Rasada Road" = A street in PHUKET TOWN
 
+🛣️ SOI (ALLEY) NAMING CONVENTION:
+- **"Soi" ALWAYS comes BEFORE the name:** In Thai, it is "Soi Bangla", NOT "Bangla Soi". 
+- ALWAYS correct instances of "[Name] Soi" to "Soi [Name]" in your output.
+- EXAMPLES: "Soi Ta-iad", "Soi Dog", "Soi Bangla", "Soi Romanee".
+
 🏞️ PLACE NAME vs LITERAL TRANSLATION:
 - "สะพานหิน" / "Saphan Hin" = A PUBLIC PARK/PROMENADE in PHUKET TOWN, NOT a bridge! "สะพาน" means "bridge" in Thai but "Saphan Hin" is a PROPER NOUN / PLACE NAME. NEVER translate as "bridge" or "Phuket Bridge".
 - "สะพานภูเก็ต" = Refers to the Saphan Hin area. Use "Saphan Hin" in English. Do NOT write "Phuket Bridge".
@@ -552,6 +557,23 @@ function isComplexThaiText(thaiText: string): boolean {
     thaiText.length > 400 ||
     complexKeywords.some(keyword => thaiText.includes(keyword))
   );
+}
+
+// ENFORCE SOI NAMING CONVENTION: In Thai, Soi (alley) ALWAYS comes before the name
+// This function corrects "[Name] Soi" to "Soi [Name]" in translated text
+function enforceSoiNamingConvention(text: string): string {
+  if (!text) return text;
+
+  // Regex breakdown:
+  // \b([A-Z][a-zA-Z0-9\-\.]*) -> Matches a capitalized name (including hyphens/dots)
+  // \s+                       -> Matches whitespace
+  // [Ss]oi\b                  -> Matches "Soi" or "soi" at the end of a word
+  //
+  // Use a negative lookbehind (if supported) or just match carefully to avoid
+  // matching "The Soi", "A Soi", etc.
+  // We prioritize case-sensitive match for "Soi" to be safer, but user examples
+  // often show "Bangla Soi" -> "Soi Bangla"
+  return text.replace(/\b([A-Z][a-zA-Z0-9\-\.]{2,})\s+[Ss]oi\b/g, 'Soi $1');
 }
 
 // Enrich Thai text with Phuket location context
@@ -799,6 +821,12 @@ CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
 
 ${PHUKET_STREET_DISAMBIGUATION}
 
+🚨 SOI (ALLEY) NAMING CONVENTION (CRITICAL):
+- In Thai, "Soi" ALWAYS comes BEFORE the name.
+- WRONG: "Bangla Soi", "Ta-iad Soi", "Dog Soi"
+- CORRECT: "Soi Bangla", "Soi Ta-iad", "Soi Dog"
+- ALWAYS output correctly as "Soi [Name]".
+
 STRICT WRITING GUIDELINES:
 1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events. **CRITICAL: If source mentions "Bangkok Road" or "ถนนกรุงเทพ", the dateline is "**PHUKET TOWN, PHUKET –**" NOT "**BANGKOK –**"**
 2. **LEDE PARAGRAPH:** Write a summary lede that answers Who, What, Where, When using ONLY facts from the source.
@@ -884,9 +912,9 @@ Respond in JSON format:
     const formattedContent = ensureProperParagraphFormatting(result.enrichedContent || params.content);
 
     return {
-      enrichedTitle: result.enrichedTitle || params.title,
-      enrichedContent: formattedContent,
-      enrichedExcerpt: result.enrichedExcerpt || params.excerpt,
+      enrichedTitle: enforceSoiNamingConvention(result.enrichedTitle || params.title),
+      enrichedContent: enforceSoiNamingConvention(formattedContent),
+      enrichedExcerpt: enforceSoiNamingConvention(result.enrichedExcerpt || params.excerpt),
     };
   }
 
@@ -1105,6 +1133,12 @@ CRITICAL LOCATION VERIFICATION:
 - CRITICAL: PERSON'S ORIGIN ≠ EVENT LOCATION: If "Patong Jet Ski team helps with floods", READ CAREFULLY to see WHERE they are helping. They might be FROM Patong but HELPING IN Hat Yai. DO NOT assume the event is in Phuket just because the people are from Phuket.
 
 ${PHUKET_STREET_DISAMBIGUATION}
+
+🚨 SOI (ALLEY) NAMING CONVENTION (CRITICAL):
+- In Thai, "Soi" ALWAYS comes BEFORE the name.
+- WRONG: "Bangla Soi", "Ta-iad Soi", "Dog Soi"
+- CORRECT: "Soi Bangla", "Soi Ta-iad", "Soi Dog"
+- ALWAYS output correctly as "Soi [Name]".
 
 CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - DO NOT INVENT FACTS: Do not add details, numbers, quotes, or events not in the source text.
@@ -1693,9 +1727,9 @@ Always output valid JSON.`,
       const embedding = precomputedEmbedding;
 
       return {
-        translatedTitle: enrichedTitle,
-        translatedContent: enrichedContent,
-        excerpt: enrichedExcerpt,
+        translatedTitle: enforceSoiNamingConvention(enrichedTitle),
+        translatedContent: enforceSoiNamingConvention(enrichedContent),
+        excerpt: enforceSoiNamingConvention(enrichedExcerpt),
         category: category, // Use validated category (defaults to "Local" if invalid)
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
@@ -1706,7 +1740,7 @@ Always output valid JSON.`,
         // Block auto-boosting for categories editorial team finds "boring" even as videos
         autoBoostScore: !(category === "Politics" || hasPoliticsKeyword || category === "Business" || hasRealEstateKeyword || hasFoundationGovernanceKeyword),
         embedding,
-        facebookHeadline,
+        facebookHeadline: enforceSoiNamingConvention(facebookHeadline),
       };
     } catch (error) {
       console.error("Error translating content:", error);

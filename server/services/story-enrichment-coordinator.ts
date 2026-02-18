@@ -76,27 +76,45 @@ export class StoryEnrichmentCoordinator {
     // Step 5: Determine primary article (usually the earliest/highest interest)
     const primaryArticle = this.selectPrimaryArticle(duplicateArticles);
 
+    // Step 6: Select the best image from all sources
+    const bestImage = this.selectBestImage(allStories);
+
     if (primaryArticle) {
       // Update existing article with merged content
       console.log(`📝 [ENRICHMENT COORDINATOR] Updating existing article: ${primaryArticle.id}`);
       console.log(`   Combined details: ${mergedStory.combinedDetails}`);
       console.log(`   Developing: ${mergedStory.isDeveloping}`);
+      console.log(`   Sources merged: ${allStories.map(s => s.sourceName || 'Unknown').join(', ')}`);
 
-      await storage.updateArticle(primaryArticle.id, {
+      // Build update payload - include best image if the primary doesn't have one
+      const updatePayload: Partial<Article> = {
         title: mergedStory.title,
         content: mergedStory.content,
         excerpt: mergedStory.excerpt,
         isDeveloping: mergedStory.isDeveloping,
         enrichmentCount: (primaryArticle.enrichmentCount || 0) + 1,
-        lastEnrichedAt: new Date()
-      });
+        lastEnrichedAt: new Date(),
+      };
 
-      // Mark other duplicates as merged into primary
+      // Upgrade image if new source has a better one
+      if (bestImage.imageUrl && !primaryArticle.imageUrl) {
+        updatePayload.imageUrl = bestImage.imageUrl;
+        console.log(`   📸 Adding image from secondary source: ${bestImage.imageUrl.substring(0, 60)}...`);
+      }
+      if (bestImage.imageUrls && bestImage.imageUrls.length > 0 && (!primaryArticle.imageUrls || primaryArticle.imageUrls.length === 0)) {
+        updatePayload.imageUrls = bestImage.imageUrls;
+      }
+
+      await storage.updateArticle(primaryArticle.id, updatePayload);
+
+      // Mark other duplicates as merged into primary AND unpublish them
       const otherDuplicates = duplicateArticles.filter(a => a.id !== primaryArticle.id);
       for (const dup of otherDuplicates) {
         await storage.updateArticle(dup.id, {
-          mergedIntoId: primaryArticle.id
+          mergedIntoId: primaryArticle.id,
+          isPublished: false, // Unpublish merged duplicates so they don't show in feeds
         });
+        console.log(`   🔗 Merged & unpublished duplicate: ${dup.id} (${dup.sourceName || 'Unknown source'})`);
       }
 
       return {
@@ -143,6 +161,27 @@ export class StoryEnrichmentCoordinator {
       // Earlier published date
       return new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime();
     })[0];
+  }
+
+  /**
+   * Select the best image from all stories being merged.
+   * Prefers stories with images; picks the one with the most images.
+   */
+  private selectBestImage(stories: Article[]): { imageUrl: string | null; imageUrls: string[] | null } {
+    // Find the story with the most images
+    let best: Article | null = null;
+    let bestCount = 0;
+
+    for (const story of stories) {
+      const count = (story.imageUrls?.length || 0) + (story.imageUrl ? 1 : 0);
+      if (count > bestCount) {
+        bestCount = count;
+        best = story;
+      }
+    }
+
+    if (!best) return { imageUrl: null, imageUrls: null };
+    return { imageUrl: best.imageUrl || null, imageUrls: best.imageUrls || null };
   }
 
   /**
@@ -209,21 +248,37 @@ export class StoryEnrichmentCoordinator {
           const allStories = [article, ...relatedStories];
           const mergedStory = await this.storyMerger.mergeStories(allStories);
 
-          // Update primary article
-          await storage.updateArticle(article.id, {
+          // Select best image from all sources
+          const bestImage = this.selectBestImage(allStories);
+
+          // Build update payload
+          const updatePayload: Partial<Article> = {
             title: mergedStory.title,
             content: mergedStory.content,
             excerpt: mergedStory.excerpt,
             isDeveloping: mergedStory.isDeveloping,
             enrichmentCount: (article.enrichmentCount || 0) + 1,
-            lastEnrichedAt: new Date()
-          });
+            lastEnrichedAt: new Date(),
+          };
 
-          // Mark related stories as merged
+          // Upgrade image if primary doesn't have one
+          if (bestImage.imageUrl && !article.imageUrl) {
+            updatePayload.imageUrl = bestImage.imageUrl;
+          }
+          if (bestImage.imageUrls && bestImage.imageUrls.length > 0 && (!article.imageUrls || article.imageUrls.length === 0)) {
+            updatePayload.imageUrls = bestImage.imageUrls;
+          }
+
+          // Update primary article
+          await storage.updateArticle(article.id, updatePayload);
+
+          // Mark related stories as merged AND unpublish them
           for (const related of relatedStories) {
             await storage.updateArticle(related.id, {
-              mergedIntoId: article.id
+              mergedIntoId: article.id,
+              isPublished: false, // Unpublish merged duplicates
             });
+            console.log(`   🔗 Merged & unpublished: ${related.id} (${related.sourceName || 'Unknown source'})`);
           }
 
           enriched++;

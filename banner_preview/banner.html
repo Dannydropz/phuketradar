@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Kast 728x90 Leaderboard Banner</title>
+  <style>
+    /* --- BRAND VARIABLES --- */
+    :root {
+      --kast-black: #0C0C0E;
+      --kast-white: #FFFFFF;
+      --kast-mint: #1EBA98;
+      --kast-grey: #CFCFCF;
+      --font-stack: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 50px;
+      background: #222;
+      display: flex;
+      justify-content: center;
+      font-family: var(--font-stack);
+    }
+
+    /* --- BANNER CONTAINER --- */
+    .kast-banner {
+      width: 728px;
+      height: 90px;
+      background-color: var(--kast-black);
+      /* Kast Mint Glow */
+      box-shadow: 0 0 15px rgba(30, 186, 152, 0.4);
+      border: 1px solid rgba(30, 186, 152, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .kast-banner:hover {
+      box-shadow: 0 0 25px rgba(30, 186, 152, 0.6);
+    }
+
+    /* --- LEFT: LOGO --- */
+    .logo-section {
+      display: flex;
+      align-items: center;
+      z-index: 2;
+    }
+
+    .logo-img {
+      height: 28px;
+      width: auto;
+      object-fit: contain;
+      animation: slideIn 0.6s ease-out both;
+    }
+
+    /* --- CENTER: TEXT --- */
+    .text-group {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      z-index: 2;
+      padding: 0 20px;
+      animation: slideIn 0.6s ease-out 0.1s both;
+    }
+
+    .headline {
+      color: var(--kast-white);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
+
+    .subline {
+      color: var(--kast-grey);
+      font-size: 14px;
+      font-weight: 400;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+
+    /* --- CENTER-RIGHT: PHONE --- */
+    .phone-container {
+      position: relative;
+      width: 100px;
+      height: 120px;
+      margin-top: 25px;
+      margin-right: 25px;
+      z-index: 1;
+      animation: floatUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+    }
+
+    .phone-body {
+      width: 100%;
+      height: 100%;
+      background: #FFFFFF;
+      border: 4px solid #1c1c1f;
+      border-radius: 16px;
+      position: relative;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding-top: 14px;
+    }
+
+    .phone-notch {
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 25px;
+      height: 7px;
+      background-color: #000;
+      border-radius: 5px;
+      z-index: 10;
+    }
+
+    .screen-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      margin: 3px 5px;
+      background: #F5F7FA;
+      border-radius: 5px;
+    }
+
+    .screen-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .label {
+      font-size: 6px;
+      color: #888;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .value {
+      font-size: 8px;
+      color: #000;
+      font-weight: 700;
+    }
+
+    .thb {
+      color: var(--kast-mint);
+    }
+
+    .check {
+      width: 10px;
+      height: 10px;
+      background: var(--kast-mint);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 6px;
+      color: #000;
+      font-weight: bold;
+      transform: scale(0);
+    }
+
+    .check::after {
+      content: '✓';
+    }
+
+    .c1 {
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.8s forwards;
+    }
+
+    .c2 {
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) 1.0s forwards;
+    }
+
+    /* --- RIGHT: CTA BUTTON --- */
+    .right-section {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .cta-btn {
+      background-color: var(--kast-mint);
+      color: var(--kast-black);
+      font-size: 14px;
+      font-weight: 800;
+      padding: 10px 24px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      animation: scaleIn 0.5s ease 0.6s both;
+      box-shadow: 0 4px 10px rgba(30, 186, 152, 0.3);
+    }
+
+    .kast-banner:hover .cta-btn {
+      transform: translateY(-2px);
+      background-color: white;
+      box-shadow: 0 6px 15px rgba(255, 255, 255, 0.4);
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes floatUp {
+      from {
+        transform: translateY(40px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes popIn {
+      to {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .glow-bg {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(30, 186, 152, 0.15) 0%, transparent 70%);
+      top: -50%;
+      left: 30%;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <a href="https://www.kast.xyz" class="kast-banner">
+    <div class="glow-bg"></div>
+
+    <div class="logo-section">
+      <img src="logo-light-bg-transparent.png" alt="KAST" class="logo-img">
+    </div>
+
+    <div class="text-group">
+      <div class="headline">Crypto &rarr; Thai Baht</div>
+      <div class="subline">Instant off-ramp to any Thai bank.</div>
+    </div>
+
+    <div class="phone-container">
+      <div class="phone-body">
+        <div class="phone-notch"></div>
+        <div class="screen-row">
+          <div class="screen-text">
+            <span class="label">Sent</span>
+            <span class="value">1,000 USDC</span>
+          </div>
+          <div class="check c1"></div>
+        </div>
+        <div class="screen-row">
+          <div class="screen-text">
+            <span class="label">Received</span>
+            <span class="value thb">฿34,000</span>
+          </div>
+          <div class="check c2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-section">
+      <div class="cta-btn">Get Kast</div>
+    </div>
+
+  </a>
+
+</body>
+
+</html>

@@ -81,6 +81,8 @@ const LEAN_ARTICLE_FIELDS = {
   imageUrl: articles.imageUrl,
   imageUrls: articles.imageUrls,
   imageHash: articles.imageHash,
+  sourceImageUrl: articles.sourceImageUrl,
+  sourceImageUrls: articles.sourceImageUrls,
   videoUrl: articles.videoUrl,
   videoThumbnail: articles.videoThumbnail,
   category: articles.category,
@@ -222,7 +224,10 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(articles)
         .where(
-          sql`${articles.imageUrl} = ${imageUrl} OR ${imageUrl} = ANY(${articles.imageUrls})`
+          sql`${articles.imageUrl} = ${imageUrl} 
+            OR ${imageUrl} = ANY(${articles.imageUrls})
+            OR ${articles.sourceImageUrl} = ${imageUrl}
+            OR ${imageUrl} = ANY(${articles.sourceImageUrls})`
         );
       return article || undefined;
     }, 3, 2000, `getArticleByImageUrl(${imageUrl.substring(0, 30)}...)`);

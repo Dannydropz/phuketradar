@@ -76,7 +76,8 @@ Extract and combine ALL specific details (names, ages, times, locations, quantit
 
 ${storiesText}
 
-Create a single, complete article that is MORE detailed than any individual source.`;
+Create a single, complete article that is MORE detailed than any individual source.
+Note: This story is compiled from ${stories.length} different sources: ${stories.map(s => s.sourceName || 'Unknown').join(', ')}.`;
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini', // Cost optimization: mini is sufficient for merging stories
