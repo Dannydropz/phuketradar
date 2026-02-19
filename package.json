@@ -13,6 +13,7 @@
     "generate:fb-token": "tsx scripts/generate-facebook-token.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.77.0",
     "@google-analytics/data": "^5.2.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
@@ -86,7 +87,7 @@
     "react-hook-form": "^7.55.0",
     "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.7",
-    "recharts": "^2.15.2",
+    "recharts": "^3.7.0",
     "resend": "^6.2.2",
     "sharp": "^0.34.4",
     "tailwind-merge": "^2.6.0",

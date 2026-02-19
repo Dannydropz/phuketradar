@@ -12,7 +12,7 @@ import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { postArticleToInstagram } from "./lib/instagram-service";
 import { postArticleToThreads } from "./lib/threads-service";
-import { sendBulkNewsletter } from "./services/newsletter";
+import { processDailyNewsletterSession } from "./services/newsletter";
 import { subHours } from "date-fns";
 import { insightService } from "./services/insight-service";
 import { buildArticleUrl } from "@shared/category-map";
@@ -2230,7 +2230,7 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     }
   });
 
-  // Cron endpoint for daily newsletter
+  // Cron endpoint for daily newsletter (legacy route - delegates to processDailyNewsletterSession)
   app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log("\n".repeat(3) + "=".repeat(80));
@@ -2239,69 +2239,17 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     console.log(`Trigger: EXTERNAL CRON SERVICE`);
     console.log("=".repeat(80) + "\n");
 
-    try {
-      // Get active subscribers
-      const subscribers = await storage.getAllActiveSubscribers();
+    // Respond immediately, process in background
+    res.json({ success: true, message: "Newsletter dispatch started", timestamp });
 
-      if (subscribers.length === 0) {
-        console.log("ℹ️  No active subscribers - skipping newsletter");
-        return res.json({
-          success: true,
-          message: "No active subscribers",
-          sent: 0,
-          failed: 0,
-        });
+    (async () => {
+      try {
+        await processDailyNewsletterSession();
+        console.log(`[NEWSLETTER-CRON] ✅ Newsletter session completed`);
+      } catch (error) {
+        console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
       }
-
-      // Get articles from the last 24 hours, published only
-      const allArticles = await storage.getPublishedArticles();
-      const cutoff = subHours(new Date(), 24);
-
-      const recentArticles = allArticles
-        .filter(article => new Date(article.publishedAt) >= cutoff)
-        .slice(0, 10); // Limit to 10 most recent articles
-
-      console.log(`📊 Filtered articles: ${recentArticles.length} from last 24 hours (cutoff: ${cutoff.toISOString()})`);
-
-      if (recentArticles.length === 0) {
-        console.log("ℹ️  No articles from the last 24 hours - skipping newsletter");
-        return res.json({
-          success: true,
-          message: "No recent articles to send",
-          sent: 0,
-          failed: 0,
-        });
-      }
-
-      console.log(`📧 Sending newsletter with ${recentArticles.length} articles to ${subscribers.length} subscribers`);
-
-      // Send newsletter to all subscribers
-      const result = await sendBulkNewsletter(
-        subscribers.map(s => ({ email: s.email, unsubscribeToken: s.unsubscribeToken })),
-        recentArticles
-      );
-
-      console.log(`✅ Newsletter campaign complete: ${result.sent} sent, ${result.failed} failed`);
-
-      res.json({
-        success: true,
-        message: "Newsletter sent successfully",
-        timestamp,
-        ...result,
-        articles: recentArticles.length,
-        subscribers: subscribers.length,
-      });
-    } catch (error) {
-      console.error("❌ Error sending newsletter:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-      res.json({
-        success: false,
-        message: "Newsletter sending failed",
-        error: errorMessage,
-        timestamp,
-      });
-    }
+    })();
   });
 
   // Admin Newsletter Preview - PROTECTED

@@ -1,8 +1,13 @@
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { translate } from "@vitalets/google-translate-api";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export interface TranslationResult {
@@ -819,13 +824,11 @@ CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
 - **READ THE CATEGORY:** If the category is "National", the event is likely NOT in Phuket.
 - **VERIFY BEFORE WRITING:** Look at the content - does it mention specific non-Phuket cities, provinces, or landmarks? If yes, use THAT location in the dateline.
 
-${PHUKET_STREET_DISAMBIGUATION}
-
-🚨 SOI (ALLEY) NAMING CONVENTION (CRITICAL):
-- In Thai, "Soi" ALWAYS comes BEFORE the name.
-- WRONG: "Bangla Soi", "Ta-iad Soi", "Dog Soi"
-- CORRECT: "Soi Bangla", "Soi Ta-iad", "Soi Dog"
-- ALWAYS output correctly as "Soi [Name]".
+🌏 PHUKET STREET / PLACE NAME ACCURACY:
+- "Bangkok Road" in article → dateline is **PHUKET TOWN, PHUKET** (it's a street IN Phuket Town, NOT Bangkok city)
+- "Krabi Road" or "Phang Nga Road" → same rule, these are Phuket Town streets NOT those provinces
+- "Saphan Hin" = a public park/promenade in Phuket Town (NOT a bridge — never write "Phuket Bridge event")
+- Soi naming: ALWAYS "Soi Bangla" not "Bangla Soi" — Soi comes before the name.
 
 STRICT WRITING GUIDELINES:
 1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events. **CRITICAL: If source mentions "Bangkok Road" or "ถนนกรุงเทพ", the dateline is "**PHUKET TOWN, PHUKET –**" NOT "**BANGKOK –**"**
@@ -848,22 +851,6 @@ STRICT WRITING GUIDELINES:
    - GOOD: "Police said they will increase patrols in the area."
    - BAD: "The incident underscores ongoing concerns about tourist behavior." (vague, made-up concern)
 7. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language, but do not exaggerate it.
-
-🎭 THAI SOCIAL MEDIA HUMOR DETECTION (CRITICAL FOR VIRAL POSTS):
-Thai social media posts often use SARCASM and EUPHEMISMS. DO NOT take captions literally:
-- "เอาที่สบายใจ" / "Whatever makes you happy" = SARCASM mocking someone's embarrassing behavior
-- "นักท่องเที่ยวคุณภาพ" / "Quality tourist" = SARCASM meaning BAD tourist behavior
-- "นอนข้างทาง" + watching "สาวๆ" = Person is DRUNK/PASSED OUT, not "enjoying the scene"
-- "555" in comments = Thai internet laughter - people are mocking the subject
-- Person lying on Patong street = 99% INTOXICATED, not "resting" or "embracing street life"
-- Comments with 😂🤣 = People are LAUGHING AT the subject
-
-📝 VIRAL POST WRITING GUIDANCE:
-- Report the ACTUAL situation shown in images/described in comments, not the sarcastic caption
-- Use: "appeared to be intoxicated", "was found passed out", "allegedly drunk"
-- Keep the amusing angle - these are "tourist behaving badly" stories that go VIRAL
-- DO NOT sanitize drunk behavior into "relaxing" or "enjoying" 
-- Context section should explain WHY this went viral (locals amused by tourist behavior)
 
 EXAMPLE OUTPUT FORMAT:
 "**PATONG, PHUKET –** A violent altercation between American tourists turned one of Phuket's most famous nightlife strips into a scene of chaos Saturday night...
@@ -890,23 +877,57 @@ Respond in JSON format:
   "enrichedExcerpt": "2-3 sentence FACTUAL summary. FORBIDDEN: 'highlights concerns', 'raises questions'. MUST describe what happened, not vague implications."
 }`;
 
-    const completion = await openai.chat.completions.create({
-      model: model, // Use specified model (gpt-4o for score 5, gpt-4o-mini for score 4)
-      messages: [
-        {
-          role: "system",
-          content: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. You always output valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.3, // Lower temperature for factual accuracy over creativity
-      response_format: { type: "json_object" }, // Enabled for GPT-4o
-    });
+    // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
+    const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
+    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
-    const result = JSON.parse(completion.choices[0].message.content || "{}");
+    let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
+
+    if (enrichmentProvider === 'anthropic') {
+      // ── Anthropic Claude path ──────────────────────────────────────────────
+      if (!process.env.ANTHROPIC_API_KEY) {
+        console.warn('   ⚠️  ANTHROPIC_API_KEY not set — falling back to OpenAI GPT-4o');
+        // Fall through to OpenAI below by resetting provider check
+        const completion = await openai.chat.completions.create({
+          model: model,
+          messages: [
+            { role: "system", content: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. You always output valid JSON." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+        });
+        result = JSON.parse(completion.choices[0].message.content || "{}");
+      } else {
+        console.log(`   🤖 [ANTHROPIC] Enriching with ${anthropicModel}`);
+        const response = await anthropic.messages.create({
+          model: anthropicModel,
+          max_tokens: 2048,
+          temperature: 0.3,
+          system: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. Return ONLY a valid JSON object — no preamble, no markdown code blocks, no extra text.",
+          messages: [{ role: "user", content: prompt }],
+        });
+        const responseContent = response.content[0];
+        if (responseContent.type !== 'text') {
+          throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
+        }
+        // Strip any accidental markdown code fences before parsing
+        const cleaned = responseContent.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        result = JSON.parse(cleaned);
+      }
+    } else {
+      // ── OpenAI path (default) ──────────────────────────────────────────────
+      const completion = await openai.chat.completions.create({
+        model: model,
+        messages: [
+          { role: "system", content: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. You always output valid JSON." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+      });
+      result = JSON.parse(completion.choices[0].message.content || "{}");
+    }
 
     // Apply paragraph formatting safeguard
     const formattedContent = ensureProperParagraphFormatting(result.enrichedContent || params.content);
@@ -1647,10 +1668,12 @@ Always output valid JSON.`,
       let enrichedExcerpt = result.excerpt || "";
 
       if (finalInterestScore >= 4) {
-        // User requested GPT-4o for both score 4 and 5 to ensure quality
-        // Cost savings come from stricter scoring (fewer stories getting score 4/5)
-        const enrichmentModel = "gpt-4o";
-        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment using ${enrichmentModel}...`);
+        const enrichmentModel = "gpt-4o"; // Used only on OpenAI path
+        const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
+        const activeModelLabel = activeProvider === 'anthropic'
+          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'}`
+          : 'OpenAI GPT-4o';
+        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
 
         try {
           const enrichmentResult = await this.enrichWithPremiumGPT4({
