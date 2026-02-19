@@ -1,0 +1,165 @@
+{
+    "name": "Phuket Radar - Daily Newsletter",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 1 * * *"
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger-newsletter",
+            "name": "Daily at 8AM Bangkok (1 AM UTC)",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.PHUKETRADAR_BASE_URL || 'https://phuketradar.com' }}/api/cron/newsletter/send",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": false,
+                "options": {
+                    "timeout": 30000
+                }
+            },
+            "id": "trigger-newsletter",
+            "name": "Trigger Newsletter",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                480,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "NrPW8odF5D9gB4a8",
+                    "name": "Phuket Radar CRON Auth"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "leftValue": "={{ $json.success }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ]
+                }
+            },
+            "id": "check-newsletter-success",
+            "name": "Check Success",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                700,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const response = $input.first().json;\n\nconst summary = {\n  status: 'SUCCESS',\n  timestamp: new Date().toISOString(),\n  message: response.message || 'Newsletter dispatch started',\n  result: response\n};\n\nconsole.log('✅ Newsletter dispatch triggered successfully:', JSON.stringify(summary, null, 2));\n\nreturn [{ json: summary }];"
+            },
+            "id": "log-newsletter-success",
+            "name": "Log Success",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                920,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const response = $input.first().json;\nconst error = {\n  status: 'FAILED',\n  timestamp: new Date().toISOString(),\n  error: response.error || 'Unknown error',\n  message: response.message || 'Newsletter endpoint returned an error'\n};\n\nconsole.error('❌ Newsletter dispatch failed:', JSON.stringify(error, null, 2));\n\nreturn [{ json: error }];"
+            },
+            "id": "log-newsletter-failure",
+            "name": "Log Failure",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                920,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Daily at 8AM Bangkok (1 AM UTC)": {
+            "main": [
+                [
+                    {
+                        "node": "Trigger Newsletter",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Trigger Newsletter": {
+            "main": [
+                [
+                    {
+                        "node": "Check Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Success": {
+            "main": [
+                [
+                    {
+                        "node": "Log Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Log Failure",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [
+        {
+            "name": "Scheduled",
+            "id": "scheduled"
+        },
+        {
+            "name": "Newsletter",
+            "id": "newsletter"
+        }
+    ],
+    "triggerCount": 0,
+    "updatedAt": "2026-02-19T00:00:00.000Z",
+    "versionId": "1"
+}
