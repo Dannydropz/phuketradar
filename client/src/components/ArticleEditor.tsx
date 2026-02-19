@@ -367,7 +367,7 @@ export function ArticleEditor({
 
                   toast({
                     title: "✨ Article Upgraded!",
-                    description: `Story enhanced with GPT-4o premium enrichment. Score: ${data.changes?.previousScore} → ${data.changes?.newScore}`,
+                    description: `Story enhanced with premium AI enrichment. Score: ${data.changes?.previousScore} → ${data.changes?.newScore}`,
                   });
                 } catch (error) {
                   toast({
@@ -391,7 +391,7 @@ export function ArticleEditor({
           Scores 4-5 trigger automatic posting to Facebook/Instagram/Threads when published.
           {article?.id && (article?.interestScore ?? 3) < 4 && (
             <span className="block mt-1 text-purple-600 dark:text-purple-400">
-              💡 Tip: Use "Upgrade & Enrich" to re-write this story with premium GPT-4o for high-quality journalism.
+              💡 Tip: Use "Upgrade & Enrich" to re-write this story with premium AI for high-quality journalism.
             </span>
           )}
         </p>

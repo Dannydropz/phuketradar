@@ -392,7 +392,7 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
       toast({
         title: "✨ Article Upgraded!",
-        description: `Story enhanced with GPT-4o. Score: ${data.changes?.previousScore || 'N/A'} → ${data.changes?.newScore || data.article?.interestScore}`,
+        description: `Story enhanced with premium AI. Score: ${data.changes?.previousScore || 'N/A'} → ${data.changes?.newScore || data.article?.interestScore}`,
       });
     },
     onError: (error: Error) => {
@@ -1300,7 +1300,7 @@ export default function AdminDashboard() {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p className="font-semibold">Upgrade & Enrich</p>
-                                    <p className="text-xs text-muted-foreground">Re-write this story with premium GPT-4o enrichment</p>
+                                    <p className="text-xs text-muted-foreground">Re-write this story with premium AI enrichment</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}

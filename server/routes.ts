@@ -1898,8 +1898,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upgrade & Enrich article with premium GPT-4o - PROTECTED
-  // Used to upgrade low-interest stories (score 1-3) to high-interest quality (score 4-5)
+  // Upgrade & Enrich article with premium AI - PROTECTED
+  // Uses ENRICHMENT_PROVIDER env var (same as automatic pipeline: 'openai' or 'anthropic')
   app.post("/api/admin/articles/:id/upgrade-enrich", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -1911,19 +1911,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Article not found" });
       }
 
+      const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
+      const activeModelLabel = activeProvider === 'anthropic'
+        ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
+        : 'OpenAI GPT-4o';
+
       console.log(`\n✨ [UPGRADE-ENRICH] Starting premium enrichment for article: ${article.title.substring(0, 60)}...`);
       console.log(`   📊 Current score: ${article.interestScore || 'N/A'} → Target: ${targetScore}`);
       console.log(`   📝 Current content length: ${article.content?.length || 0} chars`);
+      console.log(`   🤖 Provider: ${activeModelLabel}`);
 
-      // Run premium GPT-4o enrichment on the existing content
+      // Run premium enrichment using the configured provider (same as automatic pipeline)
       const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
         title: article.title,
         content: article.content || '',
         excerpt: article.excerpt || '',
         category: article.category,
-      }, "gpt-4o"); // Always use the premium model for upgrades
+      }, "gpt-4o"); // model param only used on OpenAI path; Anthropic path reads ANTHROPIC_MODEL from env
 
-      console.log(`   ✅ GPT-4o enrichment complete`);
+      console.log(`   ✅ ${activeModelLabel} enrichment complete`);
       console.log(`   📝 New content length: ${enrichmentResult.enrichedContent?.length || 0} chars`);
 
       // Generate a new Facebook headline if one doesn't exist
