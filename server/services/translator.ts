@@ -879,7 +879,7 @@ Respond in JSON format:
 
     // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
     const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
-    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
+    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
 
     let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
 
@@ -1671,7 +1671,7 @@ Always output valid JSON.`,
         const enrichmentModel = "gpt-4o"; // Used only on OpenAI path
         const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
         const activeModelLabel = activeProvider === 'anthropic'
-          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'}`
+          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
           : 'OpenAI GPT-4o';
         console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
 
