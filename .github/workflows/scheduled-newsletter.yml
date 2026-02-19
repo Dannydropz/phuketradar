@@ -1,9 +1,12 @@
 name: Scheduled Newsletter
 
 on:
-  schedule:
-    # Run at 1 AM UTC = 8 AM Thailand time (UTC+7)
-    - cron: '0 1 * * *'
+  # DISABLED: Newsletter scheduling now handled by N8N (more reliable, precise timing)
+  # N8N workflow: "Phuket Radar - Daily Newsletter" (ID: 94nixK5sjGXHtn7i) at n8n.optimisr.com
+  # schedule:
+  #   - cron: '0 1 * * *'  # 1 AM UTC = 8 AM Bangkok time
+
+  # Keep manual trigger as emergency backup if N8N is ever down
   workflow_dispatch:
 
 jobs:
