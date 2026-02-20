@@ -32,6 +32,8 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy public assets if they exist (for static files)
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/attached_assets ./attached_assets
+# Copy docs folder (contains newsletter-template.html read at runtime)
+COPY --from=builder /app/docs ./docs
 
 # Expose the port the app runs on
 EXPOSE 5000
