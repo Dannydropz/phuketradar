@@ -254,7 +254,8 @@ export class DuplicateDetectionService {
     const locations = new Set([
       'phuket', 'patong', 'chalong', 'karon', 'kata', 'rawai', 'kamala', 'surin',
       'bang', 'tao', 'nai', 'harn', 'mai', 'khao', 'airport', 'town', 'pier',
-      'bay', 'beach', 'road', 'hospital', 'school', 'temple', 'market'
+      'bay', 'beach', 'road', 'hospital', 'school', 'temple', 'market',
+      'koh', 'lipe', 'phi', 'island', 'sea', 'ocean', 'phang', 'nga', 'krabi', 'satun'
     ]);
 
     // Event types - expanded to include construction accidents
@@ -264,7 +265,9 @@ export class DuplicateDetectionService {
       'flood', 'storm', 'landslide', 'collapse', 'explosion', 'shooting',
       // Construction-related (for crane/building accidents)
       'crane', 'construction', 'condo', 'building', 'tower', 'site', 'fall', 'falls', 'fell',
-      'pipe', 'steel', 'iron', 'rods', 'roof', 'home', 'house', 'damage'
+      'pipe', 'steel', 'iron', 'rods', 'roof', 'home', 'house', 'damage',
+      // Marine-related
+      'boat', 'vessel', 'ship', 'speedboat', 'ferry', 'yacht', 'navy', 'marine'
     ]);
 
     const keyTermsA = new Set(tokensA.filter(t => locations.has(t) || eventTypes.has(t)));
@@ -428,13 +431,13 @@ export class DuplicateDetectionService {
         const systemPrompt = `You are analyzing if two news articles report on the SAME incident or event. 
 
 Consider them the same if:
-- They describe the same specific event/incident at the same location
-- They may be at different stages (e.g., search to rescue to body found)
-- They may have different details but share the core incident
+- They describe the same specific event/incident at the same general location and time.
+- They may be at different stages of the event (e.g., search -> rescue -> body found).
+- They have conflicting initial reports or details (e.g., one says 1 injured, another says 3 detained; one says boat sank, another doesn't mention it). This is EXTREMELY common in breaking news from different sources. As long as the core incident is the same, they are duplicates.
 
 Consider them different if:
-- They are about different incidents at different locations
-- They are about similar but separate events (e.g., two different drownings)
+- They are about different incidents entirely or occurred on different dates.
+- They are about recurring but separate events (e.g., two different beach drownings on different days).
 
 Return JSON with:
 {

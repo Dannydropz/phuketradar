@@ -55,9 +55,10 @@ Two stories are DUPLICATES if they report on the same specific incident, even if
 - The headlines emphasize different aspects
 - The wording is completely different
 - One focuses on the rescue, the other on the stranding
+- They have conflicting initial facts (e.g., one reports 1 injured, the other reports 3 detained, one mentions the boat sinking, the other omits it). conflicting initial details are very common in breaking news from different sources but refer to the same event.
 
 Two stories are NOT DUPLICATES if they:
-- Report on different incidents (even of the same type)
+- Report on entirely different incidents (even of the same type)
 - Occurred at different times or dates
 - Involve different people or locations
 - Are general updates vs. specific events
