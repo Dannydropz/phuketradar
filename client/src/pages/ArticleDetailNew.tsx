@@ -18,6 +18,7 @@ import { TagPills } from "@/components/TagPills";
 import { useMetaPixel } from "@/hooks/use-meta-pixel";
 import { KastBanner } from "@/components/KastBanner";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
+import { AdsterraNativeAd } from "@/components/AdsterraAd";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
     Carousel,
@@ -499,6 +500,12 @@ export default function ArticleDetailNew() {
                             className="prose prose-lg prose-invert max-w-none prose-headings:text-white prose-p:text-zinc-300 prose-a:text-blue-400 prose-strong:text-white prose-code:text-blue-400"
                             dangerouslySetInnerHTML={{ __html: article.content }}
                         />
+
+                        {/* Native Ad Below Content */}
+                        <div className="mt-8 mb-4">
+                            <h3 className="text-xs font-bold mb-2 text-zinc-500 uppercase tracking-wider text-center">Sponsored</h3>
+                            <AdsterraNativeAd className="border border-white/5 bg-white/5 rounded-xl p-2 min-h-[120px]" />
+                        </div>
 
                         {/* Tags */}
                         {article.tags && article.tags.length > 0 && (

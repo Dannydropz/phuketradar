@@ -650,24 +650,26 @@ function ensureProperParagraphFormatting(content: string): string {
 
     // Split at logical sentence boundaries (after periods followed by space and capital letter)
     // Preserve HTML tags during splitting by using a more careful approach
-    const sentences = textContent.split(/(?<=[.!?])\s+(?=[A-Z])/);
+    const sentences = textContent.split(/(?<=[.!?]["']?)\s+(?=[A-Z<])/);
 
-    if (sentences.length >= 4) {
-      // Group sentences into paragraphs of 2-3 sentences each
+    if (sentences.length >= 2) {
+      // Group sentences into paragraphs of 2 sentences each
       const paragraphs: string[] = [];
       let currentParagraph: string[] = [];
 
       sentences.forEach((sentence, index) => {
         currentParagraph.push(sentence);
-        // Create a new paragraph every 2-3 sentences, or at natural break points
+        // Create a new paragraph every 2 sentences, or at natural break points
         const isNaturalBreak = sentence.toLowerCase().includes('context') ||
           sentence.toLowerCase().includes('public reaction') ||
           sentence.toLowerCase().includes('background') ||
           sentence.toLowerCase().includes('according to') ||
           sentence.toLowerCase().includes('meanwhile') ||
           sentence.toLowerCase().includes('however') ||
-          sentence.toLowerCase().includes('additionally');
-        if (currentParagraph.length >= 3 || isNaturalBreak || index === sentences.length - 1) {
+          sentence.toLowerCase().includes('additionally') ||
+          sentence.includes('<h3>');
+
+        if (currentParagraph.length >= 2 || isNaturalBreak || index === sentences.length - 1) {
           paragraphs.push(currentParagraph.join(' '));
           currentParagraph = [];
         }
@@ -776,9 +778,12 @@ If the caption says "Tourist enjoying Patong" but comments say "Quality tourist 
 
 📅 CURRENT DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' })} (Thailand Time)
 
-⏰ CRITICAL - TENSE VERIFICATION:
+⏰ CRITICAL - TENSE VERIFICATION & TEMPORAL GROUNDING:
 - CHECK EVENT DATES: Compare any event dates in the source to TODAY's date above.
-- PAST EVENTS = PAST TENSE: If an event has already occurred, write in past tense.
+- PAST EVENTS = PAST TENSE: If an action is complete (e.g., a rescue, an accident, a sinking), write in PAST TENSE ("were rescued", "took place", "occurred").
+- NO FALSE PRESENT CONTINUOUS TENSE: DO NOT report completed actions using present continuous tense ("are being rescued"). Only use present continuous if the source explicitly states the action is unfolding at the exact moment of reporting.
+- PREVIOUS EVENTS: If the source states an event happened previously (e.g., "last week" or "recently"), clearly indicate that. Do not merge past contexts into current ongoing actions.
+- ZERO HALLUCINATION OF TIME: If the Thai source has no explicit date, DO NOT ASSUME the event is happening right now today. Assume it is a completed past event unless stated otherwise.
 - FUTURE EVENTS = FUTURE TENSE: Only use future tense if the event is genuinely upcoming.
 - NEVER copy future tense from an outdated source if the event has passed.
 
@@ -1139,9 +1144,11 @@ If this is NOT actual news (promotional content, greetings, ads, royal family co
 
 📅 CURRENT DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' })} (Thailand Time)
 
-⏰ CRITICAL - TENSE VERIFICATION (READ BEFORE WRITING):
+⏰ CRITICAL - TENSE VERIFICATION & TEMPORAL GROUNDING (READ BEFORE WRITING):
 - CHECK EVENT DATES: If the source mentions specific dates for an event, compare them to TODAY's date above.
-- PAST EVENTS = PAST TENSE: If an event date has already passed, write in PAST TENSE ("The festival took place...", "Students staffed the event...").
+- PAST EVENTS = PAST TENSE: If an action is complete (e.g., a rescue, an accident, a sinking), write in PAST TENSE ("were rescued", "took place", "occurred").
+- NO FALSE PRESENT CONTINUOUS TENSE: DO NOT report completed actions using present continuous tense ("are being rescued"). DO NOT assume events are happening right now just because they are in the news. Assume events are completed past actions unless explicitly stated that they are unfolding currently.
+- PREVIOUS EVENTS: If the source states an event happened previously, report it as a past event.
 - FUTURE EVENTS = FUTURE TENSE: Only use future tense ("will be held", "is scheduled for") if the event date is AFTER today's date.
 - EXAMPLE: If source says "festival on January 16-18" and today is January 21, write: "Students staffed the Electric Daisy Carnival, which took place January 16-18..." NOT "Students will staff..."
 - NEVER copy future tense from an outdated source article if the event has already happened.
