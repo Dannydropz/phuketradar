@@ -8,7 +8,6 @@ import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { lazy, Suspense } from "react";
 import Home from "@/pages/HomeNew";
-import { AdsterraSocialBar } from "@/components/AdsterraAd";
 
 const ArticleDetail = lazy(() => import("@/pages/ArticleDetailNew"));
 const JournalistProfile = lazy(() => import("@/pages/JournalistProfile"));
@@ -64,7 +63,6 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AdsterraSocialBar />
         <TooltipProvider>
           <AdminAuthProvider>
             <Toaster />
