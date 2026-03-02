@@ -1,14 +1,28 @@
 <!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"
+    xmlns:o="urn:schemas-microsoft-com:office:office">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="format-detection" content="telephone=no">
-    <title>Phuket Radar - Daily News</title>
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <title>Phuket Radar – Daily Briefing</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
 
         body,
         table,
@@ -24,6 +38,7 @@
         td {
             mso-table-lspace: 0pt;
             mso-table-rspace: 0pt;
+            border-collapse: collapse;
         }
 
         img {
@@ -37,447 +52,786 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background-color: #050505;
+            background-color: #080808;
             margin: 0;
             padding: 0;
             width: 100%;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        .wrapper {
-            background-color: #050505;
+        a {
+            color: inherit;
+        }
+
+        /* ===== LAYOUT ===== */
+        .email-wrapper {
+            background-color: #080808;
             width: 100%;
-            padding: 20px 0;
+            padding: 24px 0 40px;
         }
 
-        .container {
+        .email-container {
             max-width: 600px;
             margin: 0 auto;
-            background-color: #0A0A0A;
-            border-radius: 8px;
+            background-color: #0f0f0f;
+            border-radius: 12px;
             overflow: hidden;
-            border: 1px solid #262626;
+            border: 1px solid #1f1f1f;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
         }
 
+        /* ===== HEADER ===== */
         .header {
-            background-color: #050505;
+            background-color: #080808;
             text-align: center;
-            padding: 24px 20px;
-            border-bottom: 1px solid #262626;
+            padding: 28px 24px 20px;
+            border-bottom: 1px solid #1f1f1f;
         }
 
-        .header img {
-            max-width: 180px;
+        .header-logo {
+            max-width: 160px;
             height: auto;
+            display: block;
+            margin: 0 auto 10px;
         }
 
-        .hero-story {
-            padding: 0;
+        .header-date {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            display: block;
+            margin-top: 4px;
+        }
+
+        /* ===== BREAKING LABEL ===== */
+        .top-label {
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+            text-align: center;
+            padding: 8px 24px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* ===== HERO STORY ===== */
+        .hero-image-wrap {
+            position: relative;
+            display: block;
         }
 
         .hero-image {
             width: 100%;
             height: auto;
             display: block;
+            max-height: 320px;
+            object-fit: cover;
+        }
+
+        .hero-category {
+            display: inline-block;
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+            color: #000;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 3px;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+
+        .hero-category-crime {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+
+        .hero-category-breaking {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+        }
+
+        .hero-category-traffic {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+        }
+
+        .hero-category-weather {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #fff;
         }
 
         .hero-content {
-            padding: 24px;
-            background: #0A0A0A;
-        }
-
-        .category-badge {
-            display: inline-block;
-            background-color: #1a8a8a;
-            color: #fff;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            padding: 4px 10px;
-            border-radius: 4px;
-            margin-bottom: 12px;
-        }
-
-        .badge-crime {
-            background-color: #b91c1c;
-        }
-
-        .badge-breaking {
-            background-color: #dc2626;
-        }
-
-        .badge-traffic {
-            background-color: #f97316;
+            padding: 28px 28px 24px;
+            background: #0f0f0f;
         }
 
         .hero-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #fafafa;
-            margin: 0 0 12px 0;
-            line-height: 1.3;
+            font-size: 26px;
+            font-weight: 800;
+            color: #f5f5f5;
+            margin: 0 0 14px 0;
+            line-height: 1.28;
+            letter-spacing: -0.3px;
         }
 
         .hero-title a {
-            color: #fafafa;
+            color: #f5f5f5;
             text-decoration: none;
         }
 
         .hero-excerpt {
             font-size: 15px;
-            color: #a1a1a1;
-            margin: 0 0 16px 0;
-            line-height: 1.6;
+            color: #8a8a8a;
+            margin: 0 0 20px 0;
+            line-height: 1.7;
         }
 
-        .read-more {
-            display: inline-block;
-            background-color: transparent;
-            color: #22d3ee;
-            font-size: 14px;
-            font-weight: 600;
-            text-decoration: none;
-            padding: 8px 16px;
-            border: 1px solid rgba(34, 211, 238, 0.3);
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .cta-button {
+        .hero-cta {
             display: inline-block;
             background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%);
-            color: #ffffff;
-            font-size: 14px;
+            color: #000 !important;
+            font-size: 13px;
             font-weight: 700;
             text-decoration: none;
-            padding: 12px 28px;
+            padding: 11px 24px;
             border-radius: 6px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(34, 211, 238, 0.25), 0 0 20px rgba(34, 211, 238, 0.15);
-            margin-top: 8px;
+            letter-spacing: 0.8px;
         }
 
-        .date-display {
-            font-size: 12px;
-            color: #737373;
+        /* ===== DIVIDER ===== */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #1f1f1f, transparent);
+            margin: 0;
+        }
+
+        /* ===== SECTION HEADER ===== */
+        .section-header {
+            padding: 22px 28px 14px;
+            background-color: #0f0f0f;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #22d3ee;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-top: 8px;
-            display: block;
-        }
-
-        .section-header {
-            padding: 24px 24px 16px 24px;
-            background-color: #0A0A0A;
+            margin: 0 0 2px;
         }
 
         .section-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: #22d3ee;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
             margin: 0;
+            letter-spacing: -0.2px;
         }
 
-        .story-list {
-            padding: 0 24px 24px 24px;
-            background-color: #0A0A0A;
+        /* ===== TRENDING STORIES ===== */
+        .stories-container {
+            padding: 0 28px 8px;
+            background-color: #0f0f0f;
         }
 
-        .story-item {
-            padding: 16px 0;
-            border-bottom: 1px solid #262626;
+        .story-row {
+            padding: 18px 0;
+            border-bottom: 1px solid #191919;
         }
 
-        .story-item:last-child {
+        .story-row:last-child {
             border-bottom: none;
         }
 
-        .story-image {
-            width: 90px;
-            height: 68px;
+        .story-thumbnail {
+            width: 88px;
+            height: 66px;
             object-fit: cover;
             border-radius: 6px;
             vertical-align: top;
+            display: block;
         }
 
-        .story-category {
-            display: inline-block;
+        .story-body {
+            padding-left: 16px;
+            vertical-align: top;
+        }
+
+        .story-cat {
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 700;
             color: #22d3ee;
             text-transform: uppercase;
-            margin-bottom: 4px;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 5px;
         }
 
-        .story-title {
+        .story-headline {
             font-size: 15px;
             font-weight: 600;
-            color: #fafafa;
-            margin: 0 0 4px 0;
-            line-height: 1.35;
+            color: #e8e8e8;
+            margin: 0 0 5px;
+            line-height: 1.4;
         }
 
-        .story-title a {
-            color: #fafafa;
+        .story-headline a {
+            color: #e8e8e8;
             text-decoration: none;
         }
 
-        .story-meta {
-            font-size: 12px;
-            color: #737373;
+        .story-headline a:hover {
+            color: #22d3ee;
+        }
+
+        .story-time {
+            font-size: 11px;
+            color: #505050;
             margin: 0;
         }
 
-        .radar-section {
-            background-color: #050505;
-            padding: 24px;
-            border-top: 1px solid #262626;
+        /* ===== ON THE RADAR ===== */
+        .radar-container {
+            background-color: #090909;
+            padding: 24px 28px;
+            border-top: 1px solid #1f1f1f;
         }
 
-        .radar-item {
-            padding: 12px 0;
-            border-bottom: 1px solid #1a1a1a;
+        .radar-row {
+            padding: 11px 0;
+            border-bottom: 1px solid #141414;
         }
 
-        .radar-item:last-child {
+        .radar-row:last-child {
             border-bottom: none;
+        }
+
+        .radar-bullet {
+            color: #22d3ee;
+            font-size: 14px;
+            vertical-align: top;
+            padding-right: 10px;
+            padding-top: 1px;
         }
 
         .radar-link {
             font-size: 14px;
             font-weight: 500;
-            color: #e5e5e5;
+            color: #d4d4d4;
             text-decoration: none;
+            line-height: 1.45;
             display: block;
         }
 
-        .footer {
-            background-color: #050505;
-            padding: 24px;
+        .radar-link:hover {
+            color: #22d3ee;
+        }
+
+        /* ===== CTA BLOCK ===== */
+        .cta-block {
+            background: linear-gradient(135deg, #0d1f2d 0%, #0a1a1a 100%);
+            border-top: 1px solid #1a3a3a;
+            padding: 32px 28px;
             text-align: center;
-            border-top: 1px solid #262626;
+        }
+
+        .cta-block-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #22d3ee;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0 0 8px;
+        }
+
+        .cta-block-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 8px;
+        }
+
+        .cta-block-sub {
+            font-size: 14px;
+            color: #5a8a8a;
+            margin: 0 0 20px;
+        }
+
+        .cta-block-btn {
+            display: inline-block;
+            background: transparent;
+            color: #22d3ee !important;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            padding: 11px 22px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border: 1.5px solid rgba(34, 211, 238, 0.5);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            background-color: #080808;
+            padding: 28px 28px 32px;
+            text-align: center;
+            border-top: 1px solid #1a1a1a;
         }
 
         .footer-logo {
-            max-width: 120px;
+            max-width: 110px;
             height: auto;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.7;
         }
 
-        .footer-text {
+        .footer-tagline {
             font-size: 12px;
-            color: #737373;
-            margin: 0 0 8px 0;
+            color: #454545;
+            margin: 0 0 16px;
         }
 
-        .footer-links {
-            margin: 16px 0;
+        .footer-nav {
+            margin: 0 0 16px;
         }
 
-        .footer-link {
+        .footer-nav a {
             font-size: 12px;
-            color: #a1a1a1;
+            color: #555;
             text-decoration: none;
-            margin: 0 10px;
+            margin: 0 8px;
         }
 
-        .unsubscribe-text {
+        .footer-separator {
+            color: #2a2a2a;
+            font-size: 12px;
+        }
+
+        .footer-legal {
             font-size: 11px;
-            color: #525252;
-            margin: 16px 0 0 0;
+            color: #383838;
+            margin: 0;
+            line-height: 1.6;
         }
 
-        .unsubscribe-link {
-            color: #737373;
+        .footer-legal a {
+            color: #4a4a4a;
             text-decoration: underline;
         }
 
-        @media screen and (max-width: 600px) {
-            .container {
-                width: 100% !important;
+        /* ===== RESPONSIVE ===== */
+        @media screen and (max-width: 620px) {
+            .email-wrapper {
+                padding: 0 !important;
+            }
+
+            .email-container {
                 border-radius: 0 !important;
+                border-left: none !important;
+                border-right: none !important;
             }
 
             .hero-title {
-                font-size: 20px !important;
+                font-size: 22px !important;
             }
 
-            .story-image {
-                width: 70px !important;
-                height: 52px !important;
+            .hero-content {
+                padding: 20px 20px 18px !important;
             }
 
-            .story-title {
-                font-size: 14px !important;
+            .section-header {
+                padding: 18px 20px 12px !important;
+            }
+
+            .stories-container {
+                padding: 0 20px 4px !important;
+            }
+
+            .radar-container {
+                padding: 18px 20px !important;
+            }
+
+            .footer {
+                padding: 22px 20px 28px !important;
+            }
+
+            .story-thumbnail {
+                width: 72px !important;
+                height: 54px !important;
+            }
+
+            .hero-cta {
+                display: block !important;
+                text-align: center !important;
             }
         }
     </style>
 </head>
 
 <body
-    style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #050505; margin: 0; padding: 0; width: 100%; -webkit-font-smoothing: antialiased;">
-    <!-- Outer Wrapper Table for Background Color -->
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#050505" style="background-color: #050505;">
+    style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #080808; margin: 0; padding: 0;">
+
+    <table class="email-wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#080808"
+        style="background-color: #080808;">
         <tr>
-            <td align="center" style="padding: 20px 0;">
-                <table class="container" cellpadding="0" cellspacing="0" border="0" width="600" align="center"
-                    bgcolor="#0A0A0A"
-                    style="max-width: 600px; margin: 0 auto; background-color: #0A0A0A; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
-                    <!-- Header with Logo -->
+            <td align="center" style="padding: 24px 16px 40px;">
+
+                <table class="email-container" cellpadding="0" cellspacing="0" border="0" width="600" align="center"
+                    bgcolor="#0f0f0f"
+                    style="max-width: 600px; width: 100%; background-color: #0f0f0f; border-radius: 12px; border: 1px solid #1f1f1f;">
+
+                    <!-- ====== HEADER ====== -->
                     <tr>
-                        <td class="header" bgcolor="#050505" align="center"
-                            style="padding: 24px 20px; border-bottom: 1px solid #262626;">
-                            <a href="https://phuketradar.com">
+                        <td class="header" bgcolor="#080808" align="center"
+                            style="padding: 28px 24px 20px; border-bottom: 1px solid #1f1f1f; background-color: #080808; text-align: center;">
+                            <a href="https://phuketradar.com" style="display: block; text-decoration: none;">
                                 <img src="https://phuketradar.com/assets/logo-white-transparent-DH-BgQMp.png"
-                                    alt="Phuket Radar"
-                                    style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
+                                    alt="Phuket Radar" class="header-logo"
+                                    style="max-width: 160px; height: auto; display: block; margin: 0 auto 10px;">
                             </a>
-                            <span class="date-display"
-                                style="font-size: 12px; color: #737373; text-transform: uppercase; letter-spacing: 2px; margin-top: 8px; display: block;">{{DATE}}</span>
+                            <span class="header-date"
+                                style="font-size: 11px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 2.5px; display: block;">
+                                {{DATE}}
+                            </span>
                         </td>
                     </tr>
 
-                    <!-- Hero/Top Story -->
+                    <!-- ====== TOP LABEL ====== -->
                     <tr>
-                        <td class="hero-story">
-                            <a href="{{TOP_STORY_URL}}">
-                                <img src="{{TOP_STORY_IMAGE}}" alt="{{TOP_STORY_TITLE}}" class="hero-image">
+                        <td
+                            style="background: linear-gradient(135deg, #22d3ee, #0ea5e9); text-align: center; padding: 7px 24px; font-size: 10px; font-weight: 700; color: #000; text-transform: uppercase; letter-spacing: 2px;">
+                            📡 &nbsp;Your Daily Phuket Briefing
+                        </td>
+                    </tr>
+
+                    <!-- ====== HERO STORY ====== -->
+                    <tr>
+                        <td style="padding: 0; background-color: #0f0f0f;">
+
+                            <!-- Hero Image -->
+                            <a href="{{TOP_STORY_URL}}" style="display: block; text-decoration: none;">
+                                <img src="{{TOP_STORY_IMAGE}}" alt="{{TOP_STORY_TITLE}}" class="hero-image"
+                                    style="width: 100%; max-height: 320px; height: auto; display: block; object-fit: cover;">
                             </a>
-                            <div class="hero-content">
-                                <span class="category-badge">{{TOP_STORY_CATEGORY}}</span>
-                                <h1 class="hero-title">
-                                    <a href="{{TOP_STORY_URL}}">{{TOP_STORY_TITLE}}</a>
+
+                            <!-- Hero Content -->
+                            <div class="hero-content" style="padding: 28px 28px 24px; background-color: #0f0f0f;">
+                                <div style="margin-bottom: 14px;">
+                                    <span class="hero-category"
+                                        style="display: inline-block; background: linear-gradient(135deg, #22d3ee, #0ea5e9); color: #000; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 3px; letter-spacing: 1px;">
+                                        {{TOP_STORY_CATEGORY}}
+                                    </span>
+                                </div>
+                                <h1 class="hero-title"
+                                    style="font-size: 26px; font-weight: 800; color: #f5f5f5; margin: 0 0 14px; line-height: 1.28; letter-spacing: -0.3px;">
+                                    <a href="{{TOP_STORY_URL}}"
+                                        style="color: #f5f5f5; text-decoration: none;">{{TOP_STORY_TITLE}}</a>
                                 </h1>
-                                <p class="hero-excerpt">{{TOP_STORY_EXCERPT}}</p>
-                                <a href="{{TOP_STORY_URL}}" class="cta-button">Read full story →</a>
+                                <p class="hero-excerpt"
+                                    style="font-size: 15px; color: #8a8a8a; margin: 0 0 20px; line-height: 1.7;">
+                                    {{TOP_STORY_EXCERPT}}
+                                </p>
+                                <a href="{{TOP_STORY_URL}}" class="hero-cta"
+                                    style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #000 !important; font-size: 13px; font-weight: 700; text-decoration: none; padding: 11px 24px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.8px;">
+                                    Read Full Story →
+                                </a>
                             </div>
+
                         </td>
                     </tr>
 
-                    <!-- Trending Section Header -->
+                    <!-- ====== TRENDING SECTION HEADER ====== -->
                     <tr>
-                        <td class="section-header">
-                            <h2 class="section-title">Trending Stories</h2>
+                        <td
+                            style="height: 1px; background: linear-gradient(to right, transparent, #1f1f1f, transparent);">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="section-header" bgcolor="#0f0f0f"
+                            style="padding: 22px 28px 14px; background-color: #0f0f0f;">
+                            <p class="section-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 3px;">
+                                Also trending
+                            </p>
+                            <h2 class="section-title"
+                                style="font-size: 18px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.2px;">
+                                More from Phuket
+                            </h2>
                         </td>
                     </tr>
 
-                    <!-- Trending Stories List -->
+                    <!-- ====== TRENDING STORIES ====== -->
                     <tr>
-                        <td class="story-list">
+                        <td class="stories-container" bgcolor="#0f0f0f"
+                            style="padding: 0 28px 8px; background-color: #0f0f0f;">
+
                             <!-- Story 1 -->
-                            <table class="story-item" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: 1px solid #191919;">
                                 <tr>
-                                    <td width="106" valign="top">
-                                        <a href="{{STORY_1_URL}}">
-                                            <img src="{{STORY_1_IMAGE}}" alt="{{STORY_1_TITLE}}" class="story-image">
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="{{STORY_1_URL}}" style="display: block; text-decoration: none;">
+                                            <img src="{{STORY_1_IMAGE}}" alt="{{STORY_1_TITLE}}" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
                                         </a>
                                     </td>
-                                    <td valign="top" style="padding-left: 16px;">
-                                        <span class="story-category">{{STORY_1_CATEGORY}}</span>
-                                        <h3 class="story-title">
-                                            <a href="{{STORY_1_URL}}">{{STORY_1_TITLE}}</a>
-                                        </h3>
-                                        <p class="story-meta">{{STORY_1_TIME}}</p>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            {{STORY_1_CATEGORY}}
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="{{STORY_1_URL}}"
+                                                style="color: #e8e8e8; text-decoration: none;">{{STORY_1_TITLE}}</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            {{STORY_1_TIME}}</p>
                                     </td>
                                 </tr>
                             </table>
 
                             <!-- Story 2 -->
-                            <table class="story-item" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: 1px solid #191919;">
                                 <tr>
-                                    <td width="106" valign="top">
-                                        <a href="{{STORY_2_URL}}">
-                                            <img src="{{STORY_2_IMAGE}}" alt="{{STORY_2_TITLE}}" class="story-image">
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="{{STORY_2_URL}}" style="display: block; text-decoration: none;">
+                                            <img src="{{STORY_2_IMAGE}}" alt="{{STORY_2_TITLE}}" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
                                         </a>
                                     </td>
-                                    <td valign="top" style="padding-left: 16px;">
-                                        <span class="story-category">{{STORY_2_CATEGORY}}</span>
-                                        <h3 class="story-title">
-                                            <a href="{{STORY_2_URL}}">{{STORY_2_TITLE}}</a>
-                                        </h3>
-                                        <p class="story-meta">{{STORY_2_TIME}}</p>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            {{STORY_2_CATEGORY}}
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="{{STORY_2_URL}}"
+                                                style="color: #e8e8e8; text-decoration: none;">{{STORY_2_TITLE}}</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            {{STORY_2_TIME}}</p>
                                     </td>
                                 </tr>
                             </table>
 
                             <!-- Story 3 -->
-                            <table class="story-item" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: none;">
                                 <tr>
-                                    <td width="106" valign="top">
-                                        <a href="{{STORY_3_URL}}">
-                                            <img src="{{STORY_3_IMAGE}}" alt="{{STORY_3_TITLE}}" class="story-image">
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="{{STORY_3_URL}}" style="display: block; text-decoration: none;">
+                                            <img src="{{STORY_3_IMAGE}}" alt="{{STORY_3_TITLE}}" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
                                         </a>
                                     </td>
-                                    <td valign="top" style="padding-left: 16px;">
-                                        <span class="story-category">{{STORY_3_CATEGORY}}</span>
-                                        <h3 class="story-title">
-                                            <a href="{{STORY_3_URL}}">{{STORY_3_TITLE}}</a>
-                                        </h3>
-                                        <p class="story-meta">{{STORY_3_TIME}}</p>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            {{STORY_3_CATEGORY}}
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="{{STORY_3_URL}}"
+                                                style="color: #e8e8e8; text-decoration: none;">{{STORY_3_TITLE}}</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            {{STORY_3_TIME}}</p>
                                     </td>
                                 </tr>
                             </table>
+
                         </td>
                     </tr>
 
-                    <!-- On The Radar Section Header -->
+                    <!-- ====== ON THE RADAR HEADER ====== -->
                     <tr>
-                        <td class="section-header" style="background-color: #050505; border-top: 1px solid #262626;">
-                            <h2 class="section-title">On The Radar</h2>
+                        <td class="section-header"
+                            style="padding: 22px 28px 14px; background-color: #090909; border-top: 1px solid #1f1f1f;">
+                            <p class="section-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 3px;">
+                                Quick reads
+                            </p>
+                            <h2 class="section-title"
+                                style="font-size: 18px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.2px;">
+                                On The Radar
+                            </h2>
                         </td>
                     </tr>
 
-                    <!-- On The Radar Stories -->
+                    <!-- ====== ON THE RADAR STORIES ====== -->
                     <tr>
-                        <td class="radar-section" style="padding-top: 0;">
-                            <div class="radar-item">
-                                <a href="{{RADAR_1_URL}}" class="radar-link">{{RADAR_1_TITLE}}</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="{{RADAR_2_URL}}" class="radar-link">{{RADAR_2_TITLE}}</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="{{RADAR_3_URL}}" class="radar-link">{{RADAR_3_TITLE}}</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="{{RADAR_4_URL}}" class="radar-link">{{RADAR_4_TITLE}}</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="{{RADAR_5_URL}}" class="radar-link">{{RADAR_5_TITLE}}</a>
-                            </div>
+                        <td class="radar-container" style="background-color: #090909; padding: 0 28px 24px;">
+
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="{{RADAR_1_URL}}" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        {{RADAR_1_TITLE}}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="{{RADAR_2_URL}}" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        {{RADAR_2_TITLE}}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="{{RADAR_3_URL}}" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        {{RADAR_3_TITLE}}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="{{RADAR_4_URL}}" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        {{RADAR_4_TITLE}}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: none;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="{{RADAR_5_URL}}" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        {{RADAR_5_TITLE}}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
                         </td>
                     </tr>
 
-                    <!-- Footer -->
+                    <!-- ====== WEBSITE CTA ====== -->
                     <tr>
-                        <td class="footer">
-                            <a href="https://phuketradar.com">
-                                <img src="https://phuketradar.com/assets/logo-white-transparent-DH-BgQMp.png"
-                                    alt="Phuket Radar" class="footer-logo">
+                        <td class="cta-block"
+                            style="background: linear-gradient(135deg, #0d1f2d 0%, #0a1a1a 100%); border-top: 1px solid #1a3a3a; padding: 32px 28px; text-align: center;">
+                            <p class="cta-block-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 8px;">
+                                Stay informed
+                            </p>
+                            <h3 class="cta-block-title"
+                                style="font-size: 20px; font-weight: 700; color: #fff; margin: 0 0 8px;">
+                                Everything happening in Phuket
+                            </h3>
+                            <p class="cta-block-sub" style="font-size: 14px; color: #5a8a8a; margin: 0 0 20px;">
+                                Browse the full feed at phuketradar.com
+                            </p>
+                            <a href="https://phuketradar.com" class="cta-block-btn"
+                                style="display: inline-block; background: transparent; color: #22d3ee !important; font-size: 13px; font-weight: 700; text-decoration: none; padding: 11px 22px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.8px; border: 1.5px solid rgba(34, 211, 238, 0.5);">
+                                Visit Phuket Radar →
                             </a>
-                            <p class="footer-text">Your daily source for Phuket news</p>
+                        </td>
+                    </tr>
 
-                            <div class="footer-links">
-                                <a href="https://phuketradar.com" class="footer-link">Website</a>
-                                <a href="https://phuketradar.com/crime" class="footer-link">Crime</a>
-                                <a href="https://phuketradar.com/local" class="footer-link">Local</a>
-                                <a href="https://phuketradar.com/tourism" class="footer-link">Tourism</a>
+                    <!-- ====== FOOTER ====== -->
+                    <tr>
+                        <td class="footer"
+                            style="background-color: #080808; padding: 28px 28px 32px; text-align: center; border-top: 1px solid #1a1a1a;">
+                            <a href="https://phuketradar.com"
+                                style="display: block; text-decoration: none; margin-bottom: 14px;">
+                                <img src="https://phuketradar.com/assets/logo-white-transparent-DH-BgQMp.png"
+                                    alt="Phuket Radar" class="footer-logo"
+                                    style="max-width: 110px; height: auto; display: block; margin: 0 auto; opacity: 0.5;">
+                            </a>
+
+                            <p class="footer-tagline" style="font-size: 12px; color: #454545; margin: 0 0 14px;">
+                                Your daily source for what's really happening in Phuket
+                            </p>
+
+                            <div class="footer-nav" style="margin: 0 0 16px;">
+                                <a href="https://phuketradar.com"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Home</a>
+                                <span style="color: #2a2a2a; font-size: 12px;">|</span>
+                                <a href="https://phuketradar.com/crime"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Crime</a>
+                                <span style="color: #2a2a2a; font-size: 12px;">|</span>
+                                <a href="https://phuketradar.com/local"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Local</a>
+                                <span style="color: #2a2a2a; font-size: 12px;">|</span>
+                                <a href="https://phuketradar.com/tourism"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Tourism</a>
                             </div>
 
-                            <p class="unsubscribe-text">
-                                You're receiving this email because you subscribed to Phuket Radar.<br>
-                                <a href="{{UNSUBSCRIBE_URL}}" class="unsubscribe-link">Unsubscribe</a> |
-                                <a href="https://phuketradar.com/privacy" class="unsubscribe-link">Privacy Policy</a>
+                            <p class="footer-legal"
+                                style="font-size: 11px; color: #383838; margin: 0; line-height: 1.7;">
+                                You're receiving this because you subscribed to Phuket Radar.<br>
+                                <a href="{{UNSUBSCRIBE_URL}}"
+                                    style="color: #4a4a4a; text-decoration: underline;">Unsubscribe</a>
+                                &nbsp;·&nbsp;
+                                <a href="https://phuketradar.com/privacy"
+                                    style="color: #4a4a4a; text-decoration: underline;">Privacy Policy</a>
                             </p>
                         </td>
                     </tr>
+
                 </table>
             </td>
         </tr>
     </table>
+
 </body>
 
 </html>

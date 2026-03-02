@@ -12,7 +12,7 @@ import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { postArticleToInstagram } from "./lib/instagram-service";
 import { postArticleToThreads } from "./lib/threads-service";
-import { processDailyNewsletterSession } from "./services/newsletter";
+import { generateDailyNewsletterHTML } from "./services/newsletter";
 import { subHours } from "date-fns";
 import { insightService } from "./services/insight-service";
 import { buildArticleUrl } from "@shared/category-map";
@@ -28,7 +28,7 @@ import { detectTags } from "./lib/tag-detector";
 import { TAG_DEFINITIONS } from "@shared/core-tags";
 import sharp from "sharp";
 import { cache, CACHE_KEYS, CACHE_TTL, withCache, invalidateArticleCaches } from "./lib/cache";
-import { addMaillayerContact, isMaillayerConfigured } from "./lib/maillayer-client";
+import { addBeehiivSubscriber, isBeehiivConfigured } from "./lib/beehiiv-client";
 
 // Extend session type
 declare module "express-session" {
@@ -748,33 +748,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })();
   });
 
-  // Daily Newsletter endpoint - triggered by external cron at 8am Bangkok time
+  // Daily Newsletter — triggered by external cron at 8am Bangkok time (01:00 UTC)
+  // Generates HTML from today's top stories and sends via Beehiiv Posts API
   app.post("/api/cron/newsletter/send", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log("\n".repeat(3) + "=".repeat(80));
-    console.log("📨 DAILY NEWSLETTER TRIGGERED 🚨");
+    console.log("📨 DAILY NEWSLETTER TRIGGERED 📨");
     console.log(`Time: ${timestamp}`);
-    console.log(`Trigger: AUTOMATED CRON`);
     console.log("=".repeat(80) + "\n");
 
-    // Respond immediately
     res.json({
       success: true,
-      message: "Newsletter dispatch started in background",
+      message: "Newsletter generation and Beehiiv send started in background",
       timestamp,
     });
 
-    // Process in background
     (async () => {
       try {
-        const { processDailyNewsletterSession } = await import("./services/newsletter");
-        await processDailyNewsletterSession();
-        console.log(`[NEWSLETTER-CRON] ✅ Newsletter session completed`);
+        const html = await generateDailyNewsletterHTML();
+        if (!html) {
+          console.log(`[NEWSLETTER-CRON] ⚠️ No articles found — newsletter not sent`);
+          return;
+        }
+
+        // Save preview for reference
+        const previewPath = path.join(process.cwd(), "newsletter_approval_preview.html");
+        await fs.writeFile(previewPath, html, "utf-8");
+        console.log(`[NEWSLETTER-CRON] 📄 Preview saved`);
+
+        // Send via Beehiiv
+        const { sendBeehiivNewsletter } = await import("./lib/beehiiv-client");
+        const { format } = await import("date-fns");
+        const dateLabel = format(new Date(), 'EEEE, MMMM d, yyyy');
+        const subject = `Phuket Radar — ${dateLabel}`;
+        const preview = `Today's top stories from across Phuket`;
+
+        const result = await sendBeehiivNewsletter({ subject, previewText: preview, bodyHtml: html });
+
+        if (result.success) {
+          console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Beehiiv! Post ID: ${result.postId}`);
+        } else {
+          console.error(`[NEWSLETTER-CRON] ❌ Beehiiv send failed: ${result.error}`);
+        }
       } catch (error) {
         console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
       }
     })();
   });
+
 
   // Enrichment endpoint - triggered by GitHub Actions
   app.post("/api/cron/enrich", requireCronAuth, async (req, res) => {
@@ -2236,26 +2257,13 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     }
   });
 
-  // Cron endpoint for daily newsletter (legacy route - delegates to processDailyNewsletterSession)
+  // Legacy cron route — newsletter is now sent via Beehiiv dashboard
   app.post("/api/cron/newsletter", requireCronAuth, async (req, res) => {
-    const timestamp = new Date().toISOString();
-    console.log("\n".repeat(3) + "=".repeat(80));
-    console.log("📧 NEWSLETTER TRIGGERED 📧");
-    console.log(`Time: ${timestamp}`);
-    console.log(`Trigger: EXTERNAL CRON SERVICE`);
-    console.log("=".repeat(80) + "\n");
-
-    // Respond immediately, process in background
-    res.json({ success: true, message: "Newsletter dispatch started", timestamp });
-
-    (async () => {
-      try {
-        await processDailyNewsletterSession();
-        console.log(`[NEWSLETTER-CRON] ✅ Newsletter session completed`);
-      } catch (error) {
-        console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
-      }
-    })();
+    res.json({
+      success: true,
+      message: "Newsletter sending is now handled by Beehiiv. Use the Beehiiv dashboard to send newsletters.",
+      beehiivDashboard: "https://app.beehiiv.com",
+    });
   });
 
   // Admin Newsletter Preview - PROTECTED
@@ -2293,13 +2301,13 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
           // Reactivate subscription by updating existing record
           await storage.reactivateSubscriber(existing.id);
 
-          // Also sync to Maillayer if configured
-          if (isMaillayerConfigured()) {
+          // Also sync to Beehiiv if configured
+          if (isBeehiivConfigured()) {
             try {
-              console.log(`👤 Syncing reactivated subscriber ${existing.email} to Maillayer...`);
-              await addMaillayerContact(existing.email);
-            } catch (maillayerError) {
-              console.error(`❌ Error syncing reactivated subscriber to Maillayer:`, maillayerError);
+              console.log(`👤 Syncing reactivated subscriber ${existing.email} to Beehiiv...`);
+              await addBeehiivSubscriber(existing.email, { reactivateExisting: true });
+            } catch (beehiivError) {
+              console.error(`❌ Error syncing reactivated subscriber to Beehiiv:`, beehiivError);
             }
           }
 
@@ -2312,19 +2320,19 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
 
       const subscriber = await storage.createSubscriber(result.data);
 
-      // Also add to Maillayer if configured
-      if (isMaillayerConfigured()) {
+      // Also add to Beehiiv if configured
+      if (isBeehiivConfigured()) {
         try {
-          console.log(`👤 Syncing new subscriber ${subscriber.email} to Maillayer...`);
-          const maillayerResult = await addMaillayerContact(subscriber.email);
-          if (maillayerResult.success) {
-            console.log(`✅ Subscriber ${subscriber.email} added to Maillayer`);
+          console.log(`👤 Syncing new subscriber ${subscriber.email} to Beehiiv...`);
+          const beehiivResult = await addBeehiivSubscriber(subscriber.email, { sendWelcomeEmail: true });
+          if (beehiivResult.success) {
+            console.log(`✅ Subscriber ${subscriber.email} added to Beehiiv (status: ${beehiivResult.status})`);
           } else {
-            console.warn(`⚠️ Failed to sync subscriber ${subscriber.email} to Maillayer: ${maillayerResult.error}`);
+            console.warn(`⚠️ Failed to sync subscriber ${subscriber.email} to Beehiiv: ${beehiivResult.error}`);
           }
-        } catch (maillayerError) {
-          console.error(`❌ Error syncing to Maillayer:`, maillayerError);
-          // Don't fail the whole request if Maillayer sync fails
+        } catch (beehiivError) {
+          console.error(`❌ Error syncing to Beehiiv:`, beehiivError);
+          // Don't fail the whole request if Beehiiv sync fails
         }
       }
 

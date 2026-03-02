@@ -1,12 +1,19 @@
+/**
+ * Newsletter Service
+ *
+ * Generates daily newsletter HTML from the latest articles.
+ * Newsletters are sent via Beehiiv's own platform — this service
+ * only handles HTML generation for preview/template purposes.
+ *
+ * Subscriber management: handled via Beehiiv API (see lib/beehiiv-client.ts)
+ * Newsletter sending: done from Beehiiv dashboard
+ */
 
 import { storage } from "../storage";
 import { buildArticleUrl } from "@shared/category-map";
-import { isMaillayerConfigured, sendMaillayerRawEmail } from "../lib/maillayer-client";
-import { getUncachableResendClient } from "../lib/resend-client";
 import fs from "fs";
 import path from "path";
 import { format } from "date-fns";
-import { type Article } from "@shared/schema";
 
 const SITE_URL = 'https://phuketradar.com';
 
@@ -22,6 +29,10 @@ export interface NewsletterArticle {
   interestScore?: number;
 }
 
+/**
+ * Generates the daily newsletter HTML from the top stories of the last 24 hours.
+ * Used to produce a preview for copying into Beehiiv's editor.
+ */
 export async function generateDailyNewsletterHTML(): Promise<string | null> {
   console.log("🚀 Generating daily newsletter HTML...");
 
@@ -61,7 +72,6 @@ export async function generateDailyNewsletterHTML(): Promise<string | null> {
   const formattedDate = format(new Date(), 'EEEE, MMMM d, yyyy');
   html = html.replace(/{{DATE}}/g, formattedDate);
 
-  // Helper to get time string
   const getTimeString = (date: Date | string) => {
     const d = new Date(date);
     return format(d, 'h:mm a');
@@ -102,67 +112,7 @@ export async function generateDailyNewsletterHTML(): Promise<string | null> {
   html = html.replace(/{{STORY_\d_TIME}}/g, '');
   html = html.replace(/{{RADAR_\d_URL}}/g, '#');
   html = html.replace(/{{RADAR_\d_TITLE}}/g, '');
+  html = html.replace(/{{UNSUBSCRIBE_URL}}/g, `${SITE_URL}/unsubscribe`);
 
   return html;
-}
-
-export async function processDailyNewsletterSession() {
-  console.log("📨 Starting daily newsletter dispatch session...");
-
-  const html = await generateDailyNewsletterHTML();
-  if (!html) {
-    console.log("⏭️ No newsletter generated (no articles).");
-    return;
-  }
-
-  const subscribers = await storage.getAllActiveSubscribers();
-  console.log(`👥 Found ${subscribers.length} active subscribers.`);
-
-  const subject = `Phuket Radar - ${format(new Date(), 'EEEE, MMMM d, yyyy')}`;
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const sub of subscribers) {
-    try {
-      // Replace unsubscribe link for each user
-      const personalHtml = html.replace('{{UNSUBSCRIBE_URL}}', `${SITE_URL}/api/unsubscribe/${sub.unsubscribeToken || 'default'}`);
-
-      let success = false;
-      if (isMaillayerConfigured()) {
-        const result = await sendMaillayerRawEmail({
-          to: sub.email,
-          subject,
-          html: personalHtml
-        });
-        success = result.success;
-      } else {
-        const { client, fromEmail } = await getUncachableResendClient();
-        const result = await client.emails.send({
-          from: fromEmail,
-          to: sub.email,
-          subject,
-          html: personalHtml
-        });
-        success = !!result.data?.id;
-      }
-
-      if (success) {
-        sent++;
-        console.log(`✅ Sent to ${sub.email}`);
-      } else {
-        failed++;
-        console.log(`❌ Failed for ${sub.email}`);
-      }
-
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 100));
-    } catch (err) {
-      failed++;
-      console.error(`❌ Error sending to ${sub.email}:`, err);
-    }
-  }
-
-  console.log(`🏁 Dispatch complete. Sent: ${sent}, Failed: ${failed}`);
-  return { sent, failed };
 }
