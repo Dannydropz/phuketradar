@@ -777,8 +777,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send via Resend Broadcasts (uses marketing quota = free unlimited sends)
         const { sendResendBroadcast } = await import("./lib/resend-client");
-        const subject = `Phuket Radar Daily News`;
-        const previewText = html.topStoryTitle; // shown in bold in subscriber inboxes
+        const subject = html.topStoryTitle;               // bold in inbox
+        const previewText = 'Phuket Radar Daily News';    // gray secondary line
 
         const result = await sendResendBroadcast({ subject, html: html.html, previewText });
 
