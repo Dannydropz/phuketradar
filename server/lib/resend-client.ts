@@ -134,6 +134,7 @@ export async function sendResendBroadcast(options: {
                 audience_id: audienceId,
                 from: `Phuket Radar <${fromEmail}>`,
                 subject: options.subject,
+                preview_text: options.previewText || '',
                 html: htmlWithUnsub,
                 send: true, // create and send immediately
             }),

@@ -772,16 +772,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Save preview for reference
         const previewPath = path.join(process.cwd(), "newsletter_approval_preview.html");
-        await fs.writeFile(previewPath, html, "utf-8");
+        await fs.writeFile(previewPath, html.html, "utf-8");
         console.log(`[NEWSLETTER-CRON] 📄 Preview saved`);
 
         // Send via Resend Broadcasts (uses marketing quota = free unlimited sends)
         const { sendResendBroadcast } = await import("./lib/resend-client");
-        const { format } = await import("date-fns");
-        const dateLabel = format(new Date(), 'EEEE, MMMM d, yyyy');
-        const subject = `Phuket Radar — ${dateLabel}`;
+        const subject = `Phuket Radar Daily News`;
+        const previewText = html.topStoryTitle; // shown in bold in subscriber inboxes
 
-        const result = await sendResendBroadcast({ subject, html });
+        const result = await sendResendBroadcast({ subject, html: html.html, previewText });
 
         if (result.success) {
           console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Resend Broadcast! ID: ${result.broadcastId}`);

@@ -33,7 +33,7 @@ export interface NewsletterArticle {
  * Generates the daily newsletter HTML from the top stories of the last 24 hours.
  * Used to produce a preview for copying into Beehiiv's editor.
  */
-export async function generateDailyNewsletterHTML(): Promise<string | null> {
+export async function generateDailyNewsletterHTML(): Promise<{ html: string; topStoryTitle: string } | null> {
   console.log("🚀 Generating daily newsletter HTML...");
 
   // 1. Fetch top stories from last 24 hours
@@ -114,5 +114,5 @@ export async function generateDailyNewsletterHTML(): Promise<string | null> {
   html = html.replace(/{{RADAR_\d_TITLE}}/g, '');
   html = html.replace(/{{UNSUBSCRIBE_URL}}/g, `${SITE_URL}/unsubscribe`);
 
-  return html;
+  return { html, topStoryTitle: topStory.title };
 }
