@@ -777,10 +777,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send via Resend Broadcasts (uses marketing quota = free unlimited sends)
         const { sendResendBroadcast } = await import("./lib/resend-client");
-        const subject = html.topStoryTitle;               // bold in inbox
-        const previewText = 'Phuket Radar Daily News';    // gray secondary line
+        const subject = html.topStoryTitle; // bold in inbox — no preview text (clean & minimal)
 
-        const result = await sendResendBroadcast({ subject, html: html.html, previewText });
+        const result = await sendResendBroadcast({ subject, html: html.html });
 
         if (result.success) {
           console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Resend Broadcast! ID: ${result.broadcastId}`);
