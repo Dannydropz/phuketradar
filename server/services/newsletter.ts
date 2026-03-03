@@ -71,6 +71,8 @@ export async function generateDailyNewsletterHTML(): Promise<{ html: string; top
   // 3. Populate Template
   const formattedDate = format(new Date(), 'EEEE, MMMM d, yyyy');
   html = html.replace(/{{DATE}}/g, formattedDate);
+  // Preheader: replaced here so it appears as inbox preview text in all email clients
+  html = html.replace(/{{TOP_STORY_TITLE}}/g, topStory.title);
 
   const getTimeString = (date: Date | string) => {
     const d = new Date(date);
