@@ -106,45 +106,55 @@ export async function sendResendBroadcast(options: {
     html: string;
     previewText?: string;
 }): Promise<{ success: boolean; broadcastId?: string; error?: string }> {
-    const client = getResendClient();
-    if (!client) return { success: false, error: 'RESEND_API_KEY not configured' };
-
+    const apiKey = process.env.RESEND_API_KEY;
     const audienceId = process.env.RESEND_AUDIENCE_ID;
     const fromEmail = process.env.RESEND_FROM_EMAIL;
 
+    if (!apiKey) return { success: false, error: 'RESEND_API_KEY not configured' };
     if (!audienceId) return { success: false, error: 'RESEND_AUDIENCE_ID not configured' };
     if (!fromEmail) return { success: false, error: 'RESEND_FROM_EMAIL not configured' };
 
     try {
         console.log(`📧 Resend: Creating broadcast — "${options.subject}"`);
 
-        // Inject Resend's built-in unsubscribe link into the HTML
+        // Replace our placeholder with Resend's built-in unsubscribe tag
         const htmlWithUnsub = options.html.replace(
             /\{\{UNSUBSCRIBE_URL\}\}/g,
             '{{{RESEND_UNSUBSCRIBE_URL}}}'
         );
 
-        const { data, error } = await (client.broadcasts as any).create({
-            audienceId,
-            from: `Phuket Radar <${fromEmail}>`,
-            subject: options.subject,
-            html: htmlWithUnsub,
-            send: true, // create and send immediately
+        const response = await fetch('https://api.resend.com/broadcasts', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                audience_id: audienceId,
+                from: `Phuket Radar <${fromEmail}>`,
+                subject: options.subject,
+                html: htmlWithUnsub,
+                send: true, // create and send immediately
+            }),
         });
 
-        if (error) {
-            console.error(`❌ Resend broadcast failed:`, error);
-            return { success: false, error: (error as any).message || JSON.stringify(error) };
+        const data = await response.json() as { id?: string; object?: string; name?: string; message?: string };
+
+        if (!response.ok) {
+            console.error(`❌ Resend broadcast failed (${response.status}):`, data);
+            return { success: false, error: data.message || `HTTP ${response.status}` };
         }
 
-        console.log(`✅ Resend broadcast sent! ID: ${data?.id}`);
-        return { success: true, broadcastId: data?.id };
+        console.log(`✅ Resend broadcast sent! ID: ${data.id}`);
+        return { success: true, broadcastId: data.id };
     } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         console.error(`❌ Resend broadcast error:`, err);
         return { success: false, error: msg };
     }
 }
+
 
 // Legacy transactional client (kept for any one-off emails like welcome emails)
 export async function getUncachableResendClient() {
