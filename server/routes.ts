@@ -758,7 +758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     res.json({
       success: true,
-      message: "Newsletter generation and Beehiiv send started in background",
+      message: "Newsletter generation and Resend broadcast started in background",
       timestamp,
     });
 
