@@ -28,7 +28,6 @@ import { detectTags } from "./lib/tag-detector";
 import { TAG_DEFINITIONS } from "@shared/core-tags";
 import sharp from "sharp";
 import { cache, CACHE_KEYS, CACHE_TTL, withCache, invalidateArticleCaches } from "./lib/cache";
-import { addBeehiivSubscriber, isBeehiivConfigured } from "./lib/beehiiv-client";
 
 // Extend session type
 declare module "express-session" {
@@ -776,19 +775,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await fs.writeFile(previewPath, html, "utf-8");
         console.log(`[NEWSLETTER-CRON] 📄 Preview saved`);
 
-        // Send via Beehiiv
-        const { sendBeehiivNewsletter } = await import("./lib/beehiiv-client");
+        // Send via Resend Broadcasts (uses marketing quota = free unlimited sends)
+        const { sendResendBroadcast } = await import("./lib/resend-client");
         const { format } = await import("date-fns");
         const dateLabel = format(new Date(), 'EEEE, MMMM d, yyyy');
         const subject = `Phuket Radar — ${dateLabel}`;
-        const preview = `Today's top stories from across Phuket`;
 
-        const result = await sendBeehiivNewsletter({ subject, previewText: preview, bodyHtml: html });
+        const result = await sendResendBroadcast({ subject, html });
 
         if (result.success) {
-          console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Beehiiv! Post ID: ${result.postId}`);
+          console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Resend Broadcast! ID: ${result.broadcastId}`);
         } else {
-          console.error(`[NEWSLETTER-CRON] ❌ Beehiiv send failed: ${result.error}`);
+          console.error(`[NEWSLETTER-CRON] ❌ Resend broadcast failed: ${result.error}`);
         }
       } catch (error) {
         console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
@@ -2298,17 +2296,15 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
             alreadySubscribed: true
           });
         } else {
-          // Reactivate subscription by updating existing record
+          // Reactivate
           await storage.reactivateSubscriber(existing.id);
 
-          // Also sync to Beehiiv if configured
-          if (isBeehiivConfigured()) {
-            try {
-              console.log(`👤 Syncing reactivated subscriber ${existing.email} to Beehiiv...`);
-              await addBeehiivSubscriber(existing.email, { reactivateExisting: true });
-            } catch (beehiivError) {
-              console.error(`❌ Error syncing reactivated subscriber to Beehiiv:`, beehiivError);
-            }
+          // Re-add to Resend audience
+          try {
+            const { addResendContact } = await import("./lib/resend-client");
+            await addResendContact(existing.email);
+          } catch (err) {
+            console.error(`❌ Resend reactivation sync error:`, err);
           }
 
           return res.status(200).json({
@@ -2320,20 +2316,13 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
 
       const subscriber = await storage.createSubscriber(result.data);
 
-      // Also add to Beehiiv if configured
-      if (isBeehiivConfigured()) {
-        try {
-          console.log(`👤 Syncing new subscriber ${subscriber.email} to Beehiiv...`);
-          const beehiivResult = await addBeehiivSubscriber(subscriber.email, { sendWelcomeEmail: true });
-          if (beehiivResult.success) {
-            console.log(`✅ Subscriber ${subscriber.email} added to Beehiiv (status: ${beehiivResult.status})`);
-          } else {
-            console.warn(`⚠️ Failed to sync subscriber ${subscriber.email} to Beehiiv: ${beehiivResult.error}`);
-          }
-        } catch (beehiivError) {
-          console.error(`❌ Error syncing to Beehiiv:`, beehiivError);
-          // Don't fail the whole request if Beehiiv sync fails
-        }
+      // Add to Resend Audience (used for broadcast newsletter sending)
+      try {
+        const { addResendContact } = await import("./lib/resend-client");
+        await addResendContact(subscriber.email);
+      } catch (err) {
+        console.error(`❌ Resend contact sync error:`, err);
+        // Non-fatal — don't block subscription
       }
 
       res.status(201).json({
@@ -2345,6 +2334,7 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
       res.status(500).json({ error: "Failed to subscribe" });
     }
   });
+
 
   // Unsubscribe from newsletter
   app.get("/api/unsubscribe/:token", async (req, res) => {
