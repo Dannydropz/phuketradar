@@ -33,7 +33,7 @@ export interface NewsletterArticle {
  * Generates the daily newsletter HTML from the top stories of the last 24 hours.
  * Used to produce a preview for copying into Beehiiv's editor.
  */
-export async function generateDailyNewsletterHTML(): Promise<{ html: string; topStoryTitle: string } | null> {
+export async function generateDailyNewsletterHTML(): Promise<{ html: string; topStoryTitle: string; topStoryExcerpt: string } | null> {
   console.log("🚀 Generating daily newsletter HTML...");
 
   // 1. Fetch top stories from last 24 hours
@@ -71,6 +71,10 @@ export async function generateDailyNewsletterHTML(): Promise<{ html: string; top
   // 3. Populate Template
   const formattedDate = format(new Date(), 'EEEE, MMMM d, yyyy');
   html = html.replace(/{{DATE}}/g, formattedDate);
+
+  // Preheader — first sentence of top story excerpt, shown as gray text in inbox
+  const excerpt = (topStory.excerpt || '').split('.')[0].trim();
+  html = html.replace(/{{PREHEADER}}/g, excerpt);
 
   const getTimeString = (date: Date | string) => {
     const d = new Date(date);
@@ -114,5 +118,6 @@ export async function generateDailyNewsletterHTML(): Promise<{ html: string; top
   html = html.replace(/{{RADAR_\d_TITLE}}/g, '');
   html = html.replace(/{{UNSUBSCRIBE_URL}}/g, `${SITE_URL}/unsubscribe`);
 
-  return { html, topStoryTitle: topStory.title };
+  const topStoryExcerpt = (topStory.excerpt || '').split('.')[0].trim();
+  return { html, topStoryTitle: topStory.title, topStoryExcerpt };
 }
