@@ -748,7 +748,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Daily Newsletter — triggered by external cron at 8am Bangkok time (01:00 UTC)
-  // Generates HTML from today's top stories and sends via Beehiiv Posts API
   app.post("/api/cron/newsletter/send", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log("\n".repeat(3) + "=".repeat(80));
@@ -775,11 +774,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await fs.writeFile(previewPath, html.html, "utf-8");
         console.log(`[NEWSLETTER-CRON] 📄 Preview saved`);
 
-        // Send via Resend Broadcasts (uses marketing quota = free unlimited sends)
+        // Send via Resend Broadcasts (marketing quota = free unlimited sends)
         const { sendResendBroadcast } = await import("./lib/resend-client");
-        const subject = html.topStoryTitle; // bold in inbox — no preview text (clean & minimal)
+        const subject = html.topStoryTitle;
+        const previewText = html.topStoryExcerpt; // first sentence of top story — shown as gray teaser in inbox
 
-        const result = await sendResendBroadcast({ subject, html: html.html });
+        const result = await sendResendBroadcast({ subject, html: html.html, previewText });
 
         if (result.success) {
           console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Resend Broadcast! ID: ${result.broadcastId}`);
@@ -790,6 +790,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
       }
     })();
+  });
+
+  // Newsletter test send — sends to a single email only (never to all subscribers)
+  app.post("/api/cron/newsletter/test", requireCronAuth, async (req, res) => {
+    const toEmail = (req.body?.email as string) || process.env.ADMIN_EMAIL || "dannyjkeegan@gmail.com";
+    console.log(`[NEWSLETTER-TEST] Sending test to: ${toEmail}`);
+
+    try {
+      const html = await generateDailyNewsletterHTML();
+      if (!html) {
+        return res.status(404).json({ error: "No articles found to generate newsletter" });
+      }
+
+      const apiKey = process.env.RESEND_API_KEY;
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "newsletter@news.phuketradar.com";
+      if (!apiKey) return res.status(500).json({ error: "RESEND_API_KEY not configured" });
+
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `Phuket Radar <${fromEmail}>`,
+          to: [toEmail],
+          subject: `[TEST] ${html.topStoryTitle}`,
+          html: html.html,
+        }),
+      });
+      const data = await response.json() as { id?: string; message?: string };
+
+      if (!response.ok) {
+        console.error(`[NEWSLETTER-TEST] ❌ Failed:`, data);
+        return res.status(500).json({ error: data.message || "Send failed" });
+      }
+
+      console.log(`[NEWSLETTER-TEST] ✅ Test email sent to ${toEmail} (id: ${data.id})`);
+      res.json({ success: true, to: toEmail, subject: `[TEST] ${html.topStoryTitle}`, id: data.id });
+    } catch (error) {
+      console.error("[NEWSLETTER-TEST] ❌ ERROR:", error);
+      res.status(500).json({ error: "Internal error" });
+    }
   });
 
 
