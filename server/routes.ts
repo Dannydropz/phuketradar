@@ -632,58 +632,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // SEO: Dynamic Sitemap
-  app.get("/sitemap.xml", async (req, res) => {
-    try {
-      const articles = await storage.getPublishedArticles();
-      const baseUrl = "https://phuketradar.com";
-
-      // Static pages
-      const staticPages = [
-        { url: baseUrl, priority: "1.0", changefreq: "hourly" },
-        { url: `${baseUrl}/crime`, priority: "0.9", changefreq: "hourly" },
-        { url: `${baseUrl}/local`, priority: "0.9", changefreq: "hourly" },
-        { url: `${baseUrl}/tourism`, priority: "0.8", changefreq: "daily" },
-        { url: `${baseUrl}/politics`, priority: "0.8", changefreq: "daily" },
-        { url: `${baseUrl}/economy`, priority: "0.8", changefreq: "daily" },
-        { url: `${baseUrl}/traffic`, priority: "0.8", changefreq: "daily" },
-        { url: `${baseUrl}/weather`, priority: "0.8", changefreq: "daily" },
-      ];
-
-      // Generate XML
-      let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-      xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-
-      // Add static pages
-      staticPages.forEach(page => {
-        xml += "  <url>\n";
-        xml += `    <loc>${page.url}</loc>\n`;
-        xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
-        xml += `    <priority>${page.priority}</priority>\n`;
-        xml += "  </url>\n";
-      });
-
-      // Add article pages
-      articles.forEach(article => {
-        const articleUrl = buildArticleUrl(article);
-        const lastmod = new Date(article.publishedAt).toISOString();
-
-        xml += "  <url>\n";
-        xml += `    <loc>${baseUrl}${articleUrl}</loc>\n`;
-        xml += `    <lastmod>${lastmod}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.7</priority>\n`;
-        xml += "  </url>\n";
-      });
-
-      xml += "</urlset>";
-
-      res.header("Content-Type", "application/xml");
-      res.send(xml);
-    } catch (error) {
-      console.error("Error generating sitemap:", error);
-      res.status(500).send("Error generating sitemap");
-    }
-  });
+  // Legacy sitemap route — redirects to the canonical one below
+  app.get("/sitemap.xml", (req, res, next) => next());
 
 
   // Auto-scraping endpoint - triggered by GitHub Actions every 2 hours
@@ -755,41 +705,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Time: ${timestamp}`);
     console.log("=".repeat(80) + "\n");
 
-    res.json({
-      success: true,
-      message: "Newsletter generation and Resend broadcast started in background",
-      timestamp,
-    });
-
-    (async () => {
-      try {
-        const html = await generateDailyNewsletterHTML();
-        if (!html) {
-          console.log(`[NEWSLETTER-CRON] ⚠️ No articles found — newsletter not sent`);
-          return;
-        }
-
-        // Save preview for reference
-        const previewPath = path.join(process.cwd(), "newsletter_approval_preview.html");
-        await fs.writeFile(previewPath, html.html, "utf-8");
-        console.log(`[NEWSLETTER-CRON] 📄 Preview saved`);
-
-        // Send via Resend Broadcasts (marketing quota = free unlimited sends)
-        const { sendResendBroadcast } = await import("./lib/resend-client");
-        const subject = html.topStoryTitle;
-        const previewText = html.topStoryExcerpt; // first sentence of top story — shown as gray teaser in inbox
-
-        const result = await sendResendBroadcast({ subject, html: html.html, previewText });
-
-        if (result.success) {
-          console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent via Resend Broadcast! ID: ${result.broadcastId}`);
-        } else {
-          console.error(`[NEWSLETTER-CRON] ❌ Resend broadcast failed: ${result.error}`);
-        }
-      } catch (error) {
-        console.error(`[NEWSLETTER-CRON] ❌ ERROR:`, error);
+    try {
+      // Generate HTML synchronously so errors surface to n8n
+      const html = await generateDailyNewsletterHTML();
+      if (!html) {
+        console.log(`[NEWSLETTER-CRON] ⚠️ No articles found — newsletter not sent`);
+        return res.status(404).json({ success: false, error: "No articles found to generate newsletter", timestamp });
       }
-    })();
+
+      // Save preview for reference
+      const previewPath = path.join(process.cwd(), "newsletter_approval_preview.html");
+      await fs.writeFile(previewPath, html.html, "utf-8");
+      console.log(`[NEWSLETTER-CRON] 📄 Preview saved`);
+
+      // Send via Resend Broadcasts (marketing quota = free unlimited sends to up to 1,000 contacts)
+      const { sendResendBroadcast } = await import("./lib/resend-client");
+      const subject = html.topStoryTitle;
+      const previewText = html.topStoryExcerpt;
+
+      const result = await sendResendBroadcast({ subject, html: html.html, previewText });
+
+      if (result.success) {
+        console.log(`[NEWSLETTER-CRON] ✅ Newsletter sent! Broadcast ID: ${result.broadcastId}`);
+        return res.json({ success: true, broadcastId: result.broadcastId, subject, timestamp });
+      } else {
+        console.error(`[NEWSLETTER-CRON] ❌ Resend broadcast failed: ${result.error}`);
+        return res.status(500).json({ success: false, error: result.error, timestamp });
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[NEWSLETTER-CRON] ❌ ERROR: ${msg}`);
+      return res.status(500).json({ success: false, error: msg, timestamp });
+    }
   });
 
   // Newsletter test send — sends to a single email only (never to all subscribers)
@@ -2530,14 +2477,28 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
   });
 
   // XML Sitemap endpoint for SEO
+  // Only includes articles with enough content to be worth indexing (excerpt >= 30 words is a
+  // reliable proxy for full article word count >= 150), protecting crawl budget.
   app.get("/sitemap.xml", async (req, res) => {
     try {
       const baseUrl = process.env.REPLIT_DEV_DOMAIN
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : 'https://phuketradar.com';
 
-      const articles = await storage.getPublishedArticles();
+      const allArticles = await storage.getPublishedArticles();
       const categories = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather"];
+
+      // Filter out thin articles — excerpt word count < 30 is a reliable proxy for
+      // articles that will be noindexed on the page itself (< 150 words in full content).
+      const MIN_EXCERPT_WORDS = 30;
+      const indexableArticles = allArticles.filter(article => {
+        const excerptWords = article.excerpt
+          .replace(/<[^>]+>/g, ' ')
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean).length;
+        return excerptWords >= MIN_EXCERPT_WORDS;
+      });
 
       // Build sitemap XML
       let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -2559,17 +2520,21 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
         sitemap += '  </url>\n';
       }
 
-      // Article pages
-      for (const article of articles) {
+      // Article pages (indexable only)
+      for (const article of indexableArticles) {
         const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
         const url = `${baseUrl}${articlePath}`;
-        const lastmod = new Date(article.publishedAt).toISOString().split('T')[0];
+        // Use lastEnrichedAt or lastManualEditAt as modified date when available
+        const modifiedDate = article.lastEnrichedAt || article.lastManualEditAt || article.publishedAt;
+        const lastmod = new Date(modifiedDate).toISOString().split('T')[0];
+        // Slightly higher priority for articles with images (better user experience signal)
+        const priority = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0) ? '0.7' : '0.5';
 
         sitemap += '  <url>\n';
         sitemap += `    <loc>${url}</loc>\n`;
         sitemap += `    <lastmod>${lastmod}</lastmod>\n`;
         sitemap += '    <changefreq>weekly</changefreq>\n';
-        sitemap += '    <priority>0.6</priority>\n';
+        sitemap += `    <priority>${priority}</priority>\n`;
         sitemap += '  </url>\n';
       }
 
