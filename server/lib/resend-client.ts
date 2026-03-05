@@ -108,11 +108,12 @@ export async function sendResendBroadcast(options: {
 }): Promise<{ success: boolean; broadcastId?: string; error?: string }> {
     const apiKey = process.env.RESEND_API_KEY;
     const audienceId = process.env.RESEND_AUDIENCE_ID;
-    const fromEmail = process.env.RESEND_FROM_EMAIL;
+    // Always use the verified sending domain (news.phuketradar.com)
+    // The root domain phuketradar.com is NOT verified in Resend
+    const fromEmail = 'newsletter@news.phuketradar.com';
 
     if (!apiKey) return { success: false, error: 'RESEND_API_KEY not configured' };
     if (!audienceId) return { success: false, error: 'RESEND_AUDIENCE_ID not configured' };
-    if (!fromEmail) return { success: false, error: 'RESEND_FROM_EMAIL not configured' };
 
     try {
         console.log(`📧 Resend: Creating broadcast — "${options.subject}"`);
