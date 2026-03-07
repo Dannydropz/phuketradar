@@ -209,7 +209,7 @@ export function MobileNewsletterSlideUp() {
                                     lineHeight: 1.3,
                                 }}
                             >
-                                Today's top stories. Every evening.
+                                1 email. Everything Phuket. 2 minute Read.
                             </p>
                         </div>
 
@@ -221,7 +221,7 @@ export function MobileNewsletterSlideUp() {
                             <input
                                 type="email"
                                 id="newsletter-slide-email"
-                                placeholder="email@..."
+                                placeholder="enter your email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 disabled={isLoading}
