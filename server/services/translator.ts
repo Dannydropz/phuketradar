@@ -721,165 +721,232 @@ export class TranslatorService {
     communityComments?: string[]; // Optional: Top comments from Facebook post for context
   }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
-    // Prepare context string from the map
-    const contextMapString = Object.entries(PHUKET_CONTEXT_MAP)
-      .map(([key, value]) => `- ${key}: ${value}`)
-      .join("\n");
+    // ── Category-conditional context blocks ─────────────────────────────────
+    // Each block contains verified Phuket facts the model is PERMITTED to draw from.
+    // Only the block matching the article's category is injected (keeps token cost low).
+    const CATEGORY_CONTEXT_BLOCKS: Record<string, string> = {
+      'Crime': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Emergency: Tourist Police 1155, Police 191, Ambulance 1669, Fire 199
+- Phuket has 8 police stations: Phuket City, Chalong, Thalang, Kamala, Patong, Cherng Talay, Wichit, and Tung Tong (Kathu)
+- Patong Police Station handles most tourist-area incidents in Kathu district
+- Foreigners arrested in Thailand are entitled to consular access; embassies are in Bangkok, honorary consuls in Phuket for some countries
+- Drug offenses carry severe penalties in Thailand, including life imprisonment for trafficking
+- Common tourist-targeted crimes: bag snatching (especially from motorbikes), rental scams, jet ski damage scams, drink spiking in nightlife areas
+- Thai bail system: foreigners can be held up to 84 days before trial without bail for serious offenses
+- If a foreigner is named in a Thai police report, use their nationality only if the source explicitly states it — never guess from names`,
 
-    // Build community comments section if available
-    let communityCommentsSection = "";
-    if (params.communityComments && params.communityComments.length > 0) {
-      communityCommentsSection = `
-COMMUNITY COMMENTS FROM FACEBOOK (Use for additional context - HANDLE CAREFULLY):
-${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}
+      'Traffic': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Phuket's roads record among Thailand's highest per-capita accident rates, particularly for motorbikes
+- Foreign nationals legally require an International Driving Permit (IDP) or Thai license to drive; most rental operators do not check
+- Thailand drives on the LEFT side of the road
+- Helmet law: mandatory for both driver and passenger on motorbikes; fine is 500 baht but inconsistently enforced
+- Phuket has two main hospitals with trauma capability: Vachira Phuket Hospital (government, Phuket Town) and Bangkok Hospital Phuket (private, near Siriroj junction)
+- Key accident hotspots: Patong Hill (steep curves between Kathu and Patong), the Heroines Monument intersection, Thepkrasattri Road (main north-south artery)
+- Chalong Circle, Darasamut Intersection, and Sam Kong area are high-congestion zones
+- In Thai road accidents, the larger vehicle is typically presumed at fault regardless of circumstances
+- If a foreigner is involved in a fatal accident, their passport may be seized pending investigation`,
 
-INSTRUCTIONS FOR USING COMMUNITY COMMENTS:
+      'Accidents': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Phuket's roads record among Thailand's highest per-capita accident rates, particularly for motorbikes
+- Foreign nationals legally require an International Driving Permit (IDP) or Thai license to drive; most rental operators do not check
+- Thailand drives on the LEFT side of the road
+- Helmet law: mandatory for both driver and passenger on motorbikes; fine is 500 baht but inconsistently enforced
+- Phuket has two main hospitals with trauma capability: Vachira Phuket Hospital (government, Phuket Town) and Bangkok Hospital Phuket (private, near Siriroj junction)
+- Key accident hotspots: Patong Hill (steep curves between Kathu and Patong), the Heroines Monument intersection, Thepkrasattri Road (main north-south artery)
+- Chalong Circle, Darasamut Intersection, and Sam Kong area are high-congestion zones
+- In Thai road accidents, the larger vehicle is typically presumed at fault regardless of circumstances
+- If a foreigner is involved in a fatal accident, their passport may be seized pending investigation`,
 
-🎭 CRITICAL - THAI SARCASM/HUMOR DETECTION:
-Comments often reveal the TRUE CONTEXT when captions are sarcastic. DECODE THESE PATTERNS:
-- "นักท่องเที่ยวคุณภาพ" / "Quality tourist" + 🤣😂 = SARCASM meaning BAD tourist behavior (drunk, disorderly, embarrassing)
-- "555" / "5555" = Thai internet laughter - commenters are MOCKING the subject
-- "เอาที่สบายใจ" / "Whatever makes you happy" = SARCASM about embarrassing situation  
-- "สกิลมา" / "Nice skills" / "Great pose" = MOCKERY of someone in stupid situation
-- Comments with 🤣😂🍺 emojis = People are LAUGHING AT the person, not with them
-- "Another quality tourist" in English = SARCASM meaning tourist behaving badly
-- "Need rescue" with laughing emoji = Tourist is DRUNK, not in actual danger
-- "ไม่เมาหรอก" / "Not drunk at all" = SARCASM - they ARE drunk
+      'Tourism': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Phuket received approximately 10-14 million visitors in 2025; top source markets are Russia, India, and China
+- High season runs November to April; monsoon/low season is May to October with rough seas on the west coast
+- Red flags on beaches indicate dangerous swimming conditions; drownings are a leading cause of tourist death
+- Phuket has no Uber/Grab car service; transport options are tuk-tuks, private taxis, Bolt (limited), and songthaews
+- Common tourist complaints: overcharging by tuk-tuks, beach vendor harassment, jet ski scams
+- Alcohol sales are prohibited on Buddhist holidays and election days nationwide
+- Cannabis was decriminalized in 2022 but regulations remain unclear and are frequently changing; public consumption is discouraged
+- Thai immigration allows 60-day visa-exempt stays for most Western nationalities (as of 2025 policy)`,
 
-⚠️ USE COMMENTS TO DETERMINE TRUE STORY:
-If the caption says "Tourist enjoying Patong" but comments say "Quality tourist 555 🍺", the TRUE story is:
-→ DRUNK TOURIST, not "Tourist enjoying the scenery"
+      'Lifestyle': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Phuket received approximately 10-14 million visitors in 2025; top source markets are Russia, India, and China
+- High season runs November to April; monsoon/low season is May to October with rough seas on the west coast
+- Red flags on beaches indicate dangerous swimming conditions; drownings are a leading cause of tourist death
+- Phuket has no Uber/Grab car service; transport options are tuk-tuks, private taxis, Bolt (limited), and songthaews
+- Common tourist complaints: overcharging by tuk-tuks, beach vendor harassment, jet ski scams
+- Alcohol sales are prohibited on Buddhist holidays and election days nationwide
+- Cannabis was decriminalized in 2022 but regulations remain unclear and are frequently changing; public consumption is discouraged
+- Thai immigration allows 60-day visa-exempt stays for most Western nationalities (as of 2025 policy)`,
 
-1. **BLEND ADDITIONAL CONTEXT INTO THE STORY**: If comments mention plausible details that enhance understanding (locations, circumstances, background context), incorporate them NATURALLY into the article body using HEDGING LANGUAGE:
-   - "Local residents allege that..."
-   - "According to local sources on social media..."
-   - "Community members familiar with the area suggest..."
-   - "Some witnesses reportedly described..."
-   - "Unconfirmed reports from locals indicate..."
-   - "It is alleged by community members that..."
+      'Nightlife': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Legal closing time for entertainment venues in Phuket is 2:00 AM; extended zones (like Bangla Road) may operate until 3:00 or 4:00 AM under special permits
+- Bangla Road in Patong is Phuket's primary nightlife strip, pedestrianized from approximately 6 PM nightly
+- Venues require an entertainment license from the provincial authority; unlicensed venues are subject to raids
+- Noise complaints from residents have increased as tourist areas expand into residential neighborhoods
+- Police raids on entertainment venues typically check for: licensing, underage staff/patrons, drug use, overstay foreigners, closing time violations
+- "Drink spiking" incidents are periodically reported in Patong; the Tourist Police advise not leaving drinks unattended`,
+
+      'Weather': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Phuket monsoon season (May-October) brings heavy rainfall, particularly on the west coast; flash flooding is common in low-lying areas like Patong and parts of Phuket Town
+- Andaman Sea conditions: west coast beaches can have dangerous undertows and rip currents during monsoon season
+- Thai Meteorological Department (TMD) issues weather warnings; Phuket Marine Office may close ports and suspend boat services in severe weather
+- Flooding hotspots: Bang Yai canal area, Sam Kong, parts of Rassada, Koh Kaew underpass
+- Phuket's watershed depends heavily on reservoirs; water shortages occur in peak dry season (March-April)`,
+
+      'Environment': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Phuket monsoon season (May-October) brings heavy rainfall, particularly on the west coast; flash flooding is common in low-lying areas like Patong and parts of Phuket Town
+- Andaman Sea conditions: west coast beaches can have dangerous undertows and rip currents during monsoon season
+- Thai Meteorological Department (TMD) issues weather warnings; Phuket Marine Office may close ports and suspend boat services in severe weather
+- Flooding hotspots: Bang Yai canal area, Sam Kong, parts of Rassada, Koh Kaew underpass
+- Phuket's watershed depends heavily on reservoirs; water shortages occur in peak dry season (March-April)`,
+    };
+
+    const GENERAL_CONTEXT_BLOCK = `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Emergency numbers: Tourist Police 1155, Police 191, Ambulance 1669
+- Phuket is a province of Thailand, not an independent jurisdiction; national laws and policies apply
+- The island has approximately 400,000 registered residents but the actual population including unregistered workers and long-term visitors is estimated significantly higher
+- Phuket's economy is overwhelmingly tourism-dependent`;
+
+    const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
+
+    // ── New system prompt (insider voice, not wire-service tourist-brochure) ──
+    const systemPrompt = `You are a veteran wire-service correspondent who has lived in Phuket for over a decade. You write breaking news for an audience of long-term expats and residents who know the island intimately — they know every soi, every shortcut, every police station. Never explain Phuket to them. Write like an insider talking to insiders.
+
+Your job is to transform raw translated Thai-language source material into a complete, professional English news article. You must:
+
+1. Report ONLY what the source explicitly states — never invent, embellish, or dramatize
+2. ADD relevant context and background using the verified reference material provided — but only when it connects specifically to THIS story, not as generic filler
+3. Write articles substantial enough to be genuinely useful, even when the source material is brief
+4. End every article with an "On the Ground" section — story-specific practical context written in an insider voice (see instructions in user message)
+
+VOICE: You are not writing a travel safety brochure. You are writing for people who live here. They don't need to be told what Bangla Road is or that Thailand drives on the left. They DO want to know which specific police station is handling this case, whether this stretch of road has had similar incidents, or what the actual practical implications are for their daily life.
+
+You produce JSON output only. No markdown, no commentary outside the JSON structure.`;
+
+    // ── Structured user message ──────────────────────────────────────────────
+    const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' });
+
+    const commentsBlock = params.communityComments && params.communityComments.length > 0
+      ? `THAI COMMUNITY COMMENTS (mine aggressively — see instructions below):\n${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}`
+      : '';
+
+    const prompt = `📅 CURRENT DATE: ${currentDate} (Thailand Time)
+ARTICLE CATEGORY: ${params.category}
+
+${contextBlock}
+
+---
+
+SOURCE MATERIAL TO ENRICH:
+
+Original Title: ${params.title}
+
+Original Content:
+${params.content}
+
+Original Excerpt:
+${params.excerpt}
+
+${commentsBlock}
+
+---
+
+ENRICHMENT INSTRUCTIONS:
+
+⏰ TENSE VERIFICATION:
+- Compare any dates in the source to TODAY's date above
+- Past events = past tense. Do NOT use present continuous for completed actions.
+- If no date is stated, do NOT assume the event is happening right now. Treat as a completed past event.
+- NEVER copy future tense from an outdated source if the event has already passed.
+
+🚨 FACTUAL ACCURACY:
+- Report ONLY what the source explicitly states
+- Do NOT embellish or upgrade language ("reckless" ≠ "stunts", "disturbing" ≠ "caused chaos", "group" ≠ "mob")
+- Do NOT add generic area descriptions that locals would find patronizing ("Patong, a bustling tourist area..." — LOCALS KNOW THIS)
+- Do NOT use vague filler phrases: "underscores concerns", "highlights challenges", "raises questions about", "sparks debate" — these are banned. Be specific or say nothing.
+- You MAY add facts from the VERIFIED PHUKET REFERENCE section above when they are directly relevant to the story. These are confirmed true. Integrate them naturally — don't dump them in.
+
+🌏 LOCATION RULES:
+- "Bangkok Road" in a Phuket article = a street in Phuket Town, NOT Bangkok city
+- Same for "Krabi Road", "Phang Nga Road" — these are Phuket Town streets, not the provinces
+- Dateline = WHERE THE EVENT HAPPENED, not where the people are from
+- Use "Soi Bangla" not "Bangla Soi" — Soi always comes first
+- "Saphan Hin" = a public park/promenade in Phuket Town, NOT a bridge
+
+${params.communityComments && params.communityComments.length > 0 ? `🎭 COMMENT MINING (comments provided above — mine aggressively):
+
+Thai Facebook comments are one of your most valuable sources. They often contain MORE information than the original post.
+
+A. SARCASM & TONE DETECTION:
+- "นักท่องเที่ยวคุณภาพ" / "Quality tourist" + 🤣 = SARCASM meaning BAD behavior
+- "555" = Thai internet laughter, usually mocking
+- Use tone of comments to determine the true story when the caption is ambiguous
+
+B. EYEWITNESS DETAILS — Look for comments that add factual detail:
+- Specific times, specific details the post missed, corrections, aftermath updates
+- Include these as attributed color: "Commenters on the original post reported that..." or "One commenter who claimed to be at the scene said..."
+
+C. LOCAL KNOWLEDGE — Look for comments that provide context:
+- History of the location ("this junction has had multiple accidents this year")
+- Known local issues ("that bar has been raided before")
+- Practical info ("the CCTV from the 7-Eleven there will have caught it")
+- Integrate naturally into the body or Background section
+
+D. COMMUNITY REACTION — When the reaction IS the story:
+- If comments are overwhelmingly angry, sympathetic, or mocking, that's part of the story
+- Summarize sentiment: "The post drew widespread criticism from Thai commenters, many of whom..."
+
+⚠️ CRITICAL RULES FOR COMMENT-SOURCED INFORMATION:
+- NEVER present comment claims as confirmed fact. Always attribute: "according to commenters", "one commenter reported", "local residents responding to the post said"
+- If a comment CONTRADICTS the original post, note the discrepancy
+- Ignore pure reactions (emojis, "wow", single-word responses) — only mine substantive comments
+- Do NOT include names of victims or suspects found only in comments
+
+` : ''}📝 ARTICLE STRUCTURE:
+
+1. **DATELINE**: Bold caps showing where the event happened (e.g., **PATONG, PHUKET —**)
+
+2. **LEDE**: One paragraph answering Who, What, Where, When. Be specific.
+
+3. **DETAILS**: Expand on the lede with all available facts from the source.${params.communityComments && params.communityComments.length > 0 ? ' Then mine the comments thoroughly using the rules above — eyewitness details, corrections, local knowledge, and community reaction can all add substantial depth.' : ''} Use direct quotes if the source contains them.
+
+4. **BACKGROUND** (when relevant): Draw on the VERIFIED PHUKET REFERENCE material above, but ONLY facts that connect directly to THIS specific story.
+
+   GOOD example (story-specific): "It's the third motorbike fatality on Patong Hill this year — the stretch between the Kathu junction and the viewpoint remains one of the island's most dangerous."
    
-2. **PUBLIC REACTION SECTION**: After the "Context" section, add a brief "<h3>Public Reaction</h3>" section summarizing overall community sentiment. Examples:
-   - "The images sparked widespread amusement online, with locals dubbing the individual yet another 'quality tourist.'"
-   - "Community reaction was largely humorous, with many commenters joking about the tourist's state."
-   - "The incident has gone viral locally, with residents expressing a mix of amusement and exasperation at tourist behavior."
+   BAD example (generic filler): "Phuket has some of the highest road accident rates in Thailand. Foreign drivers are advised to carry an International Driving Permit."
    
-3. **CRITICAL RULES FOR COMMENTS:**
-   - NEVER treat comments as verified facts - always hedge
-   - NEVER mention specific commenter names (anonymize completely)
-   - NEVER include speculation that could be defamatory
-   - Prioritize comments with substantive information over emotional reactions
-   - Interpret SARCASTIC comments to understand TRUE MEANING (not literal)
-   - If comments are in Thai, interpret their INTENDED meaning (including sarcasm) for English readers
-   - If 70%+ comments are mocking/laughing, the story is likely embarrassing/amusing, not serious
-`;
-    }
+   The test: would a long-term Phuket resident learn something from this sentence, or roll their eyes? If they'd roll their eyes, cut it.
 
-    const prompt = `You are a Senior International Correspondent for a major wire service (like AP, Reuters, or AFP) stationed in Phuket, Thailand.
+5. **ON THE GROUND** (REQUIRED — include in EVERY article): A short section at the end with an <h3>On the Ground</h3> tag. This is NOT a safety brochure. It's story-specific insider context — what a well-connected local would tell a friend.
 
-📅 CURRENT DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' })} (Thailand Time)
+   WHAT THIS SECTION SHOULD SOUND LIKE:
+   - "Thalang Police are handling the case — the station is the one just past the Heroines Monument heading north."
+   - "That section of Thepkrasattri is a known blackspot, especially after dark. There's been talk of adding lights since at least 2022."
+   - "If you were in the area and have dashcam footage, Patong Police are actively asking for it."
+   - "Vachira will be the receiving hospital for anything on this side of the island."
 
-⏰ CRITICAL - TENSE VERIFICATION & TEMPORAL GROUNDING:
-- CHECK EVENT DATES: Compare any event dates in the source to TODAY's date above.
-- PAST EVENTS = PAST TENSE: If an action is complete (e.g., a rescue, an accident, a sinking), write in PAST TENSE ("were rescued", "took place", "occurred").
-- NO FALSE PRESENT CONTINUOUS TENSE: DO NOT report completed actions using present continuous tense ("are being rescued"). Only use present continuous if the source explicitly states the action is unfolding at the exact moment of reporting.
-- PREVIOUS EVENTS: If the source states an event happened previously (e.g., "last week" or "recently"), clearly indicate that. Do not merge past contexts into current ongoing actions.
-- ZERO HALLUCINATION OF TIME: If the Thai source has no explicit date, DO NOT ASSUME the event is happening right now today. Assume it is a completed past event unless stated otherwise.
-- FUTURE EVENTS = FUTURE TENSE: Only use future tense if the event is genuinely upcoming.
-- NEVER copy future tense from an outdated source if the event has passed.
+   WHAT THIS SECTION SHOULD NEVER SOUND LIKE:
+   - "If you are involved in a traffic accident, remain at the scene and call 191."
+   - "Tourists are advised to exercise caution when visiting nightlife areas."
+   - "Foreign nationals should ensure they carry a valid International Driving Permit at all times."
+   
+   2-4 sentences max. Use the reference material to find the relevant fact (which station, which hospital, what the law actually says), then phrase it the way a local would.
 
-🚨 ABSOLUTE PRIORITY - FACTUAL ACCURACY (READ FIRST) 🚨
-You MUST report ONLY what the source explicitly states. DO NOT embellish, dramatize, or expand the meaning of words:
+TONE: Write like a veteran correspondent who lives in Phuket and files stories for people who also live there. Professional but not sterile. Specific but not padded. You're not writing a travel advisory — you're writing the news for your neighbors.
 
-❌ FORBIDDEN SEMANTIC EXPANSIONS (EXAMPLES):
-- "reckless" or "คึกคะนอง" → Do NOT upgrade to "stunts", "wheelies", "acrobatic maneuvers"
-- "disturbing" or "ป่วน" → Do NOT upgrade to "caused chaos", "created havoc", "disrupted traffic"
-- "motorbike gang" → Do NOT upgrade to "organized crime ring", "gang performing stunts"
-- "group of tourists" → Do NOT upgrade to "rowdy mob", "gang of revelers"
-- "riding at night" → Do NOT add "speeding", "racing", "performing tricks"
-- "pulled over by police" → Do NOT add "arrested", "detained", "fined" unless source says so
+MINIMUM LENGTH: The enrichedContent should be at least 150 words. If the source material is thin, Background and On the Ground carry the weight — but only with genuinely relevant, story-specific content. Never pad with generic advice or area descriptions.
 
-✅ ALLOWED:
-- Translate accurately ("คึกคะนอง" = "reckless" or "boisterous", NOT "performing stunts")
-- Describe what the source explicitly shows or says
-
-🚫 DO NOT ADD GENERIC AREA DESCRIPTIONS (CRITICAL - READ THIS):
-Our readers are LOCAL RESIDENTS and EXPATS who know Phuket extremely well. DO NOT add condescending tourist-guide fluff like:
-- "Patong, a bustling tourist area on Phuket's west coast" - LOCALS KNOW WHAT PATONG IS
-- "Bangla Road, famous for its nightlife" - EVERYONE KNOWS THIS
-- "Chalong, known for the Big Buddha" - THIS IS PATRONIZING
-
-Write like you're talking to an INSIDER who reads this site every day, not a clueless tourist visiting for the first time.
-The ONLY exception: If a story relates to a RECURRING THEME in that area (e.g., another Bangla Road fight, another Patong parking dispute), you may briefly note that this is part of an ongoing pattern.
-
-IF THE SOURCE IS VAGUE, KEEP YOUR ARTICLE VAGUE. Short sources = short articles.
-    
-YOUR MISSION:
-Take the provided local news report and rewrite it into professional journalism while staying 100% FACTUAL to the source. Write for LOCALS AND EXPATS who know the island intimately.
-
-INPUT ARTICLE:
-Title: ${params.title}
-Category: ${params.category}
-Content: ${params.content}
-
-${communityCommentsSection}
-CRITICAL LOCATION VERIFICATION (READ BEFORE WRITING):
-- **DATELINE = EVENT LOCATION, NOT PERSON'S ORIGIN:** If "KB Jetski Phuket team helps in Songkhla floods", the dateline should be "**SONGKHLA –**" or "**HAT YAI, SONGKHLA –**" (where the event is), NOT "**PHUKET TOWN –**" (where the team is from).
-- **DO NOT HALLUCINATE PHUKET:** If the event is in Hat Yai, Bangkok, Songkhla, or any other location, DO NOT use a Phuket dateline.
-- **PERSON'S ORIGIN ≠ EVENT LOCATION:** Just because someone is FROM Phuket does not mean the event HAPPENED in Phuket.
-- **READ THE CATEGORY:** If the category is "National", the event is likely NOT in Phuket.
-- **VERIFY BEFORE WRITING:** Look at the content - does it mention specific non-Phuket cities, provinces, or landmarks? If yes, use THAT location in the dateline.
-
-🌏 PHUKET STREET / PLACE NAME ACCURACY:
-- "Bangkok Road" in article → dateline is **PHUKET TOWN, PHUKET** (it's a street IN Phuket Town, NOT Bangkok city)
-- "Krabi Road" or "Phang Nga Road" → same rule, these are Phuket Town streets NOT those provinces
-- "Saphan Hin" = a public park/promenade in Phuket Town (NOT a bridge — never write "Phuket Bridge event")
-- Soi naming: ALWAYS "Soi Bangla" not "Bangla Soi" — Soi comes before the name.
-
-STRICT WRITING GUIDELINES:
-1. **DATELINE:** Start the article with a dateline in bold caps showing WHERE THE EVENT HAPPENED. E.g., "**HAT YAI, SONGKHLA –**" for Hat Yai events, "**PATONG, PHUKET –**" for Patong events, "**BANGKOK –**" for Bangkok events. **CRITICAL: If source mentions "Bangkok Road" or "ถนนกรุงเทพ", the dateline is "**PHUKET TOWN, PHUKET –**" NOT "**BANGKOK –**"**
-2. **LEDE PARAGRAPH:** Write a summary lede that answers Who, What, Where, When using ONLY facts from the source.
-3. **TONE:** Professional, objective, and authoritative. Avoid "police speak" (e.g., change "proceeded to the scene" to "rushed to the scene"). Use active voice.
-4. **STRUCTURE:**
-   - **The Narrative:** Tell the story chronologically or by importance.${params.communityComments && params.communityComments.length > 0 ? `
-   - **Additional Context from Community:** Weave in alleged details from comments using hedging language.` : ''}
-   - **The "Context" Section:** ONLY add a Context section if this story relates to a RECURRING THEME or ONGOING PATTERN (e.g., "This is the third parking dispute on this soi this month", "Bangla Road fights have increased during high season"). DO NOT add generic area descriptions that locals already know.${params.communityComments && params.communityComments.length > 0 ? `
-   - **The "Public Reaction" Section (PRIORITY):** This is MORE IMPORTANT than Context. Add "<h3>Public Reaction</h3>" summarizing what locals are saying about this story. Our readers want to hear community sentiment, not generic area fluff.` : ''}
-5. **FACTUALITY - ZERO TOLERANCE FOR HALLUCINATION:**
-   - Do NOT invent quotes, specific numbers, witness statements, or police responses.
-   - Do NOT add: "shouted at passersby", "appeared agitated", "caused chaos", "witnesses described", "police responded to calls", "performing stunts", "doing wheelies" unless the source says so.
-   - Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN).
-   - Do NOT add generic area descriptions like "bustling tourist area" or "famous for nightlife" - our readers are locals who already know this.
-   - For short/viral posts: write SHORT factual articles (2-3 paragraphs). Do NOT dramatize into full news stories with invented scenarios.
-6. **NO VAGUE FILLER PHRASES (CRITICAL):** These lazy phrases add no value and make articles sound generic:
-   - FORBIDDEN in article body: "underscores concerns", "highlights concerns", "raises questions about", "sparks debate", "highlights the challenges", "remains a concern", "is a reminder of"
-   - Instead, be SPECIFIC: If there's a concern, say WHOSE concern and WHAT specifically. If there's no specific concern mentioned in the source, don't make one up.
-   - GOOD: "Police said they will increase patrols in the area."
-   - BAD: "The incident underscores ongoing concerns about tourist behavior." (vague, made-up concern)
-7. **DO NOT SANITIZE:** Report scandalous behavior accurately using professional language, but do not exaggerate it.
-
-EXAMPLE OUTPUT FORMAT:
-"**PATONG, PHUKET –** A violent altercation between American tourists turned one of Phuket's most famous nightlife strips into a scene of chaos Saturday night...
-
-The incident unfolded on Bangla Road... [Story continues]...
-
-<h3>Context: Bangla Road's Ongoing Challenge</h3>
-This incident highlights ongoing public safety concerns along Bangla Road, which attracts thousands of international visitors nightly...${params.communityComments && params.communityComments.length > 0 ? `
-
-<h3>Public Reaction</h3>
-The incident has drawn significant attention on social media, with local residents expressing [sentiment]..."` : ''}"
-
-CRITICAL FORMATTING REQUIREMENTS:
+FORMATTING REQUIREMENTS:
 - EVERY paragraph MUST be wrapped in <p></p> tags
-- Article MUST have at least 4-6 separate paragraphs for easy reading
-- Use <h3> tags for section headings (Context, Public Reaction)
-- NEVER return content as a single wall of text - this is UNACCEPTABLE
-- Break up long paragraphs into digestible chunks of 2-3 sentences each
+- Use <h3> tags for section headings (Background, On the Ground, Public Reaction)
+- NEVER return content as a single wall of text
 
-Respond in JSON format:
+OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences, no commentary:
+
 {
-  "enrichedTitle": "FACTUAL headline describing what happened (Title Case, AP-Style). FORBIDDEN: 'highlights concerns', 'raises concerns', 'sparks debate'. GOOD: 'Tourists Fight on Bangla Road'. BAD: 'Tourist Altercation Highlights Safety Concerns'.",
-  "enrichedContent": "Full HTML article with proper <p> paragraph tags, starting with DATELINE, including Context section${params.communityComments && params.communityComments.length > 0 ? ' and Public Reaction section' : ''}",
-  "enrichedExcerpt": "2-3 sentence FACTUAL summary. FORBIDDEN: 'highlights concerns', 'raises questions'. MUST describe what happened, not vague implications."
+  "enrichedTitle": "Factual AP-style headline. Be specific: names, places, numbers. NEVER use 'raises concerns' or 'sparks debate'. GOOD: 'Russian Tourist Arrested With 3kg of Cocaine in Cherng Talay'. BAD: 'Drug Arrest Raises Concerns in Phuket'.",
+  "enrichedContent": "Full HTML article. Use <p> tags for paragraphs, <h3> for section headers. Start with bold DATELINE. Always include the On the Ground section.",
+  "enrichedExcerpt": "2-3 sentence factual summary describing what happened. Used for meta descriptions and social sharing — make it specific and compelling. FORBIDDEN: 'highlights concerns', 'raises questions'."
 }`;
 
     // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
@@ -896,7 +963,7 @@ Respond in JSON format:
         const completion = await openai.chat.completions.create({
           model: model,
           messages: [
-            { role: "system", content: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. You always output valid JSON." },
+            { role: "system", content: systemPrompt },
             { role: "user", content: prompt },
           ],
           temperature: 0.3,
@@ -907,9 +974,9 @@ Respond in JSON format:
         console.log(`   🤖 [ANTHROPIC] Enriching with ${anthropicModel}`);
         const response = await anthropic.messages.create({
           model: anthropicModel,
-          max_tokens: 2048,
+          max_tokens: 3000,
           temperature: 0.3,
-          system: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. Return ONLY a valid JSON object — no preamble, no markdown code blocks, no extra text.",
+          system: systemPrompt,
           messages: [{ role: "user", content: prompt }],
         });
         const responseContent = response.content[0];
@@ -925,7 +992,7 @@ Respond in JSON format:
       const completion = await openai.chat.completions.create({
         model: model,
         messages: [
-          { role: "system", content: "You are a world-class journalist and editor. You write with precision, depth, and narrative flair. You always output valid JSON." },
+          { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
         temperature: 0.3,
