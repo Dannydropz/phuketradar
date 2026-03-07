@@ -1,14 +1,28 @@
 <!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"
+    xmlns:o="urn:schemas-microsoft-com:office:office">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="format-detection" content="telephone=no">
-    <title>Phuket Radar - Daily News</title>
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <title>Phuket Radar – Daily Briefing</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
 
         body,
         table,
@@ -24,6 +38,7 @@
         td {
             mso-table-lspace: 0pt;
             mso-table-rspace: 0pt;
+            border-collapse: collapse;
         }
 
         img {
@@ -37,447 +52,791 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background-color: #050505;
+            background-color: #080808;
             margin: 0;
             padding: 0;
             width: 100%;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        .wrapper {
-            background-color: #050505;
+        a {
+            color: inherit;
+        }
+
+        /* ===== LAYOUT ===== */
+        .email-wrapper {
+            background-color: #080808;
             width: 100%;
-            padding: 20px 0;
+            padding: 24px 0 40px;
         }
 
-        .container {
+        .email-container {
             max-width: 600px;
             margin: 0 auto;
-            background-color: #0A0A0A;
-            border-radius: 8px;
+            background-color: #0f0f0f;
+            border-radius: 12px;
             overflow: hidden;
-            border: 1px solid #262626;
+            border: 1px solid #1f1f1f;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
         }
 
+        /* ===== HEADER ===== */
         .header {
-            background-color: #050505;
+            background-color: #080808;
             text-align: center;
-            padding: 24px 20px;
-            border-bottom: 1px solid #262626;
+            padding: 28px 24px 20px;
+            border-bottom: 1px solid #1f1f1f;
         }
 
-        .header img {
-            max-width: 180px;
+        .header-logo {
+            max-width: 160px;
             height: auto;
+            display: block;
+            margin: 0 auto 10px;
         }
 
-        .hero-story {
-            padding: 0;
+        .header-date {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            display: block;
+            margin-top: 4px;
+        }
+
+        /* ===== BREAKING LABEL ===== */
+        .top-label {
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+            text-align: center;
+            padding: 8px 24px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* ===== HERO STORY ===== */
+        .hero-image-wrap {
+            position: relative;
+            display: block;
         }
 
         .hero-image {
             width: 100%;
             height: auto;
             display: block;
+            max-height: 320px;
+            object-fit: cover;
+        }
+
+        .hero-category {
+            display: inline-block;
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+            color: #000;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 3px;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+
+        .hero-category-crime {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+
+        .hero-category-breaking {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+        }
+
+        .hero-category-traffic {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+        }
+
+        .hero-category-weather {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #fff;
         }
 
         .hero-content {
-            padding: 24px;
-            background: #0A0A0A;
-        }
-
-        .category-badge {
-            display: inline-block;
-            background-color: #1a8a8a;
-            color: #fff;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            padding: 4px 10px;
-            border-radius: 4px;
-            margin-bottom: 12px;
-        }
-
-        .badge-crime {
-            background-color: #b91c1c;
-        }
-
-        .badge-breaking {
-            background-color: #dc2626;
-        }
-
-        .badge-traffic {
-            background-color: #f97316;
+            padding: 28px 28px 24px;
+            background: #0f0f0f;
         }
 
         .hero-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #fafafa;
-            margin: 0 0 12px 0;
-            line-height: 1.3;
+            font-size: 26px;
+            font-weight: 800;
+            color: #f5f5f5;
+            margin: 0 0 14px 0;
+            line-height: 1.28;
+            letter-spacing: -0.3px;
         }
 
         .hero-title a {
-            color: #fafafa;
+            color: #f5f5f5;
             text-decoration: none;
         }
 
         .hero-excerpt {
             font-size: 15px;
-            color: #a1a1a1;
-            margin: 0 0 16px 0;
-            line-height: 1.6;
+            color: #8a8a8a;
+            margin: 0 0 20px 0;
+            line-height: 1.7;
         }
 
-        .read-more {
-            display: inline-block;
-            background-color: transparent;
-            color: #22d3ee;
-            font-size: 14px;
-            font-weight: 600;
-            text-decoration: none;
-            padding: 8px 16px;
-            border: 1px solid rgba(34, 211, 238, 0.3);
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .cta-button {
+        .hero-cta {
             display: inline-block;
             background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%);
-            color: #ffffff;
-            font-size: 14px;
+            color: #000 !important;
+            font-size: 13px;
             font-weight: 700;
             text-decoration: none;
-            padding: 12px 28px;
+            padding: 11px 24px;
             border-radius: 6px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(34, 211, 238, 0.25), 0 0 20px rgba(34, 211, 238, 0.15);
-            margin-top: 8px;
+            letter-spacing: 0.8px;
         }
 
-        .date-display {
-            font-size: 12px;
-            color: #737373;
+        /* ===== DIVIDER ===== */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #1f1f1f, transparent);
+            margin: 0;
+        }
+
+        /* ===== SECTION HEADER ===== */
+        .section-header {
+            padding: 22px 28px 14px;
+            background-color: #0f0f0f;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #22d3ee;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-top: 8px;
-            display: block;
-        }
-
-        .section-header {
-            padding: 24px 24px 16px 24px;
-            background-color: #0A0A0A;
+            margin: 0 0 2px;
         }
 
         .section-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: #22d3ee;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
             margin: 0;
+            letter-spacing: -0.2px;
         }
 
-        .story-list {
-            padding: 0 24px 24px 24px;
-            background-color: #0A0A0A;
+        /* ===== TRENDING STORIES ===== */
+        .stories-container {
+            padding: 0 28px 8px;
+            background-color: #0f0f0f;
         }
 
-        .story-item {
-            padding: 16px 0;
-            border-bottom: 1px solid #262626;
+        .story-row {
+            padding: 18px 0;
+            border-bottom: 1px solid #191919;
         }
 
-        .story-item:last-child {
+        .story-row:last-child {
             border-bottom: none;
         }
 
-        .story-image {
-            width: 90px;
-            height: 68px;
+        .story-thumbnail {
+            width: 88px;
+            height: 66px;
             object-fit: cover;
             border-radius: 6px;
             vertical-align: top;
+            display: block;
         }
 
-        .story-category {
-            display: inline-block;
+        .story-body {
+            padding-left: 16px;
+            vertical-align: top;
+        }
+
+        .story-cat {
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 700;
             color: #22d3ee;
             text-transform: uppercase;
-            margin-bottom: 4px;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 5px;
         }
 
-        .story-title {
+        .story-headline {
             font-size: 15px;
             font-weight: 600;
-            color: #fafafa;
-            margin: 0 0 4px 0;
-            line-height: 1.35;
+            color: #e8e8e8;
+            margin: 0 0 5px;
+            line-height: 1.4;
         }
 
-        .story-title a {
-            color: #fafafa;
+        .story-headline a {
+            color: #e8e8e8;
             text-decoration: none;
         }
 
-        .story-meta {
-            font-size: 12px;
-            color: #737373;
+        .story-headline a:hover {
+            color: #22d3ee;
+        }
+
+        .story-time {
+            font-size: 11px;
+            color: #505050;
             margin: 0;
         }
 
-        .radar-section {
-            background-color: #050505;
-            padding: 24px;
-            border-top: 1px solid #262626;
+        /* ===== ON THE RADAR ===== */
+        .radar-container {
+            background-color: #090909;
+            padding: 24px 28px;
+            border-top: 1px solid #1f1f1f;
         }
 
-        .radar-item {
-            padding: 12px 0;
-            border-bottom: 1px solid #1a1a1a;
+        .radar-row {
+            padding: 11px 0;
+            border-bottom: 1px solid #141414;
         }
 
-        .radar-item:last-child {
+        .radar-row:last-child {
             border-bottom: none;
+        }
+
+        .radar-bullet {
+            color: #22d3ee;
+            font-size: 14px;
+            vertical-align: top;
+            padding-right: 10px;
+            padding-top: 1px;
         }
 
         .radar-link {
             font-size: 14px;
             font-weight: 500;
-            color: #e5e5e5;
+            color: #d4d4d4;
             text-decoration: none;
+            line-height: 1.45;
             display: block;
         }
 
-        .footer {
-            background-color: #050505;
-            padding: 24px;
+        .radar-link:hover {
+            color: #22d3ee;
+        }
+
+        /* ===== CTA BLOCK ===== */
+        .cta-block {
+            background: linear-gradient(135deg, #0d1f2d 0%, #0a1a1a 100%);
+            border-top: 1px solid #1a3a3a;
+            padding: 32px 28px;
             text-align: center;
-            border-top: 1px solid #262626;
+        }
+
+        .cta-block-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #22d3ee;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0 0 8px;
+        }
+
+        .cta-block-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 8px;
+        }
+
+        .cta-block-sub {
+            font-size: 14px;
+            color: #5a8a8a;
+            margin: 0 0 20px;
+        }
+
+        .cta-block-btn {
+            display: inline-block;
+            background: transparent;
+            color: #22d3ee !important;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            padding: 11px 22px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border: 1.5px solid rgba(34, 211, 238, 0.5);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            background-color: #080808;
+            padding: 28px 28px 32px;
+            text-align: center;
+            border-top: 1px solid #1a1a1a;
         }
 
         .footer-logo {
-            max-width: 120px;
+            max-width: 110px;
             height: auto;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.7;
         }
 
-        .footer-text {
+        .footer-tagline {
             font-size: 12px;
-            color: #737373;
-            margin: 0 0 8px 0;
+            color: #454545;
+            margin: 0 0 16px;
         }
 
-        .footer-links {
-            margin: 16px 0;
+        .footer-nav {
+            margin: 0 0 16px;
         }
 
-        .footer-link {
+        .footer-nav a {
             font-size: 12px;
-            color: #a1a1a1;
+            color: #555;
             text-decoration: none;
-            margin: 0 10px;
+            margin: 0 8px;
         }
 
-        .unsubscribe-text {
+        .footer-separator {
+            color: #2a2a2a;
+            font-size: 12px;
+        }
+
+        .footer-legal {
             font-size: 11px;
-            color: #525252;
-            margin: 16px 0 0 0;
+            color: #383838;
+            margin: 0;
+            line-height: 1.6;
         }
 
-        .unsubscribe-link {
-            color: #737373;
+        .footer-legal a {
+            color: #4a4a4a;
             text-decoration: underline;
         }
 
-        @media screen and (max-width: 600px) {
-            .container {
-                width: 100% !important;
+        /* ===== RESPONSIVE ===== */
+        @media screen and (max-width: 620px) {
+            .email-wrapper {
+                padding: 0 !important;
+            }
+
+            .email-container {
                 border-radius: 0 !important;
+                border-left: none !important;
+                border-right: none !important;
             }
 
             .hero-title {
-                font-size: 20px !important;
+                font-size: 22px !important;
             }
 
-            .story-image {
-                width: 70px !important;
-                height: 52px !important;
+            .hero-content {
+                padding: 20px 20px 18px !important;
             }
 
-            .story-title {
-                font-size: 14px !important;
+            .section-header {
+                padding: 18px 20px 12px !important;
+            }
+
+            .stories-container {
+                padding: 0 20px 4px !important;
+            }
+
+            .radar-container {
+                padding: 18px 20px !important;
+            }
+
+            .footer {
+                padding: 22px 20px 28px !important;
+            }
+
+            .story-thumbnail {
+                width: 72px !important;
+                height: 54px !important;
+            }
+
+            .hero-cta {
+                display: block !important;
+                text-align: center !important;
             }
         }
     </style>
 </head>
 
 <body
-    style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #050505; margin: 0; padding: 0; width: 100%; -webkit-font-smoothing: antialiased;">
-    <!-- Outer Wrapper Table for Background Color -->
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#050505" style="background-color: #050505;">
+    style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #080808; margin: 0; padding: 0;">
+
+    <!-- Preheader: first sentence of top story — shown as gray text after subject in inboxes -->
+    <span
+        style="display:none;font-size:1px;color:#080808;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">{{PREHEADER}}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</span>
+
+
+    <table class="email-wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#080808"
+        style="background-color: #080808;">
         <tr>
-            <td align="center" style="padding: 20px 0;">
-                <table class="container" cellpadding="0" cellspacing="0" border="0" width="600" align="center"
-                    bgcolor="#0A0A0A"
-                    style="max-width: 600px; margin: 0 auto; background-color: #0A0A0A; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
-                    <!-- Header with Logo -->
+            <td align="center" style="padding: 24px 16px 40px;">
+
+                <table class="email-container" cellpadding="0" cellspacing="0" border="0" width="600" align="center"
+                    bgcolor="#0f0f0f"
+                    style="max-width: 600px; width: 100%; background-color: #0f0f0f; border-radius: 12px; border: 1px solid #1f1f1f;">
+
+                    <!-- ====== HEADER ====== -->
                     <tr>
-                        <td class="header" bgcolor="#050505" align="center"
-                            style="padding: 24px 20px; border-bottom: 1px solid #262626;">
-                            <a href="https://phuketradar.com">
+                        <td class="header" bgcolor="#080808" align="center"
+                            style="padding: 28px 24px 20px; border-bottom: 1px solid #1f1f1f; background-color: #080808; text-align: center;">
+                            <a href="https://phuketradar.com" style="display: block; text-decoration: none;">
                                 <img src="https://phuketradar.com/assets/logo-white-transparent-DH-BgQMp.png"
-                                    alt="Phuket Radar"
-                                    style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
+                                    alt="Phuket Radar" class="header-logo"
+                                    style="max-width: 160px; height: auto; display: block; margin: 0 auto 10px;">
                             </a>
-                            <span class="date-display"
-                                style="font-size: 12px; color: #737373; text-transform: uppercase; letter-spacing: 2px; margin-top: 8px; display: block;">Wednesday, February 18, 2026</span>
+                            <span class="header-date"
+                                style="font-size: 11px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 2.5px; display: block;">
+                                Wednesday, March 4, 2026
+                            </span>
                         </td>
                     </tr>
 
-                    <!-- Hero/Top Story -->
+                    <!-- ====== TOP LABEL ====== -->
                     <tr>
-                        <td class="hero-story">
-                            <a href="https://phuketradar.com/crime/four-nigerians-arrested-for-cocaine-possession-in-patong-671b0a0d">
-                                <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1771381643/phuketradar/news-1771381642637-3f72973e.webp" alt="Four Nigerians Arrested for Cocaine Possession in Patong" class="hero-image">
+                        <td
+                            style="background: linear-gradient(135deg, #22d3ee, #0ea5e9); text-align: center; padding: 7px 24px; font-size: 10px; font-weight: 700; color: #000; text-transform: uppercase; letter-spacing: 2px;">
+                            📡 &nbsp;Your Daily Phuket Briefing
+                        </td>
+                    </tr>
+
+                    <!-- ====== HERO STORY ====== -->
+                    <tr>
+                        <td style="padding: 0; background-color: #0f0f0f;">
+
+                            <!-- Hero Image -->
+                            <a href="https://phuketradar.com/economy/phuket-residents-rush-to-fuel-stations-as-global-oil-prices-surge-4d16cb05" style="display: block; text-decoration: none;">
+                                <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1772514122/phuketradar/news-1772514121822-0243ea3c.webp" alt="Phuket Residents Rush to Fuel Stations Amid Concerns Over Oil Prices Following Iran's Closure of the Strait of Hormuz" class="hero-image"
+                                    style="width: 100%; max-height: 320px; height: auto; display: block; object-fit: cover;">
                             </a>
-                            <div class="hero-content">
-                                <span class="category-badge">CRIME</span>
-                                <h1 class="hero-title">
-                                    <a href="https://phuketradar.com/crime/four-nigerians-arrested-for-cocaine-possession-in-patong-671b0a0d">Four Nigerians Arrested for Cocaine Possession in Patong</a>
+
+                            <!-- Hero Content -->
+                            <div class="hero-content" style="padding: 28px 28px 24px; background-color: #0f0f0f;">
+                                <div style="margin-bottom: 14px;">
+                                    <span class="hero-category"
+                                        style="display: inline-block; background: linear-gradient(135deg, #22d3ee, #0ea5e9); color: #000; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 3px; letter-spacing: 1px;">
+                                        ECONOMY
+                                    </span>
+                                </div>
+                                <h1 class="hero-title"
+                                    style="font-size: 26px; font-weight: 800; color: #f5f5f5; margin: 0 0 14px; line-height: 1.28; letter-spacing: -0.3px;">
+                                    <a href="https://phuketradar.com/economy/phuket-residents-rush-to-fuel-stations-as-global-oil-prices-surge-4d16cb05"
+                                        style="color: #f5f5f5; text-decoration: none;">Phuket Residents Rush to Fuel Stations Amid Concerns Over Oil Prices Following Iran's Closure of the Strait of Hormuz</a>
                                 </h1>
-                                <p class="hero-excerpt">Four Nigerian nationals were arrested in Patong's Soi Bangla for cocaine possession during a police operation targeting drug-related activities. This is part of ongoing efforts to address drug issues in tourist areas.</p>
-                                <a href="https://phuketradar.com/crime/four-nigerians-arrested-for-cocaine-possession-in-patong-671b0a0d" class="cta-button">Read full story →</a>
+                                <p class="hero-excerpt"
+                                    style="font-size: 15px; color: #8a8a8a; margin: 0 0 20px; line-height: 1.7;">
+                                    Phuket residents are rushing to fuel stations amid fears of rising oil prices following Iran's closure of the Strait of Hormuz. The Prime Minister confirmed that Thailand has sufficient oil reserves and is taking measures to stabilize prices.
+                                </p>
+                                <a href="https://phuketradar.com/economy/phuket-residents-rush-to-fuel-stations-as-global-oil-prices-surge-4d16cb05" class="hero-cta"
+                                    style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #000 !important; font-size: 13px; font-weight: 700; text-decoration: none; padding: 11px 24px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.8px;">
+                                    Read Full Story →
+                                </a>
                             </div>
+
                         </td>
                     </tr>
 
-                    <!-- Trending Section Header -->
+                    <!-- ====== TRENDING SECTION HEADER ====== -->
                     <tr>
-                        <td class="section-header">
-                            <h2 class="section-title">Trending Stories</h2>
+                        <td
+                            style="height: 1px; background: linear-gradient(to right, transparent, #1f1f1f, transparent);">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="section-header" bgcolor="#0f0f0f"
+                            style="padding: 22px 28px 14px; background-color: #0f0f0f;">
+                            <p class="section-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 3px;">
+                                Also trending
+                            </p>
+                            <h2 class="section-title"
+                                style="font-size: 18px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.2px;">
+                                More from Phuket
+                            </h2>
                         </td>
                     </tr>
 
-                    <!-- Trending Stories List -->
+                    <!-- ====== TRENDING STORIES ====== -->
                     <tr>
-                        <td class="story-list">
+                        <td class="stories-container" bgcolor="#0f0f0f"
+                            style="padding: 0 28px 8px; background-color: #0f0f0f;">
+
                             <!-- Story 1 -->
-                            <table class="story-item" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: 1px solid #191919;">
                                 <tr>
-                                    <td width="106" valign="top">
-                                        <a href="https://phuketradar.com/tourism/phuket-achieves-record-flight-numbers-in-2026-f48c2356">
-                                            <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1771319085/phuketradar/news-1771319085185-aaddae07.webp" alt="Phuket Achieves Record Flight Numbers in 2026" class="story-image">
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="https://phuketradar.com/crime/hit-and-run-driver-sought-after-pedestrian-left-with-seven-broken-ribs-in-yang-50c00756" style="display: block; text-decoration: none;">
+                                            <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1772535668/phuketradar/news-1772535667671-b88538c2.webp" alt="Hit-and-Run Driver Sought After Pedestrian Left With Seven Broken Ribs in Yang" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
                                         </a>
                                     </td>
-                                    <td valign="top" style="padding-left: 16px;">
-                                        <span class="story-category">TOURISM</span>
-                                        <h3 class="story-title">
-                                            <a href="https://phuketradar.com/tourism/phuket-achieves-record-flight-numbers-in-2026-f48c2356">Phuket Achieves Record Flight Numbers in 2026</a>
-                                        </h3>
-                                        <p class="story-meta">4:04 PM</p>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            CRIME
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="https://phuketradar.com/crime/hit-and-run-driver-sought-after-pedestrian-left-with-seven-broken-ribs-in-yang-50c00756"
+                                                style="color: #e8e8e8; text-decoration: none;">Hit-and-Run Driver Sought After Pedestrian Left With Seven Broken Ribs in Yang</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            6:01 PM</p>
                                     </td>
                                 </tr>
                             </table>
 
                             <!-- Story 2 -->
-                            <table class="story-item" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: 1px solid #191919;">
                                 <tr>
-                                    <td width="106" valign="top">
-                                        <a href="https://phuketradar.com/local/russian-tourist-rescued-after-falling-into-drain-at-nai-thon-beach-1e217827">
-                                            <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1771340821/phuketradar/news-1771340820541-c54580a0.webp" alt="Russian Tourist Rescued After Falling Into Drain at Nai Thon Beach" class="story-image">
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="https://phuketradar.com/traffic/concrete-mixer-collides-with-trailer-on-pa-klok-access-road-c1d07465" style="display: block; text-decoration: none;">
+                                            <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1772521480/phuketradar/news-1772521479690-0d5e11b5.webp" alt="Concrete Mixer Collides with Trailer on Pa Klok Access Road" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
                                         </a>
                                     </td>
-                                    <td valign="top" style="padding-left: 16px;">
-                                        <span class="story-category">LOCAL</span>
-                                        <h3 class="story-title">
-                                            <a href="https://phuketradar.com/local/russian-tourist-rescued-after-falling-into-drain-at-nai-thon-beach-1e217827">Russian Tourist Rescued After Falling Into Drain at Nai Thon Beach</a>
-                                        </h3>
-                                        <p class="story-meta">10:07 PM</p>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            TRAFFIC
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="https://phuketradar.com/traffic/concrete-mixer-collides-with-trailer-on-pa-klok-access-road-c1d07465"
+                                                style="color: #e8e8e8; text-decoration: none;">Concrete Mixer Collides with Trailer on Pa Klok Access Road</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            2:04 PM</p>
                                     </td>
                                 </tr>
                             </table>
 
                             <!-- Story 3 -->
-                            <table class="story-item" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: none;">
                                 <tr>
-                                    <td width="106" valign="top">
-                                        <a href="https://phuketradar.com/tourism/tourists-flock-to-bangla-soi-for-chinese-new-year-celebrations-876aaed1">
-                                            <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1771347909/phuketradar/news-1771347908687-76323b8f.webp" alt="Tourists Flock to Bangla for Chinese New Year Celebrations" class="story-image">
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="https://phuketradar.com/local/authorities-clean-up-oil-spill-after-cargo-ship-sinks-off-phuket-coast-0bb355f5" style="display: block; text-decoration: none;">
+                                            <img src="https://res.cloudinary.com/deoln6rno/image/upload/v1772514060/phuketradar/news-1772514060013-002d5326.webp" alt="Authorities Clean Up Oil Spill After Cargo Ship Sinks Off Phuket Coast" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
                                         </a>
                                     </td>
-                                    <td valign="top" style="padding-left: 16px;">
-                                        <span class="story-category">TOURISM</span>
-                                        <h3 class="story-title">
-                                            <a href="https://phuketradar.com/tourism/tourists-flock-to-bangla-soi-for-chinese-new-year-celebrations-876aaed1">Tourists Flock to Bangla for Chinese New Year Celebrations</a>
-                                        </h3>
-                                        <p class="story-meta">12:05 AM</p>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            LOCAL
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="https://phuketradar.com/local/authorities-clean-up-oil-spill-after-cargo-ship-sinks-off-phuket-coast-0bb355f5"
+                                                style="color: #e8e8e8; text-decoration: none;">Authorities Clean Up Oil Spill After Cargo Ship Sinks Off Phuket Coast</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            12:01 PM</p>
                                     </td>
                                 </tr>
                             </table>
+
                         </td>
                     </tr>
 
-                    <!-- On The Radar Section Header -->
+                    <!-- ====== ON THE RADAR HEADER ====== -->
                     <tr>
-                        <td class="section-header" style="background-color: #050505; border-top: 1px solid #262626;">
-                            <h2 class="section-title">On The Radar</h2>
+                        <td class="section-header"
+                            style="padding: 22px 28px 14px; background-color: #090909; border-top: 1px solid #1f1f1f;">
+                            <p class="section-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 3px;">
+                                Quick reads
+                            </p>
+                            <h2 class="section-title"
+                                style="font-size: 18px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.2px;">
+                                On The Radar
+                            </h2>
                         </td>
                     </tr>
 
-                    <!-- On The Radar Stories -->
+                    <!-- ====== ON THE RADAR STORIES ====== -->
                     <tr>
-                        <td class="radar-section" style="padding-top: 0;">
-                            <div class="radar-item">
-                                <a href="https://phuketradar.com/tourism/katathani-resort-celebrates-chinese-new-year-with-lion-dance-d55e668f" class="radar-link">Katathani Resort Celebrates Chinese New Year with Lion Dance</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="https://phuketradar.com/traffic/all-lights-out-at-dara-samut-tunnel-warning-issued-c42c6438" class="radar-link">All Lights Out at Dara Samut Tunnel, Warning Issued</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="https://phuketradar.com/local/phuket-provincial-cup-senior-football-final-held-in-chalong-641dcc40" class="radar-link">Phuket Provincial Cup Senior Football Final Held in Chalong</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="https://phuketradar.com/crime/phuket-authorities-crack-down-on-drug-dealer-in-thalang-district-b637851c" class="radar-link">Phuket Authorities Crack Down on Drug Dealer in Thalang District</a>
-                            </div>
-                            <div class="radar-item">
-                                <a href="https://phuketradar.com/tourism/tourists-enjoy-evening-at-kata-noi-beach-48570b47" class="radar-link">Tourists Enjoy Evening at Kata Noi Beach</a>
-                            </div>
+                        <td class="radar-container" style="background-color: #090909; padding: 0 28px 24px;">
+
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="https://phuketradar.com/traffic/large-vehicles-banned-from-dara-samut-underpass-during-daytime-hours-cea7232e" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        Large Vehicles Banned from Dara Samut Underpass During Daytime Hours
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="https://phuketradar.com/traffic/car-crashes-into-traffic-light-at-ban-khian-intersection-in-early-morning-accident-23eb0c8d" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        Car Crashes Into Traffic Light at Ban Khian Intersection in Early Morning Accident
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="https://phuketradar.com/local/immigration-bureau-offers-30-day-extensions-for-foreigners-stranded-by-middle-east-conflic-b070a371" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        Immigration Bureau Offers 30-Day Extensions for Foreigners Stranded by Middle East Conflict
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: 1px solid #141414;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="https://phuketradar.com/local/mp-sam-oversees-road-safety-improvements-on-phra-barami-road-in-patong-68fe0a7b" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        MP Sam Oversees Road Safety Improvements on Phra Barami Road in Patong
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: none;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">→</td>
+                                                <td>
+                                                    <a href="https://phuketradar.com/local/etihad-airways-flight-etd414-arrives-safely-in-phuket-b4a16905" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        ETIHAD Airways Flight ETD414 Arrives Safely in Phuket
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
                         </td>
                     </tr>
 
-                    <!-- Footer -->
+                    <!-- ====== WEBSITE CTA ====== -->
                     <tr>
-                        <td class="footer">
-                            <a href="https://phuketradar.com">
-                                <img src="https://phuketradar.com/assets/logo-white-transparent-DH-BgQMp.png"
-                                    alt="Phuket Radar" class="footer-logo">
+                        <td class="cta-block"
+                            style="background: linear-gradient(135deg, #0d1f2d 0%, #0a1a1a 100%); border-top: 1px solid #1a3a3a; padding: 32px 28px; text-align: center;">
+                            <p class="cta-block-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 8px;">
+                                Stay informed
+                            </p>
+                            <h3 class="cta-block-title"
+                                style="font-size: 20px; font-weight: 700; color: #fff; margin: 0 0 8px;">
+                                Everything happening in Phuket
+                            </h3>
+                            <p class="cta-block-sub" style="font-size: 14px; color: #5a8a8a; margin: 0 0 20px;">
+                                Browse the full feed at phuketradar.com
+                            </p>
+                            <a href="https://phuketradar.com" class="cta-block-btn"
+                                style="display: inline-block; background: transparent; color: #22d3ee !important; font-size: 13px; font-weight: 700; text-decoration: none; padding: 11px 22px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.8px; border: 1.5px solid rgba(34, 211, 238, 0.5);">
+                                Visit Phuket Radar →
                             </a>
-                            <p class="footer-text">Your daily source for Phuket news</p>
+                        </td>
+                    </tr>
 
-                            <div class="footer-links">
-                                <a href="https://phuketradar.com" class="footer-link">Website</a>
-                                <a href="https://phuketradar.com/crime" class="footer-link">Crime</a>
-                                <a href="https://phuketradar.com/local" class="footer-link">Local</a>
-                                <a href="https://phuketradar.com/tourism" class="footer-link">Tourism</a>
+                    <!-- ====== FOOTER ====== -->
+                    <tr>
+                        <td class="footer"
+                            style="background-color: #080808; padding: 28px 28px 32px; text-align: center; border-top: 1px solid #1a1a1a;">
+                            <a href="https://phuketradar.com"
+                                style="display: block; text-decoration: none; margin-bottom: 14px;">
+                                <img src="https://phuketradar.com/assets/logo-white-transparent-DH-BgQMp.png"
+                                    alt="Phuket Radar" class="footer-logo"
+                                    style="max-width: 110px; height: auto; display: block; margin: 0 auto; opacity: 0.5;">
+                            </a>
+
+                            <p class="footer-tagline" style="font-size: 12px; color: #454545; margin: 0 0 14px;">
+                                Your daily source for what's really happening in Phuket
+                            </p>
+
+                            <div class="footer-nav" style="margin: 0 0 16px;">
+                                <a href="https://phuketradar.com"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Home</a>
+                                <span style="color: #2a2a2a; font-size: 12px;">|</span>
+                                <a href="https://phuketradar.com/crime"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Crime</a>
+                                <span style="color: #2a2a2a; font-size: 12px;">|</span>
+                                <a href="https://phuketradar.com/local"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Local</a>
+                                <span style="color: #2a2a2a; font-size: 12px;">|</span>
+                                <a href="https://phuketradar.com/tourism"
+                                    style="font-size: 12px; color: #555; text-decoration: none; margin: 0 8px;">Tourism</a>
                             </div>
 
-                            <p class="unsubscribe-text">
-                                You're receiving this email because you subscribed to Phuket Radar.<br>
-                                <a href="https://phuketradar.com/api/unsubscribe/test-token" class="unsubscribe-link">Unsubscribe</a> |
-                                <a href="https://phuketradar.com/privacy" class="unsubscribe-link">Privacy Policy</a>
+                            <p class="footer-legal"
+                                style="font-size: 11px; color: #383838; margin: 0; line-height: 1.7;">
+                                You're receiving this because you subscribed to Phuket Radar.<br>
+                                <a href="https://phuketradar.com/unsubscribe"
+                                    style="color: #4a4a4a; text-decoration: underline;">Unsubscribe</a>
+                                &nbsp;·&nbsp;
+                                <a href="https://phuketradar.com/privacy"
+                                    style="color: #4a4a4a; text-decoration: underline;">Privacy Policy</a>
                             </p>
                         </td>
                     </tr>
+
                 </table>
             </td>
         </tr>
     </table>
+
 </body>
 
 </html>

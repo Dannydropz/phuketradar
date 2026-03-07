@@ -1731,6 +1731,14 @@ Always output valid JSON.`,
         finalInterestScore = 2;
       }
 
+      // APPLY VIDEO BOOST BEFORE PREMIUM ENRICHMENT
+      // If it's a video and not capped by a "boring" category, boost to 4 so it gets premium enrichment
+      const canBoost = !(category === "Politics" || hasPoliticsKeyword || category === "Business" || hasRealEstateKeyword || hasFoundationGovernanceKeyword || hasLostPetKeyword || hasLocalEntertainmentKeyword);
+      if (assets?.isVideo && canBoost && finalInterestScore < 4) {
+        console.log(`   🎥 VIDEO BOOST: ${finalInterestScore} → 4 (video stories get premium enrichment)`);
+        finalInterestScore = 4;
+      }
+
       // Ensure score stays within 1-5 range
       finalInterestScore = Math.max(1, Math.min(5, finalInterestScore));
 

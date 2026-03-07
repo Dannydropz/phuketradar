@@ -814,8 +814,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 // STEP 3a: Fetch community comments for potential high-interest stories
                 // Hot keywords indicate likely score 4-5 stories that benefit from comment context
                 const hotKeywords = [
-                  "ไฟไหม้", "จมน้ำ", "จับกุม", "เสียชีวิต", "บาดเจ็บ", "ตาย", "ฆ่า", "ยิง", "แทง",
-                  "ชน", "รถชน", "ต่างชาติ", "ฝรั่ง", "นักท่องเที่ยว", "ปะทะ", "ทะเลาะ", "ชกต่อย",
+                  "ไฟไหม้", "จมน้ำ", "จับกุม", "เสียชีวิต", "บาดเจ็บ", "เจ็บ", "ตาย", "ฆ่า", "ยิง", "แทง",
+                  "ชน", "รถชน", "อุบัติเหตุ", "คว่ำ", "ต่างชาติ", "ฝรั่ง", "นักท่องเที่ยว", "ปะทะ", "ทะเลาะ", "ชกต่อย",
                   // DRUG/CRIME KEYWORDS - Critical for proper context interpretation
                   "ยาเสพติด", "โคเคน", "ยาบ้า", "กัญชา", "ยาไอซ์", "เฮโรอีน", "แก๊ง", "ค้ายา", "ขายยา",
                   "QR", "คิวอาร์", "สติ๊กเกอร์", "ติดประกาศ", "Telegram", "เทเลแกรม"
@@ -979,11 +979,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
                   // Determine if this is a video story and calculate boosted score early
                   const isVideoStory = post.isVideo;
-                  const canBoost = translation.autoBoostScore !== false;
 
-                  // Video stories generally get a boost to interest score 4, but NOT if they are capped
-                  // as boring (politics, routine business, foundation news)
-                  const finalInterestScore = (isVideoStory && canBoost) ? Math.max(translation.interestScore, 4) : translation.interestScore;
+                  // Score was already boosted in translateAndRewrite based on video status and topic rules
+                  const finalInterestScore = translation.interestScore;
 
                   // Use original source image (AI generation disabled - synthetic images looked poor)
                   const finalImageUrl = localImageUrl;
@@ -991,7 +989,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   if (isVideoStory) {
                     const hasDirectUrl = !!post.videoUrl;
                     console.log(`   🎥 VIDEO STORY DETECTED!`);
-                    console.log(`      📊 Score boost: ${translation.interestScore} → ${finalInterestScore} (videos get min 4)`);
+                    console.log(`      📊 Final score: ${finalInterestScore}/5`);
                     if (hasDirectUrl) {
                       console.log(`      ✅ Direct video URL available - native playback`);
                     } else {
