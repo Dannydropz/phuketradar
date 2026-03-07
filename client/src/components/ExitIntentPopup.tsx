@@ -137,7 +137,7 @@ export function ExitIntentPopup() {
 
             {/* Modal */}
             <div
-                className={`relative z-10 w-full max-w-2xl mx-4 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-2xl shadow-black/60
+                className={`relative z-10 w-full max-w-4xl mx-4 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-2xl shadow-black/60
                     transition-all duration-300 ${open ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
             >
                 {/* Top glow accent */}
@@ -154,13 +154,13 @@ export function ExitIntentPopup() {
                     <X className="w-5 h-5" />
                 </button>
 
-                <div className="flex flex-row">
+                <div className="flex flex-col md:flex-row">
                     {/* Preview image column */}
-                    <div className="hidden md:block w-56 flex-shrink-0 overflow-hidden">
+                    <div className="hidden md:flex w-72 lg:w-[350px] flex-shrink-0 bg-black/40 p-6 items-center border-r border-zinc-800/50">
                         <img
                             src="/newsletter-preview.gif"
                             alt="Preview of The Daily Radar newsletter"
-                            className="w-full h-full object-cover object-top opacity-90"
+                            className="w-full h-auto object-contain rounded-lg shadow-[0_0_20px_rgba(0,0,0,0.5)] opacity-95"
                             loading="lazy"
                         />
                     </div>
@@ -178,7 +178,7 @@ export function ExitIntentPopup() {
                                 <div className="mb-6">
                                     <p className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-2">Before you go —</p>
                                     <h2 className="text-2xl md:text-3xl font-extrabold text-white leading-tight mb-3">
-                                        Get tomorrow's Phuket stories before they hit Facebook.
+                                        Get Phuket’s top stories in one quick daily email.
                                     </h2>
                                     <p className="text-zinc-300 text-base leading-relaxed">
                                         <span className="font-semibold text-white">The Daily Radar</span> lands in your inbox every evening.
