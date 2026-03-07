@@ -7,7 +7,9 @@ interface SEOProps {
   url?: string;
   type?: "website" | "article";
   publishedTime?: string;
+  modifiedTime?: string;
   author?: string;
+  noIndex?: boolean;
 }
 
 export function SEO({
@@ -17,7 +19,9 @@ export function SEO({
   url,
   type = "website",
   publishedTime,
+  modifiedTime,
   author,
+  noIndex = false,
 }: SEOProps) {
   useEffect(() => {
     // Only run in browser context
@@ -30,50 +34,57 @@ export function SEO({
     const updateMetaTag = (property: string, content: string, isName = false) => {
       const attr = isName ? "name" : "property";
       let element = document.querySelector(`meta[${attr}="${property}"]`);
-      
+
       if (!element) {
         element = document.createElement("meta");
         element.setAttribute(attr, property);
         document.head.appendChild(element);
       }
-      
+
       element.setAttribute("content", content);
     };
 
+    // Robots meta — noindex thin content to protect crawl budget
+    updateMetaTag("robots", noIndex ? "noindex, follow" : "index, follow", true);
+
     // Update basic meta tags
     updateMetaTag("description", description, true);
-    
+
     // Update Open Graph tags
     updateMetaTag("og:title", title);
     updateMetaTag("og:description", description);
     updateMetaTag("og:type", type);
-    
+
     if (image) {
       updateMetaTag("og:image", image);
     }
-    
+
     if (url) {
       updateMetaTag("og:url", url);
     }
-    
+
     // Add article-specific OG tags
     if (type === "article" && publishedTime) {
       updateMetaTag("article:published_time", publishedTime);
     }
-    
+
+    if (type === "article" && modifiedTime) {
+      updateMetaTag("article:modified_time", modifiedTime);
+    }
+
     if (type === "article" && author) {
       updateMetaTag("article:author", author);
     }
-    
+
     // Update Twitter Card tags
     updateMetaTag("twitter:card", "summary_large_image", true);
     updateMetaTag("twitter:title", title, true);
     updateMetaTag("twitter:description", description, true);
-    
+
     if (image) {
       updateMetaTag("twitter:image", image, true);
     }
-    
+
     // Update canonical URL if provided
     if (url) {
       let canonical = document.querySelector('link[rel="canonical"]');
@@ -84,7 +95,7 @@ export function SEO({
       }
       canonical.setAttribute("href", url);
     }
-  }, [title, description, image, url, type, publishedTime, author]);
+  }, [title, description, image, url, type, publishedTime, modifiedTime, author, noIndex]);
 
   return null;
 }

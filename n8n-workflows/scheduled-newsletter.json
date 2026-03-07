@@ -7,13 +7,13 @@
                     "interval": [
                         {
                             "field": "cronExpression",
-                            "expression": "0 1 * * *"
+                            "expression": "0 11 * * *"
                         }
                     ]
                 }
             },
             "id": "schedule-trigger-newsletter",
-            "name": "Daily at 8AM Bangkok (1 AM UTC)",
+            "name": "Daily at 6PM Bangkok (11 AM UTC)",
             "type": "n8n-nodes-base.scheduleTrigger",
             "typeVersion": 1.2,
             "position": [
@@ -104,7 +104,7 @@
         }
     ],
     "connections": {
-        "Daily at 8AM Bangkok (1 AM UTC)": {
+        "Daily at 6PM Bangkok (11 AM UTC)": {
             "main": [
                 [
                     {

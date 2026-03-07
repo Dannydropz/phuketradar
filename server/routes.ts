@@ -697,7 +697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })();
   });
 
-  // Daily Newsletter — triggered by external cron at 8am Bangkok time (01:00 UTC)
+  // Daily Newsletter — triggered by external cron at 6pm Bangkok time (11:00 UTC)
   app.post("/api/cron/newsletter/send", requireCronAuth, async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log("\n".repeat(3) + "=".repeat(80));

@@ -18,6 +18,8 @@ import { TagPills } from "@/components/TagPills";
 import { useMetaPixel } from "@/hooks/use-meta-pixel";
 import { KastBanner } from "@/components/KastBanner";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
+import { MobileNewsletterSlideUp } from "@/components/MobileNewsletterSlideUp";
+import { ExitIntentPopup } from "@/components/ExitIntentPopup";
 import { AdsterraNativeAd } from "@/components/AdsterraAd";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
@@ -124,6 +126,18 @@ export default function ArticleDetailNew() {
     const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
     const canonicalUrl = `${baseUrl}${articlePath}`;
 
+    // Compute word count from stripped HTML — used for noindex and JSON-LD
+    const plainText = article.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const wordCount = plainText.split(' ').filter(Boolean).length;
+    const isThinContent = wordCount < 150;
+
+    // Best available modified date: manual edit > enrichment > published
+    const dateModified = (
+        article.lastManualEditAt ||
+        article.lastEnrichedAt ||
+        article.publishedAt
+    ).toString();
+
     const handleShare = () => {
         if (navigator.share) {
             navigator.share({
@@ -145,7 +159,9 @@ export default function ArticleDetailNew() {
                 url={canonicalUrl}
                 type="article"
                 publishedTime={article.publishedAt.toString()}
+                modifiedTime={dateModified}
                 author={journalist ? `${journalist.nickname} ${journalist.surname}` : undefined}
+                noIndex={isThinContent}
             />
 
             {/* JSON-LD Structured Data */}
@@ -155,7 +171,8 @@ export default function ArticleDetailNew() {
                 "headline": article.title,
                 "image": article.imageUrl || (article.imageUrls && article.imageUrls[0]) || undefined,
                 "datePublished": article.publishedAt.toString(),
-                "dateModified": article.publishedAt.toString(),
+                "dateModified": dateModified,
+                "wordCount": wordCount,
                 "author": journalist ? {
                     "@type": "Person",
                     "name": `${journalist.nickname} ${journalist.surname}`
@@ -604,6 +621,12 @@ export default function ArticleDetailNew() {
 
             {/* Footer */}
             <Footer />
+
+            {/* Mobile scroll-triggered newsletter bar (60% scroll depth) */}
+            <MobileNewsletterSlideUp />
+
+            {/* Desktop exit-intent newsletter popup */}
+            <ExitIntentPopup />
 
             {/* Search Dialog */}
             <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />

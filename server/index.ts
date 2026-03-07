@@ -153,11 +153,12 @@ app.get('/category/:category', (req, res) => {
 // SEO: 301 redirect legacy database category paths to correct frontend categories
 // This fixes old Switchy links and Facebook posts that used incorrect paths
 const LEGACY_CATEGORY_REDIRECTS: Record<string, string> = {
-  'breaking': 'local',   // Breaking -> Local (most breaking news is local)
-  'other': 'local',      // Other -> Local
-  'info': 'local',       // Info -> Local
-  'events': 'local',     // Events -> Local
-  'business': 'economy', // Business -> Economy
+  'breaking': 'local',    // Breaking -> Local (most breaking news is local)
+  'other': 'local',       // Other -> Local
+  'info': 'local',        // Info -> Local
+  'events': 'local',      // Events -> Local
+  'business': 'economy',  // Business -> Economy
+  'local-news': 'local',  // Local News -> Local (old category slug, ~252 Google-indexed URLs)
 };
 
 // Handle legacy category paths like /breaking/:slug, /other/:slug, /business/:slug
