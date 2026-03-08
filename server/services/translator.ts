@@ -721,83 +721,75 @@ export class TranslatorService {
     communityComments?: string[]; // Optional: Top comments from Facebook post for context
   }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
+    // ── Source of Truth for Context Blocks ──────────────────────────────────
+    // The detailed context used below is maintained in:
+    // server/data/phuket-context-library.md
+    // Please update that reference document when adding new context over time.
+
     // ── Category-conditional context blocks ─────────────────────────────────
     // Each block contains verified Phuket facts the model is PERMITTED to draw from.
     // Only the block matching the article's category is injected (keeps token cost low).
     const CATEGORY_CONTEXT_BLOCKS: Record<string, string> = {
       'Crime': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
 - Emergency: Tourist Police 1155, Police 191, Ambulance 1669, Fire 199
-- Phuket has 8 police stations: Phuket City, Chalong, Thalang, Kamala, Patong, Cherng Talay, Wichit, and Tung Tong (Kathu)
-- Patong Police Station handles most tourist-area incidents in Kathu district
-- Foreigners arrested in Thailand are entitled to consular access; embassies are in Bangkok, honorary consuls in Phuket for some countries
-- Drug offenses carry severe penalties in Thailand, including life imprisonment for trafficking
-- Common tourist-targeted crimes: bag snatching (especially from motorbikes), rental scams, jet ski damage scams, drink spiking in nightlife areas
-- Thai bail system: foreigners can be held up to 84 days before trial without bail for serious offenses
-- If a foreigner is named in a Thai police report, use their nationality only if the source explicitly states it — never guess from names`,
+- Stations: Phuket has 8 police stations (Phuket City, Chalong, Patong, Kathu, Thalang, Cherng Talay, Kamala, Wichit). Patong handles most tourist nightlife incidents.
+- Legal Context: Foreigners are entitled to consular access. Bail for foreigners is often higher; passport seizure is standard for serious charges.
+- Drugs: Severe penalties; Category 1 (meth, heroin, MDMA) possession can carry 1-10 years; trafficking carries life.
+- Common Scams/Crimes: Bag snatching (from motorbikes), rental scams, jet ski damage scams, drink spiking.
+- Warning: Thai defamation law is criminal. Posting negative reviews can result in criminal charges.
+- Naming: If a foreigner is named in a police report, use their nationality ONLY if explicitly stated. Never guess from names.`,
 
       'Traffic': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Phuket's roads record among Thailand's highest per-capita accident rates, particularly for motorbikes
-- Foreign nationals legally require an International Driving Permit (IDP) or Thai license to drive; most rental operators do not check
-- Thailand drives on the LEFT side of the road
-- Helmet law: mandatory for both driver and passenger on motorbikes; fine is 500 baht but inconsistently enforced
-- Phuket has two main hospitals with trauma capability: Vachira Phuket Hospital (government, Phuket Town) and Bangkok Hospital Phuket (private, near Siriroj junction)
-- Key accident hotspots: Patong Hill (steep curves between Kathu and Patong), the Heroines Monument intersection, Thepkrasattri Road (main north-south artery)
-- Chalong Circle, Darasamut Intersection, and Sam Kong area are high-congestion zones
-- In Thai road accidents, the larger vehicle is typically presumed at fault regardless of circumstances
-- If a foreigner is involved in a fatal accident, their passport may be seized pending investigation`,
+- Safety: Phuket roads have some of Thailand's highest accident rates, especially for motorbikes.
+- Driving Rules: Drive on the LEFT. International Driving Permit (IDP) or Thai license required for foreigners. Helmets mandatory (driver & passenger); drink driving limit 0.05% BAC.
+- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle, Darasamut & Sam Kong intersections, Si Ko intersection, Kata Hill, Bypass Road curves.
+- Hospitals: Vachira Phuket Hospital (government trauma center) and Bangkok Hospital Phuket (private, advanced trauma).
+- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.
+- Liability: Often the larger vehicle is presumed at fault by police/insurance. Passports may be seized pending fatal accident investigations.`,
 
       'Accidents': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Phuket's roads record among Thailand's highest per-capita accident rates, particularly for motorbikes
-- Foreign nationals legally require an International Driving Permit (IDP) or Thai license to drive; most rental operators do not check
-- Thailand drives on the LEFT side of the road
-- Helmet law: mandatory for both driver and passenger on motorbikes; fine is 500 baht but inconsistently enforced
-- Phuket has two main hospitals with trauma capability: Vachira Phuket Hospital (government, Phuket Town) and Bangkok Hospital Phuket (private, near Siriroj junction)
-- Key accident hotspots: Patong Hill (steep curves between Kathu and Patong), the Heroines Monument intersection, Thepkrasattri Road (main north-south artery)
-- Chalong Circle, Darasamut Intersection, and Sam Kong area are high-congestion zones
-- In Thai road accidents, the larger vehicle is typically presumed at fault regardless of circumstances
-- If a foreigner is involved in a fatal accident, their passport may be seized pending investigation`,
+- Safety: Phuket roads have some of Thailand's highest per-capita accident rates.
+- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle, Darasamut & Sam Kong intersections, Si Ko intersection.
+- Hospitals: Vachira Phuket Hospital (main government trauma center), Bangkok Hospital Phuket (best-equipped private trauma).
+- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.
+- Driving Rules: Helmets mandatory (driver & passenger); foreigners require IDP or Thai license. In accidents, larger vehicles are often presumed at fault.`,
 
       'Tourism': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Phuket received approximately 10-14 million visitors in 2025; top source markets are Russia, India, and China
-- High season runs November to April; monsoon/low season is May to October with rough seas on the west coast
-- Red flags on beaches indicate dangerous swimming conditions; drownings are a leading cause of tourist death
-- Phuket has no Uber/Grab car service; transport options are tuk-tuks, private taxis, Bolt (limited), and songthaews
-- Common tourist complaints: overcharging by tuk-tuks, beach vendor harassment, jet ski scams
-- Alcohol sales are prohibited on Buddhist holidays and election days nationwide
-- Cannabis was decriminalized in 2022 but regulations remain unclear and are frequently changing; public consumption is discouraged
-- Thai immigration allows 60-day visa-exempt stays for most Western nationalities (as of 2025 policy)`,
+- Demographics: 10-14 million visitors in 2025 (top markets: Russia, India, China).
+- Seasons: High season (Nov-April); Monsoon/low season (May-Oct) brings rough seas and red flags on west coast beaches. Drownings are a leading cause of tourist death.
+- Transport: No Uber/Grab car service. Options: tuk-tuks (often overcharge), private taxis, Bolt, songthaews.
+- Marine: Boat accidents peak in monsoon season. Similan/Surin Islands close May-Oct.
+- Laws: Alcohol sales prohibited on Buddhist holidays and election days. Cannabis is decriminalized but public consumption is discouraged.
+- Visas: 60-day visa-exempt entry for most Westerners (2025 policy).`,
 
       'Lifestyle': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Phuket received approximately 10-14 million visitors in 2025; top source markets are Russia, India, and China
-- High season runs November to April; monsoon/low season is May to October with rough seas on the west coast
-- Red flags on beaches indicate dangerous swimming conditions; drownings are a leading cause of tourist death
-- Phuket has no Uber/Grab car service; transport options are tuk-tuks, private taxis, Bolt (limited), and songthaews
-- Common tourist complaints: overcharging by tuk-tuks, beach vendor harassment, jet ski scams
-- Alcohol sales are prohibited on Buddhist holidays and election days nationwide
-- Cannabis was decriminalized in 2022 but regulations remain unclear and are frequently changing; public consumption is discouraged
-- Thai immigration allows 60-day visa-exempt stays for most Western nationalities (as of 2025 policy)`,
+- Seasons: High season (Nov-April); Monsoon/low season (May-Oct).
+- Transport: No Uber/Grab car service. Options: tuk-tuks, private taxis, Bolt, songthaews.
+- Laws: Alcohol sales prohibited on Buddhist holidays and election days. Cannabis is decriminalized but public consumption is discouraged.
+- Visas: 60-day visa-exempt entry. 30-day extensions at Phuket Immigration Office (Phuket Town) for 1,900 THB. 90-day reporting for long-stay. Overstay fines are 500 THB/day.
+- Medical: Government hospitals (Vachira, Patong, Thalang) are cheaper but have long waits. Private (Bangkok Hospital Phuket, Siriroj, Mission) are expensive/best-equipped. Travel insurance critical.
+- Real Estate: Foreigners cannot own land (nominee structures common but illegal). Can own up to 49% of condo units.`,
 
       'Nightlife': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Legal closing time for entertainment venues in Phuket is 2:00 AM; extended zones (like Bangla Road) may operate until 3:00 or 4:00 AM under special permits
-- Bangla Road in Patong is Phuket's primary nightlife strip, pedestrianized from approximately 6 PM nightly
-- Venues require an entertainment license from the provincial authority; unlicensed venues are subject to raids
-- Noise complaints from residents have increased as tourist areas expand into residential neighborhoods
-- Police raids on entertainment venues typically check for: licensing, underage staff/patrons, drug use, overstay foreigners, closing time violations
-- "Drink spiking" incidents are periodically reported in Patong; the Tourist Police advise not leaving drinks unattended`,
+- Bangla Road: Primary nightlife strip in Patong, pedestrianized from ~6 PM.
+- Closing Times: Standard venues 2 AM; extended zones (Bangla) 3-4 AM. Unlicensed venues face immediate closure.
+- Police Raids: Check for licenses, closing time compliance, underage patrons, drugs, overstay foreigners.
+- Safety: "Drink spiking" reported periodically (Tourist Police advise not leaving drinks unattended). Common scams include inflated bills and "lady drink" surprises.
+- Alcohol Sales: Legal hours 11:00-14:00 and 17:00-00:00 (often unenforced at licensed venues). Banned on Buddhist holidays/elections.
+- Sub-scenes: Phuket Town (Soi Romanee) for upscale cocktails; Rawai/Nai Harn for local expat bars; Bang Tao/Kamala for beach clubs.`,
 
       'Weather': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Phuket monsoon season (May-October) brings heavy rainfall, particularly on the west coast; flash flooding is common in low-lying areas like Patong and parts of Phuket Town
-- Andaman Sea conditions: west coast beaches can have dangerous undertows and rip currents during monsoon season
-- Thai Meteorological Department (TMD) issues weather warnings; Phuket Marine Office may close ports and suspend boat services in severe weather
-- Flooding hotspots: Bang Yai canal area, Sam Kong, parts of Rassada, Koh Kaew underpass
-- Phuket's watershed depends heavily on reservoirs; water shortages occur in peak dry season (March-April)`,
+- Seasons: Cool/dry (Nov-Feb), Hot (Mar-Apr, 35°C+), Monsoon (May-Oct).
+- Monsoon Impact: Heavy rain and flash flooding in low-lying areas (Patong, Sam Kong, Rassada, Koh Kaew underpass). West coast beaches dangerous with rip currents.
+- Marine: Phuket Marine Office may suspend boat services in severe weather.
+- Dry Season: Water shortages peak March-April, relying heavily on reservoirs.
+- Alerts: Thai Meteorological Department (TMD) issues official weather warnings.`,
 
       'Environment': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
-- Phuket monsoon season (May-October) brings heavy rainfall, particularly on the west coast; flash flooding is common in low-lying areas like Patong and parts of Phuket Town
-- Andaman Sea conditions: west coast beaches can have dangerous undertows and rip currents during monsoon season
-- Thai Meteorological Department (TMD) issues weather warnings; Phuket Marine Office may close ports and suspend boat services in severe weather
-- Flooding hotspots: Bang Yai canal area, Sam Kong, parts of Rassada, Koh Kaew underpass
-- Phuket's watershed depends heavily on reservoirs; water shortages occur in peak dry season (March-April)`,
+- Seasons: Monsoon (May-Oct) brings heavy rain; Dry season peaks Mar-Apr causing localized water shortages.
+- Flooding: Flash flooding common in Patong, Sam Kong, Rassada, and Koh Kaew underpass.
+- Marine: Coral reef and marine park closures (Similan, Surin) occur annually around May-Oct for recovery. West coast beaches have dangerous rip currents in monsoon season.
+- Air Quality: Occasionally affected by agricultural burning haze from mainland SEA (Feb-Apr).`
     };
 
     const GENERAL_CONTEXT_BLOCK = `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
@@ -805,6 +797,15 @@ export class TranslatorService {
 - Phuket is a province of Thailand, not an independent jurisdiction; national laws and policies apply
 - The island has approximately 400,000 registered residents but the actual population including unregistered workers and long-term visitors is estimated significantly higher
 - Phuket's economy is overwhelmingly tourism-dependent`;
+
+    // ── Universal Location Context ──────────────────────────────────────────
+    // Gets injected into ALL enrichment calls to prevent chronic AI mapping errors
+    const GENERAL_LOCATION_CONTEXT = `CRITICAL LOCATION RULES FOR ALL STORIES:
+- "Bangkok Road" (ถนนกรุงเทพ) is a street in PHUKET TOWN. It is NEVER in Bangkok city.
+- "Krabi Road" and "Phang Nga Road" are streets in PHUKET TOWN. They are NOT the neighboring provinces.
+- ALWAYS write "Soi [Name]" (e.g., Soi Bangla). NEVER write "[Name] Soi" or "the Soi".
+- Thai administrative terms: Moo (village number), Tambon (subdistrict), Amphoe (district - Phuket has 3: Mueang, Kathu, Thalang).
+- Key Landmarks: Heroines Monument (border of Thalang/Kathu/Mueang), Central Phuket (bypass road), Jungceylon (Patong), Big Buddha (Nakkerd Hill), Chalong Temple, Saphan Hin (park in Phuket Town).`;
 
     const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
 
@@ -833,6 +834,8 @@ You produce JSON output only. No markdown, no commentary outside the JSON struct
 ARTICLE CATEGORY: ${params.category}
 
 ${contextBlock}
+
+${GENERAL_LOCATION_CONTEXT}
 
 ---
 
