@@ -1028,7 +1028,8 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences, no commentary:
       hasMultipleImages?: boolean;  // True if imageUrls.length > 1
       hasCCTV?: boolean;       // True if content mentions CCTV
       isVideo?: boolean;       // True if scraped post is a video/reel
-    }
+    },
+    sourceUrl?: string
   ): Promise<TranslationResult> {
     try {
       // STEP 1: Enrich Thai text with Phuket context
@@ -1595,6 +1596,25 @@ Always output valid JSON.`,
         console.log(`   🔥 HOT KEYWORD BOOST: ${finalInterestScore - 1} → ${finalInterestScore}`);
       }
 
+      // 🌍 NATIONALITY KEYWORD BOOST (+1 up to 5)
+      const nationalityKeywords = [
+        "ฝรั่ง", "ชาวรัสเซีย", "ชาวจีน", "ชาวอินเดีย", "ชาวออสเตรเลีย",
+        "ชาวอังกฤษ", "ชาวอเมริกัน", "ชาวเกาหลี", "ชาวยูเครน", "ชาวอิสราเอล",
+        "ชาวคาซัคสถาน", "ต่างชาติ", "นักท่องเที่ยว"
+      ];
+
+      const hasNationalityKeyword = nationalityKeywords.some(kw =>
+        combinedTextForScoring.includes(kw.toLowerCase())
+      );
+
+      if (hasNationalityKeyword) {
+        const oldScore = finalInterestScore;
+        finalInterestScore = Math.min(5, finalInterestScore + 1);
+        if (oldScore !== finalInterestScore) {
+          console.log(`   🌍 NATIONALITY KEYWORD BOOST: ${oldScore} → ${finalInterestScore} (foreigner/nationality detected)`);
+        }
+      }
+
       // If it's a foreigner story involving arrest or abnormal behavior, ensure at least score 4
       if (isForeignerStory && isArrestOrAbnormal && finalInterestScore < 4) {
         console.log(`   🌍 FOREIGNER INCIDENT MINIMUM: ${finalInterestScore} → 4 (foreigner + arrest/abnormal detected)`);
@@ -1750,6 +1770,23 @@ Always output valid JSON.`,
       let enrichedExcerpt = result.excerpt || "";
 
       if (finalInterestScore >= 4) {
+        // Fetch comments if they weren't fetched before translation (because of missing keywords)
+        if ((!communityComments || communityComments.length === 0) && sourceUrl) {
+          console.log(`   ⭐ High interest score (${finalInterestScore}) achieved without initial hot keywords - fetching comments now...`);
+          try {
+            const { scrapePostComments } = await import('./scraper');
+            const comments = await scrapePostComments(sourceUrl, 15);
+            if (comments.length > 0) {
+              communityComments = comments
+                .filter((c: any) => c.text && c.text.length > 10)
+                .map((c: any) => c.text);
+              console.log(`   ✅ Got ${communityComments.length} substantive comments for premium enrichment context`);
+            }
+          } catch (commentError) {
+            console.log(`   ⚠️ Comment fetch failed (non-critical): ${commentError}`);
+          }
+        }
+
         const enrichmentModel = "gpt-4o"; // Used only on OpenAI path
         const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
         const activeModelLabel = activeProvider === 'anthropic'
