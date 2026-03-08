@@ -63,6 +63,56 @@ const LOCATION_VARIANTS: Record<string, string[]> = {
     "koh kaew": ["koh kaew", "ko kaew"],
     "si ko": ["si ko", "si kor", "sikor"],
     "soi": ["soi", "soi."],
+    // Missing Phuket areas
+    "wichit": ["wichit", "vichit"],
+    "ao po": ["ao po"],
+    "mai khao": ["mai khao", "maikhao"],
+    "nai yang": ["nai yang", "naiyang"],
+    "layan": ["layan", "la yan"],
+    "kalim": ["kalim"],
+    "tri trang": ["tri trang", "tritrang"],
+    "freedom beach": ["freedom beach"],
+    "laem singh": ["laem singh"],
+    "ya nui": ["ya nui", "yanui"],
+    "nai thon": ["nai thon", "naithon"],
+    "ao yon": ["ao yon"],
+    "koh sirey": ["koh sirey", "ko sirey", "sirey island"],
+    "koh maphrao": ["koh maphrao", "coconut island"],
+    "boat lagoon": ["boat lagoon"],
+    "royal marina": ["royal marina"],
+    "bypass road": ["bypass road", "bypass rd"],
+    "heroines monument": ["heroines monument", "heroine monument"],
+    "central festival": ["central festival", "central phuket"],
+    "jungceylon": ["jungceylon", "jung ceylon", "jungcylon"],
+    "vachira hospital": ["vachira hospital", "vachira"],
+    "bangkok hospital phuket": ["bangkok hospital phuket"],
+    "mission hospital": ["mission hospital"],
+    "phuket airport": ["phuket airport", "hkt airport", "phuket international"],
+    "sarasin bridge": ["sarasin bridge", "sarasin"],
+    "dibuk road": ["dibuk road", "dibuk rd"],
+    "phang nga road": ["phang nga road"],
+    "thepkasattri road": ["thepkasattri road", "thep krasattri road"],
+    "old town": ["old town", "old phuket town"],
+    // Nearby islands (regularly in Phuket news)
+    "similan": ["similan", "similan islands", "koh similan"],
+    "phi phi": ["phi phi", "koh phi phi", "phi phi island", "phi phi don", "phi phi leh"],
+    "racha": ["racha", "raya", "koh racha", "racha yai", "racha noi"],
+    "coral island": ["coral island", "koh hei", "koh hey"],
+    "maiton": ["maiton", "mai ton", "koh maiton"],
+    "kai island": ["kai island", "koh kai", "koh khai"],
+    "yao yai": ["yao yai", "koh yao yai"],
+    "yao noi": ["yao noi", "koh yao noi"],
+    "rang yai": ["rang yai", "koh rang yai"],
+    "bamboo island": ["bamboo island", "koh mai pai"],
+    "mosquito island": ["mosquito island"],
+    "james bond island": ["james bond island", "khao phing kan"],
+    // Surrounding areas that appear in Phuket-relevant news
+    "phang nga": ["phang nga", "phangnga"],
+    "krabi": ["krabi"],
+    "khao lak": ["khao lak", "khaolak"],
+    "khao sok": ["khao sok"],
+    "surat thani": ["surat thani"],
+    "andaman": ["andaman", "andaman sea"],
 };
 
 const INCIDENT_TYPES: Record<string, string[]> = {
@@ -73,13 +123,55 @@ const INCIDENT_TYPES: Record<string, string[]> = {
     "fire": ["fire", "blaze", "burn"],
     "murder": ["murder", "kill", "homicide", "shot", "stabbing"],
     "theft": ["theft", "steal", "robbery", "robbed", "burglar", "snatch"],
-    "assault": ["assault", "fight", "brawl", "attack", "punch", "slap"]
+    "assault": ["assault", "fight", "brawl", "attack", "punch", "slap"],
+    // Rescue / maritime
+    "rescue": ["rescue", "rescued", "rescuing", "saved", "recovery"],
+    "sinking": ["sinking", "sunk", "capsized", "capsize", "overturned", "taking on water"],
+    "missing": ["missing", "disappeared", "lost at sea", "search and rescue"],
+    "stranded": ["stranded", "stuck", "marooned", "adrift"],
+    // Traffic / road incidents (currently missing common terms)
+    "hit and run": ["hit and run", "hit-and-run", "fled the scene"],
+    "road death": ["road death", "fatal crash", "died at the scene", "dead on arrival"],
+    "motorbike": ["motorbike accident", "motorcycle crash", "bike crash"],
+    "overturned": ["overturned", "flipped", "rolled over"],
+    // Medical / death
+    "death": ["death", "dead", "died", "fatal", "fatality", "body found", "found dead"],
+    "overdose": ["overdose", "OD"],
+    "suicide": ["suicide", "jumped", "fell from"],
+    "hospital": ["hospitalized", "hospitalised", "rushed to hospital", "intensive care", "ICU"],
+    // Natural events
+    "flood": ["flood", "flooding", "flooded", "flash flood"],
+    "earthquake": ["earthquake", "tremor", "quake"],
+    "landslide": ["landslide", "mudslide"],
+    "storm": ["storm", "tropical storm", "heavy rain", "severe weather"],
+    "tsunami": ["tsunami", "tidal wave"],
+    "lightning": ["lightning", "lightning strike"],
+    "riptide": ["riptide", "rip current", "undercurrent", "red flag"],
+    // Scam / fraud
+    "scam": ["scam", "scammed", "fraud", "fraudulent", "swindle", "con artist", "deceived"],
+    "overcharge": ["overcharge", "overcharged", "ripped off", "price gouging"],
+    // Immigration / legal
+    "overstay": ["overstay", "overstayed", "visa violation", "illegal entry"],
+    "deportation": ["deported", "deportation", "blacklisted"],
+    "drug": ["drug", "drugs", "narcotics", "methamphetamine", "ya ba", "ya ice", "cannabis", "marijuana", "ketamine", "cocaine"],
+    // Other
+    "explosion": ["explosion", "exploded", "blast", "bomb"],
+    "electrocution": ["electrocuted", "electrocution", "electric shock"],
+    "animal attack": ["bitten", "snake bite", "dog attack", "monkey attack", "jellyfish sting"],
+    "food poisoning": ["food poisoning", "poisoned", "contaminated"]
 };
 
 const NATIONALITIES = [
     "russian", "chinese", "indian", "australian", "british", "american", "korean",
     "ukrainian", "israeli", "kazakh", "french", "german", "thai", "myanmar", "burmese",
-    "swiss", "swedish"
+    "swiss", "swedish", "japanese", "canadian", "dutch", "italian", "spanish", "belgian", "norwegian",
+    "danish", "finnish", "polish", "czech", "austrian", "irish", "scottish",
+    "new zealand", "kiwi", "south african", "malaysian", "singaporean",
+    "indonesian", "vietnamese", "cambodian", "laotian", "filipino", "filipina",
+    "nigerian", "uzbek", "tajik", "turkish", "iranian", "saudi", "emirati",
+    "pakistani", "bangladeshi", "nepali", "sri lankan", "estonian", "latvian",
+    "lithuanian", "romanian", "hungarian", "brazilian", "mexican", "colombian",
+    "argentinian", "chilean"
 ];
 
 export class ReEnrichmentService {
