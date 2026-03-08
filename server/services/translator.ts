@@ -367,6 +367,19 @@ const COLD_KEYWORDS = [
   "legal proceedings", // legal proceedings (routine)
   "legal dispute", // legal dispute (internal org)
   "court case", // court case (unless crime)
+  // CORPORATE/CEREMONIAL KEYWORDS
+  "ceremony", "ceremonies",
+  "merit-making", "merit making", "alms-giving", "alms giving", "alms offering",
+  "CSR", "corporate social responsibility",
+  "charity handover", "scholarship handover", "donation ceremony", "donation drive",
+  "opening ceremony", "ribbon cutting", "ribbon-cutting",
+  "groundbreaking", "groundbreaking ceremony",
+  "gala", "gala dinner", "awards ceremony", "awards night",
+  "MOU", "MOU signing", "memorandum of understanding",
+  "milestone", "company milestone", "corporate milestone",
+  "inaugurated", "inauguration",
+  "พิธี", "ทำบุญ", "ครบรอบ", "ตักบาตร", "มอบทุน",
+  "เปิดงาน", "กิจกรรมเพื่อสังคม", "วางศิลาฤกษ์", "มอบรางวัล", "งานเลี้ยง",
 ];
 
 // POLITICS KEYWORDS - Used to cap political stories at score 3 regardless of AI category
@@ -1427,6 +1440,17 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - **"Sea turtle eggs laid at beach" = Score 5 (wildlife, conservation, family-friendly viral)**
 - **"Good samaritan returns lost property" = Score 4-5 (heartwarming, shareable)**
 
+**CORPORATE MILESTONES / CEREMONIAL EVENTS RULES (CRITICAL):**
+Never score 4 or 5 for the following — these are score 2-3 maximum regardless of detail, officials present, or production quality:
+- Corporate milestones or company anniversaries
+- Merit-making ceremonies or alms-giving events
+- CSR activities or charity handovers
+- Scholarship donations or foundation events
+- Officials attending non-emergency events (inspections, openings, visits)
+- Ribbon cuttings, groundbreaking ceremonies, MOU signings
+- Gala dinners, awards nights, banquets
+Gut check: "Would a foreign resident of Phuket share this in an expat Facebook group?" If the answer is no, it is not a 4.
+
 **CHARITY/DONATION EVENT RULES:**
 - Blood drives, donation ceremonies, fundraisers = ABSOLUTE MAX SCORE 3 (they're nice, but NOT high-engagement news)
 - Even if honoring someone famous (including royalty) = STILL capped at 3
@@ -1774,6 +1798,36 @@ Always output valid JSON.`,
       if (assets?.isVideo && canBoost && finalInterestScore < 4) {
         console.log(`   🎥 VIDEO BOOST: ${finalInterestScore} → 4 (video stories get premium enrichment)`);
         finalInterestScore = 4;
+      }
+
+      // CORPORATE / CEREMONIAL / CSR CAP (Maximum Score: 3)
+      // Editorial decision: Corporate merit-making ceremonies, company anniversaries,
+      // and CSR events are capped at 3 unless they also involve an actual emergency.
+      const CORPORATE_CEREMONIAL_CAP_KEYWORDS = [
+        "ceremony", "ceremonies",
+        "anniversary", "anniversaries", "celebrates", "marks", "years of",
+        "merit-making", "merit making", "alms-giving", "alms giving", "alms offering",
+        "csr", "corporate social responsibility",
+        "charity handover", "scholarship handover", "donation ceremony", "donation drive",
+        "opening ceremony", "ribbon cutting", "ribbon-cutting",
+        "groundbreaking ceremony", "groundbreaking",
+        "gala dinner", "awards ceremony", "awards night",
+        "mou signing", "memorandum of understanding",
+        "company milestone", "corporate milestone",
+        "inaugurated", "inauguration",
+        "พิธี", "ทำบุญ", "ครบรอบ", "ตักบาตร", "มอบทุน", "เปิดงาน",
+        "กิจกรรมเพื่อสังคม", "บริจาค", "วางศิลาฤกษ์", "มอบรางวัล", "ฉลอง",
+        "งานเลี้ยง", "เปิดตัว"
+      ];
+
+      const hasCorporateCeremonialKeyword = CORPORATE_CEREMONIAL_CAP_KEYWORDS.some(keyword =>
+        combinedTextForScoring.includes(keyword.toLowerCase())
+      );
+
+      // Exception: hot keywords or nationality keywords allow it to bypass the cap
+      if (hasCorporateCeremonialKeyword && finalInterestScore > 3 && !hasHotKeyword && !hasNationalityKeyword) {
+        console.log(`   👔 CORPORATE/CEREMONIAL CAP: ${finalInterestScore} → 3 (corporate/ceremonial event detected)`);
+        finalInterestScore = 3;
       }
 
       // Ensure score stays within 1-5 range
