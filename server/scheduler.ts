@@ -1087,6 +1087,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     viewCount: post.viewCount || 0,
                     isDeveloping: translation.isDeveloping || false,
                     entities: extractedEntities || null,
+                    reEnrichAt: (shouldAutoPublish && finalInterestScore >= 4) ? new Date(Date.now() + 2.5 * 60 * 60 * 1000) : null,
                   };
 
                   // Auto-detect tags from translated title and content
@@ -1173,20 +1174,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   if (article.isPublished) {
                     console.log(`   📰 HIGH INTEREST (${translation.interestScore}/5) - Article AUTO-PUBLISHED`);
                     publishedCount++;
-
-                    // Schedule re-enrichment 2.5 hours later if score >= 4
-                    if ((article.interestScore ?? 0) >= 4) {
-                      console.log(`   ⏰ Scheduling re-enrichment job for 2.5 hours from now...`);
-                      setTimeout(async () => {
-                        try {
-                          const { getReEnrichmentService } = await import("./services/re-enrichment");
-                          const reEnrichmentService = getReEnrichmentService(storage);
-                          await reEnrichmentService.reEnrichArticle(article.id);
-                        } catch (err) {
-                          console.error(`   ❌ Failed to run re-enrichment for schedule job`, err);
-                        }
-                      }, 2.5 * 60 * 60 * 1000); // 2.5 hours in ms
-                    }
 
                     // Auto-generate Switchy short URL for social media tracking
                     try {
@@ -2259,8 +2246,61 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(0);
     })
     .catch((error) => {
-      console.error("Scrape failed:", error);
+        console.error("Scrape failed:", error);
       process.exit(1);
     });
 }
 */
+
+export function startReEnrichmentPoller() {
+  console.log("⏰ Starting re-enrichment poller (runs every 5 minutes)");
+
+  setInterval(async () => {
+    try {
+      // Import here to avoid circular dependencies
+      const { db } = await import("./db");
+      const { articles } = await import("../shared/schema");
+      const { and, isNotNull, lte, eq, gte } = await import("drizzle-orm");
+      const { getReEnrichmentService } = await import("./services/re-enrichment");
+      const { storage } = await import("./storage");
+
+      const now = new Date();
+
+      // Query: re_enrich_at IS NOT NULL AND re_enrich_at <= NOW() AND re_enrichment_completed = false AND score >= 4
+      const pendingArticles = await db.select().from(articles).where(
+        and(
+          isNotNull(articles.reEnrichAt),
+          lte(articles.reEnrichAt, now),
+          eq(articles.reEnrichmentCompleted, false),
+          gte(articles.interestScore, 4)
+        )
+      );
+
+      console.log(`\n🔄 [RE-ENRICHMENT POLLER] Cycle started at ${now.toISOString()}`);
+      console.log(`   Checked for pending articles. Found ${pendingArticles.length} due for enrichment.`);
+
+      if (pendingArticles.length === 0) return;
+
+      const reEnrichmentService = getReEnrichmentService(storage);
+
+      for (const article of pendingArticles) {
+        console.log(`   Processing article ID ${article.id}: "${article.title.substring(0, 50)}..."`);
+        try {
+          // We rely on reEnrichArticle's internal logging to see if matches were above threshold
+          await reEnrichmentService.reEnrichArticle(article.id);
+          console.log(`   ✅ English source search completed for article ID ${article.id}`);
+        } catch (err) {
+          console.error(`   ❌ Failed to run re-enrichment for article ID ${article.id}`, err);
+        } finally {
+          // On completion (whether it found new info or not), set re_enrichment_completed = true
+          await db.update(articles)
+            .set({ reEnrichmentCompleted: true })
+            .where(eq(articles.id, article.id));
+        }
+      }
+
+    } catch (err) {
+      console.error("❌ Error in re-enrichment poller:", err);
+    }
+  }, 5 * 60 * 1000); // 5 minutes
+}

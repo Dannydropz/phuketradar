@@ -234,6 +234,11 @@ app.get('/article/:slugOrId', async (req, res, next) => {
     // It is the only port that is not firewalled.
     const port = parseInt(process.env.PORT || '5000', 10);
 
+    // CRITICAL: Start re-enrichment poller background task
+    import("./scheduler").then(({ startReEnrichmentPoller }) => {
+      startReEnrichmentPoller();
+    }).catch(err => console.error("Failed to start re-enrichment poller:", err));
+
     // CRITICAL: Start server IMMEDIATELY to satisfy Railway health checks
     // Do NOT wait for database checks before listening
     server.listen({
@@ -259,6 +264,10 @@ app.get('/article/:slugOrId', async (req, res, next) => {
             ALTER TABLE articles ADD COLUMN IF NOT EXISTS auto_match_enabled boolean DEFAULT false;
             ALTER TABLE articles ADD COLUMN IF NOT EXISTS needs_review boolean DEFAULT false;
             ALTER TABLE articles ADD COLUMN IF NOT EXISTS review_reason text;
+            
+            -- Re-enrichment scheduling
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS re_enrich_at timestamp;
+            ALTER TABLE articles ADD COLUMN IF NOT EXISTS re_enrichment_completed boolean DEFAULT false;
           `);
 
           const timeoutPromise = new Promise((_, reject) =>
