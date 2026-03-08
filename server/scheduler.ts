@@ -978,8 +978,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     console.log(`⚠️  ARTICLE FLAGGED FOR REVIEW: ${translation.reviewReason}`);
                   }
                 }
-
-                let article;
+                let article: any;
                 try {
                   // Randomly assign a journalist to this article
                   const assignedJournalist = getRandomJournalist();
@@ -1174,6 +1173,20 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   if (article.isPublished) {
                     console.log(`   📰 HIGH INTEREST (${translation.interestScore}/5) - Article AUTO-PUBLISHED`);
                     publishedCount++;
+
+                    // Schedule re-enrichment 2.5 hours later if score >= 4
+                    if ((article.interestScore ?? 0) >= 4) {
+                      console.log(`   ⏰ Scheduling re-enrichment job for 2.5 hours from now...`);
+                      setTimeout(async () => {
+                        try {
+                          const { getReEnrichmentService } = await import("./services/re-enrichment");
+                          const reEnrichmentService = getReEnrichmentService(storage);
+                          await reEnrichmentService.reEnrichArticle(article.id);
+                        } catch (err) {
+                          console.error(`   ❌ Failed to run re-enrichment for schedule job`, err);
+                        }
+                      }, 2.5 * 60 * 60 * 1000); // 2.5 hours in ms
+                    }
 
                     // Auto-generate Switchy short URL for social media tracking
                     try {

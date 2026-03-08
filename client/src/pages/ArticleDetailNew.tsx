@@ -514,7 +514,7 @@ export default function ArticleDetailNew() {
 
                         {/* Article Content */}
                         <div
-                            className="prose prose-lg prose-invert max-w-none prose-headings:text-white prose-p:text-zinc-300 prose-a:text-blue-400 prose-strong:text-white prose-code:text-blue-400"
+                            className="prose prose-lg prose-invert max-w-none prose-headings:text-white prose-p:text-zinc-300 prose-a:text-blue-400 prose-strong:text-white prose-code:text-blue-400 [&_.developing-story]:bg-gradient-to-r [&_.developing-story]:from-orange-500/10 [&_.developing-story]:to-transparent [&_.developing-story]:border-l-4 [&_.developing-story]:border-orange-500 [&_.developing-story]:text-orange-200 [&_.developing-story]:p-5 [&_.developing-story]:rounded-r-lg [&_.developing-story]:my-8 [&_.developing-story>strong]:text-orange-400 [&_.developing-story>strong]:tracking-wider [&_.developing-story>strong]:uppercase [&_.developing-story>strong]:text-sm"
                             dangerouslySetInnerHTML={{ __html: article.content }}
                         />
 

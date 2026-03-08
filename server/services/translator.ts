@@ -26,6 +26,14 @@ export interface TranslationResult {
   autoBoostScore?: boolean; // Set to false for "boring" stories that shouldn't be boosted to score 4+ even if video/hot
 }
 
+export interface ReEnrichmentResult {
+  enrichedTitle: string;
+  enrichedContent: string;
+  enrichedExcerpt: string;
+  hasNewInformation: boolean;
+  newFactsSummary: string;
+}
+
 // BLOCKED KEYWORDS - Auto-reject these stories due to legal/editorial policy
 // CRITICAL: Lese majeste laws in Thailand make royal family content extremely risky
 const BLOCKED_KEYWORDS = [
@@ -934,6 +942,12 @@ D. COMMUNITY REACTION — When the reaction IS the story:
    - "Foreign nationals should ensure they carry a valid International Driving Permit at all times."
    
    2-4 sentences max. Use the reference material to find the relevant fact (which station, which hospital, what the law actually says), then phrase it the way a local would.
+
+6. **DEVELOPING STORY INDICATOR** (conditional): If the source material is very thin (only 1-3 facts available) and you cannot build the article to 150+ words even with Background and On the Ground sections, add this element immediately after the dateline:
+
+<p class="developing-story"><strong>⚡ Developing Story</strong> — Initial reports are limited. This article will be updated as more details become available.</p>
+
+This is BETTER than padding a thin story with generic filler. A 100-word article that's honest about being a breaking alert is more credible than a 200-word article stuffed with "motorists are advised to exercise caution."
 
 TONE: Write like a veteran correspondent who lives in Phuket and files stories for people who also live there. Professional but not sterile. Specific but not padded. You're not writing a travel advisory — you're writing the news for your neighbors.
 
@@ -1926,7 +1940,168 @@ Always output valid JSON.`,
     return this.generateEmbedding(combinedText);
   }
 
+  /**
+   * Re-enrich an existing article with new factual details from English-language sources
+   */
+  async reEnrichWithSources(
+    existingTitle: string,
+    existingContent: string,
+    existingExcerpt: string,
+    category: string,
+    publishedAt: Date,
+    additionalSources: { name: string; publishedDate: string; extractedText: string }[],
+    model: "claude-3-7-sonnet-20250219" | "claude-3-5-sonnet-20241022" = "claude-3-7-sonnet-20250219"
+  ): Promise<ReEnrichmentResult> {
+    if (additionalSources.length === 0) {
+      return {
+        enrichedTitle: existingTitle,
+        enrichedContent: existingContent,
+        enrichedExcerpt: existingExcerpt,
+        hasNewInformation: false,
+        newFactsSummary: "No additional sources provided."
+      };
+    }
 
+    const systemPrompt = `You are updating an existing Phuket Radar article with new information from additional reporting by other outlets. You are a veteran correspondent who has lived in Phuket for over a decade, writing for an audience of long-term expats and residents.
+
+Your job is to MERGE new factual details into the existing article while:
+1. Preserving the original article's voice, structure, and format
+2. Adding ONLY confirmed new facts — not rewriting what already exists
+3. Never copying phrasing from the source articles — extract facts, rewrite in your own words
+4. Maintaining all existing sections (Dateline, Lede, Details, Background, On the Ground)
+
+You produce JSON output only.`;
+
+    const currentDate = new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" });
+    const updateTime = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Bangkok", hour: '2-digit', minute: '2-digit' });
+
+    let userPrompt = `📅 CURRENT DATE: ${currentDate} (Thailand Time)
+ARTICLE CATEGORY: ${category}
+
+---
+
+YOUR EXISTING PUBLISHED ARTICLE:
+
+Title: ${existingTitle}
+
+Content:
+${existingContent}
+
+Published at: ${publishedAt.toLocaleString("en-US", { timeZone: "Asia/Bangkok" })}
+
+---
+
+ADDITIONAL REPORTING FROM OTHER OUTLETS:
+
+${additionalSources.map(source => `SOURCE: ${source.name}
+PUBLISHED: ${source.publishedDate}
+CONTENT:
+${source.extractedText}
+`).join('\n---\n')}
+
+---
+
+RE-ENRICHMENT INSTRUCTIONS:
+
+Compare the additional reporting against your existing article. Look for:
+
+1. **New confirmed facts** not in your original:
+   - Names of people involved (victims, suspects, officials)
+   - Specific injuries or damage details
+   - Official statements from police or authorities
+   - Timeline details (exact times, sequence of events)
+   - Arrest details, charges filed
+   - Hospital information (where victims were taken)
+   - Vehicle details (make, registration, color)
+   - Number of people involved
+   - Cause determined by officials
+
+2. **Corrections** to your original:
+   - If additional sources contradict your original reporting on a factual point, update to the authoritative version
+   - If location details are more specific in additional sources, update
+
+3. **Follow-up developments**:
+   - Arrests made after the initial incident
+   - Suspect identified or turned themselves in
+   - Road reopened / situation resolved
+   - Official investigation status
+
+DO NOT:
+- Copy or closely paraphrase any sentences from the source articles
+- Add speculative information or editorial commentary from other outlets
+- Remove or weaken any facts from your original article
+- Change the tone or voice of the article
+- Add generic context or filler — only add genuinely new information
+- Attribute information to the other outlets by name (don't write "According to The Thaiger..." — instead use "Police confirmed..." or "Authorities later reported..." or simply state the fact)
+
+STRUCTURE OF YOUR UPDATE:
+- STRIP OUT any existing Developing Story indicator (<p class="developing-story">...</p>) if it exists in the original content. Do not include it in the updated article.
+- Keep the existing Dateline
+- Update the Lede if significant new facts change the summary
+- Add new details in the Details section (integrate naturally, don't just append at the end)
+- Update the Background section if new context is available
+- Update the On the Ground section if there are practical developments (road reopened, suspect caught, etc.)
+- Add an "Updated" note: include exactly <p class="updated-note"><em>Updated at ${updateTime} with additional details from official sources.</em></p> as the very first element right after the dateline
+
+MINIMUM CHANGE THRESHOLD:
+If the additional sources contain NO new factual information beyond what your article already covers, set "hasNewInformation" to false.
+
+OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
+
+{
+  "enrichedTitle": "Updated headline if significant new facts warrant it, otherwise the existing headline unchanged",
+  "enrichedContent": "Full updated HTML article with new facts integrated and 'Updated at' note",
+  "enrichedExcerpt": "Updated 2-3 sentence summary if new facts change the story significantly, otherwise existing excerpt",
+  "hasNewInformation": true/false,
+  "newFactsSummary": "Brief 1-2 sentence description of what new facts were added, for your internal logging"
+}`;
+
+    try {
+      console.log(`🔄 Calling Claude (${model}) for re-enrichment with ${additionalSources.length} sources...`);
+
+      const response = await anthropic.messages.create({
+        model: model,
+        max_tokens: 2500,
+        temperature: 0.2, // Low temperature for more factual, conservative merging
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+
+      try {
+        // Strip markdown backticks if Claude included them
+        let jsonStr = responseText.trim();
+        if (jsonStr.startsWith('```json')) jsonStr = jsonStr.substring(7);
+        if (jsonStr.startsWith('```')) jsonStr = jsonStr.substring(3);
+        if (jsonStr.endsWith('```')) jsonStr = jsonStr.substring(0, jsonStr.length - 3);
+
+        jsonStr = jsonStr.trim();
+
+        const result = JSON.parse(jsonStr) as ReEnrichmentResult;
+
+        // Ensure proper paragraph formatting for returned HTML
+        if (result.hasNewInformation && result.enrichedContent) {
+          result.enrichedContent = ensureProperParagraphFormatting(result.enrichedContent);
+        }
+
+        return result;
+      } catch (parseError) {
+        console.error("❌ Failed to parse JSON from Claude re-enrichment:\n", responseText);
+        // Fallback: return original without changes
+        return {
+          enrichedTitle: existingTitle,
+          enrichedContent: existingContent,
+          enrichedExcerpt: existingExcerpt,
+          hasNewInformation: false,
+          newFactsSummary: "Failed to parse AI response"
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error communicating with Anthropic for re-enrichment:", error);
+      throw error;
+    }
+  }
 }
 
 export const translatorService = new TranslatorService();
