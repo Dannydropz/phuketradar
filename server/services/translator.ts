@@ -981,7 +981,7 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences, no commentary:
 
     // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
     const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
-    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
 
     let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
 
@@ -1861,7 +1861,7 @@ Always output valid JSON.`,
         const enrichmentModel = "gpt-4o"; // Used only on OpenAI path
         const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
         const activeModelLabel = activeProvider === 'anthropic'
-          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
+          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620'}`
           : 'OpenAI GPT-4o';
         console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
 
@@ -2004,7 +2004,7 @@ Always output valid JSON.`,
     category: string,
     publishedAt: Date,
     additionalSources: { name: string; publishedDate: string; extractedText: string }[],
-    model: "claude-3-7-sonnet-20250219" | "claude-3-5-sonnet-20241022" = "claude-3-7-sonnet-20250219"
+    model: "claude-3-5-sonnet-20240620" | "claude-3-opus-20240229" = "claude-3-5-sonnet-20240620"
   ): Promise<ReEnrichmentResult> {
     if (additionalSources.length === 0) {
       return {
@@ -2110,21 +2110,38 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
   "newFactsSummary": "Brief 1-2 sentence description of what new facts were added, for your internal logging"
 }`;
 
+    const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
+
     try {
-      console.log(`🔄 Calling Claude (${model}) for re-enrichment with ${additionalSources.length} sources...`);
+      let responseText = '';
 
-      const response = await anthropic.messages.create({
-        model: model,
-        max_tokens: 2500,
-        temperature: 0.2, // Low temperature for more factual, conservative merging
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      });
-
-      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      if (enrichmentProvider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+        console.log(`🔄 Calling Claude (${model}) for re-enrichment with ${additionalSources.length} sources...`);
+        const response = await anthropic.messages.create({
+          model: model,
+          max_tokens: 2500,
+          temperature: 0.2,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        });
+        responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      } else {
+        const openaiModel = "gpt-4o";
+        console.log(`🔄 Calling OpenAI (${openaiModel}) for re-enrichment with ${additionalSources.length} sources...`);
+        const response = await openai.chat.completions.create({
+          model: openaiModel,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+        });
+        responseText = response.choices[0].message.content || '';
+      }
 
       try {
-        // Strip markdown backticks if Claude included them
+        // Strip markdown backticks if AI included them (OpenAI with json_object usually doesn't wrap, but safe to keep)
         let jsonStr = responseText.trim();
         if (jsonStr.startsWith('```json')) jsonStr = jsonStr.substring(7);
         if (jsonStr.startsWith('```')) jsonStr = jsonStr.substring(3);
@@ -2141,8 +2158,7 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
 
         return result;
       } catch (parseError) {
-        console.error("❌ Failed to parse JSON from Claude re-enrichment:\n", responseText);
-        // Fallback: return original without changes
+        console.error("❌ Failed to parse JSON from AI re-enrichment:\n", responseText);
         return {
           enrichedTitle: existingTitle,
           enrichedContent: existingContent,
@@ -2152,7 +2168,7 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
         };
       }
     } catch (error) {
-      console.error("❌ Error communicating with Anthropic for re-enrichment:", error);
+      console.error("❌ Error communicating with AI provider for re-enrichment:", error);
       throw error;
     }
   }

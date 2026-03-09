@@ -508,6 +508,7 @@ export class ReEnrichmentService {
 
                     const score = this.evaluateMatch(textToSearch, ourDate, pubDate, locations, incidentTypes, nationalities, numbers, times);
                     if (score >= 5 && score > highestScore) {
+                        console.log(`        [RSS] 🏆 High confidence match found! Score: ${score}`);
                         highestScore = score;
                         bestMatch = {
                             title: item.title || "Match",
@@ -530,6 +531,7 @@ export class ReEnrichmentService {
         console.log(`      [-] ${isFallback ? 'Fallback ' : ''}Search scraping for "${searchQuery}" on ${source.name}...`);
         try {
             const searchUrl = `${source.searchUrl}${encodeURIComponent(searchQuery)}`;
+            console.log(`      [-] URL: ${searchUrl}`);
             const response = await fetch(searchUrl, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -590,6 +592,8 @@ export class ReEnrichmentService {
                 }
             });
 
+            console.log(`      [-] Fetching article text. Status: ${response.status}`);
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -597,18 +601,38 @@ export class ReEnrichmentService {
             const html = await response.text();
             const $ = cheerio.load(html);
 
-            // Remove script, style, ad tags, headers, footers
-            $('script, style, iframe, nav, header, footer, .ads, .advertisement, [id*="ad-"], [class*="ad-"]').remove();
+            // Remove only absolutely non-content elements
+            $('script, style, iframe, nav, header, footer, .ads-container, .advertisement, noscript').remove();
+
+            // Try to find the main content container first for better precision
+            const contentSelectors = ['.entry-content', 'article', '.post-content', '.td-post-content', '.article-content', '.content'];
+            let contentContainer = null;
+
+            for (const selector of contentSelectors) {
+                const found = $(selector);
+                if (found.length > 0 && found.text().trim().length > 500) {
+                    contentContainer = found;
+                    console.log(`      [-] Found content container using selector: ${selector}`);
+                    break;
+                }
+            }
+
+            const searchArea = contentContainer || $('body');
 
             // Extract paragraphs
             let content = '';
-            $('p').each((i, el) => {
+            let pCount = 0;
+            searchArea.find('p').each((i, el) => {
                 const text = $(el).text().trim();
-                if (text.length > 50 && !text.includes('Copyright') && !text.includes('All rights reserved')) {
-                    content += text + '\\n\\n';
+                // Lower threshold to 30 chars to catch shorter factual sentences
+                if (text.length > 30 && !text.includes('Copyright') && !text.includes('All rights reserved')) {
+                    if (pCount === 0) console.log(`      [-] First paragraph extracted: "${text.substring(0, 60)}..."`);
+                    content += text + '\n\n';
+                    pCount++;
                 }
             });
 
+            console.log(`      [-] Unified content length: ${content.length} chars from ${pCount} paragraphs.`);
             return content.trim();
         } catch (e) {
             console.error(`      ⚠️ Failed to extract text from ${url}:`, e);
