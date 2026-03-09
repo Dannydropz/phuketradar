@@ -981,7 +981,7 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences, no commentary:
 
     // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
     const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
-    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
+    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
 
     let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
 
@@ -1861,7 +1861,7 @@ Always output valid JSON.`,
         const enrichmentModel = "gpt-4o"; // Used only on OpenAI path
         const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
         const activeModelLabel = activeProvider === 'anthropic'
-          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620'}`
+          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
           : 'OpenAI GPT-4o';
         console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
 
@@ -2004,7 +2004,7 @@ Always output valid JSON.`,
     category: string,
     publishedAt: Date,
     additionalSources: { name: string; publishedDate: string; extractedText: string }[],
-    model: "claude-3-5-sonnet-20240620" | "claude-3-opus-20240229" = "claude-3-5-sonnet-20240620"
+    model: "claude-sonnet-4-5" | "claude-3-opus-20240229" = "claude-sonnet-4-5"
   ): Promise<ReEnrichmentResult> {
     if (additionalSources.length === 0) {
       return {
@@ -2116,9 +2116,10 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
       let responseText = '';
 
       if (enrichmentProvider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
-        console.log(`🔄 Calling Claude (${model}) for re-enrichment with ${additionalSources.length} sources...`);
+        const activeModel = process.env.ANTHROPIC_MODEL || model;
+        console.log(`🔄 Calling Claude (${activeModel}) for re-enrichment with ${additionalSources.length} sources...`);
         const response = await anthropic.messages.create({
-          model: model,
+          model: activeModel,
           max_tokens: 2500,
           temperature: 0.2,
           system: systemPrompt,
