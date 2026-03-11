@@ -20,7 +20,6 @@ import { KastBanner } from "@/components/KastBanner";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { MobileNewsletterSlideUp } from "@/components/MobileNewsletterSlideUp";
 import { ExitIntentPopup } from "@/components/ExitIntentPopup";
-import { AdsterraNativeAd } from "@/components/AdsterraAd";
 import logoWhite from "@assets/logo-white-transparent.png";
 import {
     Carousel,
@@ -517,12 +516,6 @@ export default function ArticleDetailNew() {
                             className="prose prose-lg prose-invert max-w-none prose-headings:text-white prose-p:text-zinc-300 prose-a:text-blue-400 prose-strong:text-white prose-code:text-blue-400 [&_.developing-story]:bg-gradient-to-r [&_.developing-story]:from-orange-500/10 [&_.developing-story]:to-transparent [&_.developing-story]:border-l-4 [&_.developing-story]:border-orange-500 [&_.developing-story]:text-orange-200 [&_.developing-story]:p-5 [&_.developing-story]:rounded-r-lg [&_.developing-story]:my-8 [&_.developing-story>strong]:text-orange-400 [&_.developing-story>strong]:tracking-wider [&_.developing-story>strong]:uppercase [&_.developing-story>strong]:text-sm"
                             dangerouslySetInnerHTML={{ __html: article.content }}
                         />
-
-                        {/* Native Ad Below Content */}
-                        <div className="mt-8 mb-4">
-                            <h3 className="text-xs font-bold mb-2 text-zinc-500 uppercase tracking-wider text-center">Sponsored</h3>
-                            <AdsterraNativeAd className="border border-white/5 bg-white/5 rounded-xl p-2 min-h-[120px]" />
-                        </div>
 
                         {/* Tags */}
                         {article.tags && article.tags.length > 0 && (
