@@ -518,6 +518,39 @@ const LOCAL_ENTERTAINMENT_CAP_KEYWORDS = [
   "special deals", // promotional concert language
 ];
 
+// PAGEANT / COMPETITION / CONTEST cap keywords
+// Beauty pageants, costume competitions, community contests are local entertainment,
+// NOT high-interest breaking news. Cap at score 3.
+const PAGEANT_COMPETITION_CAP_KEYWORDS = [
+  // Thai keywords
+  "ประกวด", // contest/competition/pageant
+  "นางงาม", // beauty queen/pageant
+  "นางสาว", // Miss (beauty pageant title)
+  "เวทีประกวด", // contest stage
+  "การประกวด", // the competition/contest
+  "ผู้เข้าแข่งขัน", // contestant
+  "ผู้เข้าประกวด", // contestant (pageant)
+  "คอสเพลย์", // cosplay
+  "แฟนซี", // fancy dress
+  "แข่งขัน", // compete/competition
+  // English keywords (from translated content)
+  "pageant",
+  "beauty contest",
+  "beauty competition",
+  "beauty queen",
+  "competition enters",
+  "enters competition",
+  "cosplay",
+  "costume contest",
+  "costume competition",
+  "fancy dress",
+  "talent show",
+  "talent competition",
+  "contestant",
+  "contestants",
+  "sailor moon", // cosplay character references
+];
+
 // Phuket location context map - CRITICAL DISAMBIGUATION ONLY
 // NOTE: We intentionally DO NOT include generic tourist descriptions like "bustling tourist area" or
 // "family-friendly beach" - our readers are locals and expats who already know Phuket well.
@@ -629,11 +662,11 @@ function ensureProperParagraphFormatting(content: string): string {
   const hasParagraphTags = /<p[^>]*>/.test(content) && /<\/p>/.test(content);
   const paragraphTagCount = (content.match(/<p[^>]*>/g) || []).length;
 
-  // STRICTER CHECK: Require at least 3 paragraph tags to consider content well-formatted
-  // This catches cases where content has 1-2 <p> tags but is still mostly a wall of text
-  if (hasParagraphTags && paragraphTagCount >= 3) {
-    // Content has multiple paragraphs, likely well-formatted
-    return content;
+  if (hasParagraphTags) {
+    if (paragraphTagCount > 0) {
+      // It has at least 1 well-formed paragraph. Do not ruin the HTML by replacing newlines.
+      return content;
+    }
   }
 
   // Content needs formatting - either no <p> tags or just one giant paragraph
@@ -810,7 +843,14 @@ export class TranslatorService {
 - Seasons: Monsoon (May-Oct) brings heavy rain; Dry season peaks Mar-Apr causing localized water shortages.
 - Flooding: Flash flooding common in Patong, Sam Kong, Rassada, and Koh Kaew underpass.
 - Marine: Coral reef and marine park closures (Similan, Surin) occur annually around May-Oct for recovery. West coast beaches have dangerous rip currents in monsoon season.
-- Air Quality: Occasionally affected by agricultural burning haze from mainland SEA (Feb-Apr).`
+- Air Quality: Occasionally affected by agricultural burning haze from mainland SEA (Feb-Apr).`,
+
+      'Infrastructure': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
+- Transport Hubs: Phuket International Airport (HKT) is the sole airport and Thailand's second busiest. Located in Thalang district at the north of the island.
+- Connectivity: The Sarasin Bridge connects Phuket to mainland Thailand (Phang Nga province).
+- Roads: Thepkrasattri Road is the single main traffic artery connecting the airport/north to Phuket Town/south. Accidents here cause severe island-wide delays.
+- Utilities: Island power is supplied via underwater cables from the mainland; brief outages are common during storms.
+- Water: Relies heavily on reservoirs (Bang Wad, Bang Neow Dum); fresh water shortages occur in peak dry season (March-April).`
     };
 
     const GENERAL_CONTEXT_BLOCK = `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:
@@ -1430,6 +1470,10 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - **"Friendly match at stadium" = Score 2 MAX (local sports event, NOT urgent)**
 - **"Community sports event" = Score 2 MAX (routine local activity)**
 - **"Local concert with unknown acts" = Score 2 MAX (routine entertainment, NOT news)**
+- **"Beauty pageant/contest" = Score 3 MAX (community entertainment, NOT breaking)**
+- **"Cosplay/costume competition" = Score 3 MAX (community entertainment, NOT breaking)**
+- **"Contestant enters competition" = Score 3 MAX (community event, NOT breaking)**
+- **"Local talent show" = Score 3 MAX (community entertainment, NOT breaking)**
 - "Car crash with injuries" = Score 4 (actual incident with victims)
 - "Drowning at beach" = Score 5 (death/urgent)
 - "Arrest for theft" = Score 4 (crime with action)
@@ -1439,6 +1483,16 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - **"Foreigner doing something weird/silly" = Score 5 (viral expat content - pot on head, funny behavior, etc.)**
 - **"Sea turtle eggs laid at beach" = Score 5 (wildlife, conservation, family-friendly viral)**
 - **"Good samaritan returns lost property" = Score 4-5 (heartwarming, shareable)**
+
+**BEAUTY PAGEANT / COMPETITION / CONTEST RULES (CRITICAL):**
+Never score 4 or 5 for the following — these are score 3 maximum:
+- Beauty pageants, beauty contests, Miss/Mr competitions
+- Cosplay competitions, costume contests, fancy dress events
+- Talent shows, talent competitions, community contests
+- Contestants entering or winning local/regional competitions
+- "International" in the event name does NOT make it high-interest — "Phuket International Competition" is still a local community event
+- Social media attention on a contestant (e.g., viral cosplay) does NOT elevate it above score 3
+- These are community entertainment stories, NOT breaking news
 
 **CORPORATE MILESTONES / CEREMONIAL EVENTS RULES (CRITICAL):**
 Never score 4 or 5 for the following — these are score 2-3 maximum regardless of detail, officials present, or production quality:
@@ -1781,7 +1835,9 @@ Always output valid JSON.`,
       // Only cap if it's NOT a major event (check for major festival/international act indicators)
       const MAJOR_EVENT_EXCEPTIONS = [
         "EDC", "Electric Daisy", "Wonderfruit", "S2O", "Full Moon Party",
-        "international", "world tour", "Grammy", "sold out", "festival",
+        "international music", "international festival", "international tour",
+        "world tour", "Grammy", "sold out", "music festival",
+        "international concert", "arena tour",
       ];
       const isMajorEvent = MAJOR_EVENT_EXCEPTIONS.some(keyword =>
         combinedTextForScoring.includes(keyword.toLowerCase())
@@ -1792,9 +1848,22 @@ Always output valid JSON.`,
         finalInterestScore = 2;
       }
 
+      // CAP PAGEANT / COMPETITION / CONTEST STORIES AT SCORE 3
+      // Editorial decision: Beauty pageants, costume competitions, community contests
+      // are local entertainment/community events, NOT high-interest breaking news.
+      // Even "international" competitions held locally are community events.
+      const hasPageantCompetitionKeyword = PAGEANT_COMPETITION_CAP_KEYWORDS.some(keyword =>
+        combinedTextForScoring.includes(keyword.toLowerCase())
+      );
+
+      if (hasPageantCompetitionKeyword && finalInterestScore > 3 && !isArrestOrAbnormal) {
+        console.log(`   🏆 PAGEANT/COMPETITION CAP: ${finalInterestScore} → 3 (beauty pageant/contest/competition detected)`);
+        finalInterestScore = 3;
+      }
+
       // APPLY VIDEO BOOST BEFORE PREMIUM ENRICHMENT
       // If it's a video and not capped by a "boring" category, boost to 4 so it gets premium enrichment
-      const canBoost = !(category === "Politics" || hasPoliticsKeyword || category === "Business" || hasRealEstateKeyword || hasFoundationGovernanceKeyword || hasLostPetKeyword || hasLocalEntertainmentKeyword);
+      const canBoost = !(category === "Politics" || hasPoliticsKeyword || category === "Business" || hasRealEstateKeyword || hasFoundationGovernanceKeyword || hasLostPetKeyword || hasLocalEntertainmentKeyword || hasPageantCompetitionKeyword);
       if (assets?.isVideo && canBoost && finalInterestScore < 4) {
         console.log(`   🎥 VIDEO BOOST: ${finalInterestScore} → 4 (video stories get premium enrichment)`);
         finalInterestScore = 4;
