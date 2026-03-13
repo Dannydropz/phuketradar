@@ -1292,20 +1292,25 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
                 console.log(`✅ ${article.isPublished ? 'Created and published' : 'Created as draft'}: ${translation.translatedTitle.substring(0, 50)}...`);
 
-                // INSTANT AUTO-POST: Trigger N8N Webhook
+                // INSTANT AUTO-POST: Trigger Facebook posting
                 // This fires immediately when a high-interest story (score >= 4) is published.
-                // The N8N workflow will then fetch the article and post it to Facebook.
 
-                const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0);
+                const hasImage = article.imageUrl || (article.imageUrls && article.imageUrls.length > 0) || article.videoThumbnail;
                 const isReallyPosted = article.facebookPostId && !article.facebookPostId.startsWith('LOCK:');
-
-                // Check eligibility for auto-posting
 
                 // SAFETY OVERRIDE: Double-check for Hat Yai / Songkhla keywords to prevent accidental posting
                 // Even if AI rated it high, we block it here if it's clearly about Southern floods outside Phuket
                 const isSouthernFloodStory = /Hat Yai|Songkhla|Narathiwat|Yala|Pattani/i.test(article.title + article.content);
                 const effectiveScore = isSouthernFloodStory ? Math.min(article.interestScore ?? 0, 3) : (article.interestScore ?? 0);
                 const effectiveCategory = isSouthernFloodStory ? 'National' : article.category;
+
+                // Log all decisions for high-interest published articles so nothing is silently skipped
+                if (article.isPublished && effectiveScore >= 4) {
+                  console.log(`\n📊 [FB-AUTOPOST DECISION] Article ID: ${article.id}`);
+                  console.log(`   Title: ${article.title.substring(0, 70)}...`);
+                  console.log(`   Score: ${effectiveScore}/5 | Category: ${article.category}${isSouthernFloodStory ? ' → overridden to National (flood keyword)' : ''}`);
+                  console.log(`   hasImage: ${!!hasImage} | isPublished: ${article.isPublished} | isReallyPosted: ${!!isReallyPosted} | isManuallyCreated: ${!!article.isManuallyCreated}`);
+                }
 
                 // STRICT RULE: Only post Phuket-related stories (exclude "National" category)
                 const shouldTriggerAutoPost = article.isPublished &&
@@ -1316,13 +1321,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   effectiveCategory !== 'National'; // Exclude National news (Southern floods, Bangkok, etc.)
 
                 if (shouldTriggerAutoPost) {
-                  console.log(`🚀 Triggering N8N Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
-
-                  // Use internal Facebook service instead of N8N
                   console.log(`🚀 Triggering Internal Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
 
-                  // We await this to ensure the process doesn't exit before posting completes
-                  // The scheduler runs as a background job so a few extra seconds is fine
                   postArticleToFacebook(article, storage)
                     .then(result => {
                       if (result) {
@@ -1334,6 +1334,20 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     .catch(err => {
                       console.error('❌ Failed to auto-post to Facebook:', err);
                     });
+                } else if (article.isPublished && effectiveScore >= 4) {
+                  // High-interest story that was blocked — log the EXACT reason so we can debug
+                  const skipReasonDetail = !hasImage
+                    ? `no image attached`
+                    : isReallyPosted
+                      ? `already posted to Facebook (postId: ${article.facebookPostId})`
+                      : article.isManuallyCreated
+                        ? `manually created article (excluded from auto-post)`
+                        : effectiveCategory === 'National'
+                          ? `category is '${article.category}'${isSouthernFloodStory ? ' (Southern flood override)' : ''} — National stories excluded from auto-post`
+                          : `unknown reason`;
+                  console.log(`⏭️  [FB-AUTOPOST SKIP] Score ${effectiveScore}/5 story NOT auto-posted → ${skipReasonDetail}`);
+                  console.log(`   Title: ${article.title.substring(0, 70)}...`);
+                  console.log(`   ℹ️  Use the Facebook button in Admin Dashboard to post this manually.`);
                 } else if (article.isPublished && !hasImage) {
                   console.log(`⏭️  Skipping Facebook post (no image): ${article.title.substring(0, 60)}...`);
                 } else if (article.isPublished && (article.interestScore ?? 0) < 4) {

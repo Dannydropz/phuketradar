@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { translate } from "@vitalets/google-translate-api";
+import { ensureProperParagraphFormatting, enforceSoiNamingConvention } from "../lib/format-utils";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -618,22 +619,7 @@ function isComplexThaiText(thaiText: string): boolean {
   );
 }
 
-// ENFORCE SOI NAMING CONVENTION: In Thai, Soi (alley) ALWAYS comes before the name
-// This function corrects "[Name] Soi" to "Soi [Name]" in translated text
-function enforceSoiNamingConvention(text: string): string {
-  if (!text) return text;
-
-  // Regex breakdown:
-  // \b([A-Z][a-zA-Z0-9\-\.]*) -> Matches a capitalized name (including hyphens/dots)
-  // \s+                       -> Matches whitespace
-  // [Ss]oi\b                  -> Matches "Soi" or "soi" at the end of a word
-  //
-  // Use a negative lookbehind (if supported) or just match carefully to avoid
-  // matching "The Soi", "A Soi", etc.
-  // We prioritize case-sensitive match for "Soi" to be safer, but user examples
-  // often show "Bangla Soi" -> "Soi Bangla"
-  return text.replace(/\b([A-Z][a-zA-Z0-9\-\.]{2,})\s+[Ss]oi\b/g, 'Soi $1');
-}
+// ENFOCE SOI NAMING CONVENTION: Moved to server/lib/format-utils.ts
 
 // Enrich Thai text with Phuket location context
 function enrichWithPhuketContext(text: string): string {
@@ -655,115 +641,7 @@ function enrichWithPhuketContext(text: string): string {
 
 // CRITICAL: Ensure article content has proper paragraph formatting
 // This prevents "wall of text" issues when GPT returns poorly formatted content
-function ensureProperParagraphFormatting(content: string): string {
-  if (!content || content.trim() === '') return content;
-
-  // If content already has proper <p> tags with content, return as-is
-  const hasParagraphTags = /<p[^>]*>/.test(content) && /<\/p>/.test(content);
-  const paragraphTagCount = (content.match(/<p[^>]*>/g) || []).length;
-
-  if (hasParagraphTags) {
-    if (paragraphTagCount > 0) {
-      // It has at least 1 well-formed paragraph. Do not ruin the HTML by replacing newlines.
-      return content;
-    }
-  }
-
-  // Content needs formatting - either no <p> tags or just one giant paragraph
-  let formattedContent = content;
-
-  // IMPORTANT: Handle escaped newlines (\\n) which may appear in JSON or improperly stored content
-  // This was the bug that caused the "wall of text" issue for some articles
-  formattedContent = formattedContent.replace(/\\n\\n/g, '\n\n'); // Double escaped newlines
-  formattedContent = formattedContent.replace(/\\n/g, '\n'); // Single escaped newlines
-  formattedContent = formattedContent.replace(/\r\n/g, '\n'); // Windows-style newlines
-
-  // Now handle actual newlines
-  // Convert \n\n to paragraph breaks
-  formattedContent = formattedContent.replace(/\n\n+/g, '</p><p>');
-
-  // Convert single \n to paragraph breaks (news articles should have paragraph breaks)
-  formattedContent = formattedContent.replace(/\n/g, '</p><p>');
-
-  // Handle <br> tags that should be paragraph breaks
-  formattedContent = formattedContent.replace(/<br\s*\/?>/gi, '</p><p>');
-
-  // IMPROVED: Check if content is still one giant block even after newline conversion
-  // Count paragraph breaks created so far
-  const hasNewParagraphs = formattedContent.includes('</p><p>');
-  const newParagraphCount = hasNewParagraphs ? (formattedContent.match(/<\/p><p>/g) || []).length + 1 : 0;
-
-  // If we still don't have enough paragraphs (less than 3), try to split at sentence boundaries
-  // This handles "wall of text" cases where content has inline HTML but no line breaks
-  if (newParagraphCount < 3) {
-    // Strip existing incomplete paragraph wrapping for sentence splitting
-    let textContent = formattedContent
-      .replace(/<\/p><p>/g, ' ')
-      .replace(/<\/?p>/g, '')
-      .trim();
-
-    // Split at logical sentence boundaries (after periods followed by space and capital letter)
-    // Preserve HTML tags during splitting by using a more careful approach
-    const sentences = textContent.split(/(?<=[.!?]["']?)\s+(?=[A-Z<])/);
-
-    if (sentences.length >= 2) {
-      // Group sentences into paragraphs of 2 sentences each
-      const paragraphs: string[] = [];
-      let currentParagraph: string[] = [];
-
-      sentences.forEach((sentence, index) => {
-        currentParagraph.push(sentence);
-        // Create a new paragraph every 2 sentences, or at natural break points
-        const isNaturalBreak = sentence.toLowerCase().includes('context') ||
-          sentence.toLowerCase().includes('public reaction') ||
-          sentence.toLowerCase().includes('background') ||
-          sentence.toLowerCase().includes('according to') ||
-          sentence.toLowerCase().includes('meanwhile') ||
-          sentence.toLowerCase().includes('however') ||
-          sentence.toLowerCase().includes('additionally') ||
-          sentence.includes('<h3>');
-
-        if (currentParagraph.length >= 2 || isNaturalBreak || index === sentences.length - 1) {
-          paragraphs.push(currentParagraph.join(' '));
-          currentParagraph = [];
-        }
-      });
-
-      if (currentParagraph.length > 0) {
-        paragraphs.push(currentParagraph.join(' '));
-      }
-
-      formattedContent = paragraphs.join('</p><p>');
-      console.log(`   🔄 Sentence-based splitting: ${sentences.length} sentences → ${paragraphs.length} paragraphs`);
-    }
-  }
-
-  // Clean up any existing partial <p> tags before wrapping
-  formattedContent = formattedContent.replace(/^\s*<\/p>/, '');
-  formattedContent = formattedContent.replace(/<p>\s*$/, '');
-
-  // Ensure content starts with <p> and ends with </p>
-  if (!formattedContent.trim().startsWith('<p')) {
-    formattedContent = '<p>' + formattedContent;
-  }
-  if (!formattedContent.trim().endsWith('</p>')) {
-    formattedContent = formattedContent + '</p>';
-  }
-
-  // Clean up empty paragraphs and whitespace issues
-  formattedContent = formattedContent.replace(/<p>\s*<\/p>/g, '');
-  formattedContent = formattedContent.replace(/<p><p>/g, '<p>');
-  formattedContent = formattedContent.replace(/<\/p><\/p>/g, '</p>');
-
-  // Preserve h2, h3, and other HTML tags that shouldn't be inside <p> tags
-  formattedContent = formattedContent.replace(/<p>\s*(<h[1-6][^>]*>)/gi, '$1');
-  formattedContent = formattedContent.replace(/(<\/h[1-6]>)\s*<\/p>/gi, '$1');
-
-  const finalParagraphCount = (formattedContent.match(/<p[^>]*>/g) || []).length;
-  console.log(`   📝 Paragraph formatting applied: ${paragraphTagCount} → ${finalParagraphCount} paragraphs`);
-
-  return formattedContent;
-}
+// Moved to server/lib/format-utils.ts for shared use
 
 export class TranslatorService {
   // Premium GPT-4 enrichment for high-priority stories (score 4-5) or manual scrapes
@@ -1399,6 +1277,15 @@ CATEGORY GUIDE (read full story, not just headline):
 - WHEN UNCERTAIN: Use "Local" as default
 
 CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" (NOT "Weather" or "Local")
+
+🚨 CATEGORY CRITICAL RULE — LOCATION OF EVENT, NOT NATIONALITY/ORIGIN:
+- Category is determined by WHERE THE EVENT HAPPENED, NOT the nationality of the people involved or whether international agencies are involved.
+- A French man arrested IN RAWAI = Category "Crime" (happened in Phuket), NOT "National"
+- A Russian tourist caught WITH DRUGS IN PATONG = Category "Crime", NOT "National"
+- An Interpol suspect ARRESTED IN PHUKET = Category "Crime", NOT "National"
+- Chinese gang BUSTED IN PHUKET = Category "Crime", NOT "National"
+- A Thai policeman arrested for corruption IN PHUKET = Category "Crime", NOT "National"
+- "National" ONLY means the event occurred OUTSIDE Phuket province. It NEVER means "international" or "involving foreign nationals".
 
 INTEREST SCORE (1-5) - BE VERY STRICT:
 **RESERVE 4-5 FOR HIGH-ENGAGEMENT NEWS ONLY:**

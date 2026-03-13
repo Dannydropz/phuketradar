@@ -75,11 +75,11 @@ export async function postArticleToFacebook(
     return null;
   }
 
-  // Get the primary image URL (prefer imageUrl, fallback to first imageUrls)
-  const primaryImageUrl = article.imageUrl || (article.imageUrls && article.imageUrls[0]);
+  // Get the primary image URL (prefer imageUrl, fallback to first imageUrls, then videoThumbnail for reels)
+  const primaryImageUrl = article.imageUrl || (article.imageUrls && article.imageUrls[0]) || article.videoThumbnail;
 
   if (!primaryImageUrl) {
-    console.error(`❌ [FB-POST] Article ${article.id} has no image, skipping Facebook post`);
+    console.error(`❌ [FB-POST] Article ${article.id} has no image or video thumbnail, skipping Facebook post`);
     return null;
   }
 
