@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Article } from '@shared/schema';
+import { ensureProperParagraphFormatting } from '../lib/format-utils';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -103,7 +104,7 @@ Note: This story is compiled from ${stories.length} different sources: ${stories
 
       return {
         title: result.title || stories[0].title,
-        content: result.content || stories[0].content,
+        content: ensureProperParagraphFormatting(result.content || stories[0].content),
         excerpt: result.excerpt || stories[0].excerpt,
         isDeveloping: result.isDeveloping ?? true, // Default to developing if not specified
         combinedDetails: result.combinedDetails || `Merged ${stories.length} stories`

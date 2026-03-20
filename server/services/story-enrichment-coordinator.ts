@@ -3,6 +3,7 @@ import { IStorage } from '../storage';
 import { DuplicateDetectionService } from './duplicate-detection';
 import { StoryMergerService } from './story-merger';
 import { EnrichmentService } from './enrichment';
+import { ensureProperParagraphFormatting } from '../lib/format-utils';
 
 interface ProcessedStory {
   action: 'create' | 'merge' | 'skip';
@@ -88,13 +89,19 @@ export class StoryEnrichmentCoordinator {
 
       // Build update payload - include best image if the primary doesn't have one
       const updatePayload: Partial<Article> = {
-        title: mergedStory.title,
-        content: mergedStory.content,
-        excerpt: mergedStory.excerpt,
-        isDeveloping: mergedStory.isDeveloping,
         enrichmentCount: (primaryArticle.enrichmentCount || 0) + 1,
         lastEnrichedAt: new Date(),
       };
+
+      // Only update title and content if it hasn't been manually edited
+      if (!(primaryArticle as any).lastManualEditAt) {
+        updatePayload.title = mergedStory.title;
+        updatePayload.content = ensureProperParagraphFormatting(mergedStory.content);
+        updatePayload.excerpt = mergedStory.excerpt;
+        updatePayload.isDeveloping = mergedStory.isDeveloping;
+      } else {
+        console.log(`   🔒 Preserving manual edits for article ${primaryArticle.id}`);
+      }
 
       // Upgrade image if new source has a better one
       if (bestImage.imageUrl && !primaryArticle.imageUrl) {
@@ -131,7 +138,7 @@ export class StoryEnrichmentCoordinator {
         article: {
           ...translatedArticle,
           title: mergedStory.title,
-          content: mergedStory.content,
+          content: ensureProperParagraphFormatting(mergedStory.content),
           excerpt: mergedStory.excerpt,
           isDeveloping: mergedStory.isDeveloping,
           enrichmentCount: 1,
@@ -254,7 +261,7 @@ export class StoryEnrichmentCoordinator {
           // Build update payload
           const updatePayload: Partial<Article> = {
             title: mergedStory.title,
-            content: mergedStory.content,
+            content: ensureProperParagraphFormatting(mergedStory.content),
             excerpt: mergedStory.excerpt,
             isDeveloping: mergedStory.isDeveloping,
             enrichmentCount: (article.enrichmentCount || 0) + 1,

@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Article } from '@shared/schema';
+import { ensureProperParagraphFormatting } from '../lib/format-utils';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -26,6 +27,8 @@ You MUST only include facts that are ALREADY in the article. This is an ENRICHME
 - Do NOT upgrade vague words to more dramatic synonyms (e.g., "reckless" → "stunts" is FORBIDDEN)
 - Do NOT invent quotes, witness statements, police responses, or specific numbers
 - Do NOT add: "caused chaos", "performing stunts", "appeared agitated", "witnesses described" unless already present
+- 🚨 PATONG/BANGLA ROAD HALLUCINATION WARNING: If the source says "Patong", do NOT assume it happened on "Bangla Road". Patong has many other piers, docks, shops, and beaches. Only name Bangla Road if the source EXPLICITLY mentions it.
+- 🚗🏍️ VEHICLE TYPE ACCURACY (CRITICAL - CORRECT IF WRONG): The Thai word "รถ" (rot) is a GENERIC term meaning "vehicle" — NOT specifically "car". If the article currently says "car" but the source only used "รถ" without a specific car modifier (รถยนต์/เก๋ง), CORRECT it to "vehicle". Similarly, only use "motorbike" if the source explicitly said รถจักรยานยนต์/มอเตอร์ไซค์. When vehicle type is unknown, always use "vehicle" — never guess. Apply this correction to the title too.
 
 🚫 DO NOT ADD GENERIC AREA DESCRIPTIONS (CRITICAL - OUR READERS KNOW PHUKET):
 Our readers are LOCAL RESIDENTS and EXPATS who know Phuket extremely well. DO NOT add condescending tourist-guide fluff like:
@@ -131,7 +134,7 @@ Mark shouldContinueDeveloping as true if still developing.`;
       console.log(`[ENRICHMENT] Should continue developing: ${result.shouldContinueDeveloping}`);
 
       return {
-        enrichedContent: result.enrichedContent || article.content,
+        enrichedContent: ensureProperParagraphFormatting(result.enrichedContent || article.content),
         updateSummary: result.updateSummary || 'Added context and background',
         shouldContinueDeveloping: result.shouldContinueDeveloping ?? false
       };

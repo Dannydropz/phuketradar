@@ -193,6 +193,14 @@ export class ReEnrichmentService {
                 return;
             }
 
+            if ((article as any).lastManualEditAt) {
+                console.log(`   🔒 Skipping re-enrichment: Article was manually edited by admin.`);
+                await this.storage.updateArticle(article.id, {
+                    reEnrichmentCompleted: true,
+                });
+                return;
+            }
+
             console.log(`   Title: ${article.title}`);
 
             const combinedText = `${article.title} ${article.content}`;

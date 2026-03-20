@@ -73,7 +73,7 @@ const HOT_KEYWORDS = [
   "ยิง", // shoot
   "แทง", // stab
   "ชน", // collision/crash
-  "รถชน", // car crash
+  "รถชน", // vehicle crash (รถ = vehicle, ชน = collision — NOT specifically car)
   "ขับหนี", // hit and run
   "หนีหาย", // fled/escaped
   "สาหัส", // seriously injured
@@ -571,6 +571,17 @@ const PHUKET_CONTEXT_MAP: Record<string, string> = {
   "สะพานหิน": "Saphan Hin - a public park and promenade area in PHUKET TOWN (NOT a bridge! สะพาน means bridge but this is a PLACE NAME)",
   "สะพานภูเก็ต": "Saphan Phuket area near Saphan Hin in PHUKET TOWN (NOT a bridge! This is a PLACE NAME - use 'Saphan Hin area')",
   "Saphan Hin": "Saphan Hin - a public park and promenade area in Phuket Town (this is a place name, NOT a bridge)",
+  // VEHICLE TYPE DISAMBIGUATION - Prevent "รถ" from being blindly translated as "car"
+  // "รถ" alone is ambiguous — only specific compound terms confirm car or motorcycle
+  "รถยนต์": "รถยนต์ (CAR / automobile — 4-wheeled motor vehicle)",
+  "รถเก๋ง": "รถเก๋ง (SEDAN / passenger car)",
+  "รถกระบะ": "รถกระบะ (PICKUP TRUCK)",
+  "รถบรรทุก": "รถบรรทุก (TRUCK / lorry)",
+  "รถจักรยานยนต์": "รถจักรยานยนต์ (MOTORCYCLE / motorbike — NOT a car)",
+  "มอเตอร์ไซค์": "มอเตอร์ไซค์ (MOTORBIKE / motorcycle — NOT a car)",
+  "มอไซค์": "มอไซค์ (MOTORBIKE / motorcycle — NOT a car)",
+  "สกู๊ตเตอร์": "สกู๊ตเตอร์ (SCOOTER / motorbike — NOT a car)",
+  "รถมอเตอร์ไซค์": "รถมอเตอร์ไซค์ (MOTORCYCLE — NOT a car)",
 };
 
 // CRITICAL: Street names that could be confused with cities
@@ -744,7 +755,7 @@ export class TranslatorService {
 - "Krabi Road" and "Phang Nga Road" are streets in PHUKET TOWN. They are NOT the neighboring provinces.
 - ALWAYS write "Soi [Name]" (e.g., Soi Bangla). NEVER write "[Name] Soi" or "the Soi".
 - Thai administrative terms: Moo (village number), Tambon (subdistrict), Amphoe (district - Phuket has 3: Mueang, Kathu, Thalang).
-- Key Landmarks: Heroines Monument (border of Thalang/Kathu/Mueang), Central Phuket (bypass road), Jungceylon (Patong), Big Buddha (Nakkerd Hill), Chalong Temple, Saphan Hin (park in Phuket Town).`;
+- Key Landmarks: Heroines Monument (border of Thalang/Kathu/Mueang), Central Phuket (bypass road), Jungceylon (Patong), Big Buddha (Nakkerd Hill), Chalong Temple, Saphan Hin (park in Phuket Town), Patong Pier (at the south end of Patong Beach).`;
 
     const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
 
@@ -806,6 +817,13 @@ ENRICHMENT INSTRUCTIONS:
 - Do NOT add generic area descriptions that locals would find patronizing ("Patong, a bustling tourist area..." — LOCALS KNOW THIS)
 - Do NOT use vague filler phrases: "underscores concerns", "highlights challenges", "raises questions about", "sparks debate" — these are banned. Be specific or say nothing.
 - You MAY add facts from the VERIFIED PHUKET REFERENCE section above when they are directly relevant to the story. These are confirmed true. Integrate them naturally — don't dump them in.
+
+🚗🏍️ VEHICLE TYPE ACCURACY (CRITICAL):
+- The Thai word "รถ" (rot) is a GENERIC term meaning "vehicle" — NOT specifically "car"
+- If the already-translated input says "car" but the original Thai only used "รถ" (without รถยนต์/เก๋ง), use "vehicle" instead
+- Only call it a "car" if the source explicitly says รถยนต์, รถเก๋ง, รถ SUV, etc.
+- Only call it a "motorbike/motorcycle" if the source says รถจักรยานยนต์, มอเตอร์ไซค์, สกู๊ตเตอร์, etc.
+- When unsure, always fall back to: "vehicle", "the vehicle", "the abandoned vehicle" — never guess
 
 🌏 LOCATION RULES:
 - "Bangkok Road" in a Phuket article = a street in Phuket Town, NOT Bangkok city
@@ -1121,6 +1139,7 @@ If community comments are available, readers want to hear what locals are saying
 ⚠️ CRITICAL - ZERO HALLUCINATION POLICY (READ CAREFULLY):
 - ONLY write about what is explicitly stated or shown in the source.
 - DO NOT INVENT actions, behaviors, or events that aren't described (e.g., "shouted", "appeared agitated", "caused chaos").
+- 🚨 PATONG/BANGLA ROAD HALLUCINATION WARNING: If the source says "Patong", do NOT assume it happened on "Bangla Road". Patong has many other piers, docks, shops, and beaches. Only name Bangla Road if the source EXPLICITLY mentions it.
 - If source shows tourists on motorbike being stopped by police, report ONLY that - do NOT add that they "shouted at passersby" unless the source says so.
 - DO NOT add generic area fluff like "bustling tourist area" - this is hallucination of a different kind.
 - When in doubt, write LESS. A short factual article is better than a long invented one.
@@ -1267,6 +1286,39 @@ GRAMMAR & STYLE:
 - ALWAYS include company suffixes: Co., Ltd., Inc., Corp., Plc.
 - Use proper articles (a, an, the)
 - Write in active voice when possible
+
+🚗🏍️ VEHICLE TYPE DISAMBIGUATION (CRITICAL — READ BEFORE TRANSLATING ANY VEHICLE STORY):
+The Thai word "รถ" (rot) is a GENERIC WORD meaning "vehicle" — it does NOT specifically mean "car".
+DO NOT translate "รถ" as "car" unless the source text explicitly uses one of these car-specific terms:
+  - รถยนต์ = car / automobile (4-wheel motor vehicle)
+  - รถเก๋ง = sedan
+  - รถSUV / รถกระบะ = SUV / pickup truck
+  - รถบรรทุก = truck
+
+If the source ONLY says "รถ" without a car-specific modifier, the vehicle type is AMBIGUOUS.
+In that case:
+  ✅ USE: "vehicle", "the vehicle", "the abandoned vehicle"
+  ❌ AVOID: "car", "automobile" (these are WRONG if source only says "รถ")
+
+Motorcycle-specific Thai terms (use "motorbike" / "motorcycle" if you see these):
+  - รถจักรยานยนต์ = motorcycle
+  - มอเตอร์ไซค์ / มอไซค์ = motorbike (slang/colloquial)
+  - สกู๊ตเตอร์ = scooter
+  - รถมอเตอร์ไซค์ = motorcycle
+
+Other vehicle terms:
+  - รถตุ๊กตุ๊ก = tuk-tuk
+  - รถสองแถว = songthaew (shared taxi)
+  - รถบัส = bus
+  - รถกระบะ = pickup truck
+
+⚠️ EXAMPLE of what to avoid:
+❌ WRONG: "An abandoned CAR belonging to a foreign national was found at Phuket Airport" — if source says "รถ" only
+✅ CORRECT: "An abandoned VEHICLE belonging to a foreign national was found at Phuket Airport"
+
+This is especially important for headlines and article titles. If vehicle type is uncertain, use a neutral term:
+  - "Abandoned Vehicle at Phuket Airport" (not "Abandoned Car")
+  - "Vehicle Found at..." (not "Car Found at...")
 
 CATEGORY GUIDE (read full story, not just headline):
 - Weather: Natural disasters, typhoons, flooding, landslides, storms (IN PHUKET ONLY)
@@ -2043,6 +2095,7 @@ DO NOT:
 - Change the tone or voice of the article
 - Add generic context or filler — only add genuinely new information
 - Attribute information to the other outlets by name (don't write "According to The Thaiger..." — instead use "Police confirmed..." or "Authorities later reported..." or simply state the fact)
+- 🚨 PATONG/BANGLA ROAD HALLUCINATION WARNING: If the source says "Patong", do NOT assume it happened on "Bangla Road". Patong has many other piers, docks, shops, and beaches. Only name Bangla Road if the source EXPLICITLY mentions it.
 
 STRUCTURE OF YOUR UPDATE:
 - STRIP OUT any existing Developing Story indicator (<p class="developing-story">...</p>) if it exists in the original content. Do not include it in the updated article.
