@@ -15,8 +15,17 @@ export class ImageAnalysisService {
   /**
    * Safe image fetch with size and metadata checks
    * Returns structured result instead of throwing
+   *
+   * @param imageUrl - URL of the image to analyze
+   * @param options.strictMode - When true, uses tighter thresholds suited for sources
+   *   known to post text-overlay graphics (e.g. Phuket Hot News red-blob posts):
+   *   - File size limit raised to 400KB (catches larger graphic files)
+   *   - Low-variety detection: < 8 clusters + > 50% dominance (catches gradient blobs)
    */
-  async analyzeImageSafely(imageUrl: string): Promise<ImageAnalysisResult> {
+  async analyzeImageSafely(imageUrl: string, options?: { strictMode?: boolean }): Promise<ImageAnalysisResult> {
+    const strictMode = options?.strictMode ?? false;
+    // In strict mode we analyse images up to 400KB; otherwise the default 150KB
+    const fileSizeThreshold = strictMode ? 400000 : 150000;
     try {
       // Step 1: HEAD request to check file size without downloading full image
       const headResponse = await fetch(imageUrl, { method: 'HEAD' });
@@ -33,10 +42,11 @@ export class ImageAnalysisService {
       const contentLength = headResponse.headers.get('content-length');
       const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
 
-      // Step 2: File size heuristic - Facebook text-on-background posts are typically <150KB
-      // Increased from 80KB to catch gradient backgrounds which can be larger
-      // Real photos are usually >150KB even when compressed
-      if (fileSize > 0 && fileSize < 150000) {
+      // Step 2: File size heuristic
+      // Default (150KB): Facebook text-on-background posts are typically <150KB; real photos >150KB
+      // Strict mode (400KB): Some graphic sources (e.g. Phuket Hot News) produce larger files;
+      //   raising the limit ensures they still get colour-analyzed rather than auto-accepted.
+      if (fileSize > 0 && fileSize < fileSizeThreshold) {
         // Small/medium file = possibly text graphic, download to confirm with color analysis
         const getResponse = await fetch(imageUrl);
         if (!getResponse.ok) {
@@ -54,9 +64,13 @@ export class ImageAnalysisService {
 
         // TEXT GRAPHIC DETECTION - Two methods:
         // Method 1: High dominance (>75%) = solid color background
-        // Method 2: Very few color clusters (<5) + moderate dominance (>60%) = gradient background
+        // Method 2: Very few color clusters + moderate dominance = gradient/blob background.
+        //   Default: < 5 clusters + > 60% dominance
+        //   Strict:  < 8 clusters + > 50% dominance  (catches red+blob designs from Phuket Hot News)
         const isHighDominance = colorResult.dominancePercentage > 75;
-        const isLowVariety = colorResult.uniqueColorClusters < 5 && colorResult.dominancePercentage > 60;
+        const isLowVariety = strictMode
+          ? colorResult.uniqueColorClusters < 8 && colorResult.dominancePercentage > 50
+          : colorResult.uniqueColorClusters < 5 && colorResult.dominancePercentage > 60;
 
         if (isHighDominance || isLowVariety) {
           const detectionMethod = isHighDominance ? 'solid color' : 'low color variety (gradient)';
@@ -104,11 +118,13 @@ export class ImageAnalysisService {
         const imageBuffer = Buffer.from(await getResponse.arrayBuffer());
         const actualSize = imageBuffer.length;
 
-        if (actualSize < 150000) {
+        if (actualSize < fileSizeThreshold) {
           const colorResult = await this.analyzeColorDominance(imageBuffer);
-          // Same detection logic: high dominance OR low color variety
+          // Same detection logic: high dominance OR low color variety (respects strictMode thresholds)
           const isHighDominance = colorResult.dominancePercentage > 75;
-          const isLowVariety = colorResult.uniqueColorClusters < 5 && colorResult.dominancePercentage > 60;
+          const isLowVariety = strictMode
+            ? colorResult.uniqueColorClusters < 8 && colorResult.dominancePercentage > 50
+            : colorResult.uniqueColorClusters < 5 && colorResult.dominancePercentage > 60;
 
           if (isHighDominance || isLowVariety) {
             const detectionMethod = isHighDominance ? 'solid color' : 'low color variety (gradient)';
@@ -214,7 +230,7 @@ export class ImageAnalysisService {
    * Batch analysis of multiple images
    * Returns summary: are ALL images text graphics?
    */
-  async analyzeMultipleImages(imageUrls: string[]): Promise<{
+  async analyzeMultipleImages(imageUrls: string[], options?: { strictMode?: boolean }): Promise<{
     allTextGraphics: boolean;
     anyRealPhotos: boolean;
     multipleRealPhotos: boolean;
@@ -223,7 +239,7 @@ export class ImageAnalysisService {
     const results = await Promise.all(
       imageUrls.map(async (url) => ({
         url,
-        analysis: await this.analyzeImageSafely(url),
+        analysis: await this.analyzeImageSafely(url, options),
       }))
     );
 

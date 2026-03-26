@@ -10,6 +10,13 @@ export interface NewsSource {
   name: string;
   url: string;
   enabled: boolean;
+  /**
+   * When true, applies stricter image analysis to this source:
+   * - Analyzes images up to 400KB (vs default 150KB) — catches large graphic files
+   * - Uses a more relaxed cluster threshold (< 8 clusters) — catches gradient/blob designs
+   * Enable for sources known to post text-overlay graphics (e.g. Phuket Hot News)
+   */
+  strictImageFilter?: boolean;
 }
 
 export const NEWS_SOURCES: NewsSource[] = [
@@ -27,6 +34,7 @@ export const NEWS_SOURCES: NewsSource[] = [
     name: "Phuket Hot News",
     url: "https://www.facebook.com/phukethotnews",
     enabled: true,
+    strictImageFilter: true, // Posts text-overlay graphics with red/gradient blob backgrounds
   },
   {
     name: "Newshawk Phuket",

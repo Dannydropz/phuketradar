@@ -477,7 +477,14 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               if (imagesToCheck.length > 0) {
                 console.log(`\n📸 IMAGE QUALITY CHECK: Analyzing ${imagesToCheck.length} image(s)...`);
 
-                const batchResult = await imageAnalysisService.analyzeMultipleImages(imagesToCheck);
+                const batchResult = await imageAnalysisService.analyzeMultipleImages(
+                  imagesToCheck,
+                  { strictMode: source.strictImageFilter === true }
+                );
+
+                if (source.strictImageFilter) {
+                  console.log(`   🔍 STRICT MODE: Applying tighter thresholds for ${source.name} (known graphic poster source)`);
+                }
 
                 // Log each image result with detailed breakdown
                 const realPhotoCount = batchResult.results.filter(r => r.analysis.status === 'real_photo').length;
