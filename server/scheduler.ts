@@ -323,6 +323,44 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 return;
               }
 
+              // STEP -3a: Skip Thai "read more in comments" graphic/teaser posts
+              // Sources like Phuket Hot News post graphic images with a short teaser caption
+              // ending in "/อ่านต่อในเม้น" (read more in comments) or similar phrases.
+              // These are NEVER real news articles — always graphic posters pointing people to a link in comments.
+              const teaserPhrases = [
+                '/อ่านต่อในเม้น',     // "read more in [comments]" - most common form
+                'อ่านต่อในเม้น',      // without leading slash
+                'อ่านต่อในคอมเมนต์', // "read more in comments"
+                '/อ่านต่อในคอมเม้น',
+                'อ่านต่อในคอมเม้น',
+              ];
+              const combinedPostContent = `${post.title} ${post.content}`;
+              const isTeaserPost = teaserPhrases.some(phrase => combinedPostContent.includes(phrase));
+
+              if (isTeaserPost) {
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Teaser/graphic post (read-more-in-comments)",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `Caption ends with "read more in comments" — graphic poster, not a news article`
+                });
+                console.log(`\n⏭️  SKIPPED - TEASER GRAPHIC POST ("read more in comments" detected)`);
+                console.log(`   Title: ${post.title.substring(0, 60)}...`);
+                console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews,
+                  });
+                }
+                return;
+              }
+
               // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
               if (post.facebookPostId) {
                 const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
