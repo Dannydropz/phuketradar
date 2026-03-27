@@ -1,8 +1,10 @@
 # Build stage
-# Force rebuild: 2026-03-27 05:58 UTC
 FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# Cache bust: 2026-03-27 06:28 UTC — forces fresh layer after .dockerignore was added
+ARG CACHEBUST=2026-03-27-0628
 
 # Set development mode to ensure devDependencies are installed for build
 ENV NODE_ENV=development
