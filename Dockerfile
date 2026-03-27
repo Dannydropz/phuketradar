@@ -1,11 +1,15 @@
 # Build stage
-# Force rebuild: 2026-03-27 01:30 UTC
+# Force rebuild: 2026-03-27 01:47 UTC
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 # Set development mode to ensure devDependencies are installed for build
 ENV NODE_ENV=development
+
+# Install native build dependencies required by sharp (image analysis)
+# sharp needs python3/make/g++ for native compilation on Alpine Linux
+RUN apk add --no-cache python3 make g++ vips-dev
 
 # Install ALL dependencies including devDependencies (vite, esbuild, etc.)
 COPY package*.json ./
@@ -27,6 +31,9 @@ WORKDIR /app
 
 # Set production environment
 ENV NODE_ENV=production
+
+# Install vips runtime library needed by sharp for image analysis
+RUN apk add --no-cache vips
 
 # Copy built assets and dependencies
 COPY --from=builder /app/dist ./dist
