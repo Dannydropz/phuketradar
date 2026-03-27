@@ -1,6 +1,6 @@
 # Build stage
-# Force rebuild: 2026-03-27 01:47 UTC
-FROM node:20-alpine AS builder
+# Force rebuild: 2026-03-27 03:00 UTC
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -8,8 +8,10 @@ WORKDIR /app
 ENV NODE_ENV=development
 
 # Install native build dependencies required by sharp (image analysis)
-# sharp needs python3/make/g++ for native compilation on Alpine Linux
-RUN apk add --no-cache python3 make g++ vips-dev
+# Using slim (Debian) not Alpine — avoids musl/glibc incompatibility with rollup/esbuild native binaries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install ALL dependencies including devDependencies (vite, esbuild, etc.)
 COPY package*.json ./
@@ -18,22 +20,24 @@ RUN npm ci --include=dev
 # Copy source code
 COPY . .
 
-# Increase Node.js heap size to prevent OOM during vite build (large bundle ~1GB peak usage)
+# Increase Node.js heap size to prevent OOM during vite build (large bundle)
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 # Build the application
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 
 # Set production environment
 ENV NODE_ENV=production
 
-# Install vips runtime library needed by sharp for image analysis
-RUN apk add --no-cache vips
+# Install vips runtime library needed by sharp for image analysis at runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips42 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy built assets and dependencies
 COPY --from=builder /app/dist ./dist
@@ -50,5 +54,4 @@ EXPOSE 5000
 
 # Start the application
 # CRITICAL: Use node directly instead of npm to properly handle SIGTERM
-# Railway issue: npm doesn't forward SIGTERM correctly, causing abrupt kills
 CMD ["node", "dist/index.js"]
