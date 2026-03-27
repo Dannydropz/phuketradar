@@ -33,8 +33,9 @@ export const NEWS_SOURCES: NewsSource[] = [
   {
     name: "Phuket Hot News",
     url: "https://www.facebook.com/phukethotnews",
-    enabled: true,
-    strictImageFilter: true, // Posts text-overlay graphics with red/gradient blob backgrounds
+    enabled: false, // DISABLED: Posts graphic teaser images (red blob) that bypass image filters
+    // Re-enable once the deployed scheduler confirms strictImageFilter + teaser-phrase filter is working
+    strictImageFilter: true,
   },
   {
     name: "Newshawk Phuket",
