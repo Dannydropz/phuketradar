@@ -5190,12 +5190,12 @@ function generateHashtags(category) {
   return `${baseHashtag} ${categoryTags.join(" ")}`;
 }
 function getArticleUrl(article) {
-  const baseUrl = process.env.NODE_ENV === "development" && process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
+  const baseUrl = false ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   return `${baseUrl}${articlePath}`;
 }
 async function postArticleToFacebook(article, storage2) {
-  if (process.env.NODE_ENV === "development") {
+  if (false) {
     console.log(`\u{1F6AB} [FB-POST] Facebook posting DISABLED in development environment`);
     console.log(`\u{1F4D8} [FB-POST] Article: ${article.title?.substring(0, 60) ?? "Untitled"}... (would post in production)`);
     return null;
@@ -9261,7 +9261,7 @@ async function runScheduledScrape(callbacks) {
   console.log("\u{1F6A8} SCRAPE TRIGGERED \u{1F6A8}");
   console.log(`Time: ${timestamp2}`);
   console.log(`Trigger: AUTOMATED CRON SCHEDULE (every 4 hours)`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Environment: ${"production"}`);
   console.log("=".repeat(80) + "\n");
   const BATCH_SIZE = parseInt(process.env.SCRAPE_BATCH_SIZE || "12");
   console.log(`\u{1F4E6} Batch mode: Processing max ${BATCH_SIZE} posts per scrape to prevent server blocking`);
@@ -11494,12 +11494,12 @@ function generateHashtags2(category) {
   return `${baseHashtag} ${categoryTags.join(" ")}`;
 }
 function getArticleUrl2(article) {
-  const baseUrl = process.env.NODE_ENV === "development" && process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
+  const baseUrl = false ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   return `${baseUrl}${articlePath}`;
 }
 async function postArticleToInstagram(article, storage2) {
-  if (process.env.NODE_ENV === "development") {
+  if (false) {
     console.log(`\u{1F6AB} [IG-POST] Instagram posting DISABLED in development environment`);
     console.log(`\u{1F4F8} [IG-POST] Article: ${article.title.substring(0, 60)}... (would post in production)`);
     return null;
@@ -11662,12 +11662,12 @@ function generateHashtags3(category) {
   return `${baseHashtag} ${categoryTags.join(" ")}`;
 }
 function getArticleUrl3(article) {
-  const baseUrl = process.env.NODE_ENV === "development" && process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
+  const baseUrl = false ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   return `${baseUrl}${articlePath}`;
 }
 async function postArticleToThreads(article, storage2) {
-  if (process.env.NODE_ENV === "development") {
+  if (false) {
     console.log(`\u{1F6AB} [THREADS-POST] Threads posting DISABLED in development environment`);
     console.log(`\u{1F9F5} [THREADS-POST] Article: ${article.title.substring(0, 60)}... (would post in production)`);
     return null;
@@ -13266,7 +13266,7 @@ async function registerRoutes(app2) {
     console.log("\u{1F6A8} AUTO-SCRAPE TRIGGERED \u{1F6A8}");
     console.log(`Time: ${timestamp2}`);
     console.log(`Trigger: AUTOMATED CRON (GitHub Actions)`);
-    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log(`Environment: ${"production"}`);
     console.log("=".repeat(80) + "\n");
     res.json({
       success: true,
@@ -13381,7 +13381,7 @@ async function registerRoutes(app2) {
     console.log("\u{1F504} ENRICHMENT TRIGGERED \u{1F504}");
     console.log(`Time: ${timestamp2}`);
     console.log(`Trigger: EXTERNAL CRON SERVICE (GitHub Actions)`);
-    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log(`Environment: ${"production"}`);
     console.log("=".repeat(80) + "\n");
     try {
       console.log("\u{1F504} Starting enrichment pass...");
@@ -13709,7 +13709,7 @@ async function registerRoutes(app2) {
     console.log("\u{1F6A8} SCRAPE TRIGGERED \u{1F6A8}");
     console.log(`Time: ${timestamp2}`);
     console.log(`Trigger: MANUAL (Admin Dashboard)`);
-    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log(`Environment: ${"production"}`);
     console.log("=".repeat(80) + "\n");
     const job = scrapeJobManager.createJob();
     console.log(`Created scrape job: ${job.id}`);
@@ -14839,67 +14839,10 @@ Respond with ONLY the headline, no quotes or explanation.`
   return httpServer;
 }
 
-// server/vite.ts
+// server/static-server.ts
 import express from "express";
 import fs4 from "fs";
-import path5 from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-
-// vite.config.ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import path4 from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-var vite_config_default = defineConfig({
-  plugins: [
-    react(),
-    ...process.env.NODE_ENV !== "production" ? [runtimeErrorOverlay()] : [],
-    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-      await import("@replit/vite-plugin-cartographer").then(
-        (m) => m.cartographer()
-      ),
-      await import("@replit/vite-plugin-dev-banner").then(
-        (m) => m.devBanner()
-      )
-    ] : []
-  ],
-  resolve: {
-    alias: {
-      "@": path4.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path4.resolve(import.meta.dirname, "shared"),
-      "@assets": path4.resolve(import.meta.dirname, "attached_assets")
-    }
-  },
-  root: path4.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path4.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true,
-    reportCompressedSize: false,
-    cssCodeSplit: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          "vendor": ["react", "react-dom", "wouter", "@tanstack/react-query"],
-          "ui": ["lucide-react", "date-fns", "clsx", "tailwind-merge"],
-          // Heavy chart library - only loaded on admin pages
-          "charts": ["recharts"],
-          // Animation library - can be deferred
-          "motion": ["framer-motion"]
-        }
-      }
-    }
-  },
-  server: {
-    fs: {
-      strict: true,
-      deny: ["**/.*"]
-    }
-  }
-});
-
-// server/vite.ts
-import { nanoid } from "nanoid";
-var viteLogger = createLogger();
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -14909,50 +14852,8 @@ function log(message, source = "express") {
   });
   console.log(`${formattedTime} [${source}] ${message}`);
 }
-async function setupVite(app2, server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true
-  };
-  const vite = await createViteServer({
-    ...vite_config_default,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      }
-    },
-    server: serverOptions,
-    appType: "custom"
-  });
-  app2.use(vite.middlewares);
-  app2.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      const clientTemplate = path5.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html"
-      );
-      let template = await fs4.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e);
-      next(e);
-    }
-  });
-}
 function serveStatic(app2) {
-  const distPath = path5.resolve(import.meta.dirname, "public");
+  const distPath = path4.resolve(import.meta.dirname, "public");
   if (!fs4.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
@@ -14968,16 +14869,15 @@ function serveStatic(app2) {
     res.set({
       "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
       "CDN-Cache-Control": "public, max-age=300",
-      // Cloudflare-specific header
       "Vary": "Accept-Encoding"
     });
-    res.sendFile(path5.resolve(distPath, "index.html"));
+    res.sendFile(path4.resolve(distPath, "index.html"));
   });
 }
 
 // server/index.ts
 init_db();
-import path6 from "path";
+import path5 from "path";
 import { sql as sql10 } from "drizzle-orm";
 process.on("uncaughtException", (error) => {
   console.error("\u274C [UNCAUGHT EXCEPTION]:", error);
@@ -14990,7 +14890,7 @@ process.on("unhandledRejection", (reason, promise) => {
   console.error("   \u26A0\uFE0F  Process continuing - rejection logged but not fatal");
 });
 console.log("\u{1F680} [STARTUP] Application starting...");
-console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`   NODE_ENV: ${"production"}`);
 console.log(`   PORT: ${process.env.PORT || "5000"}`);
 var app = express2();
 app.set("trust proxy", 1);
@@ -15009,11 +14909,11 @@ app.get("/", (_req, res, next) => {
   }
   next();
 });
-app.use("/assets", express2.static(path6.join(process.cwd(), "attached_assets"), {
+app.use("/assets", express2.static(path5.join(process.cwd(), "attached_assets"), {
   maxAge: "30d",
   immutable: true
 }));
-app.use("/uploads", express2.static(path6.join(process.cwd(), "public", "uploads"), {
+app.use("/uploads", express2.static(path5.join(process.cwd(), "public", "uploads"), {
   maxAge: "7d"
 }));
 app.use(express2.json());
@@ -15046,7 +14946,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1e3,
       // 24 hours
@@ -15056,7 +14956,7 @@ app.use(
 );
 app.use((req, res, next) => {
   const start = Date.now();
-  const path7 = req.path;
+  const path6 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -15065,8 +14965,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path7.startsWith("/api")) {
-      let logLine = `${req.method} ${path7} ${res.statusCode} in ${duration}ms`;
+    if (path6.startsWith("/api")) {
+      let logLine = `${req.method} ${path6} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -15137,7 +15037,8 @@ app.get("/article/:slugOrId", async (req, res, next) => {
       console.error(`\u274C [EXPRESS ERROR] ${status} ${message}`, err);
       res.status(status).json({ message });
     });
-    if (app.get("env") === "development") {
+    if (false) {
+      const { setupVite } = await null;
       await setupVite(app, server);
     } else {
       serveStatic(app);
