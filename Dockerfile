@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package*.json ./
 RUN npm ci --include=dev
 
-# Copy source code
+# Copy source code (node_modules is excluded via .dockerignore)
 COPY . .
 
 # Increase Node.js heap size to prevent OOM during vite build (large bundle)
