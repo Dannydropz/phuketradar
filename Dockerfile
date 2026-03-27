@@ -1,5 +1,5 @@
 # Build stage
-# Force rebuild: 2026-01-10 12:30 UTC
+# Force rebuild: 2026-03-27 01:30 UTC
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -13,6 +13,9 @@ RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
+
+# Increase Node.js heap size to prevent OOM during vite build (large bundle ~1GB peak usage)
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 # Build the application
 RUN npm run build
