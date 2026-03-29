@@ -1092,11 +1092,13 @@ ${communityComments.slice(0, 10).map((c, i) => `${i + 1}. "${c}"`).join('\n')}
 3. **IDENTIFY CRIME/ILLEGAL ACTIVITY**: Look for keywords like ยาเสพติด (drugs), โคเคน (cocaine), ขายยา (drug dealing), แก๊ง (gang), illegal, arrest
 4. **CORRECT YOUR INTERPRETATION**: If your initial read seems too innocent but comments suggest crime/scandal, RE-INTERPRET the story correctly
 5. **BOOST SCORE APPROPRIATELY**: Drug-related stories, tourist scandals, crime = Score 4-5 (high interest)
+6. **🥊 DETECT FAKE SPORT = REAL BRAWL**: If the caption uses "boxing" / "มวย" / a sport name IN QUOTES, and comments are LAUGHING (555/🤣) rather than cheering → this is a STREET BRAWL being sarcastically called a "boxing match". Comments may reference lunar month superstitions, luck, bad omens — this is Thai humor about unexpected violence, NOT commentary on a real sporting event. RE-INTERPRET as an unplanned fight between individuals.
 
 🚫 DO NOT:
 - Write a sanitized "mysterious curiosity" story when comments reveal it's about DRUG SALES
 - Score drug/crime stories at 3 just because the caption was vague
 - Ignore Thai slang for drugs/illegal activity
+- Describe a street brawl as a "boxing match" or "sporting event" just because the Thai caption SARCASTICALLY called it that in quotes
 `;
         console.log(`   💬 Injected ${communityComments.length} community comments for context analysis`);
       }
@@ -1248,6 +1250,26 @@ Thai social media posts often use SARCASM, HUMOR, and EUPHEMISMS. You MUST analy
 - "บรรยากาศดี" = "Nice atmosphere" (SARCASM when situation is clearly bad)
 - "555" / "5555" = Thai internet laughter (like "lol") - indicates post is humorous/mocking
 
+🥊 QUOTED SPORT / FORMAL VOCABULARY = STREET BRAWL (CRITICAL PATTERN — READ THIS):
+This is one of the most common and most dangerous sarcasm traps for AI translation:
+- When a Thai caption puts a sport or formal name in **quotation marks** (e.g. "Women's boxing" / "มวยหญิง" / "ชกมวย"), it is almost ALWAYS sarcasm for an unplanned street fight, not a real sporting event.
+- The use of 🥊 / 👊 boxing emojis combined with a location like a street, soi, or bar area (NOT a stadium) confirms this is a brawl, NOT a match.
+- BANGLA / PATONG CONTEXT: Real Muay Thai / boxing events happen inside stadiums with tickets, referees, rounds, and crowds. A "boxing match" occurring on Soi New York, Bangla Road, or outside a bar is BY DEFINITION an unplanned drunken street fight.
+- The mention of participants having "เลือดอาบหน้า" (blood running down the face) in a street context without any reference to a ring/referee/crowd = chaotic brawl, NOT sport.
+- If comments on the post are laughing (555, 🤣) rather than cheering = it's a brawl being mocked as "boxing", not a real match.
+
+QUOTED FORMAL VOCABULARY SARCASM — HOW TO DETECT:
+1. Sport in quotation marks ("boxing", "wrestling", "competition") inside a street/bar location = BRAWL
+2. Sport emoji (🥊👊🤼) + unplanned street location = BRAWL
+3. The caption uses the word "today" / "morning" / "spontaneous" = UNPLANNED incident, not ticketed event
+4. No mention of stadium, ticketing, referee, rounds, judges = NOT a real sporting event
+5. Comments are mocking/laughing rather than excited = confirms brawl, not sport
+
+REAL SPORTING EVENT SIGNALS:
+- Explicit venue name (Bangla Boxing Stadium, Rawai Muay Thai, Patong Boxing Stadium)
+- Mentions of rounds, corners, referees, ring, announcer, judges
+- Comments using supporter language ("Go!", team names, cheer emojis like 🎉)
+
 🍺 DRUNK/INTOXICATED TOURIST INDICATORS:
 - Person lying flat on street/sidewalk = DRUNK, not "resting" or "enjoying the view"
 - "นอนข้างทาง" = "sleeping on the roadside" = PASSED OUT DRUNK
@@ -1277,9 +1299,13 @@ Thai social media posts often use SARCASM, HUMOR, and EUPHEMISMS. You MUST analy
 - DO NOT sanitize drunk behavior into "relaxing" or "resting"
 - Match the tone - these are "tourist behaving badly" viral stories
 
-EXAMPLE INTERPRETATION:
+EXAMPLE INTERPRETATIONS:
 ❌ WRONG: "Tourist Enjoys Patong's Vibrant Street Scene" (literal caption interpretation)
 ✅ CORRECT: "Tourist Found Passed Out on Patong Street, Locals React with Amusement"
+
+❌ WRONG: "Foreign Fighter Injured in Women's Boxing Match at Bangla Stadium" (took "Women's boxing" literally + hallucinated a stadium)
+✅ CORRECT: "Drunken Street Brawl Between Thai and Foreign Women Breaks Out on Soi New York, Patong"
+   WHY: Caption put "Women's boxing" in quotes + location was a street soi (not a stadium) + blood visible = street brawl, not a sporting event. Thai commenters were mocking with 😂 / 555, and referenced lunar month superstitions sarcastically. NEVER invent a venue ("Bangla Stadium") when the source says "inside Soi New York, Bangla".
 
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
