@@ -517,6 +517,15 @@ const LOCAL_ENTERTAINMENT_CAP_KEYWORDS = [
   "energize", // marketing language for small gigs e.g. "Energize Saphan Hin"
   "lively atmosphere", // marketing fluff for small events
   "special deals", // promotional concert language
+  "วง", // band/circle (Thai)
+  "วงดนตรี", // band (Thai)
+  "ดนตรีสด", // live music (Thai)
+  "แสดงสด", // live performance (Thai)
+  "ร้องเพลง", // singing/songs (Thai)
+  "เพลง", // song/music (Thai)
+  "music group",
+  "singer",
+  "musician",
 ];
 
 // PAGEANT / COMPETITION / CONTEST cap keywords
@@ -534,21 +543,43 @@ const PAGEANT_COMPETITION_CAP_KEYWORDS = [
   "คอสเพลย์", // cosplay
   "แฟนซี", // fancy dress
   "แข่งขัน", // compete/competition
+  "เยาวชน", // youth (often in competition context)
+  "รางวัล", // award (often in competition context)
+  "พรรษา", // often used for age/youth in formal competition contexts
   // English keywords (from translated content)
   "pageant",
   "beauty contest",
+  "competition",
+  "contest",
+  "tournament",
+  "championship",
   "beauty competition",
   "beauty queen",
   "competition enters",
   "enters competition",
+  "entries",
+  "contestant",
+  "contestants",
   "cosplay",
   "costume contest",
   "costume competition",
   "fancy dress",
   "talent show",
   "talent competition",
-  "contestant",
-  "contestants",
+  "music competition",
+  "band competition",
+  "youth competition",
+  "advances to",
+  "advancing to",
+  "advances in",
+  "represents phuket",
+  "representation",
+  "representing the island",
+  "national talent",
+  "results",
+  "winner",
+  "runner-up",
+  "winning",
   "sailor moon", // cosplay character references
 ];
 
@@ -759,28 +790,22 @@ export class TranslatorService {
 
     const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
 
-    // ── New system prompt (insider voice, not wire-service tourist-brochure) ──
-    const systemPrompt = `You are a veteran wire-service correspondent who has lived in Phuket for over a decade. You write breaking news for an audience of long-term expats and residents who know the island intimately — they know every soi, every shortcut, every police station. Never explain Phuket to them. Write like an insider talking to insiders.
+    // ── System prompt: SHORT by design for GPT-4o mini ──────────────────────
+    // GPT-4o mini follows detailed instructions in the user message more reliably
+    // than in a long system prompt. Keep this short — do NOT expand it.
+    const systemPrompt = `You are a news writer for Phuket Radar. You write English breaking news for expats who live in Phuket. They already know the island — never explain Phuket to them. Write like a local talking to locals.
 
-Your job is to transform raw translated Thai-language source material into a complete, professional English news article. You must:
+You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text.`;
 
-1. Report ONLY what the source explicitly states — never invent, embellish, or dramatize
-2. ADD relevant context and background using the verified reference material provided — but only when it connects specifically to THIS story, not as generic filler
-3. Write articles substantial enough to be genuinely useful, even when the source material is brief
-4. End every article with an "On the Ground" section — story-specific practical context written in an insider voice (see instructions in user message)
-
-VOICE: You are not writing a travel safety brochure. You are writing for people who live here. They don't need to be told what Bangla Road is or that Thailand drives on the left. They DO want to know which specific police station is handling this case, whether this stretch of road has had similar incidents, or what the actual practical implications are for their daily life.
-
-You produce JSON output only. No markdown, no commentary outside the JSON structure.`;
-
-    // ── Structured user message ──────────────────────────────────────────────
+    // ── User message template (all detailed instructions live here for GPT-4o mini) ──
+    // GPT-4o mini follows user-message instructions more reliably than system-prompt ones.
     const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' });
 
     const commentsBlock = params.communityComments && params.communityComments.length > 0
-      ? `THAI COMMUNITY COMMENTS (mine aggressively — see instructions below):\n${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}`
+      ? `THAI COMMUNITY COMMENTS (from original Facebook post):\n${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}`
       : '';
 
-    const prompt = `📅 CURRENT DATE: ${currentDate} (Thailand Time)
+    const prompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
 
 ${contextBlock}
@@ -789,131 +814,201 @@ ${GENERAL_LOCATION_CONTEXT}
 
 ---
 
-SOURCE MATERIAL TO ENRICH:
+SOURCE MATERIAL:
 
-Original Title: ${params.title}
+Title: ${params.title}
 
-Original Content:
+Content:
 ${params.content}
 
-Original Excerpt:
+Excerpt:
 ${params.excerpt}
 
 ${commentsBlock}
 
 ---
 
-ENRICHMENT INSTRUCTIONS:
+You must follow ALL instructions below. Do not skip any REQUIRED section.
 
-⏰ TENSE VERIFICATION:
-- Compare any dates in the source to TODAY's date above
-- Past events = past tense. Do NOT use present continuous for completed actions.
-- If no date is stated, do NOT assume the event is happening right now. Treat as a completed past event.
-- NEVER copy future tense from an outdated source if the event has already passed.
+========================================
+STEP 1: CHECKS (apply before writing)
+========================================
 
-🚨 FACTUAL ACCURACY:
-- Report ONLY what the source explicitly states
-- Do NOT embellish or upgrade language ("reckless" ≠ "stunts", "disturbing" ≠ "caused chaos", "group" ≠ "mob")
-- Do NOT add generic area descriptions that locals would find patronizing ("Patong, a bustling tourist area..." — LOCALS KNOW THIS)
-- Do NOT use vague filler phrases: "underscores concerns", "highlights challenges", "raises questions about", "sparks debate" — these are banned. Be specific or say nothing.
-- You MAY add facts from the VERIFIED PHUKET REFERENCE section above when they are directly relevant to the story. These are confirmed true. Integrate them naturally — don't dump them in.
+TENSE:
+- Compare dates in the source to TODAY's date above.
+- Past events = past tense. NEVER write "are being rescued" for a completed event.
+- No date stated? Treat it as a past event.
 
-🚗🏍️ VEHICLE TYPE ACCURACY (CRITICAL):
-- The Thai word "รถ" (rot) is a GENERIC term meaning "vehicle" — NOT specifically "car"
-- If the already-translated input says "car" but the original Thai only used "รถ" (without รถยนต์/เก๋ง), use "vehicle" instead
-- Only call it a "car" if the source explicitly says รถยนต์, รถเก๋ง, รถ SUV, etc.
-- Only call it a "motorbike/motorcycle" if the source says รถจักรยานยนต์, มอเตอร์ไซค์, สกู๊ตเตอร์, etc.
-- When unsure, always fall back to: "vehicle", "the vehicle", "the abandoned vehicle" — never guess
+VEHICLES:
+- Thai "รถ" = "vehicle", NOT "car."
+- Only write "car" if the source says รถยนต์, รถเก๋ง, or รถ SUV.
+- Only write "motorbike" if the source says รถจักรยานยนต์, มอเตอร์ไซค์, or สกู๊ตเตอร์.
+- Default: "vehicle."
 
-🌏 LOCATION RULES:
-- "Bangkok Road" in a Phuket article = a street in Phuket Town, NOT Bangkok city
-- Same for "Krabi Road", "Phang Nga Road" — these are Phuket Town streets, not the provinces
-- Dateline = WHERE THE EVENT HAPPENED, not where the people are from
-- Use "Soi Bangla" not "Bangla Soi" — Soi always comes first
-- "Saphan Hin" = a public park/promenade in Phuket Town, NOT a bridge
+LOCATIONS:
+- "Bangkok Road" in Phuket = a street in Phuket Town, NOT Bangkok city. Same for Krabi Road, Phang Nga Road.
+- Dateline = where the event happened.
+- Write "Soi Bangla" not "Bangla Soi."
+- "Saphan Hin" = a park in Phuket Town, NOT a bridge.
 
-${params.communityComments && params.communityComments.length > 0 ? `🎭 COMMENT MINING (comments provided above — mine aggressively):
+FACTS:
+- Report ONLY what the source states. Do NOT upgrade language.
+- "reckless" does NOT mean "stunts." "disturbing" does NOT mean "caused chaos." "group" does NOT mean "mob."
+- Do NOT describe areas: "Patong, a bustling tourist area..." — BANNED. Readers live here.
+- You MAY use facts from the VERIFIED PHUKET REFERENCE above, but ONLY when directly connected to THIS story. Do not dump reference facts as filler.
 
-Thai Facebook comments are one of your most valuable sources. They often contain MORE information than the original post.
+BANNED PHRASES — if you catch yourself writing any of these, delete the sentence:
+- "underscores concerns"
+- "highlights challenges"
+- "raises questions about"
+- "sparks debate"
+- "remains to be seen"
+- "serves as a reminder"
+- "serves as a stark reminder"
+- "tourists are advised to exercise caution"
+- "authorities are urging residents to"
+- "the incident has raised concerns"
+- "in a country known for..."
+- "the popular tourist destination"
+- "the tropical island"
+- "has once again brought attention to"
+- "amid growing concerns"
+- "sending shockwaves through"
+- "the bustling"
+- "the vibrant"
+- "a wake-up call"
+- "an all-too-common occurrence"
 
-A. SARCASM & TONE DETECTION:
-- "นักท่องเที่ยวคุณภาพ" / "Quality tourist" + 🤣 = SARCASM meaning BAD behavior
-- "555" = Thai internet laughter, usually mocking
-- Use tone of comments to determine the true story when the caption is ambiguous
+========================================
+STEP 2: MINE THE COMMENTS
+========================================
 
-B. EYEWITNESS DETAILS — Look for comments that add factual detail:
-- Specific times, specific details the post missed, corrections, aftermath updates
-- Include these as attributed color: "Commenters on the original post reported that..." or "One commenter who claimed to be at the scene said..."
+${params.communityComments && params.communityComments.length > 0 ? `Comments from the Thai Facebook post are provided above. You MUST use them. They often contain more facts than the original post.
 
-C. LOCAL KNOWLEDGE — Look for comments that provide context:
-- History of the location ("this junction has had multiple accidents this year")
-- Known local issues ("that bar has been raided before")
-- Practical info ("the CCTV from the 7-Eleven there will have caught it")
-- Integrate naturally into the body or Background section
+Do these four things:
 
-D. COMMUNITY REACTION — When the reaction IS the story:
-- If comments are overwhelmingly angry, sympathetic, or mocking, that's part of the story
-- Summarize sentiment: "The post drew widespread criticism from Thai commenters, many of whom..."
+A. SARCASM CHECK:
+"นักท่องเที่ยวคุณภาพ" or "Quality tourist" with laughing emojis = SARCASM (means bad behavior).
+"555" = Thai laughter, usually mocking.
+If comments mock the subject but the caption is neutral, the comments reveal the real tone.
 
-⚠️ CRITICAL RULES FOR COMMENT-SOURCED INFORMATION:
-- NEVER present comment claims as confirmed fact. Always attribute: "according to commenters", "one commenter reported", "local residents responding to the post said"
-- If a comment CONTRADICTS the original post, note the discrepancy
-- Ignore pure reactions (emojis, "wow", single-word responses) — only mine substantive comments
-- Do NOT include names of victims or suspects found only in comments
+B. EYEWITNESS DETAILS — find and include ALL of these:
+Specific times, corrections, extra details, aftermath info.
+Write them as: "Commenters on the original post reported that..." or "According to one commenter who claimed to witness the incident..."
 
-` : ''}📝 ARTICLE STRUCTURE:
+C. LOCAL KNOWLEDGE — find and include ALL of these:
+Location history, known problems, practical info ("the CCTV at the 7-Eleven there would have caught it").
+Weave into the article body naturally.
 
-1. **DATELINE**: Bold caps showing where the event happened (e.g., **PATONG, PHUKET —**)
+D. PUBLIC REACTION — you MUST write this section:
+Create an <h3>Public Reaction</h3> section in the article.
+Summarize the mood: angry? sympathetic? mocking? divided?
+List at least 3 different viewpoints or themes from the comments.
+Minimum 2 sentences, maximum 4.
+Example: "Thai social media users responding to the post were largely critical, with many pointing out that the same intersection has been the site of multiple accidents this year. Others directed frustration at rental companies for not checking licenses, while several commenters called for speed cameras to be installed."
 
-2. **LEDE**: One paragraph answering Who, What, Where, When. Be specific.
+COMMENT RULES:
+- NEVER state comment claims as confirmed fact. Always write "according to commenters" or "one commenter reported."
+- If a comment contradicts the post, mention the discrepancy.
+- Ignore emojis, "wow", single-word reactions — use only substantive comments.
+- Do NOT use victim/suspect names found only in comments.` : 'No comments provided. Skip this step. Do NOT include a Public Reaction section.'}
 
-3. **DETAILS**: Expand on the lede with all available facts from the source.${params.communityComments && params.communityComments.length > 0 ? ' Then mine the comments thoroughly using the rules above — eyewitness details, corrections, local knowledge, and community reaction can all add substantial depth.' : ''} Use direct quotes if the source contains them.
+========================================
+STEP 3: WRITE THE ARTICLE
+========================================
 
-4. **BACKGROUND** (when relevant): Draw on the VERIFIED PHUKET REFERENCE material above, but ONLY facts that connect directly to THIS specific story.
+QUALITY TEST — ask this before writing every background sentence:
+"Would a Phuket expat who has lived here 5 years learn something new from this sentence?"
+If NO → delete it. It is filler.
 
-   GOOD example (story-specific): "It's the third motorbike fatality on Patong Hill this year — the stretch between the Kathu junction and the viewpoint remains one of the island's most dangerous."
-   
-   BAD example (generic filler): "Phuket has some of the highest road accident rates in Thailand. Foreign drivers are advised to carry an International Driving Permit."
-   
-   The test: would a long-term Phuket resident learn something from this sentence, or roll their eyes? If they'd roll their eyes, cut it.
+Write the article in this exact order:
 
-5. **ON THE GROUND** (REQUIRED — include in EVERY article): A short section at the end with an <h3>On the Ground</h3> tag. This is NOT a safety brochure. It's story-specific insider context — what a well-connected local would tell a friend.
+--- PART 1: DATELINE (REQUIRED) ---
+Bold caps location where the event happened.
+Example: <p><strong>PATONG, PHUKET —</strong> A British tourist was arrested...</p>
 
-   WHAT THIS SECTION SHOULD SOUND LIKE:
-   - "Thalang Police are handling the case — the station is the one just past the Heroines Monument heading north."
-   - "That section of Thepkrasattri is a known blackspot, especially after dark. There's been talk of adding lights since at least 2022."
-   - "If you were in the area and have dashcam footage, Patong Police are actively asking for it."
-   - "Vachira will be the receiving hospital for anything on this side of the island."
+--- PART 2: LEDE (REQUIRED) ---
+One paragraph. Who, What, Where, When. Specific details.
 
-   WHAT THIS SECTION SHOULD NEVER SOUND LIKE:
-   - "If you are involved in a traffic accident, remain at the scene and call 191."
-   - "Tourists are advised to exercise caution when visiting nightlife areas."
-   - "Foreign nationals should ensure they carry a valid International Driving Permit at all times."
-   
-   2-4 sentences max. Use the reference material to find the relevant fact (which station, which hospital, what the law actually says), then phrase it the way a local would.
+--- PART 3: DETAILS (REQUIRED) ---
+All remaining facts from the source. Direct quotes if available.${params.communityComments && params.communityComments.length > 0 ? ' Include eyewitness details and local knowledge from comments here, attributed properly.' : ''}
 
-6. **DEVELOPING STORY INDICATOR** (conditional): If the source material is very thin (only 1-3 facts available) and you cannot build the article to 150+ words even with Background and On the Ground sections, add this element immediately after the dateline:
+--- PART 4: BACKGROUND (INCLUDE if the reference material has facts about THIS specific story. SKIP if you can only write generic facts.) ---
+Use facts from the VERIFIED PHUKET REFERENCE section above.
 
+✅ GOOD: "The stretch of Thepkrasattri Road near the Heroines Monument has seen at least four serious accidents this year alone."
+✅ GOOD: "Patong Police handle the vast majority of tourist-area incidents in the Kathu district."
+❌ BAD: "Phuket has some of the highest road accident rates in Thailand."
+❌ BAD: "Foreign drivers are advised to carry an International Driving Permit."
+❌ BAD: "Thailand is known for its dangerous roads."
+
+Rule: if the background sentence could appear in ANY Phuket news article, it is too generic. Delete it.
+
+${params.communityComments && params.communityComments.length > 0 ? `--- PART 5: PUBLIC REACTION (REQUIRED — you must include this) ---
+Heading: <h3>Public Reaction</h3>
+Content: Community response from the comments. At least 3 viewpoints. 2-4 sentences.
+DO NOT SKIP THIS SECTION.` : '--- PART 5: PUBLIC REACTION — SKIP (no comments provided) ---'}
+
+--- PART 6: ON THE GROUND (REQUIRED — you must include this in every article) ---
+Heading: <h3>On the Ground</h3>
+
+This section gives readers specific, practical, insider information about THIS story. Use the VERIFIED PHUKET REFERENCE material to find the right facts, then write them conversationally.
+
+Pick whichever of these apply to this story (skip ones that don't):
+• Police station handling the case → name it and give a landmark ("Thalang Police — just past the Heroines Monument heading north")
+• Hospital involved → name it ("Vachira is the receiving hospital for this side of the island")
+• Location history → mention it ("That section of road is a known blackspot, particularly after dark")
+• Action readers can take → state it ("If you have dashcam footage from the area, Patong Police are asking for it")
+• Current status → report it ("The road has since reopened" or "The area remains cordoned off")
+
+✅ GOOD examples:
+"Thalang Police are handling the case — the station just past the Heroines Monument heading north."
+"That stretch between the Kathu junction and the Patong viewpoint has had multiple serious accidents this year."
+"Vachira will be the receiving hospital for anything on this side of the island."
+
+❌ BAD examples (NEVER write these):
+"If you are involved in a traffic accident, remain at the scene and call 191."
+"Tourists are advised to exercise caution when visiting nightlife areas."
+"Foreign nationals should ensure they carry a valid International Driving Permit at all times."
+"Residents are reminded to stay alert and report suspicious activity."
+
+Write 2-4 sentences. Every sentence must be about THIS story, not general advice.
+DO NOT SKIP THIS SECTION.
+
+--- PART 7: DEVELOPING STORY (only if source has 1-3 facts and article is under 200 words even with Background + On the Ground) ---
+Add immediately after the dateline:
 <p class="developing-story"><strong>⚡ Developing Story</strong> — Initial reports are limited. This article will be updated as more details become available.</p>
 
-This is BETTER than padding a thin story with generic filler. A 100-word article that's honest about being a breaking alert is more credible than a 200-word article stuffed with "motorists are advised to exercise caution."
+========================================
+STEP 4: FORMAT YOUR OUTPUT
+========================================
 
-TONE: Write like a veteran correspondent who lives in Phuket and files stories for people who also live there. Professional but not sterile. Specific but not padded. You're not writing a travel advisory — you're writing the news for your neighbors.
+HTML RULES:
+- Wrap every paragraph in <p></p> tags.
+- Use <h3> tags for section headings: Background, Public Reaction, On the Ground.
+- NEVER return a single block of unformatted text.
 
-MINIMUM LENGTH: The enrichedContent should be at least 150 words. If the source material is thin, Background and On the Ground carry the weight — but only with genuinely relevant, story-specific content. Never pad with generic advice or area descriptions.
+WORD COUNT:
+- enrichedContent must be at least 200 words.
+- Reach 200 words using story-specific details, background, and On the Ground — NOT with generic filler.
 
-FORMATTING REQUIREMENTS:
-- EVERY paragraph MUST be wrapped in <p></p> tags
-- Use <h3> tags for section headings (Background, On the Ground, Public Reaction)
-- NEVER return content as a single wall of text
+HEADLINE:
+- AP style. Include specific names, places, numbers.
+- ✅ GOOD: "Russian Tourist Arrested With 3kg of Cocaine in Cherng Talay"
+- ❌ BAD: "Drug Arrest Raises Concerns in Phuket"
 
-OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences, no commentary:
+EXCERPT:
+- 2-3 factual sentences describing what happened.
+- For meta descriptions and social sharing.
+- NEVER use "highlights concerns" or "raises questions."
 
-{
-  "enrichedTitle": "Factual AP-style headline. Be specific: names, places, numbers. NEVER use 'raises concerns' or 'sparks debate'. GOOD: 'Russian Tourist Arrested With 3kg of Cocaine in Cherng Talay'. BAD: 'Drug Arrest Raises Concerns in Phuket'.",
-  "enrichedContent": "Full HTML article. Use <p> tags for paragraphs, <h3> for section headers. Start with bold DATELINE. Always include the On the Ground section.",
-  "enrichedExcerpt": "2-3 sentence factual summary describing what happened. Used for meta descriptions and social sharing — make it specific and compelling. FORBIDDEN: 'highlights concerns', 'raises questions'."
-}`;
+OUTPUT FORMAT:
+Return ONLY valid JSON. No markdown fences (no \`\`\`json). No text before or after the JSON.
+
+Example of correct output format:
+{"enrichedTitle":"French Tourist Arrested After Patong Bar Brawl","enrichedContent":"<p><strong>PATONG, PHUKET —</strong> A 34-year-old French national was arrested...</p><p>Police said the altercation...</p><h3>On the Ground</h3><p>Patong Police are handling the case...</p>","enrichedExcerpt":"A French tourist was arrested following an altercation at a Bangla Road bar early Wednesday morning. The 34-year-old reportedly caused significant damage to the venue before being detained."}
+
+Your output (valid JSON only):`;
 
     // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
     const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
@@ -1413,19 +1508,9 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
   - "Live music night at [venue]" = Score 2 (routine nightlife)
 - EXCEPTION: Major international acts, large-scale music festivals (e.g. EDC, Wonderfruit), or events featuring well-known artists = Score 3-4
 
-**CRITICAL DISTINCTIONS:**
-- \"Road damaged by flooding\" = Score 3 (infrastructure complaint, NOT a disaster)
-- \"Luxury hotel/villa launch\" = Score 3 (business news, NOT breaking)
-- \"Art exhibition/Gallery opening\" = Score 3 (cultural event, NOT urgent)
-- \"Students win robotics award\" = Score 3 (achievement, NOT urgent)
-- "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
-- "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
-- "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
-- "Students win robotics award" = Score 3 (achievement, NOT urgent)
-- "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
 - **"Blood donation drive" = Score 3 MAX (community charity event, NOT urgent)**
 - **"Donation ceremony" = Score 2-3 MAX (routine charity, NOT news)**
-- **"Fundraiser for flood victims" = Score 3 MAX (charity event, NOT breaking news)**
+- **"Fundraiser for disaster victims" = Score 3 MAX (charity event, NOT breaking news)**
 - **"Community helps disaster victims" = Score 3 MAX (charitable response, NOT the disaster itself)**
 - **"Mascot at mall event" = Score 2 MAX (promotional fluff, NOT news)**
 - **"Shopping center celebration" = Score 2 MAX (mall marketing, NOT news)**
@@ -1434,11 +1519,15 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - **"Alumni football match" = Score 2 MAX (community sports, NOT breaking)**
 - **"Friendly match at stadium" = Score 2 MAX (local sports event, NOT urgent)**
 - **"Community sports event" = Score 2 MAX (routine local activity)**
-- **"Local concert with unknown acts" = Score 2 MAX (routine entertainment, NOT news)**
-- **"Beauty pageant/contest" = Score 3 MAX (community entertainment, NOT breaking)**
-- **"Cosplay/costume competition" = Score 3 MAX (community entertainment, NOT breaking)**
-- **"Contestant enters competition" = Score 3 MAX (community event, NOT breaking)**
-- **"Local talent show" = Score 3 MAX (community entertainment, NOT breaking)**
+- **"Music / Local concert / Band performance"**: 2 MAX (routine entertainment, NOT news)
+- **"Youth Band / Youth Achievement in art/music/sports"**: 3 MAX (achievement, NOT urgent news)
+- **"Beauty pageant / Talent contest / Competition enters"**: 3 MAX (community entertainment, NOT breaking)
+- **"Phuket youth represents island / advancing in competition"**: 3 MAX (local achievement)
+- **"Students win robotics award"**: 3 MAX (local achievement)
+- **"Road damaged by flooding"**: 3 MAX (infrastructure complaint, NOT a disaster)
+- **"Luxury hotel/villa launch"**: 3 MAX (business news, NOT breaking)
+- **"Art exhibition / Gallery opening"**: 3 MAX (cultural event, NOT urgent)
+- **"Tourism boom"**: 3 MAX (discussion/stats)
 - "Car crash with injuries" = Score 4 (actual incident with victims)
 - "Drowning at beach" = Score 5 (death/urgent)
 - "Arrest for theft" = Score 4 (crime with action)
@@ -1892,11 +1981,11 @@ Always output valid JSON.`,
           }
         }
 
-        const enrichmentModel = "gpt-4o"; // Used only on OpenAI path
+        const enrichmentModel = "gpt-4o-mini"; // GPT-4o mini: ~23x cheaper than Claude Sonnet, prompt engineered to compensate
         const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
         const activeModelLabel = activeProvider === 'anthropic'
           ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
-          : 'OpenAI GPT-4o';
+          : 'OpenAI GPT-4o mini';
         console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
 
         try {
