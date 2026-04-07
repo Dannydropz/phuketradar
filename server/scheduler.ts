@@ -1720,7 +1720,7 @@ export async function runManualPageScrape(
             content: translation.translatedContent,
             excerpt: translation.excerpt,
             category: translation.category,
-          }, "gpt-4o");
+          }, "gpt-4o-mini");
 
           // Update translation with enriched content
           translation.translatedTitle = enrichmentResult.enrichedTitle;
@@ -2059,7 +2059,7 @@ export async function runManualPostScrape(
         excerpt: translation.excerpt,
         category: translation.category,
         communityComments, // Pass community comments for richer enrichment
-      }, "gpt-4o");
+      }, "gpt-4o-mini");
 
       // Update translation with enriched content
       translation.translatedTitle = enrichmentResult.enrichedTitle;

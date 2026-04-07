@@ -693,7 +693,7 @@ export class TranslatorService {
     excerpt: string;
     category: string;
     communityComments?: string[]; // Optional: Top comments from Facebook post for context
-  }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
+  }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o-mini"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
     // ── Source of Truth for Context Blocks ──────────────────────────────────
     // The detailed context used below is maintained in:

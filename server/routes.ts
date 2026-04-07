@@ -1934,7 +1934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: article.content || '',
         excerpt: article.excerpt || '',
         category: article.category,
-      }, "gpt-4o"); // model param only used on OpenAI path; Anthropic path reads ANTHROPIC_MODEL from env
+      }, "gpt-4o-mini"); // model param only used on OpenAI path; Anthropic path reads ANTHROPIC_MODEL from env
 
       console.log(`   ✅ ${activeModelLabel} enrichment complete`);
       console.log(`   📝 New content length: ${enrichmentResult.enrichedContent?.length || 0} chars`);
