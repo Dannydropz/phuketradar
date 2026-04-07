@@ -1016,6 +1016,19 @@ Your output (valid JSON only):`;
 
     let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
 
+    console.log('=== ENRICHMENT DEBUG ===');
+    console.log('Model:', model);
+    console.log('Temperature:', 0.3);
+    console.log('Max tokens:', 'Not specified (OpenAI default)');
+    console.log('System prompt:', systemPrompt);
+    console.log('User message (first 500 chars):', prompt.substring(0, 500));
+    console.log('User message (last 500 chars):', prompt.substring(prompt.length - 500));
+    console.log('User message total length:', prompt.length);
+    console.log('Category:', params.category);
+    console.log('Context block injected:', contextBlock ? 'YES (' + contextBlock.substring(0, 80) + '...)' : 'NO');
+    console.log('Comments passed:', params.communityComments ? params.communityComments.length + ' comments' : 'NONE');
+    console.log('=== END ENRICHMENT DEBUG ===');
+
     if (enrichmentProvider === 'anthropic') {
       // ── Anthropic Claude path ──────────────────────────────────────────────
       if (!process.env.ANTHROPIC_API_KEY) {
@@ -1030,6 +1043,9 @@ Your output (valid JSON only):`;
           temperature: 0.3,
           response_format: { type: "json_object" },
         });
+        console.log('=== ENRICHMENT RESPONSE ===');
+        console.log('Raw response:', JSON.stringify(completion).substring(0, 1000));
+        console.log('=== END ENRICHMENT RESPONSE ===');
         result = JSON.parse(completion.choices[0].message.content || "{}");
       } else {
         console.log(`   🤖 [ANTHROPIC] Enriching with ${anthropicModel}`);
@@ -1040,6 +1056,9 @@ Your output (valid JSON only):`;
           system: systemPrompt,
           messages: [{ role: "user", content: prompt }],
         });
+        console.log('=== ENRICHMENT RESPONSE ===');
+        console.log('Raw response:', JSON.stringify(response).substring(0, 1000));
+        console.log('=== END ENRICHMENT RESPONSE ===');
         const responseContent = response.content[0];
         if (responseContent.type !== 'text') {
           throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
@@ -1059,6 +1078,9 @@ Your output (valid JSON only):`;
         temperature: 0.3,
         response_format: { type: "json_object" },
       });
+      console.log('=== ENRICHMENT RESPONSE ===');
+      console.log('Raw response:', JSON.stringify(completion).substring(0, 1000));
+      console.log('=== END ENRICHMENT RESPONSE ===');
       result = JSON.parse(completion.choices[0].message.content || "{}");
     }
 
