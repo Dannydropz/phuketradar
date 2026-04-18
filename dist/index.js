@@ -14,9 +14,11 @@ __export(schema_exports, {
   articleMetrics: () => articleMetrics,
   articles: () => articles,
   categories: () => categories,
+  discoveredVideos: () => discoveredVideos,
   insertArticleMetricsSchema: () => insertArticleMetricsSchema,
   insertArticleSchema: () => insertArticleSchema,
   insertCategorySchema: () => insertCategorySchema,
+  insertDiscoveredVideoSchema: () => insertDiscoveredVideoSchema,
   insertJournalistSchema: () => insertJournalistSchema,
   insertSocialMediaAnalyticsSchema: () => insertSocialMediaAnalyticsSchema,
   insertSubscriberSchema: () => insertSubscriberSchema,
@@ -30,9 +32,9 @@ __export(schema_exports, {
   users: () => users
 });
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, date, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-var users, journalists, articles, schedulerLocks, session, subscribers, categories, articleMetrics, socialMediaAnalytics, scoreAdjustments, insertUserSchema, insertJournalistSchema, insertArticleSchema, insertSubscriberSchema, insertCategorySchema, insertArticleMetricsSchema, insertSocialMediaAnalyticsSchema;
+var users, journalists, articles, discoveredVideos, schedulerLocks, session, subscribers, categories, articleMetrics, socialMediaAnalytics, scoreAdjustments, insertUserSchema, insertJournalistSchema, insertArticleSchema, insertSubscriberSchema, insertCategorySchema, insertDiscoveredVideoSchema, insertArticleMetricsSchema, insertSocialMediaAnalyticsSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -150,6 +152,33 @@ var init_schema = __esm({
       reviewReason: text("review_reason")
       // Why this needs review (e.g., "truncated text", "low quality")
     });
+    discoveredVideos = pgTable("discovered_videos", {
+      id: serial("id").primaryKey(),
+      videoId: varchar("video_id").notNull(),
+      platform: varchar("platform").notNull(),
+      source: varchar("source"),
+      videoUrl: text("video_url").notNull(),
+      coverUrl: text("cover_url"),
+      authorUsername: varchar("author_username"),
+      description: text("description"),
+      likeCount: integer("like_count").default(0),
+      commentCount: integer("comment_count").default(0),
+      shareCount: integer("share_count").default(0),
+      playCount: integer("play_count").default(0),
+      createdAtSource: timestamp("created_at_source", { withTimezone: true }),
+      durationSeconds: real("duration_seconds"),
+      relevanceScore: integer("relevance_score").default(0),
+      incidentType: varchar("incident_type").default("pending_review"),
+      involvesForeigner: varchar("involves_foreigner").default("unknown"),
+      locationInPhuket: varchar("location_in_phuket"),
+      scoreReason: text("score_reason"),
+      discoveredAt: timestamp("discovered_at", { withTimezone: true }).defaultNow(),
+      status: varchar("status").default("queued")
+    }, (table) => ({
+      videoPlatformIdx: index("video_platform_unique_idx").on(table.videoId, table.platform),
+      discoveredAtIdx: index("idx_discovered_videos_discovered_at").on(table.discoveredAt),
+      statusIdx: index("idx_discovered_videos_status").on(table.status)
+    }));
     schedulerLocks = pgTable("scheduler_locks", {
       lockName: varchar("lock_name").primaryKey(),
       acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
@@ -255,6 +284,10 @@ var init_schema = __esm({
       id: true,
       createdAt: true
     });
+    insertDiscoveredVideoSchema = createInsertSchema(discoveredVideos).omit({
+      id: true,
+      discoveredAt: true
+    });
     insertArticleMetricsSchema = createInsertSchema(articleMetrics).omit({
       id: true,
       syncedAt: true
@@ -326,42 +359,59 @@ __export(category_map_exports, {
   resolveFrontendCategory: () => resolveFrontendCategory
 });
 function resolveDbCategories(frontendCategory) {
+  if (!frontendCategory) return [];
   const categoryLower = frontendCategory.toLowerCase();
-  return CATEGORY_TO_DB[categoryLower] || [];
+  const dbCats = CATEGORY_TO_DB[categoryLower];
+  if (dbCats) return dbCats;
+  const key = Object.keys(CATEGORY_TO_DB).find((k) => k.toLowerCase() === frontendCategory.toLowerCase());
+  return key ? CATEGORY_TO_DB[key] : [];
 }
 function resolveFrontendCategory(dbCategory) {
+  if (!dbCategory) return "local";
   const categoryLower = dbCategory.toLowerCase();
-  return DB_TO_CATEGORY[categoryLower] || dbCategory.toLowerCase();
+  if (DB_TO_CATEGORY[categoryLower]) {
+    return DB_TO_CATEGORY[categoryLower];
+  }
+  return categoryLower;
 }
 function buildArticleUrl(article) {
   const frontendCategory = resolveFrontendCategory(article.category);
   const slug = article.slug || article.id;
-  return `/${frontendCategory}/${slug}`;
+  const finalCategory = frontendCategory || "local";
+  return `/${finalCategory}/${slug}`;
 }
 function isValidCategory(category) {
-  return VALID_CATEGORIES.includes(category);
+  const categoryLower = category.toLowerCase();
+  return VALID_CATEGORIES.includes(categoryLower);
 }
 var CATEGORY_TO_DB, DB_TO_CATEGORY, VALID_CATEGORIES;
 var init_category_map = __esm({
   "shared/category-map.ts"() {
     "use strict";
     CATEGORY_TO_DB = {
-      local: ["Breaking", "Info", "Other", "Events", "Local", "other"],
-      tourism: ["Tourism"],
-      economy: ["Business", "Economy"],
-      weather: ["Weather"],
-      crime: ["Breaking", "Crime"],
-      politics: ["Breaking", "Politics"],
-      traffic: ["Breaking", "Traffic"]
+      local: ["Breaking", "Info", "Other", "Events", "Local", "other", "breaking", "info", "events", "local"],
+      tourism: ["Tourism", "tourism"],
+      economy: ["Economy", "Business", "economy", "business"],
+      business: ["Business", "Economy", "business", "economy"],
+      weather: ["Weather", "weather"],
+      crime: ["Crime", "Breaking", "crime", "breaking"],
+      politics: ["Politics", "Breaking", "politics", "breaking"],
+      traffic: ["Traffic", "Breaking", "traffic", "breaking"],
+      national: ["National", "national"]
     };
     DB_TO_CATEGORY = {
-      "breaking": "local",
+      "breaking": "breaking",
       "info": "local",
       "other": "local",
       "events": "local",
       "tourism": "tourism",
-      "business": "economy",
-      "weather": "weather"
+      "business": "business",
+      "economy": "economy",
+      "weather": "weather",
+      "crime": "crime",
+      "politics": "politics",
+      "traffic": "traffic",
+      "national": "national"
     };
     VALID_CATEGORIES = [
       "crime",
@@ -369,8 +419,10 @@ var init_category_map = __esm({
       "tourism",
       "politics",
       "economy",
+      "business",
       "traffic",
-      "weather"
+      "weather",
+      "national"
     ];
   }
 });
@@ -496,7 +548,9 @@ var init_storage = __esm({
       needsReview: articles.needsReview,
       reviewReason: articles.reviewReason,
       facebookEmbedUrl: articles.facebookEmbedUrl,
-      switchyShortUrl: articles.switchyShortUrl
+      switchyShortUrl: articles.switchyShortUrl,
+      reEnrichAt: articles.reEnrichAt,
+      reEnrichmentCompleted: articles.reEnrichmentCompleted
     };
     DatabaseStorage = class {
       // User methods
@@ -3505,8 +3559,23 @@ var init_translator = __esm({
       // marketing language for small gigs e.g. "Energize Saphan Hin"
       "lively atmosphere",
       // marketing fluff for small events
-      "special deals"
+      "special deals",
       // promotional concert language
+      "\u0E27\u0E07",
+      // band/circle (Thai)
+      "\u0E27\u0E07\u0E14\u0E19\u0E15\u0E23\u0E35",
+      // band (Thai)
+      "\u0E14\u0E19\u0E15\u0E23\u0E35\u0E2A\u0E14",
+      // live music (Thai)
+      "\u0E41\u0E2A\u0E14\u0E07\u0E2A\u0E14",
+      // live performance (Thai)
+      "\u0E23\u0E49\u0E2D\u0E07\u0E40\u0E1E\u0E25\u0E07",
+      // singing/songs (Thai)
+      "\u0E40\u0E1E\u0E25\u0E07",
+      // song/music (Thai)
+      "music group",
+      "singer",
+      "musician"
     ];
     PAGEANT_COMPETITION_CAP_KEYWORDS = [
       // Thai keywords
@@ -3530,21 +3599,46 @@ var init_translator = __esm({
       // fancy dress
       "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19",
       // compete/competition
+      "\u0E40\u0E22\u0E32\u0E27\u0E0A\u0E19",
+      // youth (often in competition context)
+      "\u0E23\u0E32\u0E07\u0E27\u0E31\u0E25",
+      // award (often in competition context)
+      "\u0E1E\u0E23\u0E23\u0E29\u0E32",
+      // often used for age/youth in formal competition contexts
       // English keywords (from translated content)
       "pageant",
       "beauty contest",
+      "competition",
+      "contest",
+      "tournament",
+      "championship",
       "beauty competition",
       "beauty queen",
       "competition enters",
       "enters competition",
+      "entries",
+      "contestant",
+      "contestants",
       "cosplay",
       "costume contest",
       "costume competition",
       "fancy dress",
       "talent show",
       "talent competition",
-      "contestant",
-      "contestants",
+      "music competition",
+      "band competition",
+      "youth competition",
+      "advances to",
+      "advancing to",
+      "advances in",
+      "represents phuket",
+      "representation",
+      "representing the island",
+      "national talent",
+      "results",
+      "winner",
+      "runner-up",
+      "winning",
       "sailor moon"
       // cosplay character references
     ];
@@ -3605,7 +3699,7 @@ THIS IS A CRITICAL FACTUAL ACCURACY ISSUE - misidentifying the location is a maj
 `;
     TranslatorService = class {
       // Premium GPT-4 enrichment for high-priority stories (score 4-5) or manual scrapes
-      async enrichWithPremiumGPT4(params, model = "gpt-4o") {
+      async enrichWithPremiumGPT4(params, model = "gpt-4o-mini") {
         const CATEGORY_CONTEXT_BLOCKS = {
           "Crime": `VERIFIED PHUKET REFERENCE \u2014 USE WHEN RELEVANT:
 - Emergency: Tourist Police 1155, Police 191, Ambulance 1669, Fire 199
@@ -3679,22 +3773,13 @@ THIS IS A CRITICAL FACTUAL ACCURACY ISSUE - misidentifying the location is a maj
 - Thai administrative terms: Moo (village number), Tambon (subdistrict), Amphoe (district - Phuket has 3: Mueang, Kathu, Thalang).
 - Key Landmarks: Heroines Monument (border of Thalang/Kathu/Mueang), Central Phuket (bypass road), Jungceylon (Patong), Big Buddha (Nakkerd Hill), Chalong Temple, Saphan Hin (park in Phuket Town), Patong Pier (at the south end of Patong Beach).`;
         const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
-        const systemPrompt = `You are a veteran wire-service correspondent who has lived in Phuket for over a decade. You write breaking news for an audience of long-term expats and residents who know the island intimately \u2014 they know every soi, every shortcut, every police station. Never explain Phuket to them. Write like an insider talking to insiders.
+        const systemPrompt = `You are a news writer for Phuket Radar. You write English breaking news for expats who live in Phuket. They already know the island \u2014 never explain Phuket to them. Write like a local talking to locals.
 
-Your job is to transform raw translated Thai-language source material into a complete, professional English news article. You must:
-
-1. Report ONLY what the source explicitly states \u2014 never invent, embellish, or dramatize
-2. ADD relevant context and background using the verified reference material provided \u2014 but only when it connects specifically to THIS story, not as generic filler
-3. Write articles substantial enough to be genuinely useful, even when the source material is brief
-4. End every article with an "On the Ground" section \u2014 story-specific practical context written in an insider voice (see instructions in user message)
-
-VOICE: You are not writing a travel safety brochure. You are writing for people who live here. They don't need to be told what Bangla Road is or that Thailand drives on the left. They DO want to know which specific police station is handling this case, whether this stretch of road has had similar incidents, or what the actual practical implications are for their daily life.
-
-You produce JSON output only. No markdown, no commentary outside the JSON structure.`;
+You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text.`;
         const currentDate = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Bangkok" });
-        const commentsBlock = params.communityComments && params.communityComments.length > 0 ? `THAI COMMUNITY COMMENTS (mine aggressively \u2014 see instructions below):
+        const commentsBlock = params.communityComments && params.communityComments.length > 0 ? `THAI COMMUNITY COMMENTS (from original Facebook post):
 ${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join("\n")}` : "";
-        const prompt = `\u{1F4C5} CURRENT DATE: ${currentDate} (Thailand Time)
+        const prompt = `\u{1F4C5} TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
 
 ${contextBlock}
@@ -3703,134 +3788,216 @@ ${GENERAL_LOCATION_CONTEXT}
 
 ---
 
-SOURCE MATERIAL TO ENRICH:
+SOURCE MATERIAL:
 
-Original Title: ${params.title}
+Title: ${params.title}
 
-Original Content:
+Content:
 ${params.content}
 
-Original Excerpt:
+Excerpt:
 ${params.excerpt}
 
 ${commentsBlock}
 
 ---
 
-ENRICHMENT INSTRUCTIONS:
+You must follow ALL instructions below. Do not skip any REQUIRED section.
 
-\u23F0 TENSE VERIFICATION:
-- Compare any dates in the source to TODAY's date above
-- Past events = past tense. Do NOT use present continuous for completed actions.
-- If no date is stated, do NOT assume the event is happening right now. Treat as a completed past event.
-- NEVER copy future tense from an outdated source if the event has already passed.
+========================================
+STEP 1: CHECKS (apply before writing)
+========================================
 
-\u{1F6A8} FACTUAL ACCURACY:
-- Report ONLY what the source explicitly states
-- Do NOT embellish or upgrade language ("reckless" \u2260 "stunts", "disturbing" \u2260 "caused chaos", "group" \u2260 "mob")
-- Do NOT add generic area descriptions that locals would find patronizing ("Patong, a bustling tourist area..." \u2014 LOCALS KNOW THIS)
-- Do NOT use vague filler phrases: "underscores concerns", "highlights challenges", "raises questions about", "sparks debate" \u2014 these are banned. Be specific or say nothing.
-- You MAY add facts from the VERIFIED PHUKET REFERENCE section above when they are directly relevant to the story. These are confirmed true. Integrate them naturally \u2014 don't dump them in.
+TENSE:
+- Compare dates in the source to TODAY's date above.
+- Past events = past tense. NEVER write "are being rescued" for a completed event.
+- No date stated? Treat it as a past event.
 
-\u{1F697}\u{1F3CD}\uFE0F VEHICLE TYPE ACCURACY (CRITICAL):
-- The Thai word "\u0E23\u0E16" (rot) is a GENERIC term meaning "vehicle" \u2014 NOT specifically "car"
-- If the already-translated input says "car" but the original Thai only used "\u0E23\u0E16" (without \u0E23\u0E16\u0E22\u0E19\u0E15\u0E4C/\u0E40\u0E01\u0E4B\u0E07), use "vehicle" instead
-- Only call it a "car" if the source explicitly says \u0E23\u0E16\u0E22\u0E19\u0E15\u0E4C, \u0E23\u0E16\u0E40\u0E01\u0E4B\u0E07, \u0E23\u0E16 SUV, etc.
-- Only call it a "motorbike/motorcycle" if the source says \u0E23\u0E16\u0E08\u0E31\u0E01\u0E23\u0E22\u0E32\u0E19\u0E22\u0E19\u0E15\u0E4C, \u0E21\u0E2D\u0E40\u0E15\u0E2D\u0E23\u0E4C\u0E44\u0E0B\u0E04\u0E4C, \u0E2A\u0E01\u0E39\u0E4A\u0E15\u0E40\u0E15\u0E2D\u0E23\u0E4C, etc.
-- When unsure, always fall back to: "vehicle", "the vehicle", "the abandoned vehicle" \u2014 never guess
+VEHICLES:
+- Thai "\u0E23\u0E16" = "vehicle", NOT "car."
+- Only write "car" if the source says \u0E23\u0E16\u0E22\u0E19\u0E15\u0E4C, \u0E23\u0E16\u0E40\u0E01\u0E4B\u0E07, or \u0E23\u0E16 SUV.
+- Only write "motorbike" if the source says \u0E23\u0E16\u0E08\u0E31\u0E01\u0E23\u0E22\u0E32\u0E19\u0E22\u0E19\u0E15\u0E4C, \u0E21\u0E2D\u0E40\u0E15\u0E2D\u0E23\u0E4C\u0E44\u0E0B\u0E04\u0E4C, or \u0E2A\u0E01\u0E39\u0E4A\u0E15\u0E40\u0E15\u0E2D\u0E23\u0E4C.
+- Default: "vehicle."
 
-\u{1F30F} LOCATION RULES:
-- "Bangkok Road" in a Phuket article = a street in Phuket Town, NOT Bangkok city
-- Same for "Krabi Road", "Phang Nga Road" \u2014 these are Phuket Town streets, not the provinces
-- Dateline = WHERE THE EVENT HAPPENED, not where the people are from
-- Use "Soi Bangla" not "Bangla Soi" \u2014 Soi always comes first
-- "Saphan Hin" = a public park/promenade in Phuket Town, NOT a bridge
+LOCATIONS:
+- "Bangkok Road" in Phuket = a street in Phuket Town, NOT Bangkok city. Same for Krabi Road, Phang Nga Road.
+- Dateline = where the event happened.
+- Write "Soi Bangla" not "Bangla Soi."
+- "Saphan Hin" = a park in Phuket Town, NOT a bridge.
 
-${params.communityComments && params.communityComments.length > 0 ? `\u{1F3AD} COMMENT MINING (comments provided above \u2014 mine aggressively):
+FACTS:
+- Report ONLY what the source states. Do NOT upgrade language.
+- "reckless" does NOT mean "stunts." "disturbing" does NOT mean "caused chaos." "group" does NOT mean "mob."
+- Do NOT describe areas: "Patong, a bustling tourist area..." \u2014 BANNED. Readers live here.
+- You MAY use facts from the VERIFIED PHUKET REFERENCE above, but ONLY when directly connected to THIS story. Do not dump reference facts as filler.
 
-Thai Facebook comments are one of your most valuable sources. They often contain MORE information than the original post.
+BANNED PHRASES \u2014 if you catch yourself writing any of these, delete the sentence:
+- "underscores concerns"
+- "highlights challenges"
+- "raises questions about"
+- "sparks debate"
+- "remains to be seen"
+- "serves as a reminder"
+- "serves as a stark reminder"
+- "tourists are advised to exercise caution"
+- "authorities are urging residents to"
+- "the incident has raised concerns"
+- "in a country known for..."
+- "the popular tourist destination"
+- "the tropical island"
+- "has once again brought attention to"
+- "amid growing concerns"
+- "sending shockwaves through"
+- "the bustling"
+- "the vibrant"
+- "a wake-up call"
+- "an all-too-common occurrence"
 
-A. SARCASM & TONE DETECTION:
-- "\u0E19\u0E31\u0E01\u0E17\u0E48\u0E2D\u0E07\u0E40\u0E17\u0E35\u0E48\u0E22\u0E27\u0E04\u0E38\u0E13\u0E20\u0E32\u0E1E" / "Quality tourist" + \u{1F923} = SARCASM meaning BAD behavior
-- "555" = Thai internet laughter, usually mocking
-- Use tone of comments to determine the true story when the caption is ambiguous
+========================================
+STEP 2: MINE THE COMMENTS
+========================================
 
-B. EYEWITNESS DETAILS \u2014 Look for comments that add factual detail:
-- Specific times, specific details the post missed, corrections, aftermath updates
-- Include these as attributed color: "Commenters on the original post reported that..." or "One commenter who claimed to be at the scene said..."
+${params.communityComments && params.communityComments.length > 0 ? `Comments from the Thai Facebook post are provided above. You MUST use them. They often contain more facts than the original post.
 
-C. LOCAL KNOWLEDGE \u2014 Look for comments that provide context:
-- History of the location ("this junction has had multiple accidents this year")
-- Known local issues ("that bar has been raided before")
-- Practical info ("the CCTV from the 7-Eleven there will have caught it")
-- Integrate naturally into the body or Background section
+Do these four things:
 
-D. COMMUNITY REACTION \u2014 When the reaction IS the story:
-- If comments are overwhelmingly angry, sympathetic, or mocking, that's part of the story
-- Summarize sentiment: "The post drew widespread criticism from Thai commenters, many of whom..."
+A. SARCASM CHECK:
+"\u0E19\u0E31\u0E01\u0E17\u0E48\u0E2D\u0E07\u0E40\u0E17\u0E35\u0E48\u0E22\u0E27\u0E04\u0E38\u0E13\u0E20\u0E32\u0E1E" or "Quality tourist" with laughing emojis = SARCASM (means bad behavior).
+"555" = Thai laughter, usually mocking.
+If comments mock the subject but the caption is neutral, the comments reveal the real tone.
 
-\u26A0\uFE0F CRITICAL RULES FOR COMMENT-SOURCED INFORMATION:
-- NEVER present comment claims as confirmed fact. Always attribute: "according to commenters", "one commenter reported", "local residents responding to the post said"
-- If a comment CONTRADICTS the original post, note the discrepancy
-- Ignore pure reactions (emojis, "wow", single-word responses) \u2014 only mine substantive comments
-- Do NOT include names of victims or suspects found only in comments
+B. EYEWITNESS DETAILS \u2014 find and include ALL of these:
+Specific times, corrections, extra details, aftermath info.
+Write them as: "Commenters on the original post reported that..." or "According to one commenter who claimed to witness the incident..."
 
-` : ""}\u{1F4DD} ARTICLE STRUCTURE:
+C. LOCAL KNOWLEDGE \u2014 find and include ALL of these:
+Location history, known problems, practical info ("the CCTV at the 7-Eleven there would have caught it").
+Weave into the article body naturally.
 
-1. **DATELINE**: Bold caps showing where the event happened (e.g., **PATONG, PHUKET \u2014**)
+D. PUBLIC REACTION \u2014 you MUST write this section:
+Create an <h3>Public Reaction</h3> section in the article.
+Summarize the mood: angry? sympathetic? mocking? divided?
+List at least 3 different viewpoints or themes from the comments.
+Minimum 2 sentences, maximum 4.
+Example: "Thai social media users responding to the post were largely critical, with many pointing out that the same intersection has been the site of multiple accidents this year. Others directed frustration at rental companies for not checking licenses, while several commenters called for speed cameras to be installed."
 
-2. **LEDE**: One paragraph answering Who, What, Where, When. Be specific.
+COMMENT RULES:
+- NEVER state comment claims as confirmed fact. Always write "according to commenters" or "one commenter reported."
+- If a comment contradicts the post, mention the discrepancy.
+- Ignore emojis, "wow", single-word reactions \u2014 use only substantive comments.
+- Do NOT use victim/suspect names found only in comments.` : "No comments provided. Skip this step. Do NOT include a Public Reaction section."}
 
-3. **DETAILS**: Expand on the lede with all available facts from the source.${params.communityComments && params.communityComments.length > 0 ? " Then mine the comments thoroughly using the rules above \u2014 eyewitness details, corrections, local knowledge, and community reaction can all add substantial depth." : ""} Use direct quotes if the source contains them.
+========================================
+STEP 3: WRITE THE ARTICLE
+========================================
 
-4. **BACKGROUND** (when relevant): Draw on the VERIFIED PHUKET REFERENCE material above, but ONLY facts that connect directly to THIS specific story.
+QUALITY TEST \u2014 ask this before writing every background sentence:
+"Would a Phuket expat who has lived here 5 years learn something new from this sentence?"
+If NO \u2192 delete it. It is filler.
 
-   GOOD example (story-specific): "It's the third motorbike fatality on Patong Hill this year \u2014 the stretch between the Kathu junction and the viewpoint remains one of the island's most dangerous."
-   
-   BAD example (generic filler): "Phuket has some of the highest road accident rates in Thailand. Foreign drivers are advised to carry an International Driving Permit."
-   
-   The test: would a long-term Phuket resident learn something from this sentence, or roll their eyes? If they'd roll their eyes, cut it.
+Write the article in this exact order:
 
-5. **ON THE GROUND** (REQUIRED \u2014 include in EVERY article): A short section at the end with an <h3>On the Ground</h3> tag. This is NOT a safety brochure. It's story-specific insider context \u2014 what a well-connected local would tell a friend.
+--- PART 1: DATELINE (REQUIRED) ---
+Bold caps location where the event happened.
+Example: <p><strong>PATONG, PHUKET \u2014</strong> A British tourist was arrested...</p>
 
-   WHAT THIS SECTION SHOULD SOUND LIKE:
-   - "Thalang Police are handling the case \u2014 the station is the one just past the Heroines Monument heading north."
-   - "That section of Thepkrasattri is a known blackspot, especially after dark. There's been talk of adding lights since at least 2022."
-   - "If you were in the area and have dashcam footage, Patong Police are actively asking for it."
-   - "Vachira will be the receiving hospital for anything on this side of the island."
+--- PART 2: LEDE (REQUIRED) ---
+One paragraph. Who, What, Where, When. Specific details.
 
-   WHAT THIS SECTION SHOULD NEVER SOUND LIKE:
-   - "If you are involved in a traffic accident, remain at the scene and call 191."
-   - "Tourists are advised to exercise caution when visiting nightlife areas."
-   - "Foreign nationals should ensure they carry a valid International Driving Permit at all times."
-   
-   2-4 sentences max. Use the reference material to find the relevant fact (which station, which hospital, what the law actually says), then phrase it the way a local would.
+--- PART 3: DETAILS (REQUIRED) ---
+All remaining facts from the source. Direct quotes if available.${params.communityComments && params.communityComments.length > 0 ? " Include eyewitness details and local knowledge from comments here, attributed properly." : ""}
 
-6. **DEVELOPING STORY INDICATOR** (conditional): If the source material is very thin (only 1-3 facts available) and you cannot build the article to 150+ words even with Background and On the Ground sections, add this element immediately after the dateline:
+--- PART 4: BACKGROUND (INCLUDE if the reference material has facts about THIS specific story. SKIP if you can only write generic facts.) ---
+Use facts from the VERIFIED PHUKET REFERENCE section above.
 
+\u2705 GOOD: "The stretch of Thepkrasattri Road near the Heroines Monument has seen at least four serious accidents this year alone."
+\u2705 GOOD: "Patong Police handle the vast majority of tourist-area incidents in the Kathu district."
+\u274C BAD: "Phuket has some of the highest road accident rates in Thailand."
+\u274C BAD: "Foreign drivers are advised to carry an International Driving Permit."
+\u274C BAD: "Thailand is known for its dangerous roads."
+
+Rule: if the background sentence could appear in ANY Phuket news article, it is too generic. Delete it.
+
+${params.communityComments && params.communityComments.length > 0 ? `--- PART 5: PUBLIC REACTION (REQUIRED \u2014 you must include this) ---
+Heading: <h3>Public Reaction</h3>
+Content: Community response from the comments. At least 3 viewpoints. 2-4 sentences.
+DO NOT SKIP THIS SECTION.` : "--- PART 5: PUBLIC REACTION \u2014 SKIP (no comments provided) ---"}
+
+--- PART 6: ON THE GROUND (REQUIRED \u2014 you must include this in every article) ---
+Heading: <h3>On the Ground</h3>
+
+This section gives readers specific, practical, insider information about THIS story. Use the VERIFIED PHUKET REFERENCE material to find the right facts, then write them conversationally.
+
+Pick whichever of these apply to this story (skip ones that don't):
+\u2022 Police station handling the case \u2192 name it and give a landmark ("Thalang Police \u2014 just past the Heroines Monument heading north")
+\u2022 Hospital involved \u2192 name it ("Vachira is the receiving hospital for this side of the island")
+\u2022 Location history \u2192 mention it ("That section of road is a known blackspot, particularly after dark")
+\u2022 Action readers can take \u2192 state it ("If you have dashcam footage from the area, Patong Police are asking for it")
+\u2022 Current status \u2192 report it ("The road has since reopened" or "The area remains cordoned off")
+
+\u2705 GOOD examples:
+"Thalang Police are handling the case \u2014 the station just past the Heroines Monument heading north."
+"That stretch between the Kathu junction and the Patong viewpoint has had multiple serious accidents this year."
+"Vachira will be the receiving hospital for anything on this side of the island."
+
+\u274C BAD examples (NEVER write these):
+"If you are involved in a traffic accident, remain at the scene and call 191."
+"Tourists are advised to exercise caution when visiting nightlife areas."
+"Foreign nationals should ensure they carry a valid International Driving Permit at all times."
+"Residents are reminded to stay alert and report suspicious activity."
+
+Write 2-4 sentences. Every sentence must be about THIS story, not general advice.
+DO NOT SKIP THIS SECTION.
+
+--- PART 7: DEVELOPING STORY (only if source has 1-3 facts and article is under 200 words even with Background + On the Ground) ---
+Add immediately after the dateline:
 <p class="developing-story"><strong>\u26A1 Developing Story</strong> \u2014 Initial reports are limited. This article will be updated as more details become available.</p>
 
-This is BETTER than padding a thin story with generic filler. A 100-word article that's honest about being a breaking alert is more credible than a 200-word article stuffed with "motorists are advised to exercise caution."
+========================================
+STEP 4: FORMAT YOUR OUTPUT
+========================================
 
-TONE: Write like a veteran correspondent who lives in Phuket and files stories for people who also live there. Professional but not sterile. Specific but not padded. You're not writing a travel advisory \u2014 you're writing the news for your neighbors.
+HTML RULES:
+- Wrap every paragraph in <p></p> tags.
+- Use <h3> tags for section headings: Background, Public Reaction, On the Ground.
+- NEVER return a single block of unformatted text.
 
-MINIMUM LENGTH: The enrichedContent should be at least 150 words. If the source material is thin, Background and On the Ground carry the weight \u2014 but only with genuinely relevant, story-specific content. Never pad with generic advice or area descriptions.
+WORD COUNT:
+- enrichedContent must be at least 200 words.
+- Reach 200 words using story-specific details, background, and On the Ground \u2014 NOT with generic filler.
 
-FORMATTING REQUIREMENTS:
-- EVERY paragraph MUST be wrapped in <p></p> tags
-- Use <h3> tags for section headings (Background, On the Ground, Public Reaction)
-- NEVER return content as a single wall of text
+HEADLINE:
+- AP style. Include specific names, places, numbers.
+- \u2705 GOOD: "Russian Tourist Arrested With 3kg of Cocaine in Cherng Talay"
+- \u274C BAD: "Drug Arrest Raises Concerns in Phuket"
 
-OUTPUT FORMAT \u2014 Return ONLY valid JSON, no markdown fences, no commentary:
+EXCERPT:
+- 2-3 factual sentences describing what happened.
+- For meta descriptions and social sharing.
+- NEVER use "highlights concerns" or "raises questions."
 
-{
-  "enrichedTitle": "Factual AP-style headline. Be specific: names, places, numbers. NEVER use 'raises concerns' or 'sparks debate'. GOOD: 'Russian Tourist Arrested With 3kg of Cocaine in Cherng Talay'. BAD: 'Drug Arrest Raises Concerns in Phuket'.",
-  "enrichedContent": "Full HTML article. Use <p> tags for paragraphs, <h3> for section headers. Start with bold DATELINE. Always include the On the Ground section.",
-  "enrichedExcerpt": "2-3 sentence factual summary describing what happened. Used for meta descriptions and social sharing \u2014 make it specific and compelling. FORBIDDEN: 'highlights concerns', 'raises questions'."
-}`;
+OUTPUT FORMAT:
+Return ONLY valid JSON. No markdown fences (no \`\`\`json). No text before or after the JSON.
+
+Example of correct output format:
+{"enrichedTitle":"French Tourist Arrested After Patong Bar Brawl","enrichedContent":"<p><strong>PATONG, PHUKET \u2014</strong> A 34-year-old French national was arrested...</p><p>Police said the altercation...</p><h3>On the Ground</h3><p>Patong Police are handling the case...</p>","enrichedExcerpt":"A French tourist was arrested following an altercation at a Bangla Road bar early Wednesday morning. The 34-year-old reportedly caused significant damage to the venue before being detained."}
+
+Your output (valid JSON only):`;
         const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || "openai";
         const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
         let result = {};
+        console.log("=== ENRICHMENT DEBUG ===");
+        console.log("Model:", model);
+        console.log("Temperature:", 0.3);
+        console.log("Max tokens:", "Not specified (OpenAI default)");
+        console.log("System prompt:", systemPrompt);
+        console.log("User message (first 500 chars):", prompt.substring(0, 500));
+        console.log("User message (last 500 chars):", prompt.substring(prompt.length - 500));
+        console.log("User message total length:", prompt.length);
+        console.log("Category:", params.category);
+        console.log("Context block injected:", contextBlock ? "YES (" + contextBlock.substring(0, 80) + "...)" : "NO");
+        console.log("Comments passed:", params.communityComments ? params.communityComments.length + " comments" : "NONE");
+        console.log("=== END ENRICHMENT DEBUG ===");
         if (enrichmentProvider === "anthropic") {
           if (!process.env.ANTHROPIC_API_KEY) {
             console.warn("   \u26A0\uFE0F  ANTHROPIC_API_KEY not set \u2014 falling back to OpenAI GPT-4o");
@@ -3843,6 +4010,9 @@ OUTPUT FORMAT \u2014 Return ONLY valid JSON, no markdown fences, no commentary:
               temperature: 0.3,
               response_format: { type: "json_object" }
             });
+            console.log("=== ENRICHMENT RESPONSE ===");
+            console.log("Raw response:", JSON.stringify(completion).substring(0, 1e3));
+            console.log("=== END ENRICHMENT RESPONSE ===");
             result = JSON.parse(completion.choices[0].message.content || "{}");
           } else {
             console.log(`   \u{1F916} [ANTHROPIC] Enriching with ${anthropicModel}`);
@@ -3853,6 +4023,9 @@ OUTPUT FORMAT \u2014 Return ONLY valid JSON, no markdown fences, no commentary:
               system: systemPrompt,
               messages: [{ role: "user", content: prompt }]
             });
+            console.log("=== ENRICHMENT RESPONSE ===");
+            console.log("Raw response:", JSON.stringify(response).substring(0, 1e3));
+            console.log("=== END ENRICHMENT RESPONSE ===");
             const responseContent = response.content[0];
             if (responseContent.type !== "text") {
               throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
@@ -3870,6 +4043,9 @@ OUTPUT FORMAT \u2014 Return ONLY valid JSON, no markdown fences, no commentary:
             temperature: 0.3,
             response_format: { type: "json_object" }
           });
+          console.log("=== ENRICHMENT RESPONSE ===");
+          console.log("Raw response:", JSON.stringify(completion).substring(0, 1e3));
+          console.log("=== END ENRICHMENT RESPONSE ===");
           result = JSON.parse(completion.choices[0].message.content || "{}");
         }
         const formattedContent = ensureProperParagraphFormatting(result.enrichedContent || params.content);
@@ -3955,11 +4131,13 @@ ${communityComments.slice(0, 10).map((c, i) => `${i + 1}. "${c}"`).join("\n")}
 3. **IDENTIFY CRIME/ILLEGAL ACTIVITY**: Look for keywords like \u0E22\u0E32\u0E40\u0E2A\u0E1E\u0E15\u0E34\u0E14 (drugs), \u0E42\u0E04\u0E40\u0E04\u0E19 (cocaine), \u0E02\u0E32\u0E22\u0E22\u0E32 (drug dealing), \u0E41\u0E01\u0E4A\u0E07 (gang), illegal, arrest
 4. **CORRECT YOUR INTERPRETATION**: If your initial read seems too innocent but comments suggest crime/scandal, RE-INTERPRET the story correctly
 5. **BOOST SCORE APPROPRIATELY**: Drug-related stories, tourist scandals, crime = Score 4-5 (high interest)
+6. **\u{1F94A} DETECT FAKE SPORT = REAL BRAWL**: If the caption uses "boxing" / "\u0E21\u0E27\u0E22" / a sport name IN QUOTES, and comments are LAUGHING (555/\u{1F923}) rather than cheering \u2192 this is a STREET BRAWL being sarcastically called a "boxing match". Comments may reference lunar month superstitions, luck, bad omens \u2014 this is Thai humor about unexpected violence, NOT commentary on a real sporting event. RE-INTERPRET as an unplanned fight between individuals.
 
 \u{1F6AB} DO NOT:
 - Write a sanitized "mysterious curiosity" story when comments reveal it's about DRUG SALES
 - Score drug/crime stories at 3 just because the caption was vague
 - Ignore Thai slang for drugs/illegal activity
+- Describe a street brawl as a "boxing match" or "sporting event" just because the Thai caption SARCASTICALLY called it that in quotes
 `;
             console.log(`   \u{1F4AC} Injected ${communityComments.length} community comments for context analysis`);
           }
@@ -4111,6 +4289,26 @@ Thai social media posts often use SARCASM, HUMOR, and EUPHEMISMS. You MUST analy
 - "\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E14\u0E35" = "Nice atmosphere" (SARCASM when situation is clearly bad)
 - "555" / "5555" = Thai internet laughter (like "lol") - indicates post is humorous/mocking
 
+\u{1F94A} QUOTED SPORT / FORMAL VOCABULARY = STREET BRAWL (CRITICAL PATTERN \u2014 READ THIS):
+This is one of the most common and most dangerous sarcasm traps for AI translation:
+- When a Thai caption puts a sport or formal name in **quotation marks** (e.g. "Women's boxing" / "\u0E21\u0E27\u0E22\u0E2B\u0E0D\u0E34\u0E07" / "\u0E0A\u0E01\u0E21\u0E27\u0E22"), it is almost ALWAYS sarcasm for an unplanned street fight, not a real sporting event.
+- The use of \u{1F94A} / \u{1F44A} boxing emojis combined with a location like a street, soi, or bar area (NOT a stadium) confirms this is a brawl, NOT a match.
+- BANGLA / PATONG CONTEXT: Real Muay Thai / boxing events happen inside stadiums with tickets, referees, rounds, and crowds. A "boxing match" occurring on Soi New York, Bangla Road, or outside a bar is BY DEFINITION an unplanned drunken street fight.
+- The mention of participants having "\u0E40\u0E25\u0E37\u0E2D\u0E14\u0E2D\u0E32\u0E1A\u0E2B\u0E19\u0E49\u0E32" (blood running down the face) in a street context without any reference to a ring/referee/crowd = chaotic brawl, NOT sport.
+- If comments on the post are laughing (555, \u{1F923}) rather than cheering = it's a brawl being mocked as "boxing", not a real match.
+
+QUOTED FORMAL VOCABULARY SARCASM \u2014 HOW TO DETECT:
+1. Sport in quotation marks ("boxing", "wrestling", "competition") inside a street/bar location = BRAWL
+2. Sport emoji (\u{1F94A}\u{1F44A}\u{1F93C}) + unplanned street location = BRAWL
+3. The caption uses the word "today" / "morning" / "spontaneous" = UNPLANNED incident, not ticketed event
+4. No mention of stadium, ticketing, referee, rounds, judges = NOT a real sporting event
+5. Comments are mocking/laughing rather than excited = confirms brawl, not sport
+
+REAL SPORTING EVENT SIGNALS:
+- Explicit venue name (Bangla Boxing Stadium, Rawai Muay Thai, Patong Boxing Stadium)
+- Mentions of rounds, corners, referees, ring, announcer, judges
+- Comments using supporter language ("Go!", team names, cheer emojis like \u{1F389})
+
 \u{1F37A} DRUNK/INTOXICATED TOURIST INDICATORS:
 - Person lying flat on street/sidewalk = DRUNK, not "resting" or "enjoying the view"
 - "\u0E19\u0E2D\u0E19\u0E02\u0E49\u0E32\u0E07\u0E17\u0E32\u0E07" = "sleeping on the roadside" = PASSED OUT DRUNK
@@ -4140,9 +4338,13 @@ Thai social media posts often use SARCASM, HUMOR, and EUPHEMISMS. You MUST analy
 - DO NOT sanitize drunk behavior into "relaxing" or "resting"
 - Match the tone - these are "tourist behaving badly" viral stories
 
-EXAMPLE INTERPRETATION:
+EXAMPLE INTERPRETATIONS:
 \u274C WRONG: "Tourist Enjoys Patong's Vibrant Street Scene" (literal caption interpretation)
 \u2705 CORRECT: "Tourist Found Passed Out on Patong Street, Locals React with Amusement"
+
+\u274C WRONG: "Foreign Fighter Injured in Women's Boxing Match at Bangla Stadium" (took "Women's boxing" literally + hallucinated a stadium)
+\u2705 CORRECT: "Drunken Street Brawl Between Thai and Foreign Women Breaks Out on Soi New York, Patong"
+   WHY: Caption put "Women's boxing" in quotes + location was a street soi (not a stadium) + blood visible = street brawl, not a sporting event. Thai commenters were mocking with \u{1F602} / 555, and referenced lunar month superstitions sarcastically. NEVER invent a venue ("Bangla Stadium") when the source says "inside Soi New York, Bangla".
 
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
@@ -4188,6 +4390,9 @@ CATEGORY GUIDE (read full story, not just headline):
 - Local: Community news, missing persons, drownings, boat accidents, local government
 - Traffic: Road accidents (non-criminal), road closures, construction
 - Crime: ONLY intentional criminal activity - arrests, theft, assault, scams
+- Politics: Government news, elections, MP activity, policy changes
+- Economy: Business news, property development, tourism statistics, investment
+- Tourism: Travel news, new flights, visa changes, hotel openings
 - National: Major news from outside Phuket (Bangkok, Hat Yai, Chiang Mai, etc.) AND Southern Thailand floods/disasters that are NOT in Phuket
 - WHEN UNCERTAIN: Use "Local" as default
 
@@ -4250,19 +4455,9 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
   - "Live music night at [venue]" = Score 2 (routine nightlife)
 - EXCEPTION: Major international acts, large-scale music festivals (e.g. EDC, Wonderfruit), or events featuring well-known artists = Score 3-4
 
-**CRITICAL DISTINCTIONS:**
-- "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
-- "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
-- "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
-- "Students win robotics award" = Score 3 (achievement, NOT urgent)
-- "Road damaged by flooding" = Score 3 (infrastructure complaint, NOT a disaster)
-- "Luxury hotel/villa launch" = Score 3 (business news, NOT breaking)
-- "Art exhibition/Gallery opening" = Score 3 (cultural event, NOT urgent)
-- "Students win robotics award" = Score 3 (achievement, NOT urgent)
-- "Tourism boom faces sustainability concerns" = Score 3 (discussion, NOT crisis)
 - **"Blood donation drive" = Score 3 MAX (community charity event, NOT urgent)**
 - **"Donation ceremony" = Score 2-3 MAX (routine charity, NOT news)**
-- **"Fundraiser for flood victims" = Score 3 MAX (charity event, NOT breaking news)**
+- **"Fundraiser for disaster victims" = Score 3 MAX (charity event, NOT breaking news)**
 - **"Community helps disaster victims" = Score 3 MAX (charitable response, NOT the disaster itself)**
 - **"Mascot at mall event" = Score 2 MAX (promotional fluff, NOT news)**
 - **"Shopping center celebration" = Score 2 MAX (mall marketing, NOT news)**
@@ -4271,11 +4466,15 @@ EXAMPLES OF FEEL-GOOD = SCORE 4-5:
 - **"Alumni football match" = Score 2 MAX (community sports, NOT breaking)**
 - **"Friendly match at stadium" = Score 2 MAX (local sports event, NOT urgent)**
 - **"Community sports event" = Score 2 MAX (routine local activity)**
-- **"Local concert with unknown acts" = Score 2 MAX (routine entertainment, NOT news)**
-- **"Beauty pageant/contest" = Score 3 MAX (community entertainment, NOT breaking)**
-- **"Cosplay/costume competition" = Score 3 MAX (community entertainment, NOT breaking)**
-- **"Contestant enters competition" = Score 3 MAX (community event, NOT breaking)**
-- **"Local talent show" = Score 3 MAX (community entertainment, NOT breaking)**
+- **"Music / Local concert / Band performance"**: 2 MAX (routine entertainment, NOT news)
+- **"Youth Band / Youth Achievement in art/music/sports"**: 3 MAX (achievement, NOT urgent news)
+- **"Beauty pageant / Talent contest / Competition enters"**: 3 MAX (community entertainment, NOT breaking)
+- **"Phuket youth represents island / advancing in competition"**: 3 MAX (local achievement)
+- **"Students win robotics award"**: 3 MAX (local achievement)
+- **"Road damaged by flooding"**: 3 MAX (infrastructure complaint, NOT a disaster)
+- **"Luxury hotel/villa launch"**: 3 MAX (business news, NOT breaking)
+- **"Art exhibition / Gallery opening"**: 3 MAX (cultural event, NOT urgent)
+- **"Tourism boom"**: 3 MAX (discussion/stats)
 - "Car crash with injuries" = Score 4 (actual incident with victims)
 - "Drowning at beach" = Score 5 (death/urgent)
 - "Arrest for theft" = Score 4 (crime with action)
@@ -4439,7 +4638,7 @@ Always output valid JSON.`
           if (result.category && result.categoryReasoning) {
             console.log(`   \u{1F3F7}\uFE0F  Category: ${result.category} - ${result.categoryReasoning}`);
           }
-          const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime", "National"];
+          const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime", "National", "Breaking"];
           const category = result.category && validCategories.includes(result.category) ? result.category : "Local";
           if (result.category && result.category !== category) {
             console.log(`   \u26A0\uFE0F  Invalid category "${result.category}" - defaulting to "Local"`);
@@ -4732,9 +4931,9 @@ Always output valid JSON.`
                 console.log(`   \u26A0\uFE0F Comment fetch failed (non-critical): ${commentError}`);
               }
             }
-            const enrichmentModel = "gpt-4o";
+            const enrichmentModel = "gpt-4o-mini";
             const activeProvider = process.env.ENRICHMENT_PROVIDER || "openai";
-            const activeModelLabel = activeProvider === "anthropic" ? `Anthropic ${process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5"}` : "OpenAI GPT-4o";
+            const activeModelLabel = activeProvider === "anthropic" ? `Anthropic ${process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5"}` : "OpenAI GPT-4o mini";
             console.log(`   \u2728 HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
             try {
               const enrichmentResult = await this.enrichWithPremiumGPT4({
@@ -10758,7 +10957,7 @@ async function runManualPageScrape(pageIdentifier, callbacks) {
             content: translation.translatedContent,
             excerpt: translation.excerpt,
             category: translation.category
-          }, "gpt-4o");
+          }, "gpt-4o-mini");
           translation.translatedTitle = enrichmentResult.enrichedTitle;
           translation.translatedContent = enrichmentResult.enrichedContent;
           translation.excerpt = enrichmentResult.enrichedExcerpt;
@@ -11032,7 +11231,7 @@ async function runManualPostScrape(postUrl, callbacks) {
         category: translation.category,
         communityComments
         // Pass community comments for richer enrichment
-      }, "gpt-4o");
+      }, "gpt-4o-mini");
       translation.translatedTitle = enrichmentResult.enrichedTitle;
       translation.translatedContent = enrichmentResult.enrichedContent;
       translation.excerpt = enrichmentResult.enrichedExcerpt;
@@ -11234,13 +11433,13 @@ function startReEnrichmentPoller() {
   console.log("\u23F0 Starting re-enrichment poller (runs every 5 minutes)");
   setInterval(async () => {
     try {
-      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
       const { articles: articles2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { and: and7, isNotNull: isNotNull2, lte, eq: eq9, gte: gte4 } = await import("drizzle-orm");
       const { getReEnrichmentService: getReEnrichmentService2 } = await Promise.resolve().then(() => (init_re_enrichment(), re_enrichment_exports));
       const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
       const now = /* @__PURE__ */ new Date();
-      const pendingArticles = await db2.select().from(articles2).where(
+      const pendingArticles = await db3.select().from(articles2).where(
         and7(
           isNotNull2(articles2.reEnrichAt),
           lte(articles2.reEnrichAt, now),
@@ -11261,7 +11460,7 @@ function startReEnrichmentPoller() {
         } catch (err) {
           console.error(`   \u274C Failed to run re-enrichment for article ID ${article.id}`, err);
         } finally {
-          await db2.update(articles2).set({ reEnrichmentCompleted: true }).where(eq9(articles2.id, article.id));
+          await db3.update(articles2).set({ reEnrichmentCompleted: true }).where(eq9(articles2.id, article.id));
         }
       }
     } catch (err) {
@@ -12864,6 +13063,49 @@ function requireCronAuth(req, res, next) {
   return res.status(401).json({ error: "Invalid API key" });
 }
 async function registerRoutes(app2) {
+  app2.post("/api/internal/discovered-videos/batch", async (req, res) => {
+    try {
+      const { videos } = req.body;
+      if (!Array.isArray(videos)) {
+        return res.status(400).json({ error: "Videos array is required" });
+      }
+      if (videos.length === 0) {
+        return res.json({ saved: 0, skipped: 0 });
+      }
+      console.log(`[VIDEO-BATCH] Received ${videos.length} videos for processing`);
+      let saved = 0;
+      let skipped = 0;
+      const insertResult = await db.insert(discoveredVideos).values(videos.map((v) => ({
+        videoId: v.video_id,
+        platform: v.platform,
+        source: v.source,
+        videoUrl: v.video_url,
+        coverUrl: v.cover_url,
+        authorUsername: v.author_username,
+        description: v.description,
+        likeCount: v.like_count || 0,
+        commentCount: v.comment_count || 0,
+        shareCount: v.share_count || 0,
+        playCount: v.play_count || 0,
+        createdAtSource: v.created_at_source ? new Date(v.created_at_source) : null,
+        durationSeconds: v.duration_seconds,
+        relevanceScore: v.relevance_score || 0,
+        incidentType: v.incident_type || "pending_review",
+        involvesForeigner: v.involves_foreigner || "unknown",
+        locationInPhuket: v.location_in_phuket,
+        scoreReason: v.score_reason,
+        status: v.status || "queued"
+      }))).onConflictDoNothing({ target: [discoveredVideos.videoId, discoveredVideos.platform] }).returning({ id: discoveredVideos.id });
+      saved = insertResult.length;
+      skipped = videos.length - saved;
+      console.log(`[VIDEO-BATCH] Completed: ${saved} saved, ${skipped} skipped`);
+      res.json({ saved, skipped });
+    } catch (error) {
+      console.error("Error in batch video discovery:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to process video batch", details: errorMessage });
+    }
+  });
   app2.post("/api/admin/sync-facebook-insights", requireCronAuth, async (req, res) => {
     try {
       const result = await metaBusinessSuiteService.batchUpdatePostInsights(7);
@@ -14229,7 +14471,7 @@ async function registerRoutes(app2) {
         content: article.content || "",
         excerpt: article.excerpt || "",
         category: article.category
-      }, "gpt-4o");
+      }, "gpt-4o-mini");
       console.log(`   \u2705 ${activeModelLabel} enrichment complete`);
       console.log(`   \u{1F4DD} New content length: ${enrichmentResult.enrichedContent?.length || 0} chars`);
       let facebookHeadline = article.facebookHeadline;
@@ -14877,8 +15119,9 @@ function serveStatic(app2) {
 
 // server/index.ts
 init_db();
+init_storage();
+init_category_map();
 import path5 from "path";
-import { sql as sql10 } from "drizzle-orm";
 process.on("uncaughtException", (error) => {
   console.error("\u274C [UNCAUGHT EXCEPTION]:", error);
   console.error("   Stack:", error.stack);
@@ -14916,7 +15159,7 @@ app.use("/assets", express2.static(path5.join(process.cwd(), "attached_assets"),
 app.use("/uploads", express2.static(path5.join(process.cwd(), "public", "uploads"), {
   maxAge: "7d"
 }));
-app.use(express2.json());
+app.use(express2.json({ limit: "10mb" }));
 app.use(express2.urlencoded({ extended: false }));
 if (!process.env.DATABASE_URL) {
   console.error("\u274C [FATAL] DATABASE_URL environment variable is missing");
@@ -14978,30 +15221,30 @@ app.use((req, res, next) => {
   });
   next();
 });
+var serverPromise = registerRoutes(app);
 app.get("/category/:category", (req, res) => {
   const { category } = req.params;
   res.redirect(301, `/${category}`);
 });
 var LEGACY_CATEGORY_REDIRECTS = {
-  "breaking": "local",
-  // Breaking -> Local (most breaking news is local)
   "other": "local",
   // Other -> Local
   "info": "local",
   // Info -> Local
   "events": "local",
   // Events -> Local
-  "business": "economy",
-  // Business -> Economy
   "local-news": "local"
   // Local News -> Local (old category slug, ~252 Google-indexed URLs)
 };
 app.get("/:legacyCategory/:slugOrId", (req, res, next) => {
   const { legacyCategory, slugOrId } = req.params;
   const legacyCategoryLower = legacyCategory.toLowerCase();
+  if (legacyCategoryLower === "api" || legacyCategoryLower === "assets" || legacyCategoryLower === "uploads") {
+    return next();
+  }
   const correctCategory = LEGACY_CATEGORY_REDIRECTS[legacyCategoryLower];
   if (correctCategory) {
-    console.log(`\u{1F504} [REDIRECT] Legacy category path: /${legacyCategory}/${slugOrId} -> /${correctCategory}/${slugOrId}`);
+    log(`\u{1F504} [REDIRECT] Legacy category path: /${legacyCategory}/${slugOrId} -> /${correctCategory}/${slugOrId}`);
     res.redirect(301, `/${correctCategory}/${slugOrId}`);
   } else {
     next();
@@ -15010,15 +15253,19 @@ app.get("/:legacyCategory/:slugOrId", (req, res, next) => {
 app.get("/article/:slugOrId", async (req, res, next) => {
   try {
     const { slugOrId } = req.params;
-    const { resolveFrontendCategory: resolveFrontendCategory2 } = await Promise.resolve().then(() => (init_category_map(), category_map_exports));
-    const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-    let article = await storage2.getArticleBySlug(slugOrId);
+    const cacheKey = `redirect:article:${slugOrId}`;
+    const cachedRedirect = cache.get(cacheKey);
+    if (cachedRedirect) {
+      return res.redirect(301, `/${cachedRedirect.category}/${cachedRedirect.slug}`);
+    }
+    let article = await storage.getArticleBySlug(slugOrId);
     if (!article) {
-      article = await storage2.getArticleById(slugOrId);
+      article = await storage.getArticleById(slugOrId);
     }
     if (article) {
-      const frontendCategory = resolveFrontendCategory2(article.category);
+      const frontendCategory = resolveFrontendCategory(article.category);
       const slug = article.slug || article.id;
+      cache.set(cacheKey, { category: frontendCategory, slug }, 36e5);
       res.redirect(301, `/${frontendCategory}/${slug}`);
     } else {
       next();
@@ -15030,7 +15277,7 @@ app.get("/article/:slugOrId", async (req, res, next) => {
 });
 (async () => {
   try {
-    const server = await registerRoutes(app);
+    const server = await serverPromise;
     app.use((err, _req, res, _next) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
@@ -15052,48 +15299,11 @@ app.get("/article/:slugOrId", async (req, res, next) => {
       host: "0.0.0.0"
     }, () => {
       log(`\u2705 Server serving on port ${port}`);
-      (async () => {
-        try {
-          log("\u{1F527} [SCHEMA] Ensuring database schema is up to date...");
-          const schemaCheckPromise = db.execute(sql10`
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
-            ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
-            
-            -- Auto-match and review columns
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS timeline_tags text[] DEFAULT ARRAY[]::text[];
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS auto_match_enabled boolean DEFAULT false;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS needs_review boolean DEFAULT false;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS review_reason text;
-            
-            -- Re-enrichment scheduling
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS re_enrich_at timestamp;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS re_enrichment_completed boolean DEFAULT false;
-          `);
-          const timeoutPromise = new Promise(
-            (_, reject) => setTimeout(() => reject(new Error("Schema check timeout after 30s")), 3e4)
-          );
-          await Promise.race([schemaCheckPromise, timeoutPromise]);
-          log("\u2705 [SCHEMA] Database schema verified");
-        } catch (error) {
-          if (error.message?.includes("timeout")) {
-            log("\u26A0\uFE0F  [SCHEMA] Schema check timed out - database may be cold starting");
-            log("   Server is running, schema will be checked on first query");
-          } else {
-            log("\u274C [SCHEMA] Error ensuring schema:");
-            console.error(error);
-          }
-        }
-      })();
     });
     server.on("error", (error) => {
       console.error("\u274C [SERVER ERROR] Server failed to start:", error);
       process.exit(1);
     });
-    log("\u{1F4C5} Automated internal scraping DISABLED");
-    log(`\u{1F4C5} CRON_API_KEY loaded: ${process.env.CRON_API_KEY ? "YES (" + process.env.CRON_API_KEY.substring(0, 3) + "...)" : "NO"}`);
-    log("\u{1F4C5} External cron endpoint: POST /api/cron/scrape (requires CRON_API_KEY)");
-    log("\u{1F4C5} Manual scraping available at: /api/admin/scrape (requires admin session)");
   } catch (error) {
     console.error("\u274C [FATAL] Failed to initialize application:", error);
     process.exit(1);
