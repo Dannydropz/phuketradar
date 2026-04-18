@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { lazy, Suspense } from "react";
 import Home from "@/pages/HomeNew";
 import AdminVideos from "@/pages/AdminVideos";
 
