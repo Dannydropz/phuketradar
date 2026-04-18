@@ -18,6 +18,7 @@ const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const TagPage = lazy(() => import("@/pages/TagPage"));
 const TimelineStory = lazy(() => import("@/pages/TimelineStory"));
+const AdminVideos = lazy(() => import("@/pages/AdminVideos"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function LoadingFallback() {
@@ -49,6 +50,7 @@ function Router() {
           <AdminAnalytics />
         </ProtectedRoute>
       </Route>
+      <Route path="/admin/videos" component={AdminVideos} />
       <Route path="/story/:seriesId" component={TimelineStory} />
       <Route path="/tag/:tag" component={TagPage} />
       <Route path="/journalist/:id" component={JournalistProfile} />

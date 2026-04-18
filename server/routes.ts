@@ -143,6 +143,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Video Review Endpoints
+  app.get("/api/admin/discovered-videos", async (req, res) => {
+    try {
+      const videos = await db.select()
+        .from(discoveredVideos)
+        .where(eq(discoveredVideos.status, 'queued'))
+        .orderBy(desc(discoveredVideos.playCount));
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching discovered videos:", error);
+      res.status(500).json({ error: "Failed to fetch videos" });
+    }
+  });
+
+  app.patch("/api/admin/discovered-videos/:id/approve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(discoveredVideos)
+        .set({ status: 'approved' })
+        .where(eq(discoveredVideos.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error approving video:", error);
+      res.status(500).json({ error: "Failed to approve video" });
+    }
+  });
+
+  app.patch("/api/admin/discovered-videos/:id/reject", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(discoveredVideos)
+        .set({ status: 'rejected' })
+        .where(eq(discoveredVideos.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error rejecting video:", error);
+      res.status(500).json({ error: "Failed to reject video" });
+    }
+  });
+
 
   // Sync Facebook Insights (API key auth for N8N)
   app.post("/api/admin/sync-facebook-insights", requireCronAuth, async (req, res) => {
