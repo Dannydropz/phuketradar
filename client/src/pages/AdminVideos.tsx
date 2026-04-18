@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminVideos() {
+  console.log("AdminVideos component loading...");
   const { toast } = useToast();
 
   const { data: videos, isLoading } = useQuery<DiscoveredVideo[]>({

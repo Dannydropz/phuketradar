@@ -32,7 +32,7 @@ function LoadingFallback() {
 function Router() {
   return (
     <Switch>
-      <Route path="/admin/videos" component={AdminVideos} />
+      <Route path="/video-queue" component={AdminVideos} />
       <Route path="/" component={Home} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />
