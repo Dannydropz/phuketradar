@@ -32,14 +32,8 @@ function LoadingFallback() {
 function Router() {
   return (
     <Switch>
-      <Route path="/test-route">
-        <div className="min-h-screen bg-white text-black flex items-center justify-center text-4xl font-bold">
-          ROUTING TEST SUCCESSFUL
-        </div>
-      </Route>
-      <Route path="/video-queue">
-        <AdminVideos />
-      </Route>
+      <Route path="/test-route">ROUTING_WORKS_TEST</Route>
+      <Route path="/video-queue">VIDEO_QUEUE_WORKS</Route>
       <Route path="/" component={Home} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />
