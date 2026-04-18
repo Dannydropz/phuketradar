@@ -30,20 +30,9 @@ function LoadingFallback() {
 }
 
 function Router() {
-  const [location] = useLocation();
-
-  if (location === "/admin/videos") {
-    return <AdminVideos />;
-  }
-
-  if (location === "/test-route") {
-    return <div>MANUAL_ROUTING_SUCCESS_V105</div>;
-  }
-
   return (
     <Switch>
-      <Route path="/test-route">ROUTING_WORKS_TEST</Route>
-      <Route path="/video-queue">VIDEO_QUEUE_WORKS</Route>
+      <Route path="/admin/videos" component={AdminVideos} />
       <Route path="/" component={Home} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin/login" component={AdminLogin} />

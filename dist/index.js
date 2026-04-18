@@ -12334,7 +12334,7 @@ init_db();
 import multer from "multer";
 import path3 from "path";
 import { promises as fs3 } from "fs";
-import { sql as sql9 } from "drizzle-orm";
+import { eq as eq8, desc as desc5, sql as sql9 } from "drizzle-orm";
 
 // server/lib/auto-link-content.ts
 init_core_tags();
@@ -13104,6 +13104,35 @@ async function registerRoutes(app2) {
       console.error("Error in batch video discovery:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ error: "Failed to process video batch", details: errorMessage });
+    }
+  });
+  app2.get("/api/admin/discovered-videos", async (req, res) => {
+    try {
+      const videos = await db.select().from(discoveredVideos).where(eq8(discoveredVideos.status, "queued")).orderBy(desc5(discoveredVideos.playCount));
+      res.json(videos);
+    } catch (error) {
+      console.error("Error fetching discovered videos:", error);
+      res.status(500).json({ error: "Failed to fetch videos" });
+    }
+  });
+  app2.patch("/api/admin/discovered-videos/:id/approve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(discoveredVideos).set({ status: "approved" }).where(eq8(discoveredVideos.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error approving video:", error);
+      res.status(500).json({ error: "Failed to approve video" });
+    }
+  });
+  app2.patch("/api/admin/discovered-videos/:id/reject", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(discoveredVideos).set({ status: "rejected" }).where(eq8(discoveredVideos.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error rejecting video:", error);
+      res.status(500).json({ error: "Failed to reject video" });
     }
   });
   app2.post("/api/admin/sync-facebook-insights", requireCronAuth, async (req, res) => {
