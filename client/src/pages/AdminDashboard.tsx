@@ -29,6 +29,7 @@ import { ArticleImage } from "@/components/ArticleImage";
 import { ArticleEditor } from "@/components/ArticleEditor";
 import { TimelineManager } from "@/components/TimelineManager";
 import { BulkAddToTimelineDialog } from "@/components/BulkAddToTimelineDialog";
+import { buildArticleUrl } from "@shared/category-map";
 
 type ScrapeJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -1487,7 +1488,7 @@ export default function AdminDashboard() {
                     <p>Preview shows excerpt only. Click below to view the full article.</p>
                     {previewArticle.slug && (
                       <a
-                        href={`/article/${previewArticle.slug}`}
+                        href={buildArticleUrl({ category: previewArticle.category, slug: previewArticle.slug, id: previewArticle.id })}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline font-medium"

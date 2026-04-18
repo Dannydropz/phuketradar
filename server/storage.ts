@@ -128,6 +128,8 @@ const LEAN_ARTICLE_FIELDS = {
   reviewReason: articles.reviewReason,
   facebookEmbedUrl: articles.facebookEmbedUrl,
   switchyShortUrl: articles.switchyShortUrl,
+  reEnrichAt: articles.reEnrichAt,
+  reEnrichmentCompleted: articles.reEnrichmentCompleted,
 };
 
 export class DatabaseStorage implements IStorage {

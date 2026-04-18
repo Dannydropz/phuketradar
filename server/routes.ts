@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { getScraperService } from "./services/scraper";
 import { translatorService } from "./services/translator";
 import { PLACEHOLDER_IMAGE } from "./lib/placeholders";
-import { insertArticleSchema, insertSubscriberSchema } from "@shared/schema";
+import { insertArticleSchema, insertSubscriberSchema, discoveredVideos, insertDiscoveredVideoSchema } from "@shared/schema";
 import { z } from "zod";
 import { scrapeJobManager } from "./scrape-jobs";
 import { checkSemanticDuplicate } from "./lib/semantic-similarity";
@@ -79,6 +79,69 @@ import { googleSearchConsoleService } from "./services/google-search-console-cli
 import { smartLearningService } from "./services/smart-learning-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Batch insert discovered videos from n8n
+  app.post("/api/internal/discovered-videos/batch", async (req, res) => {
+    try {
+      const { videos } = req.body;
+      
+      if (!Array.isArray(videos)) {
+        return res.status(400).json({ error: "Videos array is required" });
+      }
+
+      if (videos.length === 0) {
+        return res.json({ saved: 0, skipped: 0 });
+      }
+
+      console.log(`[VIDEO-BATCH] Received ${videos.length} videos for processing`);
+
+      // We'll process them in a way that allows us to count saved vs skipped.
+      // Postgres ON CONFLICT DO NOTHING doesn't easily return which ones were skipped in a simple insert.
+      // However, the user specifically asked for { saved: N, skipped: M }.
+      
+      let saved = 0;
+      let skipped = 0;
+
+      // To accurately count saved vs skipped with ON CONFLICT DO NOTHING, 
+      // we can use common table expression or just do it in one go and check rowCount.
+      // But rowCount will only tell us how many were inserted.
+      
+      const insertResult = await db.insert(discoveredVideos)
+        .values(videos.map(v => ({
+          videoId: v.video_id,
+          platform: v.platform,
+          source: v.source,
+          videoUrl: v.video_url,
+          coverUrl: v.cover_url,
+          authorUsername: v.author_username,
+          description: v.description,
+          likeCount: v.like_count || 0,
+          commentCount: v.comment_count || 0,
+          shareCount: v.share_count || 0,
+          playCount: v.play_count || 0,
+          createdAtSource: v.created_at_source ? new Date(v.created_at_source) : null,
+          durationSeconds: v.duration_seconds,
+          relevanceScore: v.relevance_score || 0,
+          incidentType: v.incident_type || 'pending_review',
+          involvesForeigner: v.involves_foreigner || 'unknown',
+          locationInPhuket: v.location_in_phuket,
+          scoreReason: v.score_reason,
+          status: v.status || 'queued',
+        })))
+        .onConflictDoNothing({ target: [discoveredVideos.videoId, discoveredVideos.platform] })
+        .returning({ id: discoveredVideos.id });
+
+      saved = insertResult.length;
+      skipped = videos.length - saved;
+
+      console.log(`[VIDEO-BATCH] Completed: ${saved} saved, ${skipped} skipped`);
+      res.json({ saved, skipped });
+    } catch (error) {
+      console.error("Error in batch video discovery:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to process video batch", details: errorMessage });
+    }
+  });
 
 
   // Sync Facebook Insights (API key auth for N8N)

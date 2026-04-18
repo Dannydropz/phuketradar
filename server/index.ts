@@ -7,6 +7,9 @@ import { log, serveStatic } from "./static-server";
 import path from "path";
 import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
+import { storage } from "./storage";
+import { resolveFrontendCategory } from "@shared/category-map";
+import { cache, CACHE_KEYS } from "./lib/cache";
 
 // CRITICAL: Global error handlers to prevent crashes
 // Note: We DON'T exit the process to keep the server running
@@ -68,7 +71,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')
   maxAge: '7d'
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 // Validate required environment variables
@@ -144,6 +147,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// CRITICAL: Register API routes BEFORE legacy redirects to prevent conflicts
+// and ensure API calls don't hit the database for redirect lookups
+const serverPromise = registerRoutes(app);
+
 // SEO: 301 redirect old /category/:category URLs to new /:category URLs
 app.get('/category/:category', (req, res) => {
   const { category } = req.params;
@@ -153,11 +160,9 @@ app.get('/category/:category', (req, res) => {
 // SEO: 301 redirect legacy database category paths to correct frontend categories
 // This fixes old Switchy links and Facebook posts that used incorrect paths
 const LEGACY_CATEGORY_REDIRECTS: Record<string, string> = {
-  'breaking': 'local',    // Breaking -> Local (most breaking news is local)
   'other': 'local',       // Other -> Local
   'info': 'local',        // Info -> Local
   'events': 'local',      // Events -> Local
-  'business': 'economy',  // Business -> Economy
   'local-news': 'local',  // Local News -> Local (old category slug, ~252 Google-indexed URLs)
 };
 
@@ -166,11 +171,16 @@ app.get('/:legacyCategory/:slugOrId', (req, res, next) => {
   const { legacyCategory, slugOrId } = req.params;
   const legacyCategoryLower = legacyCategory.toLowerCase();
 
+  // Skip if this is an API call or internal path
+  if (legacyCategoryLower === 'api' || legacyCategoryLower === 'assets' || legacyCategoryLower === 'uploads') {
+    return next();
+  }
+
   // Check if this is a legacy category that needs redirecting
   const correctCategory = LEGACY_CATEGORY_REDIRECTS[legacyCategoryLower];
 
   if (correctCategory) {
-    console.log(`🔄 [REDIRECT] Legacy category path: /${legacyCategory}/${slugOrId} -> /${correctCategory}/${slugOrId}`);
+    log(`🔄 [REDIRECT] Legacy category path: /${legacyCategory}/${slugOrId} -> /${correctCategory}/${slugOrId}`);
     res.redirect(301, `/${correctCategory}/${slugOrId}`);
   } else {
     // Not a legacy category, let it pass through to the SPA router
@@ -179,11 +189,18 @@ app.get('/:legacyCategory/:slugOrId', (req, res, next) => {
 });
 
 // SEO: 301 redirect old /article/:slug URLs to new /:category/:slug URLs
+// CACHED to prevent database saturation during Facebook traffic spikes
 app.get('/article/:slugOrId', async (req, res, next) => {
   try {
     const { slugOrId } = req.params;
-    const { resolveFrontendCategory } = await import('@shared/category-map');
-    const { storage } = await import('./storage');
+
+    // Check cache first for redirect mapping
+    const cacheKey = `redirect:article:${slugOrId}`;
+    const cachedRedirect = cache.get<{ category: string, slug: string }>(cacheKey);
+
+    if (cachedRedirect) {
+      return res.redirect(301, `/${cachedRedirect.category}/${cachedRedirect.slug}`);
+    }
 
     // Look up article to get its category
     let article = await storage.getArticleBySlug(slugOrId);
@@ -194,6 +211,10 @@ app.get('/article/:slugOrId', async (req, res, next) => {
     if (article) {
       const frontendCategory = resolveFrontendCategory(article.category);
       const slug = article.slug || article.id;
+
+      // Cache the redirect for 1 hour to protect DB from crawl spikes
+      cache.set(cacheKey, { category: frontendCategory, slug }, 3600000);
+
       res.redirect(301, `/${frontendCategory}/${slug}`);
     } else {
       // Article not found, let it fall through to 404
@@ -207,8 +228,8 @@ app.get('/article/:slugOrId', async (req, res, next) => {
 
 (async () => {
   try {
-    // Register routes first
-    const server = await registerRoutes(app);
+    // Wait for routes to be registered
+    const server = await serverPromise;
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
@@ -219,7 +240,7 @@ app.get('/article/:slugOrId', async (req, res, next) => {
       // Don't throw here, let Express handle it or just log it
     });
 
-    // importantly only setup vite in development and after
+    // important: only setup vite in development and after
     // setting up all the other routes so the catch-all route
     // doesn't interfere with the other routes
     if (process.env.NODE_ENV === "development") {
@@ -229,10 +250,6 @@ app.get('/article/:slugOrId', async (req, res, next) => {
       serveStatic(app);
     }
 
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
     const port = parseInt(process.env.PORT || '5000', 10);
 
     // CRITICAL: Start re-enrichment poller background task
@@ -240,66 +257,17 @@ app.get('/article/:slugOrId', async (req, res, next) => {
       startReEnrichmentPoller();
     }).catch(err => console.error("Failed to start re-enrichment poller:", err));
 
-    // CRITICAL: Start server IMMEDIATELY to satisfy Railway health checks
-    // Do NOT wait for database checks before listening
     server.listen({
       port,
       host: "0.0.0.0",
     }, () => {
       log(`✅ Server serving on port ${port}`);
-
-      // Run database checks in background AFTER server is listening
-      // This prevents Railway 502 errors caused by slow Neon cold starts
-      (async () => {
-        try {
-          log("🔧 [SCHEMA] Ensuring database schema is up to date...");
-
-          // Add timeout to prevent indefinite hangs
-          const schemaCheckPromise = db.execute(sql`
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS facebook_headline text;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS author varchar;
-            ALTER TABLE journalists ADD COLUMN IF NOT EXISTS nickname varchar;
-            
-            -- Auto-match and review columns
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS timeline_tags text[] DEFAULT ARRAY[]::text[];
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS auto_match_enabled boolean DEFAULT false;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS needs_review boolean DEFAULT false;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS review_reason text;
-            
-            -- Re-enrichment scheduling
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS re_enrich_at timestamp;
-            ALTER TABLE articles ADD COLUMN IF NOT EXISTS re_enrichment_completed boolean DEFAULT false;
-          `);
-
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Schema check timeout after 30s')), 30000)
-          );
-
-          await Promise.race([schemaCheckPromise, timeoutPromise]);
-          log("✅ [SCHEMA] Database schema verified");
-        } catch (error: any) {
-          if (error.message?.includes('timeout')) {
-            log("⚠️  [SCHEMA] Schema check timed out - database may be cold starting");
-            log("   Server is running, schema will be checked on first query");
-          } else {
-            log("❌ [SCHEMA] Error ensuring schema:");
-            console.error(error);
-          }
-          // Don't throw - server is already running
-        }
-      })();
     });
 
     server.on('error', (error: any) => {
       console.error('❌ [SERVER ERROR] Server failed to start:', error);
       process.exit(1);
     });
-
-    // Automated scraping DISABLED - Use external cron service instead
-    log('📅 Automated internal scraping DISABLED');
-    log(`📅 CRON_API_KEY loaded: ${process.env.CRON_API_KEY ? 'YES (' + process.env.CRON_API_KEY.substring(0, 3) + '...)' : 'NO'}`);
-    log('📅 External cron endpoint: POST /api/cron/scrape (requires CRON_API_KEY)');
-    log('📅 Manual scraping available at: /api/admin/scrape (requires admin session)');
 
   } catch (error) {
     console.error('❌ [FATAL] Failed to initialize application:', error);

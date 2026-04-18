@@ -1468,6 +1468,9 @@ CATEGORY GUIDE (read full story, not just headline):
 - Local: Community news, missing persons, drownings, boat accidents, local government
 - Traffic: Road accidents (non-criminal), road closures, construction
 - Crime: ONLY intentional criminal activity - arrests, theft, assault, scams
+- Politics: Government news, elections, MP activity, policy changes
+- Economy: Business news, property development, tourism statistics, investment
+- Tourism: Travel news, new flights, visa changes, hotel openings
 - National: Major news from outside Phuket (Bangkok, Hat Yai, Chiang Mai, etc.) AND Southern Thailand floods/disasters that are NOT in Phuket
 - WHEN UNCERTAIN: Use "Local" as default
 
@@ -1731,7 +1734,7 @@ Always output valid JSON.`,
       }
 
       // Validate category - ensure it's one of the allowed values
-      const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime", "National"];
+      const validCategories = ["Weather", "Local", "Traffic", "Tourism", "Business", "Politics", "Economy", "Crime", "National", "Breaking"];
       const category = result.category && validCategories.includes(result.category)
         ? result.category
         : "Local";

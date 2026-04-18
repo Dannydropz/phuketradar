@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, vector, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, vector, date, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -85,6 +85,34 @@ export const articles = pgTable("articles", {
   needsReview: boolean("needs_review").default(false), // Flagged for manual review
   reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
 });
+
+export const discoveredVideos = pgTable("discovered_videos", {
+  id: serial("id").primaryKey(),
+  videoId: varchar("video_id").notNull(),
+  platform: varchar("platform").notNull(),
+  source: varchar("source"),
+  videoUrl: text("video_url").notNull(),
+  coverUrl: text("cover_url"),
+  authorUsername: varchar("author_username"),
+  description: text("description"),
+  likeCount: integer("like_count").default(0),
+  commentCount: integer("comment_count").default(0),
+  shareCount: integer("share_count").default(0),
+  playCount: integer("play_count").default(0),
+  createdAtSource: timestamp("created_at_source", { withTimezone: true }),
+  durationSeconds: real("duration_seconds"),
+  relevanceScore: integer("relevance_score").default(0),
+  incidentType: varchar("incident_type").default("pending_review"),
+  involvesForeigner: varchar("involves_foreigner").default("unknown"),
+  locationInPhuket: varchar("location_in_phuket"),
+  scoreReason: text("score_reason"),
+  discoveredAt: timestamp("discovered_at", { withTimezone: true }).defaultNow(),
+  status: varchar("status").default("queued"),
+}, (table) => ({
+  videoPlatformIdx: index("video_platform_unique_idx").on(table.videoId, table.platform),
+  discoveredAtIdx: index("idx_discovered_videos_discovered_at").on(table.discoveredAt),
+  statusIdx: index("idx_discovered_videos_status").on(table.status),
+}));
 
 // Scheduler locks table - used by server/lib/scheduler-lock.ts
 // Matches raw SQL: CREATE TABLE IF NOT EXISTS scheduler_locks (...)
@@ -216,6 +244,13 @@ export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
 export type Subscriber = typeof subscribers.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
+
+export const insertDiscoveredVideoSchema = createInsertSchema(discoveredVideos).omit({
+  id: true,
+  discoveredAt: true,
+});
+export type InsertDiscoveredVideo = z.infer<typeof insertDiscoveredVideoSchema>;
+export type DiscoveredVideo = typeof discoveredVideos.$inferSelect;
 
 export const insertArticleMetricsSchema = createInsertSchema(articleMetrics).omit({
   id: true,

@@ -31,7 +31,7 @@ const getJournalistImageUrl = (url?: string | null) => {
     return `/assets/${url}`;
 };
 
-const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather", "business", "events", "national"];
+const VALID_CATEGORIES = ["crime", "local", "tourism", "politics", "economy", "traffic", "weather", "business", "events", "national", "breaking", "other"];
 
 export default function HomeNew() {
     const [, params] = useRoute("/:category");

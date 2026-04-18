@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Flame, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buildArticleUrl } from "@shared/category-map";
 import type { Article } from "@shared/schema";
 
 export function TrendingArticles() {
@@ -30,8 +31,14 @@ export function TrendingArticles() {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {trendingArticles.map((article, index) => {
                     const isVideo = !!article.videoThumbnail || !!article.facebookEmbedUrl;
+                    const articleUrl = buildArticleUrl({
+                        category: article.category,
+                        slug: article.slug || null,
+                        id: article.id
+                    });
+
                     return (
-                        <Link key={article.id} href={`/article/${article.slug}`}>
+                        <Link key={article.id} href={articleUrl}>
                             <div className="block group h-full cursor-pointer">
                                 <div className="h-full bg-zinc-900/40 hover:bg-zinc-900 border border-white/5 hover:border-purple-500/30 rounded-lg overflow-hidden transition-all duration-300 shadow-lg hover:shadow-purple-500/10 flex flex-col">
                                     <div className="relative aspect-[4/3] overflow-hidden mb-3">
