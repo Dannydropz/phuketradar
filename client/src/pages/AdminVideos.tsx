@@ -1,10 +1,13 @@
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { DiscoveredVideo } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Check, X, Play, Heart, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ExternalLink, Check, X, Play, Heart, Calendar, Search, ArrowUpDown, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +18,56 @@ export default function AdminVideos() {
   const { data: videos, isLoading } = useQuery<DiscoveredVideo[]>({
     queryKey: ["/api/admin/discovered-videos"],
   });
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("playCount-desc");
+  const [scoreFilter, setScoreFilter] = useState("all");
+
+  const uniqueScoreReasons = useMemo(() => {
+    if (!videos) return [];
+    const reasons = new Set(videos.map(v => v.scoreReason).filter(Boolean));
+    return Array.from(reasons) as string[];
+  }, [videos]);
+
+  const filteredAndSortedVideos = useMemo(() => {
+    if (!videos) return [];
+
+    let result = [...videos];
+
+    // Filter by search query (keyword matching description or author)
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(v => 
+        (v.description && v.description.toLowerCase().includes(lowerQuery)) ||
+        (v.authorUsername && v.authorUsername.toLowerCase().includes(lowerQuery))
+      );
+    }
+
+    // Filter by score reason
+    if (scoreFilter !== "all") {
+      result = result.filter(v => v.scoreReason === scoreFilter);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "playCount-desc":
+          return (b.playCount || 0) - (a.playCount || 0);
+        case "playCount-asc":
+          return (a.playCount || 0) - (b.playCount || 0);
+        case "likes-desc":
+          return (b.likeCount || 0) - (a.likeCount || 0);
+        case "date-desc":
+          return new Date(b.discoveredAt || 0).getTime() - new Date(a.discoveredAt || 0).getTime();
+        case "date-asc":
+          return new Date(a.discoveredAt || 0).getTime() - new Date(b.discoveredAt || 0).getTime();
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [videos, searchQuery, sortBy, scoreFilter]);
 
   const approveMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -58,14 +111,63 @@ export default function AdminVideos() {
             <h1 className="text-4xl font-black tracking-tight mb-2">Video Review</h1>
             <p className="text-slate-400">Assess TikTok discoveries from the n8n pipeline</p>
           </div>
-          <div className="bg-slate-900 px-6 py-3 rounded-2xl border border-slate-800 shadow-xl">
-            <span className="font-black text-2xl text-blue-500 mr-2">{videos?.length || 0}</span>
-            <span className="text-slate-400 font-medium uppercase tracking-wider text-sm">queued for review</span>
+          <div className="bg-slate-900 px-6 py-3 rounded-2xl border border-slate-800 shadow-xl text-right">
+            <div className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-1">Queued Videos</div>
+            <span className="font-black text-2xl text-blue-500 mr-2">{filteredAndSortedVideos.length}</span>
+            <span className="text-slate-500 text-sm">/ {videos?.length || 0}</span>
+          </div>
+        </div>
+
+        {/* Filters bar */}
+        <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 mb-8 flex flex-col md:flex-row gap-6">
+          <div className="flex-1 space-y-2 w-full">
+            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+              <Search className="w-3.5 h-3.5" /> Keyword Search
+            </label>
+            <Input 
+              placeholder="Search description or author..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-white placeholder:text-slate-600"
+            />
+          </div>
+          <div className="w-full md:w-[260px] space-y-2">
+            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+              <ArrowUpDown className="w-3.5 h-3.5" /> Sort By
+            </label>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="bg-slate-950 border-slate-800 text-white">
+                <SelectValue placeholder="Sort..." />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                <SelectItem value="playCount-desc">Highest Plays First</SelectItem>
+                <SelectItem value="playCount-asc">Lowest Plays First</SelectItem>
+                <SelectItem value="likes-desc">Highest Likes First</SelectItem>
+                <SelectItem value="date-desc">Newest Discovered First</SelectItem>
+                <SelectItem value="date-asc">Oldest Discovered First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full md:w-[260px] space-y-2">
+            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5" /> Score Reason
+            </label>
+            <Select value={scoreFilter} onValueChange={setScoreFilter}>
+              <SelectTrigger className="bg-slate-950 border-slate-800 text-white">
+                <SelectValue placeholder="All reasons" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                <SelectItem value="all">All Reasons</SelectItem>
+                {uniqueScoreReasons.map(r => (
+                   <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {videos?.map((video) => (
+          {filteredAndSortedVideos.map((video) => (
             <Card key={video.id} className="bg-slate-900/50 border-slate-800 overflow-hidden flex flex-col hover:border-slate-700 transition-all duration-300 group shadow-lg">
               {video.coverUrl && (
                 <div className="aspect-[4/5] relative overflow-hidden bg-slate-950">
