@@ -795,7 +795,7 @@ export class TranslatorService {
     // than in a long system prompt. Keep this short — do NOT expand it.
     const systemPrompt = `You are a news writer for Phuket Radar. You write English breaking news for expats who live in Phuket. They already know the island — never explain Phuket to them. Write like a local talking to locals.
 
-You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text.`;
+You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text. YOUR ENTIRE JSON OUTPUT (title, content, excerpt) MUST BE IN ENGLISH. NEVER OUTPUT THAI TEXT.`;
 
     // ── User message template (all detailed instructions live here for GPT-4o mini) ──
     // GPT-4o mini follows user-message instructions more reliably than system-prompt ones.
@@ -1696,7 +1696,7 @@ Always output valid JSON.`,
 
         // If GPT said it's news but didn't translate, force a fallback translation
         // This can happen with very short captions or when GPT gets confused
-        if (result.isActualNews && (translationMissing || translatedTitleIsThai)) {
+        if (result.isActualNews && (translationMissing || translatedTitleIsThai || translatedContentIsThai)) {
           console.log(`   🔄 Attempting fallback translation for missing/Thai content...`);
 
           // Simple fallback: Use Google Translate for the title at minimum
@@ -2086,6 +2086,18 @@ Always output valid JSON.`,
       // Use precomputed embedding (from Thai title) if provided
       // This ensures we always compare embeddings in the same language (Thai)
       const embedding = precomputedEmbedding;
+
+      // FINAL SAFEGUARD: Ensure we do not return Thai text for a news article
+      // We check for 3+ consecutive Thai characters to avoid false positives on single stray characters or emojis.
+      if (result.isActualNews) {
+        const strictThaiPattern = /[\u0E00-\u0E7F]{3,}/;
+        if (strictThaiPattern.test(enrichedTitle) || strictThaiPattern.test(enrichedContent)) {
+          console.error(`\n❌ CRITICAL: Final output still contains Thai characters!`);
+          console.error(`   Title: ${enrichedTitle.substring(0, 50)}...`);
+          console.error(`   Marking as non-news to PREVENT publication of Thai text.`);
+          result.isActualNews = false;
+        }
+      }
 
       return {
         translatedTitle: enforceSoiNamingConvention(enrichedTitle),
