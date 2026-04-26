@@ -25,6 +25,7 @@ export interface TranslationResult {
   reviewReason?: string;
   isPolitics?: boolean;
   autoBoostScore?: boolean; // Set to false for "boring" stories that shouldn't be boosted to score 4+ even if video/hot
+  sourceType?: string;
 }
 
 export interface ReEnrichmentResult {
@@ -681,6 +682,44 @@ function enrichWithPhuketContext(text: string): string {
   return enrichedText;
 }
 
+// After enrichment returns the article, check for generic placeholders
+const GENERIC_PHRASES = [
+  'a foreign man',
+  'a foreign woman', 
+  'a tourist',
+  'a foreigner',
+  'local authorities',
+  'a beach in Phuket',
+  'a road in Phuket',
+  'a checkpoint in Phuket',
+  'an area in Phuket',
+  'a location in Phuket',
+  'prompted discussions',
+  'prompting discussions',
+  'raising concerns',
+  'highlights ongoing issues',
+  'not typical behavior',
+  'generally not typical',
+];
+
+function checkArticleSpecificity(enrichedContent: string, sourceText: string): string[] {
+  const warnings: string[] = [];
+  
+  for (const phrase of GENERIC_PHRASES) {
+    if (enrichedContent.toLowerCase().includes(phrase)) {
+      warnings.push(`WARNING: Article contains generic phrase "${phrase}" — check if source has specific details`);
+    }
+  }
+  
+  // Check article length
+  const wordCount = enrichedContent.split(/\s+/).length;
+  if (wordCount < 150) {
+    warnings.push(`WARNING: Article is only ${wordCount} words — may be too thin`);
+  }
+  
+  return warnings;
+}
+
 // CRITICAL: Ensure article content has proper paragraph formatting
 // This prevents "wall of text" issues when GPT returns poorly formatted content
 // Moved to server/lib/format-utils.ts for shared use
@@ -693,6 +732,7 @@ export class TranslatorService {
     excerpt: string;
     category: string;
     communityComments?: string[]; // Optional: Top comments from Facebook post for context
+    sourceType?: string;
   }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o-mini"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
     // ── Source of Truth for Context Blocks ──────────────────────────────────
@@ -807,6 +847,7 @@ You transform Thai-language source material into English news articles. You outp
 
     const prompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
+Source type: ${params.sourceType || 'UNKNOWN'}
 
 ${contextBlock}
 
@@ -833,6 +874,26 @@ You must follow ALL instructions below. Do not skip any REQUIRED section.
 ========================================
 STEP 1: CHECKS (apply before writing)
 ========================================
+
+SPECIFICITY RULES — NEVER VIOLATE THESE
+
+1. NEVER write "a foreign man/woman" or "a tourist" if the nationality is known. Use the nationality: "an Israeli man", "a Russian tourist", "two British women".
+
+2. NEVER write "a beach in Phuket" or "a road in Phuket" if the location name is in the source. Use the name: "Laem Krating beach", "Thaweewong Road in Patong".
+
+3. NEVER write "local authorities" or "police" if the station or unit is named. Use the name: "officers from Patong Police Station", "Kusoldharm Foundation rescue workers".
+
+4. NEVER write "recently" or "earlier this week" if a specific date/time is available. Use it: "at approximately 2:39 AM on Friday".
+
+5. NEVER write "a checkpoint" without the road name if available.
+
+6. If a detail is NOT in the source material, do not invent it — but if it IS there, you MUST include it. Generalization of available facts is a critical failure.
+
+SOURCE TYPE CONTEXT:
+If sourceType is POLITICAL_STATEMENT: Write about what the official said and why. Do NOT invent or imply that a specific incident occurred. The article is about the statement, not about the incidents referenced in the statement.
+If sourceType is COMMUNITY_DISCUSSION: Write about the community debate. Include multiple viewpoints.
+If sourceType is OFFICIAL_ANNOUNCEMENT: Write about the announcement and its practical impact on expats/tourists.
+If sourceType is INCIDENT_REPORT: Write as a standard news article about the event.
 
 TENSE:
 - Compare dates in the source to TODAY's date above.
@@ -906,6 +967,17 @@ Summarize the mood: angry? sympathetic? mocking? divided?
 List at least 3 different viewpoints or themes from the comments.
 Minimum 2 sentences, maximum 4.
 Example: "Thai social media users responding to the post were largely critical, with many pointing out that the same intersection has been the site of multiple accidents this year. Others directed frustration at rental companies for not checking licenses, while several commenters called for speed cameras to be installed."
+
+COMMENT MINING FOR DETAILS
+
+When comments are provided, scan them for FACTUAL DETAILS that add to the story:
+- Location names mentioned by commenters (e.g., "this is at [hotel name]", "that's near [landmark]")
+- Context about who is responsible (e.g., "hotels have been doing this for years")
+- Specific prior incidents referenced (e.g., "same thing happened at [place] last year")
+- Corrections to the original post (e.g., "that's not [location A], it's actually [location B]")
+
+If multiple commenters confirm the same detail, treat it as reliable and include it.
+If a commenter provides a specific location or name that the original post omitted, include it with attribution: "Commenters identified the location as [name]."
 
 COMMENT RULES:
 - NEVER state comment claims as confirmed fact. Always write "according to commenters" or "one commenter reported."
@@ -1087,6 +1159,12 @@ Your output (valid JSON only):`;
     // Apply paragraph formatting safeguard
     const formattedContent = ensureProperParagraphFormatting(result.enrichedContent || params.content);
 
+    const warnings = checkArticleSpecificity(formattedContent, params.content);
+    if (warnings.length > 0) {
+      console.warn(`   ⚠️ SPECIFICITY WARNINGS:`);
+      warnings.forEach(w => console.warn(`      - ${w}`));
+    }
+
     return {
       enrichedTitle: enforceSoiNamingConvention(result.enrichedTitle || params.title),
       enrichedContent: enforceSoiNamingConvention(formattedContent),
@@ -1227,6 +1305,24 @@ ${engagementContext}
 ${commentsContext}
 
 Your task:
+STEP 0 — CLASSIFY THE SOURCE TYPE
+
+Before translating and scoring, identify what kind of post this is:
+
+- INCIDENT_REPORT: A news page or citizen reporting a specific event that happened (accident, arrest, fight, rescue, fire, drowning). There is a concrete event with a time and place.
+- POLITICAL_STATEMENT: A politician, official, or public figure making a statement, complaint, speech, or policy comment. They may REFERENCE incidents but are not reporting one.
+- COMMUNITY_DISCUSSION: A community group post, petition, complaint thread, or public debate. Multiple viewpoints, no single event.
+- OFFICIAL_ANNOUNCEMENT: Government, police, or agency announcing a policy, operation, warning, or scheduled event.
+- PR_CORPORATE: Company news, CSR, ceremony, anniversary, merit-making, charity event.
+
+HOW TO TELL THE DIFFERENCE:
+- If the post quotes or features a named politician/official (สส., นายก, ผู้ว่า, สมาชิกสภา) making claims or demands → POLITICAL_STATEMENT, not INCIDENT_REPORT
+- If the post lists multiple problems as grievances (tourists fighting AND pollution AND jobs AND visas) → POLITICAL_STATEMENT or COMMUNITY_DISCUSSION, not a report about any single one of those problems
+- If the post contains a hashtag that is a slogan or call to action (e.g. #ปล่อยให้เป็นไป) → POLITICAL_STATEMENT
+- If there is a styled quote card or infographic attributed to a named person with their title → POLITICAL_STATEMENT
+
+CRITICAL RULE: Do NOT extract one item from a list of grievances and frame it as a standalone incident. If an MP says "tourists are fighting, polluting, and taking jobs" — the story is about the MP's statement, not about a fight.
+
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
    **IMPORTANT:** Short captions with viral images ARE news! If a post shows a foreigner doing something unusual (wearing a pot as a helmet, sitting dangerously on a scooter, etc.), this IS newsworthy even if the caption is just a few words. These viral foreigner stories get MASSIVE engagement.
 
@@ -1274,6 +1370,7 @@ ${checkInLocation ? `\nOFFICIAL CHECK-IN LOCATION: "${checkInLocation}"\n(CRITIC
 
 Respond in JSON format:
 {
+  "sourceType": "INCIDENT_REPORT" | "POLITICAL_STATEMENT" | "COMMUNITY_DISCUSSION" | "OFFICIAL_ANNOUNCEMENT" | "PR_CORPORATE",
   "isActualNews": true/false,
   "translatedTitle": "FACTUAL headline describing what happened. MUST state the actual event with specific details. FORBIDDEN PHRASES that are too vague or editorialize: 'highlights concerns', 'raises concerns', 'sparks debate', 'leaves residents wondering', 'draws attention', 'prompts questions'. GOOD: 'Tourists Fight on Bangla Road', 'Car Crashes Into Garbage Truck in Patong'. BAD: 'Tourist Altercation Highlights Safety Concerns' (too vague, editorializing). Follow AP Style, Title Case.",
   "translatedContent": "professional news article in HTML format. CRITICAL FORMATTING REQUIREMENTS: (1) MUST wrap EVERY paragraph in <p></p> tags, (2) MUST have at least 3-5 separate paragraphs for readability, (3) Use <h3> for section headings like Context, (4) NEVER return a single wall of text without paragraph breaks - this is UNACCEPTABLE and will result in poor user experience",
@@ -1321,6 +1418,27 @@ ${PHUKET_STREET_DISAMBIGUATION}
 - WRONG: "Bangla Soi", "Ta-iad Soi", "Dog Soi"
 - CORRECT: "Soi Bangla", "Soi Ta-iad", "Soi Dog"
 - ALWAYS output correctly as "Soi [Name]".
+
+DETAIL EXTRACTION — MANDATORY
+
+When translating, you MUST preserve ALL of the following details if they appear anywhere in the source text. Do NOT summarize or generalize these — translate them exactly:
+
+LOCATIONS: Specific place names, beach names, road names, soi numbers, landmarks, tambon/district names. 
+- WRONG: "a beach in Phuket" when source says "แหลมกระทิง" → RIGHT: "Laem Krating (Cape Krating)"
+- WRONG: "a checkpoint in Phuket" when source says "ถนนทวีวงศ์ ตำบลป่าตอง" → RIGHT: "Thaweewong Road, Patong"
+
+PEOPLE: Nationalities, ages, gender, occupations. Never generalize to "a foreign man" or "a tourist" when the source specifies nationality/details.
+- WRONG: "a foreign man" when source says "ชาวต่างชาติ สัญชาติอิสราเอล" → RIGHT: "an Israeli man"
+
+TIMES: Specific times, dates, days of week. 
+- WRONG: omitting time → RIGHT: "at approximately 02:39 AM"
+
+AUTHORITIES: Police station names, officer ranks/names, unit names.
+- WRONG: "local authorities" when source says "สถานีตำรวจภูธร ป่าตอง" → RIGHT: "Patong Police Station"
+
+NUMBERS: Quantities, measurements, distances, speeds, BAC levels, amounts.
+
+If the source contains a structured report card or infographic with Thai text, extract ALL fields from it — these are official records with the most reliable details available.
 
 CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - DO NOT INVENT FACTS: Do not add details, numbers, quotes, or events not in the source text.
@@ -1424,6 +1542,13 @@ EXAMPLE INTERPRETATIONS:
 ✅ CORRECT: "Drunken Street Brawl Between Thai and Foreign Women Breaks Out on Soi New York, Patong"
    WHY: Caption put "Women's boxing" in quotes + location was a street soi (not a stadium) + blood visible = street brawl, not a sporting event. Thai commenters were mocking with 😂 / 555, and referenced lunar month superstitions sarcastically. NEVER invent a venue ("Bangla Stadium") when the source says "inside Soi New York, Bangla".
 
+FRAMING RULES BY SOURCE TYPE:
+- INCIDENT_REPORT: Frame as a news report. "Tourist Arrested..." / "Motorbike Crash on..."
+- POLITICAL_STATEMENT: Frame around WHO said WHAT. "Phuket MP Slams Government Over Tourist Behavior Problems" — NOT "Tourists Fight in Patong"
+- COMMUNITY_DISCUSSION: Frame around the debate. "Patong Residents Demand Action on Tourist Behavior"
+- OFFICIAL_ANNOUNCEMENT: Frame around the announcement. "Phuket Police Launch Crackdown on..."
+- PR_CORPORATE: Frame factually. "Nikorn Marine Marks 40th Anniversary"
+
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
 - ALWAYS include company suffixes: Co., Ltd., Inc., Corp., Plc.
@@ -1486,6 +1611,14 @@ CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" 
 - "National" ONLY means the event occurred OUTSIDE Phuket province. It NEVER means "international" or "involving foreign nationals".
 
 INTEREST SCORE (1-5) - BE VERY STRICT:
+
+SCORING ADJUSTMENT BY SOURCE TYPE:
+- POLITICAL_STATEMENT: Cap at score 3 unless the statement itself is breaking news (e.g., a minister resigning, a major policy reversal). A politician complaining about existing problems is score 2-3.
+- PR_CORPORATE: Cap at score 3 (this may already exist — keep both caps if so).
+- OFFICIAL_ANNOUNCEMENT: Score normally based on impact to expats.
+- COMMUNITY_DISCUSSION: Score normally based on topic interest.
+- INCIDENT_REPORT: Score normally — this is where your 4s and 5s should come from.
+
 **RESERVE 4-5 FOR HIGH-ENGAGEMENT NEWS ONLY:**
 - 5 = BREAKING/URGENT: Deaths, drownings, fatal accidents, violent crime with serious injuries, major fires, natural disasters causing casualties
 - 5 = FOREIGNER INCIDENTS: ANY story involving foreigners/tourists/expats doing something out of the ordinary - fights, accidents, disturbances, arrests, confrontations with locals. These stories go VIRAL with the expat audience. Keywords: foreigner, tourist, farang, expat, foreign national, American, British, Russian, Chinese tourist, etc.
@@ -2020,6 +2153,7 @@ Always output valid JSON.`,
             excerpt: enrichedExcerpt,
             category,
             communityComments, // Pass community comments for blending into story
+            sourceType: result.sourceType, // Pass source type to enrichment
           }, enrichmentModel);
 
           enrichedTitle = enrichmentResult.enrichedTitle;

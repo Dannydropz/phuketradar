@@ -909,7 +909,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
                   // LOCAL GOVERNMENT & COMMUNITY
                   "ผู้ว่าราชการ", "นายก อบจ.", "เทศบาล", "อบต.", "ป่าตอง", "กะทู้", "ถลาง", "เมืองภูเก็ต",
-                  "ประชาพิจารณ์", "คอรัปชัน", "ทุจริต", "บุกรุก", "ที่ดิน", "ก่อสร้าง",
+                  "ประชาพิจารณ์", "คอรัปชัน", "ทุจริต", "บุกรุก", "ที่ดิน", "ก่อสร้าง", "ที่สาธารณะ", "หาดสาธารณะ", "แหลม", "โขดหิน", "ปูน", "ท่อ", "ทำลาย", "ระบบนิเวศ",
                   "รื้อถอน", "ผิดกฎหมาย", "ใบอนุญาตก่อสร้าง",
 
                   // TRANSPORT & INFRASTRUCTURE
@@ -918,13 +918,20 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   "มิเตอร์", "ไม่กดมิเตอร์", "รถไฟฟ้า"
                 ];
                 const combinedPostText = `${post.title} ${post.content}`;
-                const mightBeHighInterest = hotKeywords.some(kw => combinedPostText.includes(kw));
+                const hasHotKeyword = hotKeywords.some(kw => combinedPostText.includes(kw));
+                const hasHighEngagement = (post.commentCount && post.commentCount >= 50) || (post.likeCount && post.likeCount >= 200);
+                const mightBeHighInterest = hasHotKeyword || hasHighEngagement;
 
                 let communityComments: string[] | undefined;
 
                 if (mightBeHighInterest && post.sourceUrl) {
                   try {
-                    console.log(`   🔥 Potential high-interest story detected - fetching community comments...`);
+                    const triggerReason = hasHotKeyword && hasHighEngagement 
+                      ? 'keyword + engagement' 
+                      : hasHotKeyword 
+                      ? 'keyword' 
+                      : 'high engagement';
+                    console.log(`   🔥 High-interest story detected (${triggerReason}) - fetching community comments...`);
                     const comments = await scrapePostComments(post.sourceUrl, 15);
                     if (comments.length > 0) {
                       // Extract just the text from comments (anonymized - no usernames)
@@ -1720,6 +1727,7 @@ export async function runManualPageScrape(
             content: translation.translatedContent,
             excerpt: translation.excerpt,
             category: translation.category,
+            sourceType: translation.sourceType,
           }, "gpt-4o-mini");
 
           // Update translation with enriched content
@@ -2059,6 +2067,7 @@ export async function runManualPostScrape(
         excerpt: translation.excerpt,
         category: translation.category,
         communityComments, // Pass community comments for richer enrichment
+        sourceType: translation.sourceType,
       }, "gpt-4o-mini");
 
       // Update translation with enriched content

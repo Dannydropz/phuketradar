@@ -2777,7 +2777,20 @@ function enrichWithPhuketContext(text2) {
   }
   return enrichedText;
 }
-var openai2, anthropic, BLOCKED_KEYWORDS, HOT_KEYWORDS, FEEL_GOOD_KEYWORDS, COLD_KEYWORDS, POLITICS_KEYWORDS, LOST_PET_CAP_KEYWORDS, LOCAL_ENTERTAINMENT_CAP_KEYWORDS, PAGEANT_COMPETITION_CAP_KEYWORDS, PHUKET_CONTEXT_MAP, PHUKET_STREET_DISAMBIGUATION, TranslatorService, translatorService;
+function checkArticleSpecificity(enrichedContent, sourceText) {
+  const warnings = [];
+  for (const phrase of GENERIC_PHRASES) {
+    if (enrichedContent.toLowerCase().includes(phrase)) {
+      warnings.push(`WARNING: Article contains generic phrase "${phrase}" \u2014 check if source has specific details`);
+    }
+  }
+  const wordCount = enrichedContent.split(/\s+/).length;
+  if (wordCount < 150) {
+    warnings.push(`WARNING: Article is only ${wordCount} words \u2014 may be too thin`);
+  }
+  return warnings;
+}
+var openai2, anthropic, BLOCKED_KEYWORDS, HOT_KEYWORDS, FEEL_GOOD_KEYWORDS, COLD_KEYWORDS, POLITICS_KEYWORDS, LOST_PET_CAP_KEYWORDS, LOCAL_ENTERTAINMENT_CAP_KEYWORDS, PAGEANT_COMPETITION_CAP_KEYWORDS, PHUKET_CONTEXT_MAP, PHUKET_STREET_DISAMBIGUATION, GENERIC_PHRASES, TranslatorService, translatorService;
 var init_translator = __esm({
   "server/services/translator.ts"() {
     "use strict";
@@ -3697,6 +3710,24 @@ The CORRECT dateline is "**PHUKET TOWN, PHUKET \u2013**", NOT "**BANGKOK \u2013*
 
 THIS IS A CRITICAL FACTUAL ACCURACY ISSUE - misidentifying the location is a major journalism error.
 `;
+    GENERIC_PHRASES = [
+      "a foreign man",
+      "a foreign woman",
+      "a tourist",
+      "a foreigner",
+      "local authorities",
+      "a beach in Phuket",
+      "a road in Phuket",
+      "a checkpoint in Phuket",
+      "an area in Phuket",
+      "a location in Phuket",
+      "prompted discussions",
+      "prompting discussions",
+      "raising concerns",
+      "highlights ongoing issues",
+      "not typical behavior",
+      "generally not typical"
+    ];
     TranslatorService = class {
       // Premium GPT-4 enrichment for high-priority stories (score 4-5) or manual scrapes
       async enrichWithPremiumGPT4(params, model = "gpt-4o-mini") {
@@ -3775,12 +3806,13 @@ THIS IS A CRITICAL FACTUAL ACCURACY ISSUE - misidentifying the location is a maj
         const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
         const systemPrompt = `You are a news writer for Phuket Radar. You write English breaking news for expats who live in Phuket. They already know the island \u2014 never explain Phuket to them. Write like a local talking to locals.
 
-You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text.`;
+You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text. YOUR ENTIRE JSON OUTPUT (title, content, excerpt) MUST BE IN ENGLISH. NEVER OUTPUT THAI TEXT.`;
         const currentDate = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Bangkok" });
         const commentsBlock = params.communityComments && params.communityComments.length > 0 ? `THAI COMMUNITY COMMENTS (from original Facebook post):
 ${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join("\n")}` : "";
         const prompt = `\u{1F4C5} TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
+Source type: ${params.sourceType || "UNKNOWN"}
 
 ${contextBlock}
 
@@ -3807,6 +3839,26 @@ You must follow ALL instructions below. Do not skip any REQUIRED section.
 ========================================
 STEP 1: CHECKS (apply before writing)
 ========================================
+
+SPECIFICITY RULES \u2014 NEVER VIOLATE THESE
+
+1. NEVER write "a foreign man/woman" or "a tourist" if the nationality is known. Use the nationality: "an Israeli man", "a Russian tourist", "two British women".
+
+2. NEVER write "a beach in Phuket" or "a road in Phuket" if the location name is in the source. Use the name: "Laem Krating beach", "Thaweewong Road in Patong".
+
+3. NEVER write "local authorities" or "police" if the station or unit is named. Use the name: "officers from Patong Police Station", "Kusoldharm Foundation rescue workers".
+
+4. NEVER write "recently" or "earlier this week" if a specific date/time is available. Use it: "at approximately 2:39 AM on Friday".
+
+5. NEVER write "a checkpoint" without the road name if available.
+
+6. If a detail is NOT in the source material, do not invent it \u2014 but if it IS there, you MUST include it. Generalization of available facts is a critical failure.
+
+SOURCE TYPE CONTEXT:
+If sourceType is POLITICAL_STATEMENT: Write about what the official said and why. Do NOT invent or imply that a specific incident occurred. The article is about the statement, not about the incidents referenced in the statement.
+If sourceType is COMMUNITY_DISCUSSION: Write about the community debate. Include multiple viewpoints.
+If sourceType is OFFICIAL_ANNOUNCEMENT: Write about the announcement and its practical impact on expats/tourists.
+If sourceType is INCIDENT_REPORT: Write as a standard news article about the event.
 
 TENSE:
 - Compare dates in the source to TODAY's date above.
@@ -3880,6 +3932,17 @@ Summarize the mood: angry? sympathetic? mocking? divided?
 List at least 3 different viewpoints or themes from the comments.
 Minimum 2 sentences, maximum 4.
 Example: "Thai social media users responding to the post were largely critical, with many pointing out that the same intersection has been the site of multiple accidents this year. Others directed frustration at rental companies for not checking licenses, while several commenters called for speed cameras to be installed."
+
+COMMENT MINING FOR DETAILS
+
+When comments are provided, scan them for FACTUAL DETAILS that add to the story:
+- Location names mentioned by commenters (e.g., "this is at [hotel name]", "that's near [landmark]")
+- Context about who is responsible (e.g., "hotels have been doing this for years")
+- Specific prior incidents referenced (e.g., "same thing happened at [place] last year")
+- Corrections to the original post (e.g., "that's not [location A], it's actually [location B]")
+
+If multiple commenters confirm the same detail, treat it as reliable and include it.
+If a commenter provides a specific location or name that the original post omitted, include it with attribution: "Commenters identified the location as [name]."
 
 COMMENT RULES:
 - NEVER state comment claims as confirmed fact. Always write "according to commenters" or "one commenter reported."
@@ -4049,6 +4112,11 @@ Your output (valid JSON only):`;
           result = JSON.parse(completion.choices[0].message.content || "{}");
         }
         const formattedContent = ensureProperParagraphFormatting(result.enrichedContent || params.content);
+        const warnings = checkArticleSpecificity(formattedContent, params.content);
+        if (warnings.length > 0) {
+          console.warn(`   \u26A0\uFE0F SPECIFICITY WARNINGS:`);
+          warnings.forEach((w) => console.warn(`      - ${w}`));
+        }
         return {
           enrichedTitle: enforceSoiNamingConvention(result.enrichedTitle || params.title),
           enrichedContent: enforceSoiNamingConvention(formattedContent),
@@ -4148,6 +4216,24 @@ ${engagementContext}
 ${commentsContext}
 
 Your task:
+STEP 0 \u2014 CLASSIFY THE SOURCE TYPE
+
+Before translating and scoring, identify what kind of post this is:
+
+- INCIDENT_REPORT: A news page or citizen reporting a specific event that happened (accident, arrest, fight, rescue, fire, drowning). There is a concrete event with a time and place.
+- POLITICAL_STATEMENT: A politician, official, or public figure making a statement, complaint, speech, or policy comment. They may REFERENCE incidents but are not reporting one.
+- COMMUNITY_DISCUSSION: A community group post, petition, complaint thread, or public debate. Multiple viewpoints, no single event.
+- OFFICIAL_ANNOUNCEMENT: Government, police, or agency announcing a policy, operation, warning, or scheduled event.
+- PR_CORPORATE: Company news, CSR, ceremony, anniversary, merit-making, charity event.
+
+HOW TO TELL THE DIFFERENCE:
+- If the post quotes or features a named politician/official (\u0E2A\u0E2A., \u0E19\u0E32\u0E22\u0E01, \u0E1C\u0E39\u0E49\u0E27\u0E48\u0E32, \u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01\u0E2A\u0E20\u0E32) making claims or demands \u2192 POLITICAL_STATEMENT, not INCIDENT_REPORT
+- If the post lists multiple problems as grievances (tourists fighting AND pollution AND jobs AND visas) \u2192 POLITICAL_STATEMENT or COMMUNITY_DISCUSSION, not a report about any single one of those problems
+- If the post contains a hashtag that is a slogan or call to action (e.g. #\u0E1B\u0E25\u0E48\u0E2D\u0E22\u0E43\u0E2B\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E44\u0E1B) \u2192 POLITICAL_STATEMENT
+- If there is a styled quote card or infographic attributed to a named person with their title \u2192 POLITICAL_STATEMENT
+
+CRITICAL RULE: Do NOT extract one item from a list of grievances and frame it as a standalone incident. If an MP says "tourists are fighting, polluting, and taking jobs" \u2014 the story is about the MP's statement, not about a fight.
+
 1. Determine if this is actual NEWS content (not promotional posts, greetings, or filler content)
    **IMPORTANT:** Short captions with viral images ARE news! If a post shows a foreigner doing something unusual (wearing a pot as a helmet, sitting dangerously on a scooter, etc.), this IS newsworthy even if the caption is just a few words. These viral foreigner stories get MASSIVE engagement.
 
@@ -4197,6 +4283,7 @@ OFFICIAL CHECK-IN LOCATION: "${checkInLocation}"
 
 Respond in JSON format:
 {
+  "sourceType": "INCIDENT_REPORT" | "POLITICAL_STATEMENT" | "COMMUNITY_DISCUSSION" | "OFFICIAL_ANNOUNCEMENT" | "PR_CORPORATE",
   "isActualNews": true/false,
   "translatedTitle": "FACTUAL headline describing what happened. MUST state the actual event with specific details. FORBIDDEN PHRASES that are too vague or editorialize: 'highlights concerns', 'raises concerns', 'sparks debate', 'leaves residents wondering', 'draws attention', 'prompts questions'. GOOD: 'Tourists Fight on Bangla Road', 'Car Crashes Into Garbage Truck in Patong'. BAD: 'Tourist Altercation Highlights Safety Concerns' (too vague, editorializing). Follow AP Style, Title Case.",
   "translatedContent": "professional news article in HTML format. CRITICAL FORMATTING REQUIREMENTS: (1) MUST wrap EVERY paragraph in <p></p> tags, (2) MUST have at least 3-5 separate paragraphs for readability, (3) Use <h3> for section headings like Context, (4) NEVER return a single wall of text without paragraph breaks - this is UNACCEPTABLE and will result in poor user experience",
@@ -4243,6 +4330,27 @@ ${PHUKET_STREET_DISAMBIGUATION}
 - WRONG: "Bangla Soi", "Ta-iad Soi", "Dog Soi"
 - CORRECT: "Soi Bangla", "Soi Ta-iad", "Soi Dog"
 - ALWAYS output correctly as "Soi [Name]".
+
+DETAIL EXTRACTION \u2014 MANDATORY
+
+When translating, you MUST preserve ALL of the following details if they appear anywhere in the source text. Do NOT summarize or generalize these \u2014 translate them exactly:
+
+LOCATIONS: Specific place names, beach names, road names, soi numbers, landmarks, tambon/district names. 
+- WRONG: "a beach in Phuket" when source says "\u0E41\u0E2B\u0E25\u0E21\u0E01\u0E23\u0E30\u0E17\u0E34\u0E07" \u2192 RIGHT: "Laem Krating (Cape Krating)"
+- WRONG: "a checkpoint in Phuket" when source says "\u0E16\u0E19\u0E19\u0E17\u0E27\u0E35\u0E27\u0E07\u0E28\u0E4C \u0E15\u0E33\u0E1A\u0E25\u0E1B\u0E48\u0E32\u0E15\u0E2D\u0E07" \u2192 RIGHT: "Thaweewong Road, Patong"
+
+PEOPLE: Nationalities, ages, gender, occupations. Never generalize to "a foreign man" or "a tourist" when the source specifies nationality/details.
+- WRONG: "a foreign man" when source says "\u0E0A\u0E32\u0E27\u0E15\u0E48\u0E32\u0E07\u0E0A\u0E32\u0E15\u0E34 \u0E2A\u0E31\u0E0D\u0E0A\u0E32\u0E15\u0E34\u0E2D\u0E34\u0E2A\u0E23\u0E32\u0E40\u0E2D\u0E25" \u2192 RIGHT: "an Israeli man"
+
+TIMES: Specific times, dates, days of week. 
+- WRONG: omitting time \u2192 RIGHT: "at approximately 02:39 AM"
+
+AUTHORITIES: Police station names, officer ranks/names, unit names.
+- WRONG: "local authorities" when source says "\u0E2A\u0E16\u0E32\u0E19\u0E35\u0E15\u0E33\u0E23\u0E27\u0E08\u0E20\u0E39\u0E18\u0E23 \u0E1B\u0E48\u0E32\u0E15\u0E2D\u0E07" \u2192 RIGHT: "Patong Police Station"
+
+NUMBERS: Quantities, measurements, distances, speeds, BAC levels, amounts.
+
+If the source contains a structured report card or infographic with Thai text, extract ALL fields from it \u2014 these are official records with the most reliable details available.
 
 CRITICAL FACTUALITY RULES - ZERO TOLERANCE FOR HALLUCINATIONS:
 - DO NOT INVENT FACTS: Do not add details, numbers, quotes, or events not in the source text.
@@ -4346,6 +4454,13 @@ EXAMPLE INTERPRETATIONS:
 \u2705 CORRECT: "Drunken Street Brawl Between Thai and Foreign Women Breaks Out on Soi New York, Patong"
    WHY: Caption put "Women's boxing" in quotes + location was a street soi (not a stadium) + blood visible = street brawl, not a sporting event. Thai commenters were mocking with \u{1F602} / 555, and referenced lunar month superstitions sarcastically. NEVER invent a venue ("Bangla Stadium") when the source says "inside Soi New York, Bangla".
 
+FRAMING RULES BY SOURCE TYPE:
+- INCIDENT_REPORT: Frame as a news report. "Tourist Arrested..." / "Motorbike Crash on..."
+- POLITICAL_STATEMENT: Frame around WHO said WHAT. "Phuket MP Slams Government Over Tourist Behavior Problems" \u2014 NOT "Tourists Fight in Patong"
+- COMMUNITY_DISCUSSION: Frame around the debate. "Patong Residents Demand Action on Tourist Behavior"
+- OFFICIAL_ANNOUNCEMENT: Frame around the announcement. "Phuket Police Launch Crackdown on..."
+- PR_CORPORATE: Frame factually. "Nikorn Marine Marks 40th Anniversary"
+
 GRAMMAR & STYLE:
 - Follow AP Style for headlines: capitalize main words
 - ALWAYS include company suffixes: Co., Ltd., Inc., Corp., Plc.
@@ -4408,6 +4523,14 @@ CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" 
 - "National" ONLY means the event occurred OUTSIDE Phuket province. It NEVER means "international" or "involving foreign nationals".
 
 INTEREST SCORE (1-5) - BE VERY STRICT:
+
+SCORING ADJUSTMENT BY SOURCE TYPE:
+- POLITICAL_STATEMENT: Cap at score 3 unless the statement itself is breaking news (e.g., a minister resigning, a major policy reversal). A politician complaining about existing problems is score 2-3.
+- PR_CORPORATE: Cap at score 3 (this may already exist \u2014 keep both caps if so).
+- OFFICIAL_ANNOUNCEMENT: Score normally based on impact to expats.
+- COMMUNITY_DISCUSSION: Score normally based on topic interest.
+- INCIDENT_REPORT: Score normally \u2014 this is where your 4s and 5s should come from.
+
 **RESERVE 4-5 FOR HIGH-ENGAGEMENT NEWS ONLY:**
 - 5 = BREAKING/URGENT: Deaths, drownings, fatal accidents, violent crime with serious injuries, major fires, natural disasters causing casualties
 - 5 = FOREIGNER INCIDENTS: ANY story involving foreigners/tourists/expats doing something out of the ordinary - fights, accidents, disturbances, arrests, confrontations with locals. These stories go VIRAL with the expat audience. Keywords: foreigner, tourist, farang, expat, foreign national, American, British, Russian, Chinese tourist, etc.
@@ -4611,7 +4734,7 @@ Always output valid JSON.`
             }
             console.warn(`      - Raw GPT response keys: ${Object.keys(result).join(", ")}`);
             console.warn(`      - isActualNews: ${result.isActualNews}, category: ${result.category}`);
-            if (result.isActualNews && (translationMissing || translatedTitleIsThai)) {
+            if (result.isActualNews && (translationMissing || translatedTitleIsThai || translatedContentIsThai)) {
               console.log(`   \u{1F504} Attempting fallback translation for missing/Thai content...`);
               try {
                 const { translate: translate2 } = await import("@vitalets/google-translate-api");
@@ -4941,8 +5064,10 @@ Always output valid JSON.`
                 content: enrichedContent,
                 excerpt: enrichedExcerpt,
                 category,
-                communityComments
+                communityComments,
                 // Pass community comments for blending into story
+                sourceType: result.sourceType
+                // Pass source type to enrichment
               }, enrichmentModel);
               enrichedTitle = enrichmentResult.enrichedTitle;
               enrichedContent = enrichmentResult.enrichedContent;
@@ -4981,6 +5106,16 @@ Always output valid JSON.`
             }
           }
           const embedding = precomputedEmbedding;
+          if (result.isActualNews) {
+            const strictThaiPattern = /[\u0E00-\u0E7F]{3,}/;
+            if (strictThaiPattern.test(enrichedTitle) || strictThaiPattern.test(enrichedContent)) {
+              console.error(`
+\u274C CRITICAL: Final output still contains Thai characters!`);
+              console.error(`   Title: ${enrichedTitle.substring(0, 50)}...`);
+              console.error(`   Marking as non-news to PREVENT publication of Thai text.`);
+              result.isActualNews = false;
+            }
+          }
           return {
             translatedTitle: enforceSoiNamingConvention(enrichedTitle),
             translatedContent: enforceSoiNamingConvention(enrichedContent),
@@ -10956,7 +11091,8 @@ async function runManualPageScrape(pageIdentifier, callbacks) {
             title: translation.translatedTitle,
             content: translation.translatedContent,
             excerpt: translation.excerpt,
-            category: translation.category
+            category: translation.category,
+            sourceType: translation.sourceType
           }, "gpt-4o-mini");
           translation.translatedTitle = enrichmentResult.enrichedTitle;
           translation.translatedContent = enrichmentResult.enrichedContent;
@@ -11229,8 +11365,9 @@ async function runManualPostScrape(postUrl, callbacks) {
         content: translation.translatedContent,
         excerpt: translation.excerpt,
         category: translation.category,
-        communityComments
+        communityComments,
         // Pass community comments for richer enrichment
+        sourceType: translation.sourceType
       }, "gpt-4o-mini");
       translation.translatedTitle = enrichmentResult.enrichedTitle;
       translation.translatedContent = enrichmentResult.enrichedContent;
@@ -12043,28 +12180,123 @@ async function generateDailyNewsletterHTML() {
   html = html.replace(/{{TOP_STORY_TITLE}}/g, topStory.title);
   html = html.replace(/{{TOP_STORY_CATEGORY}}/g, topStory.category.toUpperCase());
   html = html.replace(/{{TOP_STORY_EXCERPT}}/g, topStory.excerpt);
-  trendingStories.forEach((s, i) => {
-    const idx = i + 1;
-    const sPath = buildArticleUrl({ category: s.category, slug: s.slug, id: s.id });
-    html = html.replace(new RegExp(`{{STORY_${idx}_URL}}`, "g"), `${SITE_URL}${sPath}`);
-    html = html.replace(new RegExp(`{{STORY_${idx}_IMAGE}}`, "g"), s.imageUrl || "https://phuketradar.com/assets/placeholder.png");
-    html = html.replace(new RegExp(`{{STORY_${idx}_TITLE}}`, "g"), s.title);
-    html = html.replace(new RegExp(`{{STORY_${idx}_CATEGORY}}`, "g"), s.category.toUpperCase());
-    html = html.replace(new RegExp(`{{STORY_${idx}_TIME}}`, "g"), getTimeString(s.publishedAt));
-  });
-  radarStories.forEach((s, i) => {
-    const idx = i + 1;
-    const sPath = buildArticleUrl({ category: s.category, slug: s.slug, id: s.id });
-    html = html.replace(new RegExp(`{{RADAR_${idx}_URL}}`, "g"), `${SITE_URL}${sPath}`);
-    html = html.replace(new RegExp(`{{RADAR_${idx}_TITLE}}`, "g"), s.title);
-  });
-  html = html.replace(/{{STORY_\d_URL}}/g, "#");
-  html = html.replace(/{{STORY_\d_IMAGE}}/g, "https://phuketradar.com/assets/placeholder.png");
-  html = html.replace(/{{STORY_\d_TITLE}}/g, "More news coming soon");
-  html = html.replace(/{{STORY_\d_CATEGORY}}/g, "NEWS");
-  html = html.replace(/{{STORY_\d_TIME}}/g, "");
-  html = html.replace(/{{RADAR_\d_URL}}/g, "#");
-  html = html.replace(/{{RADAR_\d_TITLE}}/g, "");
+  if (trendingStories.length > 0) {
+    let trendingStoriesListHtml = "";
+    trendingStories.forEach((s, i) => {
+      const sPath = buildArticleUrl({ category: s.category, slug: s.slug, id: s.id });
+      const isLast = i === trendingStories.length - 1;
+      const borderStyle = isLast ? "none" : "1px solid #191919";
+      trendingStoriesListHtml += `
+                            <!-- Story ${i + 1} -->
+                            <table class="story-row" cellpadding="0" cellspacing="0" border="0" width="100%"
+                                style="padding: 18px 0; border-bottom: ${borderStyle};">
+                                <tr>
+                                    <td width="88" valign="top" style="vertical-align: top;">
+                                        <a href="${SITE_URL}${sPath}" style="display: block; text-decoration: none;">
+                                            <img src="${s.imageUrl || "https://phuketradar.com/assets/placeholder.png"}" alt="${s.title}" class="story-thumbnail"
+                                                style="width: 88px; height: 66px; object-fit: cover; border-radius: 6px; display: block;">
+                                        </a>
+                                    </td>
+                                    <td class="story-body" valign="top"
+                                        style="padding-left: 16px; vertical-align: top;">
+                                        <span class="story-cat"
+                                            style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">
+                                            ${s.category.toUpperCase()}
+                                        </span>
+                                        <p class="story-headline"
+                                            style="font-size: 15px; font-weight: 600; color: #e8e8e8; margin: 0 0 5px; line-height: 1.4;">
+                                            <a href="${SITE_URL}${sPath}"
+                                                style="color: #e8e8e8; text-decoration: none;">${s.title}</a>
+                                        </p>
+                                        <p class="story-time" style="font-size: 11px; color: #505050; margin: 0;">
+                                            ${getTimeString(s.publishedAt)}</p>
+                                    </td>
+                                </tr>
+                            </table>`;
+    });
+    const trendingSectionHtml = `
+                    <!-- ====== TRENDING SECTION HEADER ====== -->
+                    <tr>
+                        <td
+                            style="height: 1px; background: linear-gradient(to right, transparent, #1f1f1f, transparent);">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="section-header" bgcolor="#0f0f0f"
+                            style="padding: 22px 28px 14px; background-color: #0f0f0f;">
+                            <p class="section-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 3px;">
+                                Also trending
+                            </p>
+                            <h2 class="section-title"
+                                style="font-size: 18px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.2px;">
+                                More from Phuket
+                            </h2>
+                        </td>
+                    </tr>
+
+                    <!-- ====== TRENDING STORIES ====== -->
+                    <tr>
+                        <td class="stories-container" bgcolor="#0f0f0f"
+                            style="padding: 0 28px 8px; background-color: #0f0f0f;">
+                            ${trendingStoriesListHtml}
+                        </td>
+                    </tr>`;
+    html = html.replace("{{TRENDING_SECTION}}", trendingSectionHtml);
+  } else {
+    html = html.replace("{{TRENDING_SECTION}}", "");
+  }
+  if (radarStories.length > 0) {
+    let radarStoriesHtml = `
+                    <!-- ====== ON THE RADAR HEADER ====== -->
+                    <tr>
+                        <td class="section-header"
+                            style="padding: 22px 28px 14px; background-color: #090909; border-top: 1px solid #1f1f1f;">
+                            <p class="section-label"
+                                style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 3px;">
+                                Quick reads
+                            </p>
+                            <h2 class="section-title"
+                                style="font-size: 18px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.2px;">
+                                On The Radar
+                            </h2>
+                        </td>
+                    </tr>
+
+                    <!-- ====== ON THE RADAR STORIES ====== -->
+                    <tr>
+                        <td class="radar-container" style="background-color: #090909; padding: 0 28px 24px;">
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">`;
+    radarStories.forEach((s, i) => {
+      const sPath = buildArticleUrl({ category: s.category, slug: s.slug, id: s.id });
+      const isLast = i === radarStories.length - 1;
+      const borderStyle = isLast ? "none" : "1px solid #141414";
+      radarStoriesHtml += `
+                                <tr>
+                                    <td class="radar-row" style="padding: 12px 0; border-bottom: ${borderStyle};">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td width="16" valign="top"
+                                                    style="color: #22d3ee; font-size: 14px; padding-right: 10px;">\u2192</td>
+                                                <td>
+                                                    <a href="${SITE_URL}${sPath}" class="radar-link"
+                                                        style="font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; line-height: 1.45; display: block;">
+                                                        ${s.title}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>`;
+    });
+    radarStoriesHtml += `
+                            </table>
+                        </td>
+                    </tr>`;
+    html = html.replace("{{RADAR_SECTION}}", radarStoriesHtml);
+  } else {
+    html = html.replace("{{RADAR_SECTION}}", "");
+  }
   html = html.replace(/{{UNSUBSCRIBE_URL}}/g, `${SITE_URL}/unsubscribe`);
   const topStoryExcerpt = (topStory.excerpt || "").split(".")[0].trim();
   return { html, topStoryTitle: topStory.title, topStoryExcerpt };
