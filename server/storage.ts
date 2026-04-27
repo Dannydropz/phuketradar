@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, type Category, type InsertCategory, users, articles, subscribers, journalists, categories } from "@shared/schema";
+import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, type Category, type InsertCategory, type ScraperBlocklist, users, articles, subscribers, journalists, categories, scraperBlocklist } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, inArray, and, gte, isNull } from "drizzle-orm";
+import { eq, desc, sql, inArray, and, gte, isNull, or } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
 import { retryDatabaseOperation } from "./lib/db-retry";
 import { resolveDbCategories } from "@shared/category-map";
@@ -40,6 +40,14 @@ export interface IStorage {
   getArticlesWithStuckLocks(): Promise<{ id: string; title: string; facebookPostId: string }[]>;
   clearStuckFacebookLock(id: string): Promise<void>;
   deleteArticle(id: string): Promise<boolean>;
+
+  // Scraper blocklist methods
+  // addToBlocklist: permanently block a sourceUrl/facebookPostId from being scraped again
+  addToBlocklist(entry: { sourceUrl?: string; sourceFacebookPostId?: string; reason: string; articleTitle?: string }): Promise<void>;
+  // isSourceBlocked: check before processing any scraped post (called in scheduler)
+  isSourceBlocked(sourceUrl: string, sourceFacebookPostId?: string): Promise<boolean>;
+  // getBlocklist: admin UI to view/manage blocked entries
+  getBlocklist(): Promise<ScraperBlocklist[]>;
 
   // Subscriber methods
   createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
@@ -544,10 +552,75 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteArticle(id: string): Promise<boolean> {
+    // CRITICAL: Before hard-deleting, write a tombstone to the blocklist so this
+    // post can never be re-scraped. Deleting an article means "I rejected this" —
+    // not "please scrape and publish it again next cycle."
+    try {
+      const article = await this.getArticleById(id);
+      if (article) {
+        await this.addToBlocklist({
+          sourceUrl: article.sourceUrl,
+          sourceFacebookPostId: article.sourceFacebookPostId || undefined,
+          reason: 'deleted_by_admin',
+          articleTitle: article.title,
+        });
+        console.log(`🚫 [BLOCKLIST] Tombstoned deleted article: "${article.title.substring(0, 60)}"`);
+        console.log(`   Source URL: ${article.sourceUrl}`);
+        if (article.sourceFacebookPostId) {
+          console.log(`   FB Post ID: ${article.sourceFacebookPostId}`);
+        }
+      }
+    } catch (tombstoneError) {
+      // Don't let blocklist failure prevent deletion — log and continue
+      console.error(`⚠️  [BLOCKLIST] Failed to write tombstone before delete:`, tombstoneError);
+    }
+
     const result = await db
       .delete(articles)
       .where(eq(articles.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async addToBlocklist(entry: { sourceUrl?: string; sourceFacebookPostId?: string; reason: string; articleTitle?: string }): Promise<void> {
+    if (!entry.sourceUrl && !entry.sourceFacebookPostId) {
+      console.warn(`⚠️  [BLOCKLIST] addToBlocklist called with no sourceUrl or sourceFacebookPostId — skipping`);
+      return;
+    }
+    await db
+      .insert(scraperBlocklist)
+      .values({
+        sourceUrl: entry.sourceUrl || null,
+        sourceFacebookPostId: entry.sourceFacebookPostId || null,
+        reason: entry.reason,
+        articleTitle: entry.articleTitle || null,
+      })
+      .onConflictDoNothing(); // Idempotent — blocking twice is fine
+  }
+
+  async isSourceBlocked(sourceUrl: string, sourceFacebookPostId?: string): Promise<boolean> {
+    const conditions = [];
+    if (sourceUrl) {
+      conditions.push(eq(scraperBlocklist.sourceUrl, sourceUrl));
+    }
+    if (sourceFacebookPostId) {
+      conditions.push(eq(scraperBlocklist.sourceFacebookPostId, sourceFacebookPostId));
+    }
+
+    if (conditions.length === 0) return false;
+
+    const [existing] = await db
+      .select({ id: scraperBlocklist.id })
+      .from(scraperBlocklist)
+      .where(or(...conditions))
+      .limit(1);
+    return !!existing;
+  }
+
+  async getBlocklist(): Promise<ScraperBlocklist[]> {
+    return await db
+      .select()
+      .from(scraperBlocklist)
+      .orderBy(desc(scraperBlocklist.blockedAt));
   }
 
   // Subscriber methods

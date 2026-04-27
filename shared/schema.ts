@@ -122,6 +122,21 @@ export const schedulerLocks = pgTable("scheduler_locks", {
   instanceId: varchar("instance_id"),
 });
 
+// Scraper blocklist — source URLs / Facebook post IDs that must NEVER be processed.
+// Populated automatically when an article is deleted (dedup survives deletion),
+// or manually via POST /api/admin/blocklist to immediately block a problematic post.
+export const scraperBlocklist = pgTable("scraper_blocklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceUrl: text("source_url"),                  // Full Facebook post permalink
+  sourceFacebookPostId: text("source_facebook_post_id"), // Numeric FB post ID (most reliable)
+  reason: text("reason").notNull().default("deleted_by_admin"), // Why it was blocked
+  blockedAt: timestamp("blocked_at").notNull().defaultNow(),
+  articleTitle: text("article_title"),             // Original article title for audit trail
+}, (table) => ({
+  sourceUrlIdx: index("blocklist_source_url_idx").on(table.sourceUrl),
+  fbPostIdIdx: index("blocklist_fb_post_id_idx").on(table.sourceFacebookPostId),
+}));
+
 // Session table - auto-created by connect-pg-simple
 export const session = pgTable("session", {
   sid: varchar("sid").primaryKey(),
@@ -265,6 +280,13 @@ export const insertSocialMediaAnalyticsSchema = createInsertSchema(socialMediaAn
 });
 export type InsertSocialMediaAnalytics = z.infer<typeof insertSocialMediaAnalyticsSchema>;
 export type SocialMediaAnalytics = typeof socialMediaAnalytics.$inferSelect;
+
+export const insertScraperBlocklistSchema = createInsertSchema(scraperBlocklist).omit({
+  id: true,
+  blockedAt: true,
+});
+export type InsertScraperBlocklist = z.infer<typeof insertScraperBlocklistSchema>;
+export type ScraperBlocklist = typeof scraperBlocklist.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
 export type ArticleListItem = Omit<Article, 'content' | 'originalContent' | 'originalTitle' | 'entities' | 'embedding' | 'seriesId' | 'storySeriesTitle' | 'isParentStory' | 'seriesUpdateCount' | 'autoMatchEnabled'> & {

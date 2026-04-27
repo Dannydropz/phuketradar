@@ -211,6 +211,34 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
           // Wrap entire post processing in timeout to prevent indefinite stalls (2 minutes max)
           await withTimeout(
             (async () => {
+              // STEP -6: BLOCKLIST CHECK — absolute first gate, zero cost
+              // If this sourceUrl or facebookPostId has been blocked (e.g. because an admin
+              // deleted the article), drop it immediately before any processing.
+              // This is the fix for: "deleted articles keep coming back every scrape cycle."
+              const isBlocked = await storage.isSourceBlocked(post.sourceUrl, post.facebookPostId);
+              if (isBlocked) {
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Blocklisted — previously deleted or manually blocked",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `Source URL or Facebook post ID is in scraper_blocklist table.`
+                });
+                console.log(`\n🚫 BLOCKLISTED — Skipping post permanently:`);
+                console.log(`   Title: ${post.title.substring(0, 80)}`);
+                console.log(`   Source URL: ${post.sourceUrl}`);
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews,
+                  });
+                }
+                return;
+              }
+
               // STEP -5.5: CONTENT-BASED VIDEO DETECTION
               // Sometimes the scraper doesn't detect video posts from API response
               // but the content clearly mentions "viral video", "คลิป" (clip), "วิดีโอ" (video)

@@ -1670,6 +1670,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── SCRAPER BLOCKLIST ROUTES ───────────────────────────────────────────────
+  // GET /api/admin/blocklist — view all blocked entries
+  app.get("/api/admin/blocklist", requireAdminAuth, async (req, res) => {
+    try {
+      const list = await storage.getBlocklist();
+      res.json(list);
+    } catch (error) {
+      console.error("Error fetching blocklist:", error);
+      res.status(500).json({ error: "Failed to fetch blocklist" });
+    }
+  });
+
+  // POST /api/admin/blocklist — manually block a source URL or Facebook post ID
+  // Use this for IMMEDIATE fix: block the bomb-threat post RIGHT NOW without needing to delete/re-scrape
+  // Body: { sourceUrl?: string, sourceFacebookPostId?: string, reason?: string }
+  app.post("/api/admin/blocklist", requireAdminAuth, async (req, res) => {
+    try {
+      const { sourceUrl, sourceFacebookPostId, reason = "manually_blocked" } = req.body;
+
+      if (!sourceUrl && !sourceFacebookPostId) {
+        return res.status(400).json({ error: "At least one of sourceUrl or sourceFacebookPostId is required" });
+      }
+
+      await storage.addToBlocklist({
+        sourceUrl: sourceUrl || undefined,
+        sourceFacebookPostId: sourceFacebookPostId || undefined,
+        reason,
+        articleTitle: req.body.articleTitle || undefined,
+      });
+
+      console.log(`🚫 [BLOCKLIST] Manual block added:`);
+      if (sourceUrl) console.log(`   Source URL: ${sourceUrl}`);
+      if (sourceFacebookPostId) console.log(`   FB Post ID: ${sourceFacebookPostId}`);
+      console.log(`   Reason: ${reason}`);
+
+      res.json({ success: true, message: "Entry added to blocklist — will be skipped on all future scrapes" });
+    } catch (error) {
+      console.error("Error adding to blocklist:", error);
+      res.status(500).json({ error: "Failed to add to blocklist" });
+    }
+  });
+
   // Publish article - PROTECTED
   app.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
     try {
