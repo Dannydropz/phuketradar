@@ -17,6 +17,8 @@ export interface ScrapedPost {
   shareCount?: number;
   viewCount?: number;
   sourceName?: string;
+  isResharedPost?: boolean; // True when this post was a reshare and we fetched original content
+  originalSourceName?: string; // Name of the original page the content was reshared from
 }
 
 interface ScrapeCreatorsPost {
@@ -27,12 +29,16 @@ interface ScrapeCreatorsPost {
   author?: {
     name: string;
     id: string;
+    __typename?: string;
+    short_name?: string;
+    url?: string;
   };
   place?: {
     name: string;
     id: string;
   };
   created_time?: string;
+  publishTime?: number; // Unix timestamp (alternative field name in some responses)
   image?: string; // Direct image URL field (single image)
   images?: string[]; // NEW: Array of all images for multi-image carousel posts
   text_format_preset_id?: string; // Facebook's colored background text post indicator
@@ -62,6 +68,7 @@ interface ScrapeCreatorsPost {
     sdUrl?: string;
     hdUrl?: string;
     thumbnail?: string;
+    thumbnailUrl?: string; // Alternative field name in some responses
   };
   video?: {
     thumbnail?: string;
@@ -72,6 +79,8 @@ interface ScrapeCreatorsPost {
   comment_count?: number;
   share_count?: number;
   view_count?: number;
+  reactionCount?: number; // Alternative field name in some responses
+  commentCount?: number;  // Alternative field name in some responses
   page_name?: string;
 }
 
@@ -85,6 +94,197 @@ export class ScraperService {
   private scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
   private scrapeCreatorsSinglePostUrl = "https://api.scrapecreators.com/v1/facebook/post";
   private apiKey = process.env.SCRAPECREATORS_API_KEY;
+
+  // Minimum word count to consider a post as having standalone content.
+  // Posts below this are suspected reshare captions with no original body.
+  private readonly RESHARE_WORD_THRESHOLD = 20;
+
+  /**
+   * Detect whether a raw API post is a reshare, and extract the original post URL if possible.
+   *
+   * ScrapeCreators has no explicit reshare field. We use two heuristics:
+   *
+   * 1. AUTHOR MISMATCH: When Newshawk Phuket reshares Newshawk South's post, the API
+   *    puts the ORIGINAL author's name in `post.author.name` (the resharing page's name
+   *    only appears in the URL/permalink as the page that holds the reshare). So if the
+   *    author name doesn't match the page being scraped, it's a reshare signal.
+   *
+   * 2. EMBEDDED FB URL: Some reshares include the original post URL in the text.
+   *    Pattern: facebook.com/{page}/posts/{id} or facebook.com/permalink.php?story_fbid={id}
+   *
+   * 3. SHORT CONTENT + IMAGES: A post with ≤ RESHARE_WORD_THRESHOLD words but images
+   *    strongly suggests a reshare caption where the media came from the original post.
+   *
+   * Returns { isReshare, originalUrl, originalAuthorName } where originalUrl is the
+   * best URL to fetch for the original content (or null if we can't determine it).
+   */
+  private detectReshare(post: ScrapeCreatorsPost, sourcePageUrl: string): {
+    isReshare: boolean;
+    originalUrl: string | null;
+    sharerCaption: string;
+    originalAuthorName: string | null;
+  } {
+    const text = post.text || '';
+    const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const sharerCaption = text;
+
+    // Extract source page name from the URL we're scraping
+    // e.g. https://www.facebook.com/NewshawkPhuket → "NewshawkPhuket"
+    const sourcePageMatch = sourcePageUrl.match(/facebook\.com\/([^\/\?]+)/);
+    const sourcePageName = sourcePageMatch?.[1]?.toLowerCase() || '';
+
+    // === SIGNAL 1: Embedded Facebook post URL in text ===
+    // Matches URLs like:
+    //   https://www.facebook.com/NewshawkSouth/posts/pfbid0...
+    //   https://www.facebook.com/permalink.php?story_fbid=...
+    //   https://web.facebook.com/PageName/posts/12345
+    const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/posts\/[^\s]+|permalink\.php\?story_fbid=[^\s&]+)/i;
+    const fbUrlMatch = text.match(fbPostUrlPattern);
+    if (fbUrlMatch) {
+      const originalUrl = `https://www.facebook.com/${fbUrlMatch[1]}`;
+      // The author who wrote the text containing the URL is the sharer, so original is at the URL
+      console.log(`   🔗 RESHARE SIGNAL 1 (embedded URL): Found Facebook post URL in text`);
+      console.log(`   🔗 Original URL: ${originalUrl.substring(0, 100)}`);
+      return {
+        isReshare: true,
+        originalUrl,
+        sharerCaption,
+        originalAuthorName: null, // We'll get this from the fetched post
+      };
+    }
+
+    // === SIGNAL 2: Author mismatch ===
+    // If the author name doesn't roughly match the source page name, it's a reshare.
+    // The original poster's name ends up in post.author when it's a reshare.
+    // We do a loose match (lowercase, ignore spaces/special chars) to avoid false positives.
+    const authorName = post.author?.name || '';
+    const authorNormalized = authorName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const sourceNormalized = sourcePageName.replace(/[^a-z0-9]/g, '');
+
+    // Only trigger author mismatch if:
+    // - We have an author name
+    // - Content is short (long posts with different author are unlikely reshares — could be admin)
+    // - Author name doesn't match source page (even partially)
+    const authorMismatch = authorNormalized.length > 0 &&
+      sourceNormalized.length > 0 &&
+      !authorNormalized.includes(sourceNormalized.substring(0, 6)) &&
+      !sourceNormalized.includes(authorNormalized.substring(0, 6));
+
+    if (authorMismatch && wordCount <= this.RESHARE_WORD_THRESHOLD) {
+      // Can't construct original URL from author mismatch alone — we don't know the original post ID.
+      // The author URL might help if available.
+      const authorPageUrl = (post.author as any)?.url || null;
+      const originalUrl = authorPageUrl ? authorPageUrl.replace(/\/$/, '') : null;
+      console.log(`   👤 RESHARE SIGNAL 2 (author mismatch): Post author "${authorName}" ≠ source page "${sourcePageName}"`);
+      if (originalUrl) {
+        console.log(`   👤 Author page URL: ${originalUrl}`);
+      }
+      return {
+        isReshare: true,
+        originalUrl, // This is the AUTHOR'S PAGE, not the specific post — limited utility
+        sharerCaption,
+        originalAuthorName: authorName,
+      };
+    }
+
+    // === SIGNAL 3: Extremely short content with images (heuristic only) ===
+    // We do NOT call this a definitive reshare — just log for monitoring.
+    // The 20-word guard in scheduler.ts will catch these anyway.
+    const hasImages = !!(post.image || post.images?.length || post.full_picture);
+    if (wordCount <= 5 && hasImages && wordCount > 0) {
+      console.log(`   ⚠️  RESHARE HEURISTIC (very short + images): ${wordCount} words — may be reshare caption`);
+      console.log(`      Content: "${text.substring(0, 80)}"`);
+      // Not definitive enough to mark as reshare without a URL to follow
+    }
+
+    return { isReshare: false, originalUrl: null, sharerCaption, originalAuthorName: null };
+  }
+
+  /**
+   * Attempt to resolve a reshared post by fetching the original post content.
+   *
+   * Strategy:
+   * - If we have a specific post URL → call scrapeSingleFacebookPost()
+   * - If we only have an author page URL → can't reliably find the specific post, return null
+   * - Merge: use original text as primary content, preserve sharer's caption if meaningful
+   * - Images: prefer original post images if available, fall back to reshared images
+   *
+   * Returns the resolved ScrapedPost with merged content, or null if resolution failed.
+   */
+  async resolveReshare(
+    post: ScrapedPost,
+    originalUrl: string,
+    sharerCaption: string,
+    originalAuthorName: string | null,
+    sourcePageName: string,
+  ): Promise<ScrapedPost | null> {
+    // Only attempt resolution if we have a specific post URL (not just a page URL)
+    const isSpecificPostUrl = /\/posts\/|permalink\.php|story_fbid=/.test(originalUrl);
+    if (!isSpecificPostUrl) {
+      console.log(`   ⚠️  Reshare detected but original URL is a page, not a specific post — cannot reliably resolve`);
+      console.log(`   ⚠️  Original page URL: ${originalUrl.substring(0, 80)}`);
+      return null;
+    }
+
+    console.log(`\n🔄 RESHARE RESOLUTION: Fetching original post content...`);
+    console.log(`   Original URL: ${originalUrl.substring(0, 100)}`);
+
+    try {
+      const originalPost = await this.scrapeSingleFacebookPost(originalUrl);
+
+      if (!originalPost) {
+        console.log(`   ❌ Could not fetch original post (deleted/private/API error)`);
+        return null;
+      }
+
+      const originalWordCount = originalPost.content.trim().split(/\s+/).filter(w => w.length > 0).length;
+      console.log(`   ✅ Fetched original post: ${originalWordCount} words`);
+      console.log(`   ✅ Original title: ${originalPost.title.substring(0, 80)}`);
+
+      // Build merged content:
+      // Primary: original post body
+      // Append sharer's caption only if it adds meaningful context (>5 words)
+      const sharerWordCount = sharerCaption.trim().split(/\s+/).filter(w => w.length > 0).length;
+      const sharerPageLabel = sourcePageName || 'Newshawk Phuket';
+      const originalPageLabel = originalAuthorName || originalPost.sourceName || 'original source';
+
+      let mergedContent = originalPost.content;
+      if (sharerWordCount > 5) {
+        mergedContent = `${originalPost.content}\n\n[Shared by ${sharerPageLabel} with caption: "${sharerCaption.trim()}"]`;
+      }
+
+      // Images: prefer original post images if present, fall back to reshare images
+      const resolvedImages = (originalPost.imageUrls && originalPost.imageUrls.length > 0)
+        ? originalPost.imageUrls
+        : post.imageUrls;
+      const resolvedImageUrl = originalPost.imageUrl || post.imageUrl;
+
+      const resolvedPost: ScrapedPost = {
+        ...post, // keep reshare's sourceUrl, facebookPostId, publishedAt, engagement counts
+        title: originalPost.title,
+        content: mergedContent,
+        imageUrl: resolvedImageUrl,
+        imageUrls: resolvedImages,
+        // Video from original if available
+        isVideo: originalPost.isVideo || post.isVideo,
+        videoUrl: originalPost.videoUrl || post.videoUrl,
+        videoThumbnail: originalPost.videoThumbnail || post.videoThumbnail,
+        // Attribution
+        isResharedPost: true,
+        originalSourceName: originalPageLabel,
+        sourceName: post.sourceName || sourcePageName,
+      };
+
+      console.log(`   ✅ RESHARE RESOLVED: Merged content (${originalWordCount} original words + ${sharerWordCount > 5 ? sharerWordCount + ' sharer words' : 'no sharer caption'})`);
+      console.log(`   ✅ Attribution: Originally posted by "${originalPageLabel}", reshared by "${sharerPageLabel}"`);
+
+      return resolvedPost;
+
+    } catch (error) {
+      console.error(`   ❌ Reshare resolution failed:`, error);
+      return null;
+    }
+  }
 
   // Extract canonical Facebook post ID - ALWAYS returns numeric ID when available
   // This is critical for deduplication: Facebook has multiple URL/ID formats for the same post,
@@ -284,7 +484,11 @@ export class ScraperService {
           // Success! Parse and return the posts
           const scrapedPosts = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
           console.log(`✅ Successfully parsed ${scrapedPosts.length} posts from ${url}`);
-          return scrapedPosts;
+
+          // Resolve any reshared posts (fetch original content where possible)
+          const sourceDisplayName = pageUrl.match(/facebook\.com\/([^\/\?]+)/)?.[1] || pageUrl;
+          const resolvedPosts = await this.resolveResharedPostsInBatch(scrapedPosts, pageUrl, sourceDisplayName);
+          return resolvedPosts;
 
         } catch (urlError) {
           console.error(`Error with URL ${url}:`, urlError);
@@ -851,7 +1055,20 @@ export class ScraperService {
         // Extract check-in location if available
         const location = post.place?.name;
 
-        scrapedPosts.push({
+        // === RESHARE DETECTION ===
+        // Before returning, check if this post is a reshare with thin content.
+        // We do detection synchronously here and store the metadata on the post.
+        // Resolution (async API call) happens in resolveResharedPostsInBatch().
+        const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length;
+        let reshareInfo: { isReshare: boolean; originalUrl: string | null; sharerCaption: string; originalAuthorName: string | null } | null = null;
+        if (wordCount < this.RESHARE_WORD_THRESHOLD) {
+          reshareInfo = this.detectReshare(post, sourceUrl);
+          if (reshareInfo.isReshare) {
+            console.log(`   📤 Reshare tagged for resolution: "${title.substring(0, 60)}" (${wordCount} words)`);
+          }
+        }
+
+        const scrapedPost: ScrapedPost & { _reshareInfo?: typeof reshareInfo } = {
           title: title.trim(),
           content: content.trim(),
           imageUrl,
@@ -864,12 +1081,19 @@ export class ScraperService {
           videoUrl,
           videoThumbnail,
           location,
-          likeCount: post.like_count,
-          commentCount: post.comment_count,
+          likeCount: post.like_count ?? (post as any).reactionCount,
+          commentCount: post.comment_count ?? (post as any).commentCount,
           shareCount: post.share_count,
           viewCount: post.view_count,
           sourceName: post.author?.name || post.page_name,
-        });
+        };
+
+        // Attach reshare metadata as a hidden property (stripped before reaching scheduler)
+        if (reshareInfo) {
+          scrapedPost._reshareInfo = reshareInfo;
+        }
+
+        scrapedPosts.push(scrapedPost);
       } catch (error) {
         console.error(`Error parsing post ${post.id}:`, error);
         // Continue with next post
@@ -877,6 +1101,68 @@ export class ScraperService {
     }
 
     return scrapedPosts;
+  }
+
+  /**
+   * Post-process a batch of parsed posts to resolve any reshares.
+   * This is the async counterpart to the synchronous parseScrapeCreatorsResponse().
+   *
+   * For each post tagged with _reshareInfo, attempts to fetch the original content.
+   * On success, replaces the post with the resolved version.
+   * On failure (deleted/private/rate-limit), keeps the original post as-is.
+   * The 20-word guard in scheduler.ts remains the final backstop.
+   */
+  async resolveResharedPostsInBatch(
+    posts: ScrapedPost[],
+    sourcePageUrl: string,
+    sourcePageDisplayName: string,
+  ): Promise<ScrapedPost[]> {
+    const resolved: ScrapedPost[] = [];
+
+    for (const post of posts) {
+      const reshareInfo = (post as any)._reshareInfo as {
+        isReshare: boolean;
+        originalUrl: string | null;
+        sharerCaption: string;
+        originalAuthorName: string | null;
+      } | undefined;
+
+      // Clean up the temp property before passing downstream
+      delete (post as any)._reshareInfo;
+
+      if (!reshareInfo?.isReshare || !reshareInfo.originalUrl) {
+        resolved.push(post);
+        continue;
+      }
+
+      console.log(`\n🔄 Attempting reshare resolution for: "${post.title.substring(0, 60)}"`); 
+      console.log(`   Source URL: ${post.sourceUrl.substring(0, 80)}`);
+
+      try {
+        const resolvedPost = await this.resolveReshare(
+          post,
+          reshareInfo.originalUrl,
+          reshareInfo.sharerCaption,
+          reshareInfo.originalAuthorName,
+          sourcePageDisplayName,
+        );
+
+        if (resolvedPost) {
+          resolved.push(resolvedPost);
+          console.log(`   ✅ Reshare resolution succeeded — using original post content`);
+        } else {
+          // Resolution failed — keep the original thin post
+          // The 20-word guard in scheduler.ts will drop it if still under threshold
+          console.log(`   ⚠️  Reshare resolution failed — keeping original thin post (will be filtered by 20-word guard if too short)`);
+          resolved.push(post);
+        }
+      } catch (resolveError) {
+        console.error(`   ❌ Error during reshare resolution:`, resolveError);
+        resolved.push(post); // Keep original, don't drop
+      }
+    }
+
+    return resolved;
   }
 
   /**
@@ -1015,10 +1301,14 @@ export class ScraperService {
 
         const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
 
+        // Resolve any reshared posts before reel enrichment
+        const sourceDisplayName = pageUrl.match(/facebook\.com\/([^\/\?]+)/)?.[1] || pageUrl;
+        const reshareResolved = await this.resolveResharedPostsInBatch(parsed, pageUrl, sourceDisplayName);
+
         // CRITICAL FIX: Enrich reels that are missing thumbnails
         // The page feed API returns empty videoDetails for reels, so we need to fetch full details
         const enrichedParsed: ScrapedPost[] = [];
-        for (const post of parsed) {
+        for (const post of reshareResolved) {
           const enrichedPost = await this.enrichReelWithDetails(post);
           enrichedParsed.push(enrichedPost);
         }

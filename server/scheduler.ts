@@ -361,6 +361,41 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 return;
               }
 
+              // STEP -3b: Minimum content length guard — drop share captions masquerading as posts
+              // When Newshawk Phuket (or any source) reshares a post from another page, the
+              // ScrapeCreators API only returns the SHARER'S caption text, NOT the original post
+              // body. A reshare caption like 'อย่าหาทำ!' (2 words) has zero news value and
+              // will cause the AI to hallucinate a completely unrelated article.
+              // Rule: silently drop any post whose combined title+content is under 20 Thai words.
+              // (Thai text segments by spaces, so split on whitespace gives a good approximation.)
+              const MIN_CONTENT_WORDS = 20;
+              const combinedWordCount = `${post.title} ${post.content}`.trim().split(/\s+/).filter(w => w.length > 0).length;
+              if (combinedWordCount < MIN_CONTENT_WORDS) {
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Too short — likely a shared-post caption with no original content",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `Only ${combinedWordCount} words (minimum ${MIN_CONTENT_WORDS}). This is almost certainly a reshare caption, not a news article.`
+                });
+                console.log(`\n⏭️  SKIPPED - CONTENT TOO SHORT (${combinedWordCount} words < ${MIN_CONTENT_WORDS} minimum)`);
+                console.log(`   Title: ${post.title.substring(0, 80)}`);
+                console.log(`   Content preview: ${post.content.substring(0, 100)}...`);
+                console.log(`   ⚠️  Likely a reshared post — scraper only captured the sharer's caption, not the original post.`);
+                console.log(`   ✅ Silently dropped before translation (saved API credits)\n`);
+
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews,
+                  });
+                }
+                return;
+              }
+
               // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
               if (post.facebookPostId) {
                 const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
