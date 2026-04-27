@@ -40,7 +40,7 @@ export const NEWS_SOURCES: NewsSource[] = [
   {
     name: "Newshawk Phuket",
     url: "https://www.facebook.com/NewshawkPhuket",
-    enabled: true,
+    enabled: false, // PAUSED: Frequent reshared posts with thin captions triggering hallucinations
   },
   {
     name: "Phuket Times English",
