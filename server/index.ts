@@ -147,6 +147,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Debug version endpoint - register EARLY and SYNCHRONOUSLY
+app.get("/api/debug/version", (req, res) => {
+  res.json({
+    version: "1.0.5-debug-fix",
+    timestamp: new Date().toISOString(),
+    deployment: "verified",
+    note: "Registered directly in index.ts"
+  });
+});
+
 // CRITICAL: Register API routes BEFORE legacy redirects to prevent conflicts
 // and ensure API calls don't hit the database for redirect lookups
 const serverPromise = registerRoutes(app);

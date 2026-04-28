@@ -138,10 +138,10 @@ export class ScraperService {
     //   https://www.facebook.com/NewshawkSouth/posts/pfbid0...
     //   https://www.facebook.com/permalink.php?story_fbid=...
     //   https://web.facebook.com/PageName/posts/12345
-    const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/posts\/[^\s]+|permalink\.php\?story_fbid=[^\s&]+)/i;
+    const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/(?:posts|reel|reels|share\/v)\/[^\s\?]+|permalink\.php\?story_fbid=[^\s&]+)/i;
     const fbUrlMatch = text.match(fbPostUrlPattern);
     if (fbUrlMatch) {
-      const originalUrl = `https://www.facebook.com/${fbUrlMatch[1]}`;
+      const originalUrl = fbUrlMatch[0]; // Use the full matched URL
       // The author who wrote the text containing the URL is the sharer, so original is at the URL
       console.log(`   🔗 RESHARE SIGNAL 1 (embedded URL): Found Facebook post URL in text`);
       console.log(`   🔗 Original URL: ${originalUrl.substring(0, 100)}`);

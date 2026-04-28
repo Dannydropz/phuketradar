@@ -394,20 +394,24 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               // ScrapeCreators API only returns the SHARER'S caption text, NOT the original post
               // body. A reshare caption like 'อย่าหาทำ!' (2 words) has zero news value and
               // will cause the AI to hallucinate a completely unrelated article.
-              // Rule: silently drop any post whose combined title+content is under 20 Thai words.
-              // (Thai text segments by spaces, so split on whitespace gives a good approximation.)
-              const MIN_CONTENT_WORDS = 20;
-              const combinedWordCount = `${post.title} ${post.content}`.trim().split(/\s+/).filter(w => w.length > 0).length;
-              if (combinedWordCount < MIN_CONTENT_WORDS) {
+              // Rule: silently drop any post whose combined title+content is under threshold.
+              // Thresholds: < 30 words OR < 120 characters.
+              const MIN_CONTENT_WORDS = 30;
+              const MIN_CONTENT_CHARS = 120;
+              const combinedText = `${post.title} ${post.content}`.trim();
+              const combinedWordCount = combinedText.split(/\s+/).filter(w => w.length > 0).length;
+              const combinedCharCount = combinedText.length;
+
+              if (combinedWordCount < MIN_CONTENT_WORDS || combinedCharCount < MIN_CONTENT_CHARS) {
                 skippedNotNews++;
                 skipReasons.push({
                   reason: "Too short — likely a shared-post caption with no original content",
                   postTitle: post.title.substring(0, 60),
                   sourceUrl: post.sourceUrl,
                   facebookPostId: post.facebookPostId,
-                  details: `Only ${combinedWordCount} words (minimum ${MIN_CONTENT_WORDS}). This is almost certainly a reshare caption, not a news article.`
+                  details: `${combinedWordCount} words / ${combinedCharCount} chars (minimums: ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c). This is almost certainly a reshare caption, not a news article.`
                 });
-                console.log(`\n⏭️  SKIPPED - CONTENT TOO SHORT (${combinedWordCount} words < ${MIN_CONTENT_WORDS} minimum)`);
+                console.log(`\n⏭️  SKIPPED - CONTENT TOO SHORT (${combinedWordCount}w / ${combinedCharCount}c < ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c)`);
                 console.log(`   Title: ${post.title.substring(0, 80)}`);
                 console.log(`   Content preview: ${post.content.substring(0, 100)}...`);
                 console.log(`   ⚠️  Likely a reshared post — scraper only captured the sharer's caption, not the original post.`);

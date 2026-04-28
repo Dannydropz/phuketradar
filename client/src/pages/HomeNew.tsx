@@ -42,7 +42,8 @@ export default function HomeNew() {
 
     // Validate category
     if (category && !VALID_CATEGORIES.includes(category)) {
-        return <NotFound />;
+        console.log(`[ROUTING] Invalid category detected: ${category}`);
+        // return <NotFound />;
     }
 
     // Fetch Articles - Limit to 50 for fast initial load

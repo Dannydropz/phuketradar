@@ -79,14 +79,6 @@ import { googleSearchConsoleService } from "./services/google-search-console-cli
 import { smartLearningService } from "./services/smart-learning-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Debug version endpoint
-  app.get("/api/debug/version", (req, res) => {
-    res.json({
-      version: "1.0.4-no-newshawk",
-      timestamp: "2026-04-28T07:58:00Z",
-      sources_removed: ["Newshawk Phuket"]
-    });
-  });
 
   // Batch insert discovered videos from n8n
   app.post("/api/internal/discovered-videos/batch", async (req, res) => {
