@@ -20,12 +20,14 @@ __export(schema_exports, {
   insertCategorySchema: () => insertCategorySchema,
   insertDiscoveredVideoSchema: () => insertDiscoveredVideoSchema,
   insertJournalistSchema: () => insertJournalistSchema,
+  insertScraperBlocklistSchema: () => insertScraperBlocklistSchema,
   insertSocialMediaAnalyticsSchema: () => insertSocialMediaAnalyticsSchema,
   insertSubscriberSchema: () => insertSubscriberSchema,
   insertUserSchema: () => insertUserSchema,
   journalists: () => journalists,
   schedulerLocks: () => schedulerLocks,
   scoreAdjustments: () => scoreAdjustments,
+  scraperBlocklist: () => scraperBlocklist,
   session: () => session,
   socialMediaAnalytics: () => socialMediaAnalytics,
   subscribers: () => subscribers,
@@ -34,7 +36,7 @@ __export(schema_exports, {
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, boolean, real, json, index, integer, date, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-var users, journalists, articles, discoveredVideos, schedulerLocks, session, subscribers, categories, articleMetrics, socialMediaAnalytics, scoreAdjustments, insertUserSchema, insertJournalistSchema, insertArticleSchema, insertSubscriberSchema, insertCategorySchema, insertDiscoveredVideoSchema, insertArticleMetricsSchema, insertSocialMediaAnalyticsSchema;
+var users, journalists, articles, discoveredVideos, schedulerLocks, scraperBlocklist, session, subscribers, categories, articleMetrics, socialMediaAnalytics, scoreAdjustments, insertUserSchema, insertJournalistSchema, insertArticleSchema, insertSubscriberSchema, insertCategorySchema, insertDiscoveredVideoSchema, insertArticleMetricsSchema, insertSocialMediaAnalyticsSchema, insertScraperBlocklistSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -184,6 +186,21 @@ var init_schema = __esm({
       acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
       instanceId: varchar("instance_id")
     });
+    scraperBlocklist = pgTable("scraper_blocklist", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      sourceUrl: text("source_url"),
+      // Full Facebook post permalink
+      sourceFacebookPostId: text("source_facebook_post_id"),
+      // Numeric FB post ID (most reliable)
+      reason: text("reason").notNull().default("deleted_by_admin"),
+      // Why it was blocked
+      blockedAt: timestamp("blocked_at").notNull().defaultNow(),
+      articleTitle: text("article_title")
+      // Original article title for audit trail
+    }, (table) => ({
+      sourceUrlIdx: index("blocklist_source_url_idx").on(table.sourceUrl),
+      fbPostIdIdx: index("blocklist_fb_post_id_idx").on(table.sourceFacebookPostId)
+    }));
     session = pgTable("session", {
       sid: varchar("sid").primaryKey(),
       sess: json("sess").notNull(),
@@ -295,6 +312,10 @@ var init_schema = __esm({
     insertSocialMediaAnalyticsSchema = createInsertSchema(socialMediaAnalytics).omit({
       id: true,
       lastUpdatedAt: true
+    });
+    insertScraperBlocklistSchema = createInsertSchema(scraperBlocklist).omit({
+      id: true,
+      blockedAt: true
     });
   }
 });
@@ -484,7 +505,7 @@ __export(storage_exports, {
   DatabaseStorage: () => DatabaseStorage,
   storage: () => storage
 });
-import { eq, desc, sql as sql2, inArray, and, gte, isNull } from "drizzle-orm";
+import { eq, desc, sql as sql2, inArray, and, gte, isNull, or } from "drizzle-orm";
 var LEAN_ARTICLE_FIELDS, DatabaseStorage, storage;
 var init_storage = __esm({
   "server/storage.ts"() {
@@ -804,8 +825,53 @@ var init_storage = __esm({
         }).where(sql2`${articles.id} = ${id} AND ${articles.threadsPostId} = ${lockValue}`);
       }
       async deleteArticle(id) {
+        try {
+          const article = await this.getArticleById(id);
+          if (article) {
+            await this.addToBlocklist({
+              sourceUrl: article.sourceUrl,
+              sourceFacebookPostId: article.sourceFacebookPostId || void 0,
+              reason: "deleted_by_admin",
+              articleTitle: article.title
+            });
+            console.log(`\u{1F6AB} [BLOCKLIST] Tombstoned deleted article: "${article.title.substring(0, 60)}"`);
+            console.log(`   Source URL: ${article.sourceUrl}`);
+            if (article.sourceFacebookPostId) {
+              console.log(`   FB Post ID: ${article.sourceFacebookPostId}`);
+            }
+          }
+        } catch (tombstoneError) {
+          console.error(`\u26A0\uFE0F  [BLOCKLIST] Failed to write tombstone before delete:`, tombstoneError);
+        }
         const result = await db.delete(articles).where(eq(articles.id, id));
         return result.rowCount !== null && result.rowCount > 0;
+      }
+      async addToBlocklist(entry) {
+        if (!entry.sourceUrl && !entry.sourceFacebookPostId) {
+          console.warn(`\u26A0\uFE0F  [BLOCKLIST] addToBlocklist called with no sourceUrl or sourceFacebookPostId \u2014 skipping`);
+          return;
+        }
+        await db.insert(scraperBlocklist).values({
+          sourceUrl: entry.sourceUrl || null,
+          sourceFacebookPostId: entry.sourceFacebookPostId || null,
+          reason: entry.reason,
+          articleTitle: entry.articleTitle || null
+        }).onConflictDoNothing();
+      }
+      async isSourceBlocked(sourceUrl, sourceFacebookPostId) {
+        const conditions = [];
+        if (sourceUrl) {
+          conditions.push(eq(scraperBlocklist.sourceUrl, sourceUrl));
+        }
+        if (sourceFacebookPostId) {
+          conditions.push(eq(scraperBlocklist.sourceFacebookPostId, sourceFacebookPostId));
+        }
+        if (conditions.length === 0) return false;
+        const [existing] = await db.select({ id: scraperBlocklist.id }).from(scraperBlocklist).where(or(...conditions)).limit(1);
+        return !!existing;
+      }
+      async getBlocklist() {
+        return await db.select().from(scraperBlocklist).orderBy(desc(scraperBlocklist.blockedAt));
       }
       // Subscriber methods
       async createSubscriber(insertSubscriber) {
@@ -1823,6 +1889,139 @@ var init_scraper = __esm({
       scrapeCreatorsApiUrl = "https://api.scrapecreators.com/v1/facebook/profile/posts";
       scrapeCreatorsSinglePostUrl = "https://api.scrapecreators.com/v1/facebook/post";
       apiKey = process.env.SCRAPECREATORS_API_KEY;
+      // Minimum word count to consider a post as having standalone content.
+      // Posts below this are suspected reshare captions with no original body.
+      RESHARE_WORD_THRESHOLD = 20;
+      /**
+       * Detect whether a raw API post is a reshare, and extract the original post URL if possible.
+       *
+       * ScrapeCreators has no explicit reshare field. We use two heuristics:
+       *
+       * 1. AUTHOR MISMATCH: When Newshawk Phuket reshares Newshawk South's post, the API
+       *    puts the ORIGINAL author's name in `post.author.name` (the resharing page's name
+       *    only appears in the URL/permalink as the page that holds the reshare). So if the
+       *    author name doesn't match the page being scraped, it's a reshare signal.
+       *
+       * 2. EMBEDDED FB URL: Some reshares include the original post URL in the text.
+       *    Pattern: facebook.com/{page}/posts/{id} or facebook.com/permalink.php?story_fbid={id}
+       *
+       * 3. SHORT CONTENT + IMAGES: A post with ≤ RESHARE_WORD_THRESHOLD words but images
+       *    strongly suggests a reshare caption where the media came from the original post.
+       *
+       * Returns { isReshare, originalUrl, originalAuthorName } where originalUrl is the
+       * best URL to fetch for the original content (or null if we can't determine it).
+       */
+      detectReshare(post, sourcePageUrl) {
+        const text2 = post.text || "";
+        const wordCount = text2.trim().split(/\s+/).filter((w) => w.length > 0).length;
+        const sharerCaption = text2;
+        const sourcePageMatch = sourcePageUrl.match(/facebook\.com\/([^\/\?]+)/);
+        const sourcePageName = sourcePageMatch?.[1]?.toLowerCase() || "";
+        const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/(?:posts|reel|reels|share\/v)\/[^\s\?]+|permalink\.php\?story_fbid=[^\s&]+)/i;
+        const fbUrlMatch = text2.match(fbPostUrlPattern);
+        if (fbUrlMatch) {
+          const originalUrl = fbUrlMatch[0];
+          console.log(`   \u{1F517} RESHARE SIGNAL 1 (embedded URL): Found Facebook post URL in text`);
+          console.log(`   \u{1F517} Original URL: ${originalUrl.substring(0, 100)}`);
+          return {
+            isReshare: true,
+            originalUrl,
+            sharerCaption,
+            originalAuthorName: null
+            // We'll get this from the fetched post
+          };
+        }
+        const authorName = post.author?.name || "";
+        const authorNormalized = authorName.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const sourceNormalized = sourcePageName.replace(/[^a-z0-9]/g, "");
+        const authorMismatch = authorNormalized.length > 0 && sourceNormalized.length > 0 && !authorNormalized.includes(sourceNormalized.substring(0, 6)) && !sourceNormalized.includes(authorNormalized.substring(0, 6));
+        if (authorMismatch && wordCount <= this.RESHARE_WORD_THRESHOLD) {
+          const authorPageUrl = post.author?.url || null;
+          const originalUrl = authorPageUrl ? authorPageUrl.replace(/\/$/, "") : null;
+          console.log(`   \u{1F464} RESHARE SIGNAL 2 (author mismatch): Post author "${authorName}" \u2260 source page "${sourcePageName}"`);
+          if (originalUrl) {
+            console.log(`   \u{1F464} Author page URL: ${originalUrl}`);
+          }
+          return {
+            isReshare: true,
+            originalUrl,
+            // This is the AUTHOR'S PAGE, not the specific post — limited utility
+            sharerCaption,
+            originalAuthorName: authorName
+          };
+        }
+        const hasImages = !!(post.image || post.images?.length || post.full_picture);
+        if (wordCount <= 5 && hasImages && wordCount > 0) {
+          console.log(`   \u26A0\uFE0F  RESHARE HEURISTIC (very short + images): ${wordCount} words \u2014 may be reshare caption`);
+          console.log(`      Content: "${text2.substring(0, 80)}"`);
+        }
+        return { isReshare: false, originalUrl: null, sharerCaption, originalAuthorName: null };
+      }
+      /**
+       * Attempt to resolve a reshared post by fetching the original post content.
+       *
+       * Strategy:
+       * - If we have a specific post URL → call scrapeSingleFacebookPost()
+       * - If we only have an author page URL → can't reliably find the specific post, return null
+       * - Merge: use original text as primary content, preserve sharer's caption if meaningful
+       * - Images: prefer original post images if available, fall back to reshared images
+       *
+       * Returns the resolved ScrapedPost with merged content, or null if resolution failed.
+       */
+      async resolveReshare(post, originalUrl, sharerCaption, originalAuthorName, sourcePageName) {
+        const isSpecificPostUrl = /\/posts\/|permalink\.php|story_fbid=/.test(originalUrl);
+        if (!isSpecificPostUrl) {
+          console.log(`   \u26A0\uFE0F  Reshare detected but original URL is a page, not a specific post \u2014 cannot reliably resolve`);
+          console.log(`   \u26A0\uFE0F  Original page URL: ${originalUrl.substring(0, 80)}`);
+          return null;
+        }
+        console.log(`
+\u{1F504} RESHARE RESOLUTION: Fetching original post content...`);
+        console.log(`   Original URL: ${originalUrl.substring(0, 100)}`);
+        try {
+          const originalPost = await this.scrapeSingleFacebookPost(originalUrl);
+          if (!originalPost) {
+            console.log(`   \u274C Could not fetch original post (deleted/private/API error)`);
+            return null;
+          }
+          const originalWordCount = originalPost.content.trim().split(/\s+/).filter((w) => w.length > 0).length;
+          console.log(`   \u2705 Fetched original post: ${originalWordCount} words`);
+          console.log(`   \u2705 Original title: ${originalPost.title.substring(0, 80)}`);
+          const sharerWordCount = sharerCaption.trim().split(/\s+/).filter((w) => w.length > 0).length;
+          const sharerPageLabel = sourcePageName || "Newshawk Phuket";
+          const originalPageLabel = originalAuthorName || originalPost.sourceName || "original source";
+          let mergedContent = originalPost.content;
+          if (sharerWordCount > 5) {
+            mergedContent = `${originalPost.content}
+
+[Shared by ${sharerPageLabel} with caption: "${sharerCaption.trim()}"]`;
+          }
+          const resolvedImages = originalPost.imageUrls && originalPost.imageUrls.length > 0 ? originalPost.imageUrls : post.imageUrls;
+          const resolvedImageUrl = originalPost.imageUrl || post.imageUrl;
+          const resolvedPost = {
+            ...post,
+            // keep reshare's sourceUrl, facebookPostId, publishedAt, engagement counts
+            title: originalPost.title,
+            content: mergedContent,
+            imageUrl: resolvedImageUrl,
+            imageUrls: resolvedImages,
+            // Video from original if available
+            isVideo: originalPost.isVideo || post.isVideo,
+            videoUrl: originalPost.videoUrl || post.videoUrl,
+            videoThumbnail: originalPost.videoThumbnail || post.videoThumbnail,
+            // Attribution
+            isResharedPost: true,
+            originalSourceName: originalPageLabel,
+            sourceName: post.sourceName || sourcePageName
+          };
+          console.log(`   \u2705 RESHARE RESOLVED: Merged content (${originalWordCount} original words + ${sharerWordCount > 5 ? sharerWordCount + " sharer words" : "no sharer caption"})`);
+          console.log(`   \u2705 Attribution: Originally posted by "${originalPageLabel}", reshared by "${sharerPageLabel}"`);
+          return resolvedPost;
+        } catch (error) {
+          console.error(`   \u274C Reshare resolution failed:`, error);
+          return null;
+        }
+      }
       // Extract canonical Facebook post ID - ALWAYS returns numeric ID when available
       // This is critical for deduplication: Facebook has multiple URL/ID formats for the same post,
       // and we must normalize to a SINGLE canonical ID (numeric preferred) to prevent duplicates
@@ -1959,7 +2158,9 @@ var init_scraper = __esm({
               }
               const scrapedPosts = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
               console.log(`\u2705 Successfully parsed ${scrapedPosts.length} posts from ${url}`);
-              return scrapedPosts;
+              const sourceDisplayName = pageUrl.match(/facebook\.com\/([^\/\?]+)/)?.[1] || pageUrl;
+              const resolvedPosts = await this.resolveResharedPostsInBatch(scrapedPosts, pageUrl, sourceDisplayName);
+              return resolvedPosts;
             } catch (urlError) {
               console.error(`Error with URL ${url}:`, urlError);
               continue;
@@ -2358,7 +2559,15 @@ var init_scraper = __esm({
               console.log(`   - Has video attachment: ${hasVideoAttachment}`);
             }
             const location = post.place?.name;
-            scrapedPosts.push({
+            const wordCount = content.trim().split(/\s+/).filter((w) => w.length > 0).length;
+            let reshareInfo = null;
+            if (wordCount < this.RESHARE_WORD_THRESHOLD) {
+              reshareInfo = this.detectReshare(post, sourceUrl);
+              if (reshareInfo.isReshare) {
+                console.log(`   \u{1F4E4} Reshare tagged for resolution: "${title.substring(0, 60)}" (${wordCount} words)`);
+              }
+            }
+            const scrapedPost = {
               title: title.trim(),
               content: content.trim(),
               imageUrl,
@@ -2371,17 +2580,64 @@ var init_scraper = __esm({
               videoUrl,
               videoThumbnail,
               location,
-              likeCount: post.like_count,
-              commentCount: post.comment_count,
+              likeCount: post.like_count ?? post.reactionCount,
+              commentCount: post.comment_count ?? post.commentCount,
               shareCount: post.share_count,
               viewCount: post.view_count,
               sourceName: post.author?.name || post.page_name
-            });
+            };
+            if (reshareInfo) {
+              scrapedPost._reshareInfo = reshareInfo;
+            }
+            scrapedPosts.push(scrapedPost);
           } catch (error) {
             console.error(`Error parsing post ${post.id}:`, error);
           }
         }
         return scrapedPosts;
+      }
+      /**
+       * Post-process a batch of parsed posts to resolve any reshares.
+       * This is the async counterpart to the synchronous parseScrapeCreatorsResponse().
+       *
+       * For each post tagged with _reshareInfo, attempts to fetch the original content.
+       * On success, replaces the post with the resolved version.
+       * On failure (deleted/private/rate-limit), keeps the original post as-is.
+       * The 20-word guard in scheduler.ts remains the final backstop.
+       */
+      async resolveResharedPostsInBatch(posts, sourcePageUrl, sourcePageDisplayName) {
+        const resolved = [];
+        for (const post of posts) {
+          const reshareInfo = post._reshareInfo;
+          delete post._reshareInfo;
+          if (!reshareInfo?.isReshare || !reshareInfo.originalUrl) {
+            resolved.push(post);
+            continue;
+          }
+          console.log(`
+\u{1F504} Attempting reshare resolution for: "${post.title.substring(0, 60)}"`);
+          console.log(`   Source URL: ${post.sourceUrl.substring(0, 80)}`);
+          try {
+            const resolvedPost = await this.resolveReshare(
+              post,
+              reshareInfo.originalUrl,
+              reshareInfo.sharerCaption,
+              reshareInfo.originalAuthorName,
+              sourcePageDisplayName
+            );
+            if (resolvedPost) {
+              resolved.push(resolvedPost);
+              console.log(`   \u2705 Reshare resolution succeeded \u2014 using original post content`);
+            } else {
+              console.log(`   \u26A0\uFE0F  Reshare resolution failed \u2014 keeping original thin post (will be filtered by 20-word guard if too short)`);
+              resolved.push(post);
+            }
+          } catch (resolveError) {
+            console.error(`   \u274C Error during reshare resolution:`, resolveError);
+            resolved.push(post);
+          }
+        }
+        return resolved;
       }
       /**
        * Enrich a reel post with missing thumbnail/video data by fetching from single post API
@@ -2483,8 +2739,10 @@ var init_scraper = __esm({
               break;
             }
             const parsed = this.parseScrapeCreatorsResponse(data.posts, pageUrl);
+            const sourceDisplayName = pageUrl.match(/facebook\.com\/([^\/\?]+)/)?.[1] || pageUrl;
+            const reshareResolved = await this.resolveResharedPostsInBatch(parsed, pageUrl, sourceDisplayName);
             const enrichedParsed = [];
-            for (const post of parsed) {
+            for (const post of reshareResolved) {
               const enrichedPost = await this.enrichReelWithDetails(post);
               enrichedParsed.push(enrichedPost);
             }
@@ -6282,7 +6540,7 @@ __export(timeline_service_exports, {
   TimelineService: () => TimelineService,
   getTimelineService: () => getTimelineService
 });
-import { eq as eq7, desc as desc4, and as and6, or, isNotNull } from "drizzle-orm";
+import { eq as eq7, desc as desc4, and as and6, or as or2, isNotNull } from "drizzle-orm";
 function getTimelineService(storage2) {
   if (!timelineServiceInstance) {
     timelineServiceInstance = new TimelineService(storage2);
@@ -6391,7 +6649,7 @@ var init_timeline_service = __esm({
       async getParentStory(seriesId) {
         const [parentStory] = await db.select().from(articles).where(
           and6(
-            or(
+            or2(
               eq7(articles.seriesId, seriesId),
               eq7(articles.slug, seriesId)
               // Also check slug
@@ -6868,11 +7126,6 @@ var init_news_sources = __esm({
         // DISABLED: Posts graphic teaser images (red blob) that bypass image filters
         // Re-enable once the deployed scheduler confirms strictImageFilter + teaser-phrase filter is working
         strictImageFilter: true
-      },
-      {
-        name: "Newshawk Phuket",
-        url: "https://www.facebook.com/NewshawkPhuket",
-        enabled: true
       },
       {
         name: "Phuket Times English",
@@ -9672,6 +9925,30 @@ async function runScheduledScrape(callbacks) {
         try {
           await withTimeout(
             (async () => {
+              const isBlocked = await storage.isSourceBlocked(post.sourceUrl, post.facebookPostId);
+              if (isBlocked) {
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Blocklisted \u2014 previously deleted or manually blocked",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `Source URL or Facebook post ID is in scraper_blocklist table.`
+                });
+                console.log(`
+\u{1F6AB} BLOCKLISTED \u2014 Skipping post permanently:`);
+                console.log(`   Title: ${post.title.substring(0, 80)}`);
+                console.log(`   Source URL: ${post.sourceUrl}`);
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews
+                  });
+                }
+                return;
+              }
               const videoKeywords = [
                 // Thai keywords for video/clip
                 "\u0E04\u0E25\u0E34\u0E1B",
@@ -9795,6 +10072,37 @@ async function runScheduledScrape(callbacks) {
 \u23ED\uFE0F  SKIPPED - TEASER GRAPHIC POST ("read more in comments" detected)`);
                 console.log(`   Title: ${post.title.substring(0, 60)}...`);
                 console.log(`   \u2705 Skipped before translation (saved API credits)
+`);
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews
+                  });
+                }
+                return;
+              }
+              const MIN_CONTENT_WORDS = 30;
+              const MIN_CONTENT_CHARS = 120;
+              const combinedText = `${post.title} ${post.content}`.trim();
+              const combinedWordCount = combinedText.split(/\s+/).filter((w) => w.length > 0).length;
+              const combinedCharCount = combinedText.length;
+              if (combinedWordCount < MIN_CONTENT_WORDS || combinedCharCount < MIN_CONTENT_CHARS) {
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Too short \u2014 likely a shared-post caption with no original content",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `${combinedWordCount} words / ${combinedCharCount} chars (minimums: ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c). This is almost certainly a reshare caption, not a news article.`
+                });
+                console.log(`
+\u23ED\uFE0F  SKIPPED - CONTENT TOO SHORT (${combinedWordCount}w / ${combinedCharCount}c < ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c)`);
+                console.log(`   Title: ${post.title.substring(0, 80)}`);
+                console.log(`   Content preview: ${post.content.substring(0, 100)}...`);
+                console.log(`   \u26A0\uFE0F  Likely a reshared post \u2014 scraper only captured the sharer's caption, not the original post.`);
+                console.log(`   \u2705 Silently dropped before translation (saved API credits)
 `);
                 if (callbacks?.onProgress) {
                   callbacks.onProgress({
@@ -10469,6 +10777,14 @@ async function runScheduledScrape(callbacks) {
                   "\u0E1A\u0E38\u0E01\u0E23\u0E38\u0E01",
                   "\u0E17\u0E35\u0E48\u0E14\u0E34\u0E19",
                   "\u0E01\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07",
+                  "\u0E17\u0E35\u0E48\u0E2A\u0E32\u0E18\u0E32\u0E23\u0E13\u0E30",
+                  "\u0E2B\u0E32\u0E14\u0E2A\u0E32\u0E18\u0E32\u0E23\u0E13\u0E30",
+                  "\u0E41\u0E2B\u0E25\u0E21",
+                  "\u0E42\u0E02\u0E14\u0E2B\u0E34\u0E19",
+                  "\u0E1B\u0E39\u0E19",
+                  "\u0E17\u0E48\u0E2D",
+                  "\u0E17\u0E33\u0E25\u0E32\u0E22",
+                  "\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E34\u0E40\u0E27\u0E28",
                   "\u0E23\u0E37\u0E49\u0E2D\u0E16\u0E2D\u0E19",
                   "\u0E1C\u0E34\u0E14\u0E01\u0E0E\u0E2B\u0E21\u0E32\u0E22",
                   "\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E01\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07",
@@ -10492,11 +10808,14 @@ async function runScheduledScrape(callbacks) {
                   "\u0E23\u0E16\u0E44\u0E1F\u0E1F\u0E49\u0E32"
                 ];
                 const combinedPostText = `${post.title} ${post.content}`;
-                const mightBeHighInterest = hotKeywords.some((kw) => combinedPostText.includes(kw));
+                const hasHotKeyword = hotKeywords.some((kw) => combinedPostText.includes(kw));
+                const hasHighEngagement = post.commentCount && post.commentCount >= 50 || post.likeCount && post.likeCount >= 200;
+                const mightBeHighInterest = hasHotKeyword || hasHighEngagement;
                 let communityComments;
                 if (mightBeHighInterest && post.sourceUrl) {
                   try {
-                    console.log(`   \u{1F525} Potential high-interest story detected - fetching community comments...`);
+                    const triggerReason = hasHotKeyword && hasHighEngagement ? "keyword + engagement" : hasHotKeyword ? "keyword" : "high engagement";
+                    console.log(`   \u{1F525} High-interest story detected (${triggerReason}) - fetching community comments...`);
                     const comments = await scrapePostComments(post.sourceUrl, 15);
                     if (comments.length > 0) {
                       communityComments = comments.filter((c) => c.text && c.text.length > 10).map((c) => c.text);
@@ -14464,6 +14783,37 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to delete article" });
     }
   });
+  app2.get("/api/admin/blocklist", requireAdminAuth, async (req, res) => {
+    try {
+      const list = await storage.getBlocklist();
+      res.json(list);
+    } catch (error) {
+      console.error("Error fetching blocklist:", error);
+      res.status(500).json({ error: "Failed to fetch blocklist" });
+    }
+  });
+  app2.post("/api/admin/blocklist", requireAdminAuth, async (req, res) => {
+    try {
+      const { sourceUrl, sourceFacebookPostId, reason = "manually_blocked" } = req.body;
+      if (!sourceUrl && !sourceFacebookPostId) {
+        return res.status(400).json({ error: "At least one of sourceUrl or sourceFacebookPostId is required" });
+      }
+      await storage.addToBlocklist({
+        sourceUrl: sourceUrl || void 0,
+        sourceFacebookPostId: sourceFacebookPostId || void 0,
+        reason,
+        articleTitle: req.body.articleTitle || void 0
+      });
+      console.log(`\u{1F6AB} [BLOCKLIST] Manual block added:`);
+      if (sourceUrl) console.log(`   Source URL: ${sourceUrl}`);
+      if (sourceFacebookPostId) console.log(`   FB Post ID: ${sourceFacebookPostId}`);
+      console.log(`   Reason: ${reason}`);
+      res.json({ success: true, message: "Entry added to blocklist \u2014 will be skipped on all future scrapes" });
+    } catch (error) {
+      console.error("Error adding to blocklist:", error);
+      res.status(500).json({ error: "Failed to add to blocklist" });
+    }
+  });
   app2.post("/api/admin/articles/:id/publish", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -15481,6 +15831,14 @@ app.use((req, res, next) => {
     }
   });
   next();
+});
+app.get("/api/debug/version", (req, res) => {
+  res.json({
+    version: "1.0.5-debug-fix",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    deployment: "verified",
+    note: "Registered directly in index.ts"
+  });
 });
 var serverPromise = registerRoutes(app);
 app.get("/category/:category", (req, res) => {
