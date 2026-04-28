@@ -21,7 +21,7 @@ export function Footer() {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Phuket Radar. All rights reserved. (v1.1.0)
+              © {new Date().getFullYear()} Phuket Radar. All rights reserved. (v1.2.0)
             </p>
             <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy">
               Privacy Policy
