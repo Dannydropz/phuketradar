@@ -37,11 +37,7 @@ export const NEWS_SOURCES: NewsSource[] = [
     // Re-enable once the deployed scheduler confirms strictImageFilter + teaser-phrase filter is working
     strictImageFilter: true,
   },
-  {
-    name: "Newshawk Phuket",
-    url: "https://www.facebook.com/NewshawkPhuket",
-    enabled: false, // PAUSED: Frequent reshared posts with thin captions triggering hallucinations
-  },
+
   {
     name: "Phuket Times English",
     url: "https://www.facebook.com/PhuketTimes.News",
