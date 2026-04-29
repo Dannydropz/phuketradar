@@ -26,6 +26,8 @@ import {
   Code,
   Undo,
   Redo,
+  Video,
+  Link2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Article, Category } from '@shared/schema';
@@ -46,6 +48,7 @@ interface ArticleEditorProps {
     facebookEmbedUrl?: string | null;
     sourceUrl?: string;
     facebookHeadline?: string;
+    videoUrl?: string | null;
   }) => Promise<void>;
   onCancel: () => void;
   isSaving?: boolean;
@@ -68,7 +71,9 @@ export function ArticleEditor({
   const [facebookEmbedUrl, setFacebookEmbedUrl] = useState((article as any)?.facebookEmbedUrl || '');
   const [sourceUrl, setSourceUrl] = useState(article?.sourceUrl || '');
   const [facebookHeadline, setFacebookHeadline] = useState(article?.facebookHeadline || '');
+  const [videoUrl, setVideoUrl] = useState(article?.videoUrl || '');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isGeneratingHeadline, setIsGeneratingHeadline] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [previousScore, setPreviousScore] = useState<number>(article?.interestScore ?? 3);
@@ -133,6 +138,7 @@ export function ArticleEditor({
       facebookEmbedUrl: facebookEmbedUrl.trim() || null, // Use null to clear, undefined would be ignored
       sourceUrl: sourceUrl || undefined,
       facebookHeadline: facebookHeadline || undefined,
+      videoUrl: videoUrl.trim() || null, // Use null to clear
     });
   };
 
@@ -270,6 +276,45 @@ export function ArticleEditor({
     }
   };
 
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingVideo(true);
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+
+      const response = await fetch('/api/admin/upload-video', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setVideoUrl(data.videoUrl);
+
+      toast({
+        title: "Video Uploaded",
+        description: "Video uploaded to Cloudinary successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Video Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload video",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingVideo(false);
+      e.target.value = '';
+    }
+  };
+
   if (!editor) {
     return <div>Loading editor...</div>;
   }
@@ -397,19 +442,85 @@ export function ArticleEditor({
         </p>
       </div>
 
-      {/* Facebook Video Embed URL */}
-      <div className="space-y-2">
-        <Label htmlFor="article-facebook-embed">Facebook Video/Reel Embed URL (optional)</Label>
-        <Input
-          id="article-facebook-embed"
-          data-testid="input-article-facebook-embed"
-          value={facebookEmbedUrl}
-          onChange={(e) => setFacebookEmbedUrl(e.target.value)}
-          placeholder="https://www.facebook.com/reel/4117170505095746"
-        />
-        <p className="text-xs text-muted-foreground">
-          Paste a Facebook video or reel URL to embed it on the article page. Use this when the video can't be scraped directly.
-        </p>
+      {/* Video Section */}
+      <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Video className="w-4 h-4 text-primary" />
+          <Label className="text-sm font-semibold">Video (optional)</Label>
+        </div>
+
+        {/* Direct Video URL or Upload */}
+        <div className="space-y-2">
+          <Label htmlFor="article-video-url" className="text-xs text-muted-foreground">Direct Video URL or Cloudinary Upload</Label>
+          <div className="flex gap-2">
+            <Input
+              type="file"
+              accept="video/*"
+              onChange={handleVideoUpload}
+              disabled={isUploadingVideo}
+              className="hidden"
+              id="video-upload"
+              data-testid="input-article-video-file"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => document.getElementById('video-upload')?.click()}
+              disabled={isUploadingVideo}
+              data-testid="button-upload-video"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {isUploadingVideo ? 'Uploading...' : 'Upload Video'}
+            </Button>
+            <Input
+              id="article-video-url"
+              data-testid="input-article-video-url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://res.cloudinary.com/... or any direct .mp4 URL"
+              className="flex-1"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Upload a video file (mp4, mov, webm — up to 500MB) to Cloudinary, or paste any direct video URL. This will be embedded as a native video player on the article page.
+          </p>
+          {videoUrl && (
+            <div className="flex items-center gap-2 mt-2">
+              <video
+                src={videoUrl}
+                controls
+                className="w-full max-w-sm rounded-md max-h-48"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setVideoUrl('')}
+                data-testid="button-remove-video"
+              >
+                Remove
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Facebook Reel / Embed URL */}
+        <div className="space-y-2">
+          <Label htmlFor="article-facebook-embed" className="text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><Link2 className="w-3 h-3" /> Facebook Reel / Video Embed URL</span>
+          </Label>
+          <Input
+            id="article-facebook-embed"
+            data-testid="input-article-facebook-embed"
+            value={facebookEmbedUrl}
+            onChange={(e) => setFacebookEmbedUrl(e.target.value)}
+            placeholder="https://www.facebook.com/reel/4117170505095746"
+          />
+          <p className="text-xs text-muted-foreground">
+            Paste a Facebook reel or video URL here if you want to embed it directly from Facebook (no upload needed).
+          </p>
+        </div>
       </div>
 
       {/* Source URL */}

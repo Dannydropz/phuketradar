@@ -416,6 +416,8 @@ export default function AdminDashboard() {
       imageUrls?: string[];
       sourceUrl?: string;
       facebookHeadline?: string;
+      videoUrl?: string | null;
+      facebookEmbedUrl?: string | null;
     }) => {
       const res = await apiRequest("POST", "/api/admin/articles", {
         ...data,
@@ -454,6 +456,8 @@ export default function AdminDashboard() {
         imageUrls?: string[];
         sourceUrl?: string;
         facebookHeadline?: string;
+        videoUrl?: string | null;
+        facebookEmbedUrl?: string | null;
       };
     }) => {
       const res = await apiRequest("PATCH", `/api/admin/articles/${id}`, data);
@@ -596,6 +600,10 @@ export default function AdminDashboard() {
     imageUrl?: string;
     imageUrls?: string[];
     interestScore?: number;
+    facebookEmbedUrl?: string | null;
+    sourceUrl?: string;
+    facebookHeadline?: string;
+    videoUrl?: string | null;
   }) => {
     if (editingArticle) {
       await updateArticleMutation.mutateAsync({ id: editingArticle.id, data });

@@ -2800,6 +2800,78 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     }
   });
 
+  // Configure multer for video uploads (larger file limit, video mime types)
+  const uploadVideo = multer({
+    storage: storage_multer,
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit for videos
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /mp4|mov|avi|webm|mkv|m4v/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetypeOk = file.mimetype.startsWith('video/');
+      if (mimetypeOk && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only video files are allowed (mp4, mov, avi, webm, mkv)'));
+      }
+    }
+  });
+
+  // Video upload endpoint - PROTECTED (uploads to Cloudinary as video resource)
+  app.post("/api/admin/upload-video", requireAdminAuth, uploadVideo.single('video'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const originalPath = req.file.path;
+
+      // Check if Cloudinary is configured
+      if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        console.error("❌ Cloudinary not configured for video upload");
+        try { await fs.unlink(originalPath); } catch (e) { /* ignore */ }
+        return res.status(500).json({ error: "Video storage not configured" });
+      }
+
+      console.log(`📤 Processing uploaded video: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(1)}MB)`);
+
+      // Import and configure Cloudinary
+      const { v2: cloudinary } = await import("cloudinary");
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 10);
+
+      // Upload video to Cloudinary using upload (not upload_stream) for large files
+      const result = await cloudinary.uploader.upload(originalPath, {
+        folder: "phuketradar/videos",
+        public_id: `manual-video-${timestamp}-${randomSuffix}`,
+        resource_type: "video",
+        chunk_size: 6000000, // 6MB chunks for reliability
+      });
+
+      // Clean up temp file after upload
+      try { await fs.unlink(originalPath); } catch (e) { /* ignore */ }
+
+      if (!result?.secure_url) {
+        return res.status(500).json({ error: "No URL returned from Cloudinary" });
+      }
+
+      console.log(`✅ Video uploaded to Cloudinary: ${result.secure_url}`);
+      res.json({ videoUrl: result.secure_url });
+    } catch (error) {
+      console.error("Error uploading video:", error);
+      if (req.file) {
+        try { await fs.unlink(req.file.path); } catch (e) { /* ignore */ }
+      }
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload video";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   // Generate Facebook headline using AI - PROTECTED
   app.post("/api/admin/generate-facebook-headline", requireAdminAuth, async (req, res) => {
     try {
