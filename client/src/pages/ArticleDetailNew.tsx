@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useRoute } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { Search, Menu, Clock, Share2, ChevronLeft, Play } from "lucide-react";
@@ -38,6 +38,24 @@ const getJournalistImageUrl = (url?: string | null) => {
     return `/ assets / ${url} `;
 };
 
+// Derive a thumbnail URL from a Cloudinary video URL.
+// Cloudinary supports on-the-fly frame extraction by changing the extension to .jpg
+// and inserting transformation params: so_0 (seek to 0s), w_1280, q_auto, f_jpg
+const getCloudinaryVideoThumbnail = (videoUrl?: string | null): string | null => {
+    if (!videoUrl) return null;
+    try {
+        // Only applies to Cloudinary URLs
+        if (!videoUrl.includes('res.cloudinary.com')) return null;
+        // Replace /upload/ with /upload/so_0,w_1280,q_auto,f_jpg/
+        // Then strip the video extension and add .jpg
+        const withTransform = videoUrl.replace('/upload/', '/upload/so_0,w_1280,q_auto,f_jpg/');
+        // Strip original extension (mov, mp4, webm, avi, mkv) and replace with .jpg
+        return withTransform.replace(/\.(mov|mp4|webm|avi|mkv|m4v)(\?.*)?$/i, '.jpg');
+    } catch {
+        return null;
+    }
+};
+
 export default function ArticleDetailNew() {
     const [, params] = useRoute("/:category/:slugOrId");
     const slugOrId = params?.slugOrId || "";
@@ -46,6 +64,7 @@ export default function ArticleDetailNew() {
     const [current, setCurrent] = useState(0);
     const [searchOpen, setSearchOpen] = useState(false);
     const [videoStarted, setVideoStarted] = useState(false);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
     const { trackViewContent } = useMetaPixel();
 
     const { data: article, isLoading, error, isError } = useQuery<Article>({
@@ -90,6 +109,27 @@ export default function ArticleDetailNew() {
         setVideoStarted(false);
     }, [article?.id]);
 
+    // Autoplay video when it scrolls into view (>50% visible)
+    const setupVideoAutoplay = useCallback((videoEl: HTMLVideoElement | null) => {
+        if (!videoEl) return;
+        videoRef.current = videoEl;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                        videoEl.play().catch(() => {/* autoplay blocked - silent fail */});
+                        setVideoStarted(true);
+                    } else {
+                        videoEl.pause();
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+        observer.observe(videoEl);
+        return () => observer.disconnect();
+    }, []);
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -124,6 +164,14 @@ export default function ArticleDetailNew() {
         : (typeof window !== 'undefined' ? window.location.origin : 'https://phuketradar.com');
     const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
     const canonicalUrl = `${baseUrl}${articlePath}`;
+
+    // Pre-compute video thumbnail: explicit field > Cloudinary auto-derived > article image > null
+    const resolvedVideoThumbnail = article.videoUrl
+        ? (article.videoThumbnail ||
+           getCloudinaryVideoThumbnail(article.videoUrl) ||
+           article.imageUrl ||
+           (article.imageUrls ? article.imageUrls[0] : null))
+        : null;
 
     // Compute word count from stripped HTML — used for noindex and JSON-LD
     const plainText = article.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -401,18 +449,24 @@ export default function ArticleDetailNew() {
                             ) : article.videoUrl ? (
                                 <div className="space-y-2">
                                     <div className="rounded-2xl overflow-hidden border border-white/10 bg-black relative">
-                                        {!videoStarted ? (
-                                            /* Play Button Overlay - Shows thumbnail with centered play button */
+                                        {/* Overlay with thumbnail + play button — hidden once video starts */}
+                                        {!videoStarted && (
                                             <div
                                                 className="relative cursor-pointer group"
                                                 onClick={() => setVideoStarted(true)}
                                             >
-                                                {/* Poster/Thumbnail Image */}
-                                                <img
-                                                    src={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
-                                                    alt={article.title}
-                                                    className="w-full max-h-[600px] object-contain mx-auto"
-                                                />
+                                                {resolvedVideoThumbnail ? (
+                                                    <img
+                                                        src={resolvedVideoThumbnail}
+                                                        alt={article.title}
+                                                        className="w-full max-h-[600px] object-contain mx-auto block"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-64 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                                                )}
 
                                                 {/* Dark Gradient Overlay */}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10 group-hover:from-black/70 group-hover:via-black/30 transition-all duration-300" />
@@ -430,17 +484,19 @@ export default function ArticleDetailNew() {
                                                     <span className="text-xs font-medium text-white">Video</span>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            /* Actual Video Player - Shows after clicking play */
-                                            <video
-                                                src={article.videoUrl}
-                                                poster={article.videoThumbnail || article.imageUrl || (article.imageUrls ? article.imageUrls[0] : undefined)}
-                                                controls
-                                                autoPlay
-                                                playsInline
-                                                className="w-full max-h-[600px] object-contain mx-auto"
-                                            />
                                         )}
+
+                                        {/* Actual video — hidden behind overlay, revealed on play/scroll */}
+                                        <video
+                                            ref={setupVideoAutoplay}
+                                            src={article.videoUrl}
+                                            poster={resolvedVideoThumbnail || undefined}
+                                            controls
+                                            playsInline
+                                            muted
+                                            className={`w-full max-h-[600px] object-contain mx-auto ${videoStarted ? 'block' : 'hidden'}`}
+                                            onPlay={() => setVideoStarted(true)}
+                                        />
                                     </div>
                                     {/* Video Source Credit */}
                                     <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 py-2">
