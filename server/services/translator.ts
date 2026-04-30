@@ -845,6 +845,14 @@ You transform Thai-language source material into English news articles. You outp
       ? `THAI COMMUNITY COMMENTS (from original Facebook post):\n${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}`
       : '';
 
+    // Detect sparse source: short content with no comments = high hallucination risk
+    const enrichmentSourceWords = `${params.title} ${params.content}`.split(/\s+/).filter(Boolean).length;
+    const isSparseEnrichmentSource = enrichmentSourceWords < 30 && (!params.communityComments || params.communityComments.length === 0);
+
+    const sparseSourceWarning = isSparseEnrichmentSource
+      ? `\n🚨 SPARSE SOURCE WARNING — MANDATORY READ:\nThe source text has fewer than 30 words and there are NO community comments.\nThis means you have VERY LIMITED factual material to work with.\n\nYOU MUST:\n- Write ONLY about what is explicitly in the source text above.\n- Keep the article SHORT (2-3 paragraphs max). Do NOT pad it with invented details.\n- If you cannot identify who, what, where, or when from the source — DO NOT invent them.\n- Use the "Developing Story" marker (Part 7 below) since details are limited.\n- A short honest article is ALWAYS better than a long fabricated one.\n\nYOU MUST NOT:\n- Invent specific people (e.g., "tourists", "a foreign national", "a driver") if not in source.\n- Invent a location (e.g., "Patong", "Bangla Road") if not in source.\n- Invent an event type (e.g., "fight", "crash", "arrest") if not explicitly in source.\n- Fill the article body with generic Phuket background just to hit 200 words.\n\nIF the source is about a road rage / driving incident, write ONLY about the driving behavior shown. DO NOT assume a fight occurred unless the source explicitly says so.\n`
+      : '';
+
     const prompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
 Source type: ${params.sourceType || 'UNKNOWN'}
@@ -867,9 +875,11 @@ ${params.excerpt}
 
 ${commentsBlock}
 
+${sparseSourceWarning}
 ---
 
 You must follow ALL instructions below. Do not skip any REQUIRED section.
+
 
 ========================================
 STEP 1: CHECKS (apply before writing)
@@ -1120,24 +1130,42 @@ Your output (valid JSON only):`;
         console.log('=== END ENRICHMENT RESPONSE ===');
         result = JSON.parse(completion.choices[0].message.content || "{}");
       } else {
+        // Anthropic key exists — attempt call, fall back to OpenAI on any error
         console.log(`   🤖 [ANTHROPIC] Enriching with ${anthropicModel}`);
-        const response = await anthropic.messages.create({
-          model: anthropicModel,
-          max_tokens: 3000,
-          temperature: 0.3,
-          system: systemPrompt,
-          messages: [{ role: "user", content: prompt }],
-        });
-        console.log('=== ENRICHMENT RESPONSE ===');
-        console.log('Raw response:', JSON.stringify(response).substring(0, 1000));
-        console.log('=== END ENRICHMENT RESPONSE ===');
-        const responseContent = response.content[0];
-        if (responseContent.type !== 'text') {
-          throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
+        try {
+          const response = await anthropic.messages.create({
+            model: anthropicModel,
+            max_tokens: 3000,
+            temperature: 0.3,
+            system: systemPrompt,
+            messages: [{ role: "user", content: prompt }],
+          });
+          console.log('=== ENRICHMENT RESPONSE ===');
+          console.log('Raw response:', JSON.stringify(response).substring(0, 1000));
+          console.log('=== END ENRICHMENT RESPONSE ===');
+          const responseContent = response.content[0];
+          if (responseContent.type !== 'text') {
+            throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
+          }
+          // Strip any accidental markdown code fences before parsing
+          const cleaned = responseContent.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          result = JSON.parse(cleaned);
+        } catch (anthropicError: any) {
+          // Anthropic failed (credits, network, etc.) — fall back to OpenAI silently
+          const isCreditsError = anthropicError?.status === 400 || anthropicError?.status === 402;
+          console.warn(`   ⚠️  Anthropic enrichment failed${isCreditsError ? ' (credit balance)' : ''} — falling back to OpenAI GPT-4o mini`);
+          const openaiCompletion = await openai.chat.completions.create({
+            model: model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.3,
+            response_format: { type: "json_object" },
+          });
+          result = JSON.parse(openaiCompletion.choices[0].message.content || "{}");
+          console.log(`   ✅ OpenAI fallback enrichment succeeded`);
         }
-        // Strip any accidental markdown code fences before parsing
-        const cleaned = responseContent.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-        result = JSON.parse(cleaned);
       }
     } else {
       // ── OpenAI path (default) ──────────────────────────────────────────────
@@ -1333,9 +1361,6 @@ CRITICAL RULE: Do NOT extract one item from a list of grievances and frame it as
    - ANY story mentioning "His Majesty", "Her Majesty", "Royal Family", "พระราชา", "ในหลวง", "ภูมิพลอดุลยเดช"
    - THIS APPLIES TO ALL ROYAL STORIES - even positive ones like donations, ceremonies, or tributes
    - REASON: Thailand's lese majeste laws make ANY royal family content legally risky. ALWAYS reject.
-   
-   📰 **OTHER BLOCKED CONTENT:**
-   - "Phuket Times" or "Phuket Time News" itself (self-referential content about the news source)
 
 3. If it's acceptable news, ${isComplex ? 'polish and rewrite the Google-translated text' : 'translate from Thai to English'} in a clear, professional news style.
 
@@ -1372,19 +1397,19 @@ Respond in JSON format:
 {
   "sourceType": "INCIDENT_REPORT" | "POLITICAL_STATEMENT" | "COMMUNITY_DISCUSSION" | "OFFICIAL_ANNOUNCEMENT" | "PR_CORPORATE",
   "isActualNews": true/false,
-  "translatedTitle": "FACTUAL headline describing what happened. MUST state the actual event with specific details. FORBIDDEN PHRASES that are too vague or editorialize: 'highlights concerns', 'raises concerns', 'sparks debate', 'leaves residents wondering', 'draws attention', 'prompts questions'. GOOD: 'Tourists Fight on Bangla Road', 'Car Crashes Into Garbage Truck in Patong'. BAD: 'Tourist Altercation Highlights Safety Concerns' (too vague, editorializing). Follow AP Style, Title Case.",
-  "translatedContent": "professional news article in HTML format. CRITICAL FORMATTING REQUIREMENTS: (1) MUST wrap EVERY paragraph in <p></p> tags, (2) MUST have at least 3-5 separate paragraphs for readability, (3) Use <h3> for section headings like Context, (4) NEVER return a single wall of text without paragraph breaks - this is UNACCEPTABLE and will result in poor user experience",
-  "excerpt": "2-3 sentence FACTUAL summary describing what happened. FORBIDDEN: 'highlights concerns', 'raises questions', 'sparks debate', 'draws attention'. MUST describe the actual event, not vague implications. GOOD: 'A street fight between tourists broke out in Patong.' BAD: 'The incident highlights ongoing concerns about tourist behavior.'",
+  "translatedTitle": "FACTUAL headline describing ONLY what the source explicitly states. Use specific names, places, numbers from the source. FORBIDDEN phrases: 'highlights concerns', 'raises concerns', 'sparks debate', 'leaves residents wondering', 'draws attention', 'prompts questions'. GOOD structure: '[Person/Group] [Action] [Location/Context]'. BAD: '[Vague noun] Highlights Safety Concerns'. Follow AP Style, Title Case. 🚨 CRITICAL: If you do not have enough source detail to write a specific headline, set needsReview=true and write a vague placeholder — DO NOT invent a specific event that isn't in the source.",
+  "translatedContent": "professional news article in HTML format. CRITICAL FORMATTING REQUIREMENTS: (1) MUST wrap EVERY paragraph in <p></p> tags, (2) MUST have at least 3-5 separate paragraphs for readability, (3) Use <h3> for section headings like Context, (4) NEVER return a single wall of text without paragraph breaks - this is UNACCEPTABLE and will result in poor user experience. 🚨 ONLY include events, people, and places that appear in the SOURCE TEXT. Do not invent a narrative to fill word count.",
+  "excerpt": "2-3 sentence FACTUAL summary using ONLY details from the source. FORBIDDEN: 'highlights concerns', 'raises questions', 'sparks debate', 'draws attention'. Write only what the source explicitly states. If the source is too sparse to write 2-3 factual sentences, write what you know and set needsReview=true.",
   "category": "Weather|Local|Traffic|Tourism|Business|Politics|Economy|Crime|National",
   "categoryReasoning": "brief explanation of why you chose this category (1 sentence)",
   "interestScore": 1-5 (integer),
   "isDeveloping": true/false (true if story has limited details/developing situation - phrases like "authorities investigating", "more details to follow", "initial reports", "unconfirmed", sparse information, or breaking news with incomplete facts),
-  "needsReview": true/false (Set to TRUE if: 1. You are unsure about the location 2. The story seems like a rumor 3. You had to guess any details 4. It mentions a province outside Phuket but you aren't 100% sure if it's relevant 5. The source text is very short or ambiguous),
+  "needsReview": true/false (Set to TRUE if ANY of these apply: 1. You are unsure about the location. 2. The story seems like a rumor. 3. You had to guess or invent any details NOT in the source. 4. It mentions a province outside Phuket but you aren't 100% sure if it's relevant. 5. The source text is very short (under 30 words) or highly ambiguous. 6. You cannot write a specific headline using only facts from the source. IMPORTANT: When in doubt, set needsReview=true. A human will review it. This is ALWAYS safer than inventing details.),
   "reviewReason": "Explanation of why this needs human review (required if needsReview is true)",
-  "facebookHeadline": "FACTUAL TEASER (max 15 words): Describe what happened with real names/places, but withhold full details. MUST BE FACTUAL - state the actual event clearly. FORBIDDEN: 'raises concerns', 'highlights concerns', 'sparks debate', 'unexpected' (for known events). GOOD EXAMPLES: 'Tourists fight on Bangla Road' (factual, readers want details), 'Car crashes into garbage truck in Patong' (factual, readers want to know injuries/cause), 'Man found dead at Karon hotel' (factual, readers want to know how/who). BAD EXAMPLES: 'Collision in Patong raises safety concerns' (vague, made-up context), 'Festival attracts unexpected crowds' (if it's a known event, not unexpected). DON'T over-dramatize or invent context."
+  "facebookHeadline": "FACTUAL TEASER (max 15 words): Describe what happened using ONLY real names/places from the source. MUST BE FACTUAL — state the actual event clearly. FORBIDDEN: 'raises concerns', 'highlights concerns', 'sparks debate', 'unexpected' (for known events). DON'T over-dramatize or invent context. 🚨 If source lacks enough detail for a specific tease, write a vague but honest teaser and set needsReview=true — do NOT invent specifics."
 }
 
-If this is NOT actual news (promotional content, greetings, ads, royal family content, or self-referential Phuket Times content), set isActualNews to false and leave other fields empty.`;
+If this is NOT actual news (promotional content, greetings, ads, or royal family content), set isActualNews to false and leave other fields empty.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -2117,9 +2142,30 @@ Always output valid JSON.`,
       console.log(`   📊 Final Interest Score: ${finalInterestScore}/5`);
 
       // STEP 6: PREMIUM ENRICHMENT for high-priority stories (score 4-5)
-      let enrichedTitle = result.translatedTitle || title;
-      let enrichedContent = result.translatedContent || content;
-      let enrichedExcerpt = result.excerpt || "";
+      // ⚠️ CRITICAL: When isActualNews is false, result.translatedTitle is empty.
+      // Fall back to a Google-translated title so we NEVER save the raw Thai title.
+      let enrichedTitle = result.translatedTitle;
+      let enrichedContent = result.translatedContent;
+      let enrichedExcerpt = result.excerpt || '';
+
+      if (!enrichedTitle || /[\u0E00-\u0E7F]/.test(enrichedTitle)) {
+        // GPT didn't translate the title — attempt Google Translate as safety net
+        try {
+          const { translate: gtTranslate } = await import('@vitalets/google-translate-api');
+          const fallback = await gtTranslate(title, { to: 'en' });
+          enrichedTitle = fallback.text;
+          console.log(`   🌍 Google Translate title fallback: "${enrichedTitle.substring(0, 60)}"`);
+        } catch (_gtErr) {
+          // Last resort: keep original Thai but flag it
+          enrichedTitle = title;
+          console.warn(`   ⚠️  Could not translate title — saving original Thai text`);
+        }
+      }
+
+      if (!enrichedContent || /[\u0E00-\u0E7F]{3,}/.test(enrichedContent)) {
+        enrichedContent = content; // Will be caught by final Thai safeguard
+      }
+
 
       if (finalInterestScore >= 4) {
         // Fetch comments if they weren't fetched before translation (because of missing keywords)
@@ -2233,6 +2279,54 @@ Always output valid JSON.`,
         }
       }
 
+      // ── POST-ENRICHMENT HALLUCINATION GUARD ───────────────────────────────
+      // If the source content is very short (sparse facts) and we have no comments,
+      // there is high risk the enrichment model invented a narrative. Force needsReview
+      // and fall back to the base translation to prevent publishing hallucinated content.
+      const sourceWordCount = `${title} ${content}`.split(/\s+/).filter(Boolean).length;
+      const isSparsSource = sourceWordCount < 30;
+      const hasNoComments = !communityComments || communityComments.length === 0;
+
+      // Check if enriched title diverges significantly from the base translated title
+      // (a sign the model filled in details not in the source)
+      let needsReviewFinal = result.needsReview || false;
+      let reviewReasonFinal = result.reviewReason || undefined;
+
+      if (isSparsSource && hasNoComments && result.isActualNews) {
+        needsReviewFinal = true;
+        reviewReasonFinal = (reviewReasonFinal ? reviewReasonFinal + ' ' : '') +
+          `Source content is very sparse (${sourceWordCount} words) with no community comments — high hallucination risk. Human review required before publishing.`;
+        console.warn(`   ⚠️  SPARSE SOURCE GUARD: ${sourceWordCount} words, no comments → forcing needsReview=true`);
+      }
+
+      // Known hallucination fingerprint: enrichment model invented the tourist fight story
+      // when source had no clear narrative. Block the enriched version and use base translation.
+      const KNOWN_HALLUCINATION_PATTERNS = [
+        /tourists.*fight.*patong/i,
+        /tourists.*engage.*street fight/i,
+        /street fight.*broke out.*patong/i,
+        /tourists.*brawl.*bangla/i,
+        /fight.*broke out between tourists/i,
+      ];
+      const enrichedTitleIsHallucination = KNOWN_HALLUCINATION_PATTERNS.some(p =>
+        p.test(enrichedTitle)
+      );
+      const enrichedExcerptIsHallucination = KNOWN_HALLUCINATION_PATTERNS.some(p =>
+        p.test(enrichedExcerpt)
+      );
+
+      if (enrichedTitleIsHallucination || enrichedExcerptIsHallucination) {
+        console.error(`\n🚨 HALLUCINATION DETECTED: Enrichment model generated known fabricated story pattern!`);
+        console.error(`   Enriched title: "${enrichedTitle}"`);
+        console.error(`   Falling back to base translation and forcing needsReview=true`);
+        // Revert to the base (pre-enrichment) translation
+        enrichedTitle = result.translatedTitle || title;
+        enrichedContent = result.translatedContent || content;
+        enrichedExcerpt = result.excerpt || '';
+        needsReviewFinal = true;
+        reviewReasonFinal = 'HALLUCINATION BLOCKED: Enrichment model generated a fabricated tourist fight story not supported by source content. Base translation restored. Do not publish without verifying.';
+      }
+
       return {
         translatedTitle: enforceSoiNamingConvention(enrichedTitle),
         translatedContent: enforceSoiNamingConvention(enrichedContent),
@@ -2241,8 +2335,8 @@ Always output valid JSON.`,
         isActualNews: result.isActualNews || false,
         interestScore: finalInterestScore,
         isDeveloping: result.isDeveloping || false,
-        needsReview: result.needsReview || false,
-        reviewReason: result.reviewReason,
+        needsReview: needsReviewFinal,
+        reviewReason: reviewReasonFinal,
         isPolitics: category === "Politics" || hasPoliticsKeyword,
         // Block auto-boosting for categories editorial team finds "boring" even as videos
         autoBoostScore: !(category === "Politics" || hasPoliticsKeyword || category === "Business" || hasRealEstateKeyword || hasFoundationGovernanceKeyword),

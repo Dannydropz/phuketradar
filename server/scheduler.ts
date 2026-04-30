@@ -390,14 +390,19 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               }
 
               // STEP -3b: Minimum content length guard — drop share captions masquerading as posts
-              // When Newshawk Phuket (or any source) reshares a post from another page, the
-              // ScrapeCreators API only returns the SHARER'S caption text, NOT the original post
-              // body. A reshare caption like 'อย่าหาทำ!' (2 words) has zero news value and
-              // will cause the AI to hallucinate a completely unrelated article.
-              // Rule: silently drop any post whose combined title+content is under threshold.
-              // Thresholds: < 30 words OR < 120 characters.
-              const MIN_CONTENT_WORDS = 30;
-              const MIN_CONTENT_CHARS = 120;
+              // When a source reshares a post from another page, the ScrapeCreators API only
+              // returns the SHARER'S caption text, NOT the original post body.
+              // A reshare caption like 'อย่าหาทำ!' (2 words) has zero news value.
+              //
+              // EXCEPTION: Short-caption multi-image and video posts are a common Thai news
+              // pattern. The story is IN the images/video. Apply a much looser threshold for
+              // posts with 2+ images or video content.
+              const hasMultipleImages = (post.imageUrls?.length ?? 0) >= 2;
+              const isVideoContent = post.isVideo || !!(post.videoUrl) || !!(post.videoThumbnail);
+              const isRichMediaPost = hasMultipleImages || isVideoContent;
+
+              const MIN_CONTENT_WORDS = isRichMediaPost ? 3 : 30;  // 3 words for rich media, 30 for text-only
+              const MIN_CONTENT_CHARS = isRichMediaPost ? 10 : 120; // 10 chars for rich media, 120 for text-only
               const combinedText = `${post.title} ${post.content}`.trim();
               const combinedWordCount = combinedText.split(/\s+/).filter(w => w.length > 0).length;
               const combinedCharCount = combinedText.length;
@@ -409,9 +414,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   postTitle: post.title.substring(0, 60),
                   sourceUrl: post.sourceUrl,
                   facebookPostId: post.facebookPostId,
-                  details: `${combinedWordCount} words / ${combinedCharCount} chars (minimums: ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c). This is almost certainly a reshare caption, not a news article.`
+                  details: `${combinedWordCount} words / ${combinedCharCount} chars (minimums: ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c). RichMedia=${isRichMediaPost}. This is almost certainly a reshare caption, not a news article.`
                 });
-                console.log(`\n⏭️  SKIPPED - CONTENT TOO SHORT (${combinedWordCount}w / ${combinedCharCount}c < ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c)`);
+                console.log(`\n⏭️  SKIPPED - CONTENT TOO SHORT (${combinedWordCount}w / ${combinedCharCount}c < ${MIN_CONTENT_WORDS}w / ${MIN_CONTENT_CHARS}c) [richMedia=${isRichMediaPost}]`);
                 console.log(`   Title: ${post.title.substring(0, 80)}`);
                 console.log(`   Content preview: ${post.content.substring(0, 100)}...`);
                 console.log(`   ⚠️  Likely a reshared post — scraper only captured the sharer's caption, not the original post.`);
@@ -427,6 +432,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 }
                 return;
               }
+
+
 
               // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
               if (post.facebookPostId) {
@@ -1747,6 +1754,24 @@ export async function runManualPageScrape(
           console.log(`   ⚠️  Embedding generation failed (continuing anyway)`);
         }
 
+        // Fetch community comments for additional context (helps avoid hallucination on short posts)
+        let pageScrapeComments: string[] | undefined;
+        if (post.sourceUrl) {
+          try {
+            console.log(`   💬 Fetching comments for context...`);
+            const { scrapePostComments } = await import('./services/scraper');
+            const fetchedComments = await scrapePostComments(post.sourceUrl, 10);
+            if (fetchedComments.length > 0) {
+              pageScrapeComments = fetchedComments
+                .filter(c => c.text && c.text.length > 10)
+                .map(c => c.text);
+              console.log(`   ✅ Got ${pageScrapeComments.length} comments for context`);
+            }
+          } catch (commentErr) {
+            console.log(`   ⚠️ Comment fetch failed (non-critical): ${commentErr}`);
+          }
+        }
+
         // Translate and rewrite
         console.log(`   📝 Translating content...`);
         const translation = await translatorService.translateAndRewrite(
@@ -1754,7 +1779,7 @@ export async function runManualPageScrape(
           post.content,
           contentEmbedding,
           post.location,
-          undefined, // No community comments for page scrapes
+          pageScrapeComments, // Pass fetched comments for context
           {
             likeCount: post.likeCount,
             commentCount: post.commentCount,
@@ -1777,6 +1802,11 @@ export async function runManualPageScrape(
           continue;
         }
 
+        // If needsReview is flagged, log it clearly (article will still be created as draft)
+        if (translation.needsReview) {
+          console.warn(`   ⚠️  NEEDS REVIEW: ${translation.reviewReason}`);
+        }
+
         console.log(`   ✅ Classification: ${translation.category}, Interest: ${translation.interestScore}/5`);
 
         // Classify article
@@ -1794,19 +1824,38 @@ export async function runManualPageScrape(
             content: translation.translatedContent,
             excerpt: translation.excerpt,
             category: translation.category,
+            communityComments: pageScrapeComments, // Pass comments to enrichment too
             sourceType: translation.sourceType,
           }, "gpt-4o-mini");
 
-          // Update translation with enriched content
-          translation.translatedTitle = enrichmentResult.enrichedTitle;
-          translation.translatedContent = enrichmentResult.enrichedContent;
-          translation.excerpt = enrichmentResult.enrichedExcerpt;
+          // HALLUCINATION GUARD: Only use enriched content if it doesn't match known bad patterns
+          const HALLUCINATION_PATTERNS = [
+            /tourists.*fight.*patong/i,
+            /tourists.*engage.*street fight/i,
+            /street fight.*broke out.*patong/i,
+            /tourists.*brawl.*bangla/i,
+            /fight.*broke out between tourists/i,
+          ];
+          const enrichedIsHallucination = HALLUCINATION_PATTERNS.some(p =>
+            p.test(enrichmentResult.enrichedTitle) || p.test(enrichmentResult.enrichedExcerpt)
+          );
 
-          console.log(`   ✅ Premium enrichment applied`);
+          if (enrichedIsHallucination) {
+            console.error(`   🚨 HALLUCINATION BLOCKED in page-scrape enrichment: "${enrichmentResult.enrichedTitle}"`);
+            console.error(`   Using base translation instead.`);
+            // Keep base translation — do NOT update translation object
+          } else {
+            // Update translation with enriched content
+            translation.translatedTitle = enrichmentResult.enrichedTitle;
+            translation.translatedContent = enrichmentResult.enrichedContent;
+            translation.excerpt = enrichmentResult.enrichedExcerpt;
+            console.log(`   ✅ Premium enrichment applied`);
+          }
         } catch (enrichmentError) {
           console.warn(`   ⚠️  Premium enrichment failed (using base translation):`, enrichmentError);
           // Continue with base translation if enrichment fails
         }
+
 
         // Download images with privacy check
         let localImageUrl = post.imageUrl;
@@ -2137,17 +2186,38 @@ export async function runManualPostScrape(
         sourceType: translation.sourceType,
       }, "gpt-4o-mini");
 
-      // Update translation with enriched content
-      translation.translatedTitle = enrichmentResult.enrichedTitle;
-      translation.translatedContent = enrichmentResult.enrichedContent;
-      translation.excerpt = enrichmentResult.enrichedExcerpt;
+      // HALLUCINATION GUARD: Block known fabricated story patterns
+      const MANUAL_SCRAPE_HALLUCINATION_PATTERNS = [
+        /tourists.*fight.*patong/i,
+        /tourists.*engage.*street fight/i,
+        /street fight.*broke out.*patong/i,
+        /tourists.*brawl.*bangla/i,
+        /fight.*broke out between tourists/i,
+      ];
+      const manualEnrichedIsHallucination = MANUAL_SCRAPE_HALLUCINATION_PATTERNS.some(p =>
+        p.test(enrichmentResult.enrichedTitle) || p.test(enrichmentResult.enrichedExcerpt)
+      );
 
-      console.log(`   ✅ Premium enrichment complete`);
-      console.log(`   Enriched Title: ${translation.translatedTitle.substring(0, 80)}...`);
+      if (manualEnrichedIsHallucination) {
+        console.error(`\n🚨 HALLUCINATION BLOCKED in manual-scrape enrichment!`);
+        console.error(`   Fabricated title: "${enrichmentResult.enrichedTitle}"`);
+        console.error(`   Reverting to base translation. Article saved as draft with review flag.`);
+        // Do NOT update translation — keep base translation
+        // needsReview is already set by translateAndRewrite if sparse source
+      } else {
+        // Update translation with enriched content
+        translation.translatedTitle = enrichmentResult.enrichedTitle;
+        translation.translatedContent = enrichmentResult.enrichedContent;
+        translation.excerpt = enrichmentResult.enrichedExcerpt;
+
+        console.log(`   ✅ Premium enrichment complete`);
+        console.log(`   Enriched Title: ${translation.translatedTitle.substring(0, 80)}...`);
+      }
     } catch (enrichmentError) {
       console.warn(`   ⚠️  Premium enrichment failed, using base translation:`, enrichmentError);
       // Continue with base translation if enrichment fails
     }
+
 
     // Download images with privacy check
     let localImageUrl = post.imageUrl;

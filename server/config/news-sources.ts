@@ -21,6 +21,8 @@ export interface NewsSource {
 
 export const NEWS_SOURCES: NewsSource[] = [
   {
+    // Phuket Times ภูเก็ตไทม์ — the main Phuket Times page (696K followers)
+    // Posts BOTH Thai and English content. Thai posts are auto-translated by the pipeline.
     name: "The Phuket Times",
     url: "https://www.facebook.com/PhuketTimeNews",
     enabled: true,
@@ -44,6 +46,7 @@ export const NEWS_SOURCES: NewsSource[] = [
     enabled: true,
   },
 ];
+
 
 // Get all enabled sources
 export function getEnabledSources(): NewsSource[] {
