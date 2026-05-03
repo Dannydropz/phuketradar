@@ -1232,7 +1232,7 @@ export class ScraperService {
   // Method to fetch multiple pages of posts using cursor pagination
   async scrapeFacebookPageWithPagination(
     pageUrl: string,
-    maxPages: number = 3,
+    maxPages: number = 5,
     checkForDuplicate?: (sourceUrl: string) => Promise<boolean>
   ): Promise<ScrapedPost[]> {
     try {

@@ -63,6 +63,19 @@ Two stories are NOT DUPLICATES if they:
 - Involve different people or locations
 - Are general updates vs. specific events
 
+IMPORTANT: Two stories about the SAME GENERAL TOPIC are NOT duplicates.
+They are only duplicates if they report on the SAME SPECIFIC EVENT — meaning:
+- Same specific incident (same accident, same arrest, same meeting)
+- Same date/time
+- Same people involved in the same roles
+
+Examples of NOT duplicates:
+- A governor's policy meeting about tourist behavior + a separate police operation enforcing tourist laws = TWO different stories
+- A drowning at Kata Beach on Monday + a drowning at Kata Beach on Wednesday = TWO different stories
+- A drug bust in Patong + a different drug bust in Patong a week later = TWO different stories
+
+Only return DUPLICATE if you are confident these describe the EXACT SAME real-world event.
+
 IMPORTANT: Read the full story content, not just the titles. Many duplicates have different titles but identical facts in the body.
 
 Return your analysis in JSON format.`

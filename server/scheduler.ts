@@ -174,7 +174,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
       // Smart scrape: stops when hitting known posts to minimize API usage
       const scrapedPosts = await scraperService.scrapeFacebookPageWithPagination(
         source.url,
-        3, // max pages - ensures we catch all recent stories from fast-posting sources like Newshawk
+        5, // max pages - increased from 3 to 5 to catch high-engagement stories that fall off quickly
         checkForDuplicate // stop early on duplicates (prevents unnecessary API calls)
       );
 
@@ -401,13 +401,13 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
               const isVideoContent = post.isVideo || !!(post.videoUrl) || !!(post.videoThumbnail);
               const isRichMediaPost = hasMultipleImages || isVideoContent;
 
-              const MIN_CONTENT_WORDS = isRichMediaPost ? 3 : 30;  // 3 words for rich media, 30 for text-only
+              const MIN_CONTENT_WORDS = isRichMediaPost ? 3 : 8;  // 3 words for rich media, 8 for text-only
               const MIN_CONTENT_CHARS = isRichMediaPost ? 10 : 120; // 10 chars for rich media, 120 for text-only
               const combinedText = `${post.title} ${post.content}`.trim();
               const combinedWordCount = combinedText.split(/\s+/).filter(w => w.length > 0).length;
               const combinedCharCount = combinedText.length;
 
-              if (combinedWordCount < MIN_CONTENT_WORDS || combinedCharCount < MIN_CONTENT_CHARS) {
+              if (combinedWordCount < MIN_CONTENT_WORDS && combinedCharCount < MIN_CONTENT_CHARS) {
                 skippedNotNews++;
                 skipReasons.push({
                   reason: "Too short — likely a shared-post caption with no original content",
@@ -743,10 +743,10 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 contentEmbedding = await translatorService.generateEmbeddingFromContent(post.title, post.content);
 
                 // STEP 2.5: Hybrid semantic duplicate detection (Option D)
-                // Stage 1: Fast embedding similarity check (55% threshold) - optimized to reduce false positive GPT checks
-                // Stage 2: GPT verification for ANY similarity ≥55%
+                // Stage 1: Fast embedding similarity check (70% threshold) - optimized to reduce false positive GPT checks
+                // Stage 2: GPT verification for ANY similarity ≥70%
                 // Stage 3: Safety net - GPT checks top 2 similar stories if 35-55% (skips if <35%)
-                const initialThreshold = 0.55; // Optimized: 55% catches real duplicates, reduces false positive GPT checks
+                const initialThreshold = 0.70; // Optimized: 70% catches real duplicates, reduces false positive GPT checks
 
                 const duplicateCheck = checkSemanticDuplicate(contentEmbedding, existingEmbeddings, initialThreshold);
 
@@ -802,7 +802,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     return;
                   }
 
-                  // If similarity is ≥55%, use GPT to verify (optimized threshold to reduce false positive checks)
+                  // If similarity is ≥70%, use GPT to verify (optimized threshold to reduce false positive checks)
                   // This catches duplicates with different headlines but similar content
                   console.log(`\n🤔 POTENTIAL DUPLICATE DETECTED (${similarityPercent.toFixed(1)}%) - Using GPT to analyze full content...`);
                   console.log(`   New title: ${post.title.substring(0, 60)}...`);
@@ -833,7 +833,7 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   console.log(`      Timing: ${gptVerification.existingStoryAnalysis.timing}`);
                   console.log(`      Facts: ${gptVerification.existingStoryAnalysis.coreFacts.join('; ')}\n`);
 
-                  if (gptVerification.isDuplicate) {
+                  if (gptVerification.isDuplicate && gptVerification.confidence >= 0.85) {
                     skippedSemanticDuplicates++;
                     skipReasons.push({
                       reason: "Duplicate: GPT-verified same event",
