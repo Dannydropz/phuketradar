@@ -841,9 +841,32 @@ You transform Thai-language source material into English news articles. You outp
     // GPT-4o mini follows user-message instructions more reliably than system-prompt ones.
     const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' });
 
-    const commentsBlock = params.communityComments && params.communityComments.length > 0
-      ? `THAI COMMUNITY COMMENTS (from original Facebook post):\n${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join('\n')}`
-      : '';
+    const commentsBlock = params.communityComments && params.communityComments.length > 0 ? `
+## THAI FACEBOOK COMMENTS — READ EVERY ONE CAREFULLY
+
+The comments below are from the original Thai Facebook post. They are a PRIMARY source — as important as the article text itself. You MUST read each comment individually and extract specific details.
+
+REQUIRED: Write a "## Public Reaction" section using ONLY concrete details from the comments below. Follow these rules:
+
+RULE 1 — QUOTE OR PARAPHRASE SPECIFIC COMMENTS
+Do NOT write vague summaries like "many commenters expressed frustration" or "several called for stricter measures."
+Instead, extract and attribute specific viewpoints:
+- BAD: "Commenters called for stricter measures to prevent such incidents."
+- GOOD: "One commenter suggested a fine of 10,000 USD, while others demanded the couple's faces be published publicly as a deterrent. Several linked the incident to Thailand's free visa policy, arguing it has attracted tourists who exploit local businesses."
+
+RULE 2 — EXTRACT AT LEAST 4 DISTINCT VIEWPOINTS from the comments. Group by theme: punishments suggested, blame attribution, pattern recognition, policy criticism, eyewitness additions, practical suggestions, emotional reactions.
+
+RULE 3 — INCLUDE ENGAGEMENT NUMBERS if visible (reaction count, comment count, shares).
+
+RULE 4 — PRESERVE SPECIFIC DETAILS: numbers, locations, names, policies mentioned in comments.
+
+RULE 5 — MINIMUM 4 sentences when 50+ comments. Minimum 6 sentences when 200+ comments.
+
+RULE 6 — Comments are in Thai. Translate and incorporate them. Do not skip comments because they are in Thai.
+
+COMMENTS:
+${params.communityComments.join('\n')}
+` : '';
 
     // Detect sparse source: short content with no comments = high hallucination risk
     const enrichmentSourceWords = `${params.title} ${params.content}`.split(/\s+/).filter(Boolean).length;
@@ -1634,6 +1657,151 @@ CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" 
 - Chinese gang BUSTED IN PHUKET = Category "Crime", NOT "National"
 - A Thai policeman arrested for corruption IN PHUKET = Category "Crime", NOT "National"
 - "National" ONLY means the event occurred OUTSIDE Phuket province. It NEVER means "international" or "involving foreign nationals".
+
+## THAI SLANG & EUPHEMISM GLOSSARY
+
+Thai news and social media posts frequently use slang, euphemisms, and double meanings. Do NOT translate these literally — use the actual meaning. If a term below appears in the source text, translate using the ACTUAL MEANING column, not the literal meaning.
+
+CRITICAL: When the overall context of a post is clearly sexual, romantic, or suggestive (blurred images, phrases like "couldn't wait for the hotel," "couldn't hold back"), interpret ambiguous terms through that lens, not literally.
+
+### Sexual / Romantic Euphemisms
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| กินบวบ / กินบวบกัน | eating squash | making out, kissing passionately, hooking up |
+| เอากัน / เอ้ากัน | taking each other | having sex |
+| นอนกัน | sleeping together | having sex (not literally sleeping) |
+| เล่นชู้ | playing around | having an affair, cheating |
+| มีชู้ | having a lover | having an affair |
+| แอบคบ | secretly dating | having a secret relationship/affair |
+| ขายตัว | selling body | prostitution |
+| สาวบริการ / สาวบาร์ | service girl / bar girl | sex worker |
+| หมกมุ่นกาม / มั่วสุม | indulging in lust / gathering improperly | engaging in sexual activity (often used in police reports) |
+| อดใจไม่ไหว | can't restrain oneself | overcome with desire / couldn't hold back (sexual context) |
+| ไม่รอให้ถึงห้อง/โรงแรม | can't wait to reach the room/hotel | too sexually eager to wait for privacy |
+| เปิดห้อง | opening a room | getting a room (for sex), renting a short-time hotel room |
+| ม่านรูด | pulled curtain | short-time hotel / love hotel |
+
+### Violence / Crime Slang
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| ยกพวกตีกัน | lifting a group to hit | gang fight, brawl |
+| ไล่ฟัน | chasing to chop | chasing someone with a blade/machete |
+| ปาดคอ | slicing the neck | slashing someone's throat / knife attack |
+| ยิงกัน | shooting each other | shooting incident |
+| ตบตี | slapping and hitting | physical fight, domestic violence |
+| ชกต่อย | punching | fist fight |
+| งัดแงะ | prying open | breaking and entering, burglary |
+| ล้วงกระเป๋า | reaching into a pocket | pickpocketing |
+| ตุ๋น / โกง / ต้มตุ๋น | stewing / cheating / cooking a scam | fraud, scam, con |
+| โดนหลอก | being tricked | got scammed/conned |
+| เมาแล้วขับ | drunk then drive | drink driving |
+| ซิ่ง | speeding/racing | reckless driving, street racing |
+| มอมเหล้า | dosing with alcohol | getting someone drunk to take advantage of them |
+| ยาบ้า / ยาไอซ์ / ยาเค | crazy medicine / ice medicine / K medicine | methamphetamine / crystal meth / ketamine |
+| สายเขียว | green line | marijuana (slang) |
+| ของมึนเมา | intoxicating things | drugs/alcohol (general) |
+
+### Accidents / Emergencies
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| ชนแล้วหนี | hit then flee | hit-and-run |
+| เสียหลัก | losing control | lost control of vehicle |
+| ฟาดเสา | hitting a pole | crashed into a power pole/post |
+| ตกเหว / ตกเขา | falling into a ravine / falling off a mountain | vehicle went off a cliff/hillside road |
+| จมน้ำ | sinking in water | drowning |
+| คลื่นซัด | waves sweeping | swept away by waves / strong current incident |
+| กระแสน้ำ | water current | rip current / strong current |
+| ไฟไหม้ | fire burning | building/vehicle fire |
+| ไฟลุก | fire flaring | fire broke out |
+| ร่างไร้วิญญาณ | body without soul | dead body, corpse |
+| เสียชีวิตคาที่ | died at the spot | died at the scene |
+| สาหัส | serious/grave | critically injured |
+| บาดเจ็บ | wounded | injured (non-critical) |
+
+### Social Commentary / Insults
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| ฝรั่ง | guava | foreigner (Western), not the fruit |
+| แขก | guest | foreigner (South Asian/Middle Eastern) — can be derogatory |
+| มิจฉาชีพ | wrong livelihood | criminal, fraudster |
+| สิบแปดมงกุฎ | eighteen crowns | con artist, swindler (idiom) |
+| หัวร้อน | hot head | angry, hot-tempered, aggressive |
+| เมาหัวราน้ำ | drunk head-in-water | extremely drunk, wasted |
+| คนบ้า | crazy person | used loosely — can mean reckless, wild, or literally mentally ill depending on context |
+| อีดอก / อีตัว | flower / animal (female) | derogatory terms for women (vulgar insults) |
+| เสือก | nosy | minding other's business, butting in (vulgar) |
+| โคตร / โคตรจะ | ancestor / ancestral | intensifier meaning "extremely" or "f***ing" — e.g. โคตรเจ็บ = hurts like hell |
+
+### Tourism / Nightlife Context
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| บังเกอร์ | bunker | a jet ski rental scam operator (Phuket-specific slang) |
+| สองแถว | two rows | songthaew (local bus/truck with bench seats) — not a "two-row" |
+| ป่าตอง | Patong forest | Patong (place name) — do not translate literally |
+| บางลา | — | Bangla Road / Soi Bangla (Patong's main nightlife strip) |
+| ถนนคนเดิน | walking street | Bangla Walking Street (not a generic "pedestrian road") |
+| ร้านเหล้า | liquor shop | bar, nightclub |
+| ผับ | pub | nightclub (Thai usage of "pub" = nightclub, not a British-style pub) |
+| โกโก้ | cocoa | go-go bar (phonetic) |
+| หมอนวด | massage doctor | masseuse — context determines if legitimate spa or euphemism |
+| ฟูลมูน | full moon | Full Moon Party (event reference) |
+| หิวแสง | hungry for light | attention-seeking (used for people doing outrageous things in public) |
+
+### Tone / Framing Indicators
+| Thai Term/Phrase | Meaning |
+|---|---|
+| คนมันหิว! | "They were hungry!" — sarcastic, implying sexual appetite, not actual hunger |
+| อดใจไม่ไหว! | "Couldn't hold back!" — implies uncontrollable urge, usually sexual |
+| แบบนี้ก็ได้เหรอ | "This is acceptable?" — rhetorical outrage/disbelief |
+| ไม่อายบ้างเหรอ | "Aren't you ashamed?" — public shaming |
+| ทำไปได้ | "How could they do this?" — disbelief/outrage |
+| เก่งจริงๆ | "Really skilled" — sarcastic, meaning the opposite |
+| น่ารักมาก | "Very cute" — often sarcastic when describing adults behaving badly |
+| ประเทศไทยเรา | "Our Thailand" — used sarcastically when lamenting foreigner misbehaviour |
+| 555 | hahaha (Thai laughter — ห้าห้าห้า) |
+| สาธุ | amen/bless — used both sincerely and sarcastically |
+
+### Banking / Payment / Scam Terms
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| สลิปปลอม | fake slip | fake bank transfer screenshot (mobile banking scam — scammer shows a fabricated PromptPay/banking confirmation to avoid paying) |
+| สลิปโอนเงิน | money transfer slip | bank transfer confirmation screenshot |
+| โอนเงิน | transfer money | bank transfer / PromptPay transfer |
+| พร้อมเพย์ / PromptPay | PromptPay | Thailand's instant payment system (like Venmo) |
+| QR โกง | cheat QR | fake payment QR code |
+| จ่ายสลิปปลอม | paying with fake slip | using a fake bank transfer screenshot to avoid paying |
+| ตระเวนหลอก | roaming to deceive | going from place to place scamming |
+| กินฟรี | eating free | dining and dashing / getting something without paying |
+| กินแล้วไม่จ่าย | ate then didn't pay | dine and dash |
+| ชักดาบ | drawing a sword | running out on a bill, dine and dash (common idiom) |
+| เบี้ยว | swerving | dodging payment, weaseling out of paying |
+| โกงเงิน | cheating money | financial fraud |
+| แก๊งคอลเซ็นเตอร์ | call center gang | phone scam syndicate |
+| แชร์ลูกโซ่ | chain share | pyramid scheme / Ponzi scheme |
+| เงินกู้นอกระบบ | outside-system loan | illegal loan shark |
+| จำนำ | pawning | pawn shop (legitimate or illegal) |
+| ทวงหนี้ | debt collection | debt collectors (often aggressive/illegal methods) |
+
+### Common Thai Abbreviations in News Posts
+| Abbreviation | Full Thai | English |
+|---|---|---|
+| นทท. | นักท่องเที่ยว | tourist |
+| ตร. | ตำรวจ | police |
+| จนท. | เจ้าหน้าที่ | officer/official |
+| รพ. | โรงพยาบาล | hospital |
+| สน. | สถานีตำรวจ | police station |
+| อบต. | องค์การบริหารส่วนตำบล | sub-district administrative organization |
+| ผกก. | ผู้กำกับการ | police superintendent |
+| รอง ผกก. | รองผู้กำกับการ | deputy superintendent |
+| พงส. | พนักงานสอบสวน | investigating officer |
+| สภ. | สถานีตำรวจภูธร | provincial police station |
+| กก. | กิโลกรัม | kilogram (in drug seizure reports) |
+
+### Contextual Translation Rules
+- When a post contains blurred/censored images + suggestive language, the story is about sexual behaviour in public, NOT about food or mundane activities
+- When "อดใจไม่ไหว" + "ไม่รอให้ถึงโรงแรม" appear together, the context is ALWAYS sexual
+- "กิน" (eat) has many slang uses: กินบวบ (making out), กินเหล้า (drinking alcohol, not eating), กินตับ (jealous/envious, not eating liver), กินแรง (exploiting someone's labour)
+- Headlines with "!" and words like "หิว" (hungry) in quotation marks or with exclamation marks are usually sarcastic/sensationalized
 
 INTEREST SCORE (1-5) - BE VERY STRICT:
 
