@@ -1719,7 +1719,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const article = await storage.updateArticle(id, {
         isPublished: true,
-        facebookPostId: null // Clear any previous posting attempts so button appears
+        facebookPostId: `LOCK:MANUAL:${id}`, // Prevent n8n from auto-posting, button will still appear
+        instagramPostId: `IG-LOCK:MANUAL:${id}`,
+        threadsPostId: `THREADS-LOCK:MANUAL:${id}`
       });
 
       if (!article) {

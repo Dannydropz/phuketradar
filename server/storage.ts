@@ -355,9 +355,18 @@ export class DatabaseStorage implements IStorage {
         ...insertArticle,
         ...(!(insertArticle as any).id && { id: articleId }),
         slug,
+        facebookPostId: insertArticle.facebookPostId || `LOCK:MANUAL:${articleId}`, // Prevent n8n from auto-posting
+        instagramPostId: insertArticle.instagramPostId || `IG-LOCK:MANUAL:${articleId}`,
+        threadsPostId: insertArticle.threadsPostId || `THREADS-LOCK:MANUAL:${articleId}`,
       };
     } else {
-      articleData = insertArticle;
+      const existingId = (insertArticle as any).id;
+      articleData = {
+        ...insertArticle,
+        facebookPostId: insertArticle.facebookPostId || `LOCK:MANUAL:${existingId || crypto.randomUUID()}`, // Prevent n8n from auto-posting
+        instagramPostId: insertArticle.instagramPostId || `IG-LOCK:MANUAL:${existingId || crypto.randomUUID()}`,
+        threadsPostId: insertArticle.threadsPostId || `THREADS-LOCK:MANUAL:${existingId || crypto.randomUUID()}`,
+      };
     }
 
     return retryDatabaseOperation(
@@ -407,7 +416,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         facebookPostId: lockValue,
       })
-      .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} IS NULL`)
+      .where(sql`${articles.id} = ${id} AND (${articles.facebookPostId} IS NULL OR ${articles.facebookPostId} LIKE 'LOCK:MANUAL:%')`)
       .returning();
     return result.length > 0;
   }
@@ -435,7 +444,7 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(articles)
       .set({
-        facebookPostId: null,
+        facebookPostId: `LOCK:MANUAL:${id}`, // Prevent n8n from grabbing it after a failed post
         facebookPostUrl: null,
       })
       .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} = ${lockValue}`);
@@ -465,7 +474,7 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(articles)
       .set({
-        facebookPostId: null,
+        facebookPostId: `LOCK:MANUAL:${id}`, // Prevent n8n from grabbing it after a lock is cleared
         facebookPostUrl: null,
       })
       .where(sql`${articles.id} = ${id} AND ${articles.facebookPostId} LIKE 'LOCK:%'`);
