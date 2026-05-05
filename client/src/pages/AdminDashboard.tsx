@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, Instagram, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -206,6 +206,32 @@ export default function AdminDashboard() {
     onError: (error: Error) => {
       toast({
         title: "Failed to Re-post",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Post to Instagram mutation
+  const postToInstagramMutation = useMutation({
+    mutationFn: async (articleId: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${articleId}/instagram`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to post to Instagram");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+      toast({
+        title: "Posted to Instagram",
+        description: "Article has been posted to Instagram successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Post",
         description: error.message,
         variant: "destructive",
       });
@@ -1314,62 +1340,116 @@ export default function AdminDashboard() {
                                 </Tooltip>
                               )}
                               {/* Facebook Button - Always visible. Hollow = not posted, Filled = posted */}
-                              {article.facebookPostId && !article.facebookPostId.startsWith('LOCK:') ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="default"
-                                      onClick={(e) => {
-                                        if (e.shiftKey) {
-                                          // Shift+Click = Force re-post with updated content
-                                          if (confirm('Re-post this article to Facebook with updated content? This will create a NEW Facebook post.')) {
-                                            forceRepostToFacebookMutation.mutate(article.id);
+                                {article.facebookPostId && !article.facebookPostId.startsWith('LOCK:') ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        onClick={(e) => {
+                                          if (e.shiftKey) {
+                                            // Shift+Click = Force re-post with updated content
+                                            if (confirm('Re-post this article to Facebook with updated content? This will create a NEW Facebook post.')) {
+                                              forceRepostToFacebookMutation.mutate(article.id);
+                                            }
+                                          } else {
+                                            // Normal click = View on Facebook
+                                            window.open(`https://www.facebook.com/${article.facebookPostId!.replace('_', '/posts/')}`, '_blank');
                                           }
-                                        } else {
-                                          // Normal click = View on Facebook
-                                          window.open(`https://www.facebook.com/${article.facebookPostId!.replace('_', '/posts/')}`, '_blank');
-                                        }
-                                      }}
-                                      disabled={forceRepostToFacebookMutation.isPending}
-                                      data-testid={`button-facebook-posted-${article.id}`}
-                                      className="h-11 w-11 p-0 bg-blue-600 hover:bg-blue-700"
-                                      aria-label="View on Facebook"
-                                    >
-                                      <Facebook className="w-4 h-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Posted to Facebook (click to view, shift+click to RE-POST with updated content)</TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => {
-                                        // If there's a stuck LOCK, clear it first
-                                        if (article.facebookPostId?.startsWith('LOCK:')) {
-                                          updateMutation.mutate({ id: article.id, updates: { facebookPostId: null } }, {
-                                            onSuccess: () => postToFacebookMutation.mutate(article.id)
-                                          });
-                                        } else {
-                                          postToFacebookMutation.mutate(article.id);
-                                        }
-                                      }}
-                                      disabled={postToFacebookMutation.isPending || updateMutation.isPending || !article.isPublished}
-                                      data-testid={`button-facebook-${article.id}`}
-                                      className="h-11 w-11 p-0 border-blue-500 text-blue-500 hover:bg-blue-500/10"
-                                      aria-label="Post to Facebook"
-                                    >
-                                      <Facebook className="w-4 h-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    {!article.isPublished ? "Publish article first" :
-                                      article.facebookPostId?.startsWith('LOCK:') ? "Clear stuck lock and post" :
-                                        "Post to Facebook"}
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
+                                        }}
+                                        disabled={forceRepostToFacebookMutation.isPending}
+                                        data-testid={`button-facebook-posted-${article.id}`}
+                                        className="h-11 w-11 p-0 bg-blue-600 hover:bg-blue-700"
+                                        aria-label="View on Facebook"
+                                      >
+                                        <Facebook className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Posted to Facebook (click to view, shift+click to RE-POST with updated content)</TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                          // If there's a stuck LOCK, clear it first
+                                          if (article.facebookPostId?.startsWith('LOCK:')) {
+                                            updateMutation.mutate({ id: article.id, updates: { facebookPostId: null } }, {
+                                              onSuccess: () => postToFacebookMutation.mutate(article.id)
+                                            });
+                                          } else {
+                                            postToFacebookMutation.mutate(article.id);
+                                          }
+                                        }}
+                                        disabled={postToFacebookMutation.isPending || updateMutation.isPending || !article.isPublished}
+                                        data-testid={`button-facebook-${article.id}`}
+                                        className="h-11 w-11 p-0 border-blue-500 text-blue-500 hover:bg-blue-500/10"
+                                        aria-label="Post to Facebook"
+                                      >
+                                        <Facebook className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {!article.isPublished ? "Publish article first" :
+                                        article.facebookPostId?.startsWith('LOCK:') ? "Clear stuck lock and post" :
+                                          "Post to Facebook"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+
+                                {/* Instagram Button */}
+                                {article.instagramPostId && !article.instagramPostId.startsWith('IG-LOCK:') ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        onClick={() => {
+                                          if (article.instagramPostUrl) {
+                                            window.open(article.instagramPostUrl, '_blank');
+                                          } else {
+                                            window.open(`https://www.instagram.com/p/${article.instagramPostId}/`, '_blank');
+                                          }
+                                        }}
+                                        data-testid={`button-instagram-posted-${article.id}`}
+                                        className="h-11 w-11 p-0 bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] hover:opacity-90"
+                                        aria-label="View on Instagram"
+                                      >
+                                        <Instagram className="w-4 h-4 text-white" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>View on Instagram</TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                          // If there's a stuck LOCK, clear it first
+                                          if (article.instagramPostId?.startsWith('IG-LOCK:')) {
+                                            updateMutation.mutate({ id: article.id, updates: { instagramPostId: null } }, {
+                                              onSuccess: () => postToInstagramMutation.mutate(article.id)
+                                            });
+                                          } else {
+                                            postToInstagramMutation.mutate(article.id);
+                                          }
+                                        }}
+                                        disabled={postToInstagramMutation.isPending || updateMutation.isPending || !article.isPublished || (!article.imageUrl && (!article.imageUrls || article.imageUrls.length === 0))}
+                                        data-testid={`button-instagram-${article.id}`}
+                                        className="h-11 w-11 p-0 border-pink-500 text-pink-500 hover:bg-pink-500/10"
+                                        aria-label="Post to Instagram"
+                                      >
+                                        <Instagram className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {!article.isPublished ? "Publish article first" :
+                                        (!article.imageUrl && (!article.imageUrls || article.imageUrls.length === 0)) ? "Article must have an image for Instagram" :
+                                          article.instagramPostId?.startsWith('IG-LOCK:') ? "Clear stuck lock and post" :
+                                            "Post to Instagram"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               {article.isPublished && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>

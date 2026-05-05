@@ -11,6 +11,7 @@ import { checkSemanticDuplicate } from "./lib/semantic-similarity";
 import { getEnabledSources } from "./config/news-sources";
 import { postArticleToFacebook } from "./lib/facebook-service";
 import { postArticleToInstagram } from "./lib/instagram-service";
+import { postArticleToPubler } from "./lib/publer-service";
 import { postArticleToThreads } from "./lib/threads-service";
 import { generateDailyNewsletterHTML } from "./services/newsletter";
 import { subHours } from "date-fns";
@@ -1936,7 +1937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Article already posted to Instagram" });
       }
 
-      const igResult = await postArticleToInstagram(article, storage);
+      const igResult = await postArticleToPubler(article, storage);
 
       if (!igResult) {
         return res.status(500).json({ error: "Failed to post to Instagram" });

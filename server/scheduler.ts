@@ -1444,7 +1444,8 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   !isReallyPosted &&
                   hasImage &&
                   !article.isManuallyCreated &&
-                  effectiveCategory !== 'National'; // Exclude National news (Southern floods, Bangkok, etc.)
+                  effectiveCategory !== 'National' &&
+                  process.env.DISABLE_AUTO_FACEBOOK_POST !== 'true'; // Allow pausing via environment variable
 
                 if (shouldTriggerAutoPost) {
                   console.log(`🚀 Triggering Internal Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
