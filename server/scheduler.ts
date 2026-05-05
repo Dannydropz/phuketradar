@@ -1439,13 +1439,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 }
 
                 // STRICT RULE: Only post Phuket-related stories (exclude "National" category)
-                const shouldTriggerAutoPost = article.isPublished &&
-                  effectiveScore >= 4 &&
-                  !isReallyPosted &&
-                  hasImage &&
-                  !article.isManuallyCreated &&
-                  effectiveCategory !== 'National' &&
-                  process.env.DISABLE_AUTO_FACEBOOK_POST !== 'true'; // Allow pausing via environment variable
+                const shouldTriggerAutoPost = false; // article.isPublished && effectiveScore >= 4 && ... (HARD-DISABLED by admin request)
+                
+                if (article.isPublished && effectiveScore >= 4 && !isReallyPosted && hasImage && !article.isManuallyCreated && effectiveCategory !== 'National') {
+                  console.log(`🚫 [FB-AUTOPOST-KILLSWITCH] Auto-posting is DISABLED. Skipping article: ${article.title.substring(0, 50)}...`);
+                }
 
                 if (shouldTriggerAutoPost) {
                   console.log(`🚀 Triggering Internal Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
