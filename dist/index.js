@@ -705,10 +705,21 @@ var init_storage = __esm({
           articleData = {
             ...insertArticle,
             ...!insertArticle.id && { id: articleId },
-            slug
+            slug,
+            facebookPostId: insertArticle.facebookPostId || `LOCK:MANUAL:${articleId}`,
+            // Prevent n8n from auto-posting
+            instagramPostId: insertArticle.instagramPostId || `IG-LOCK:MANUAL:${articleId}`,
+            threadsPostId: insertArticle.threadsPostId || `THREADS-LOCK:MANUAL:${articleId}`
           };
         } else {
-          articleData = insertArticle;
+          const existingId = insertArticle.id;
+          articleData = {
+            ...insertArticle,
+            facebookPostId: insertArticle.facebookPostId || `LOCK:MANUAL:${existingId || crypto.randomUUID()}`,
+            // Prevent n8n from auto-posting
+            instagramPostId: insertArticle.instagramPostId || `IG-LOCK:MANUAL:${existingId || crypto.randomUUID()}`,
+            threadsPostId: insertArticle.threadsPostId || `THREADS-LOCK:MANUAL:${existingId || crypto.randomUUID()}`
+          };
         }
         return retryDatabaseOperation(
           async () => {
@@ -743,7 +754,7 @@ var init_storage = __esm({
         const lockValue = `LOCK:${lockToken}`;
         const result = await db.update(articles).set({
           facebookPostId: lockValue
-        }).where(sql2`${articles.id} = ${id} AND ${articles.facebookPostId} IS NULL`).returning();
+        }).where(sql2`${articles.id} = ${id} AND (${articles.facebookPostId} IS NULL OR ${articles.facebookPostId} LIKE 'LOCK:MANUAL:%')`).returning();
         return result.length > 0;
       }
       async finalizeArticleFacebookPost(id, lockToken, facebookPostId, facebookPostUrl) {
@@ -757,7 +768,8 @@ var init_storage = __esm({
       async releaseFacebookPostLock(id, lockToken) {
         const lockValue = `LOCK:${lockToken}`;
         await db.update(articles).set({
-          facebookPostId: null,
+          facebookPostId: `LOCK:MANUAL:${id}`,
+          // Prevent n8n from grabbing it after a failed post
           facebookPostUrl: null
         }).where(sql2`${articles.id} = ${id} AND ${articles.facebookPostId} = ${lockValue}`);
       }
@@ -776,7 +788,8 @@ var init_storage = __esm({
       }
       async clearStuckFacebookLock(id) {
         await db.update(articles).set({
-          facebookPostId: null,
+          facebookPostId: `LOCK:MANUAL:${id}`,
+          // Prevent n8n from grabbing it after a lock is cleared
           facebookPostUrl: null
         }).where(sql2`${articles.id} = ${id} AND ${articles.facebookPostId} LIKE 'LOCK:%'`);
       }
@@ -4066,8 +4079,32 @@ THIS IS A CRITICAL FACTUAL ACCURACY ISSUE - misidentifying the location is a maj
 
 You transform Thai-language source material into English news articles. You output ONLY valid JSON with no other text. YOUR ENTIRE JSON OUTPUT (title, content, excerpt) MUST BE IN ENGLISH. NEVER OUTPUT THAI TEXT.`;
         const currentDate = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Bangkok" });
-        const commentsBlock = params.communityComments && params.communityComments.length > 0 ? `THAI COMMUNITY COMMENTS (from original Facebook post):
-${params.communityComments.map((c, i) => `${i + 1}. "${c}"`).join("\n")}` : "";
+        const commentsBlock = params.communityComments && params.communityComments.length > 0 ? `
+## THAI FACEBOOK COMMENTS \u2014 READ EVERY ONE CAREFULLY
+
+The comments below are from the original Thai Facebook post. They are a PRIMARY source \u2014 as important as the article text itself. You MUST read each comment individually and extract specific details.
+
+REQUIRED: Write a "## Public Reaction" section using ONLY concrete details from the comments below. Follow these rules:
+
+RULE 1 \u2014 QUOTE OR PARAPHRASE SPECIFIC COMMENTS
+Do NOT write vague summaries like "many commenters expressed frustration" or "several called for stricter measures."
+Instead, extract and attribute specific viewpoints:
+- BAD: "Commenters called for stricter measures to prevent such incidents."
+- GOOD: "One commenter suggested a fine of 10,000 USD, while others demanded the couple's faces be published publicly as a deterrent. Several linked the incident to Thailand's free visa policy, arguing it has attracted tourists who exploit local businesses."
+
+RULE 2 \u2014 EXTRACT AT LEAST 4 DISTINCT VIEWPOINTS from the comments. Group by theme: punishments suggested, blame attribution, pattern recognition, policy criticism, eyewitness additions, practical suggestions, emotional reactions.
+
+RULE 3 \u2014 INCLUDE ENGAGEMENT NUMBERS if visible (reaction count, comment count, shares).
+
+RULE 4 \u2014 PRESERVE SPECIFIC DETAILS: numbers, locations, names, policies mentioned in comments.
+
+RULE 5 \u2014 MINIMUM 4 sentences when 50+ comments. Minimum 6 sentences when 200+ comments.
+
+RULE 6 \u2014 Comments are in Thai. Translate and incorporate them. Do not skip comments because they are in Thai.
+
+COMMENTS:
+${params.communityComments.join("\n")}
+` : "";
         const enrichmentSourceWords = `${params.title} ${params.content}`.split(/\s+/).filter(Boolean).length;
         const isSparseEnrichmentSource = enrichmentSourceWords < 30 && (!params.communityComments || params.communityComments.length === 0);
         const sparseSourceWarning = isSparseEnrichmentSource ? `
@@ -4816,6 +4853,151 @@ CRITICAL: "Southern Floods" in Hat Yai, Songkhla, Narathiwat, Yala = "National" 
 - Chinese gang BUSTED IN PHUKET = Category "Crime", NOT "National"
 - A Thai policeman arrested for corruption IN PHUKET = Category "Crime", NOT "National"
 - "National" ONLY means the event occurred OUTSIDE Phuket province. It NEVER means "international" or "involving foreign nationals".
+
+## THAI SLANG & EUPHEMISM GLOSSARY
+
+Thai news and social media posts frequently use slang, euphemisms, and double meanings. Do NOT translate these literally \u2014 use the actual meaning. If a term below appears in the source text, translate using the ACTUAL MEANING column, not the literal meaning.
+
+CRITICAL: When the overall context of a post is clearly sexual, romantic, or suggestive (blurred images, phrases like "couldn't wait for the hotel," "couldn't hold back"), interpret ambiguous terms through that lens, not literally.
+
+### Sexual / Romantic Euphemisms
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| \u0E01\u0E34\u0E19\u0E1A\u0E27\u0E1A / \u0E01\u0E34\u0E19\u0E1A\u0E27\u0E1A\u0E01\u0E31\u0E19 | eating squash | making out, kissing passionately, hooking up |
+| \u0E40\u0E2D\u0E32\u0E01\u0E31\u0E19 / \u0E40\u0E2D\u0E49\u0E32\u0E01\u0E31\u0E19 | taking each other | having sex |
+| \u0E19\u0E2D\u0E19\u0E01\u0E31\u0E19 | sleeping together | having sex (not literally sleeping) |
+| \u0E40\u0E25\u0E48\u0E19\u0E0A\u0E39\u0E49 | playing around | having an affair, cheating |
+| \u0E21\u0E35\u0E0A\u0E39\u0E49 | having a lover | having an affair |
+| \u0E41\u0E2D\u0E1A\u0E04\u0E1A | secretly dating | having a secret relationship/affair |
+| \u0E02\u0E32\u0E22\u0E15\u0E31\u0E27 | selling body | prostitution |
+| \u0E2A\u0E32\u0E27\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 / \u0E2A\u0E32\u0E27\u0E1A\u0E32\u0E23\u0E4C | service girl / bar girl | sex worker |
+| \u0E2B\u0E21\u0E01\u0E21\u0E38\u0E48\u0E19\u0E01\u0E32\u0E21 / \u0E21\u0E31\u0E48\u0E27\u0E2A\u0E38\u0E21 | indulging in lust / gathering improperly | engaging in sexual activity (often used in police reports) |
+| \u0E2D\u0E14\u0E43\u0E08\u0E44\u0E21\u0E48\u0E44\u0E2B\u0E27 | can't restrain oneself | overcome with desire / couldn't hold back (sexual context) |
+| \u0E44\u0E21\u0E48\u0E23\u0E2D\u0E43\u0E2B\u0E49\u0E16\u0E36\u0E07\u0E2B\u0E49\u0E2D\u0E07/\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21 | can't wait to reach the room/hotel | too sexually eager to wait for privacy |
+| \u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E49\u0E2D\u0E07 | opening a room | getting a room (for sex), renting a short-time hotel room |
+| \u0E21\u0E48\u0E32\u0E19\u0E23\u0E39\u0E14 | pulled curtain | short-time hotel / love hotel |
+
+### Violence / Crime Slang
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| \u0E22\u0E01\u0E1E\u0E27\u0E01\u0E15\u0E35\u0E01\u0E31\u0E19 | lifting a group to hit | gang fight, brawl |
+| \u0E44\u0E25\u0E48\u0E1F\u0E31\u0E19 | chasing to chop | chasing someone with a blade/machete |
+| \u0E1B\u0E32\u0E14\u0E04\u0E2D | slicing the neck | slashing someone's throat / knife attack |
+| \u0E22\u0E34\u0E07\u0E01\u0E31\u0E19 | shooting each other | shooting incident |
+| \u0E15\u0E1A\u0E15\u0E35 | slapping and hitting | physical fight, domestic violence |
+| \u0E0A\u0E01\u0E15\u0E48\u0E2D\u0E22 | punching | fist fight |
+| \u0E07\u0E31\u0E14\u0E41\u0E07\u0E30 | prying open | breaking and entering, burglary |
+| \u0E25\u0E49\u0E27\u0E07\u0E01\u0E23\u0E30\u0E40\u0E1B\u0E4B\u0E32 | reaching into a pocket | pickpocketing |
+| \u0E15\u0E38\u0E4B\u0E19 / \u0E42\u0E01\u0E07 / \u0E15\u0E49\u0E21\u0E15\u0E38\u0E4B\u0E19 | stewing / cheating / cooking a scam | fraud, scam, con |
+| \u0E42\u0E14\u0E19\u0E2B\u0E25\u0E2D\u0E01 | being tricked | got scammed/conned |
+| \u0E40\u0E21\u0E32\u0E41\u0E25\u0E49\u0E27\u0E02\u0E31\u0E1A | drunk then drive | drink driving |
+| \u0E0B\u0E34\u0E48\u0E07 | speeding/racing | reckless driving, street racing |
+| \u0E21\u0E2D\u0E21\u0E40\u0E2B\u0E25\u0E49\u0E32 | dosing with alcohol | getting someone drunk to take advantage of them |
+| \u0E22\u0E32\u0E1A\u0E49\u0E32 / \u0E22\u0E32\u0E44\u0E2D\u0E0B\u0E4C / \u0E22\u0E32\u0E40\u0E04 | crazy medicine / ice medicine / K medicine | methamphetamine / crystal meth / ketamine |
+| \u0E2A\u0E32\u0E22\u0E40\u0E02\u0E35\u0E22\u0E27 | green line | marijuana (slang) |
+| \u0E02\u0E2D\u0E07\u0E21\u0E36\u0E19\u0E40\u0E21\u0E32 | intoxicating things | drugs/alcohol (general) |
+
+### Accidents / Emergencies
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| \u0E0A\u0E19\u0E41\u0E25\u0E49\u0E27\u0E2B\u0E19\u0E35 | hit then flee | hit-and-run |
+| \u0E40\u0E2A\u0E35\u0E22\u0E2B\u0E25\u0E31\u0E01 | losing control | lost control of vehicle |
+| \u0E1F\u0E32\u0E14\u0E40\u0E2A\u0E32 | hitting a pole | crashed into a power pole/post |
+| \u0E15\u0E01\u0E40\u0E2B\u0E27 / \u0E15\u0E01\u0E40\u0E02\u0E32 | falling into a ravine / falling off a mountain | vehicle went off a cliff/hillside road |
+| \u0E08\u0E21\u0E19\u0E49\u0E33 | sinking in water | drowning |
+| \u0E04\u0E25\u0E37\u0E48\u0E19\u0E0B\u0E31\u0E14 | waves sweeping | swept away by waves / strong current incident |
+| \u0E01\u0E23\u0E30\u0E41\u0E2A\u0E19\u0E49\u0E33 | water current | rip current / strong current |
+| \u0E44\u0E1F\u0E44\u0E2B\u0E21\u0E49 | fire burning | building/vehicle fire |
+| \u0E44\u0E1F\u0E25\u0E38\u0E01 | fire flaring | fire broke out |
+| \u0E23\u0E48\u0E32\u0E07\u0E44\u0E23\u0E49\u0E27\u0E34\u0E0D\u0E0D\u0E32\u0E13 | body without soul | dead body, corpse |
+| \u0E40\u0E2A\u0E35\u0E22\u0E0A\u0E35\u0E27\u0E34\u0E15\u0E04\u0E32\u0E17\u0E35\u0E48 | died at the spot | died at the scene |
+| \u0E2A\u0E32\u0E2B\u0E31\u0E2A | serious/grave | critically injured |
+| \u0E1A\u0E32\u0E14\u0E40\u0E08\u0E47\u0E1A | wounded | injured (non-critical) |
+
+### Social Commentary / Insults
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| \u0E1D\u0E23\u0E31\u0E48\u0E07 | guava | foreigner (Western), not the fruit |
+| \u0E41\u0E02\u0E01 | guest | foreigner (South Asian/Middle Eastern) \u2014 can be derogatory |
+| \u0E21\u0E34\u0E08\u0E09\u0E32\u0E0A\u0E35\u0E1E | wrong livelihood | criminal, fraudster |
+| \u0E2A\u0E34\u0E1A\u0E41\u0E1B\u0E14\u0E21\u0E07\u0E01\u0E38\u0E0E | eighteen crowns | con artist, swindler (idiom) |
+| \u0E2B\u0E31\u0E27\u0E23\u0E49\u0E2D\u0E19 | hot head | angry, hot-tempered, aggressive |
+| \u0E40\u0E21\u0E32\u0E2B\u0E31\u0E27\u0E23\u0E32\u0E19\u0E49\u0E33 | drunk head-in-water | extremely drunk, wasted |
+| \u0E04\u0E19\u0E1A\u0E49\u0E32 | crazy person | used loosely \u2014 can mean reckless, wild, or literally mentally ill depending on context |
+| \u0E2D\u0E35\u0E14\u0E2D\u0E01 / \u0E2D\u0E35\u0E15\u0E31\u0E27 | flower / animal (female) | derogatory terms for women (vulgar insults) |
+| \u0E40\u0E2A\u0E37\u0E2D\u0E01 | nosy | minding other's business, butting in (vulgar) |
+| \u0E42\u0E04\u0E15\u0E23 / \u0E42\u0E04\u0E15\u0E23\u0E08\u0E30 | ancestor / ancestral | intensifier meaning "extremely" or "f***ing" \u2014 e.g. \u0E42\u0E04\u0E15\u0E23\u0E40\u0E08\u0E47\u0E1A = hurts like hell |
+
+### Tourism / Nightlife Context
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| \u0E1A\u0E31\u0E07\u0E40\u0E01\u0E2D\u0E23\u0E4C | bunker | a jet ski rental scam operator (Phuket-specific slang) |
+| \u0E2A\u0E2D\u0E07\u0E41\u0E16\u0E27 | two rows | songthaew (local bus/truck with bench seats) \u2014 not a "two-row" |
+| \u0E1B\u0E48\u0E32\u0E15\u0E2D\u0E07 | Patong forest | Patong (place name) \u2014 do not translate literally |
+| \u0E1A\u0E32\u0E07\u0E25\u0E32 | \u2014 | Bangla Road / Soi Bangla (Patong's main nightlife strip) |
+| \u0E16\u0E19\u0E19\u0E04\u0E19\u0E40\u0E14\u0E34\u0E19 | walking street | Bangla Walking Street (not a generic "pedestrian road") |
+| \u0E23\u0E49\u0E32\u0E19\u0E40\u0E2B\u0E25\u0E49\u0E32 | liquor shop | bar, nightclub |
+| \u0E1C\u0E31\u0E1A | pub | nightclub (Thai usage of "pub" = nightclub, not a British-style pub) |
+| \u0E42\u0E01\u0E42\u0E01\u0E49 | cocoa | go-go bar (phonetic) |
+| \u0E2B\u0E21\u0E2D\u0E19\u0E27\u0E14 | massage doctor | masseuse \u2014 context determines if legitimate spa or euphemism |
+| \u0E1F\u0E39\u0E25\u0E21\u0E39\u0E19 | full moon | Full Moon Party (event reference) |
+| \u0E2B\u0E34\u0E27\u0E41\u0E2A\u0E07 | hungry for light | attention-seeking (used for people doing outrageous things in public) |
+
+### Tone / Framing Indicators
+| Thai Term/Phrase | Meaning |
+|---|---|
+| \u0E04\u0E19\u0E21\u0E31\u0E19\u0E2B\u0E34\u0E27! | "They were hungry!" \u2014 sarcastic, implying sexual appetite, not actual hunger |
+| \u0E2D\u0E14\u0E43\u0E08\u0E44\u0E21\u0E48\u0E44\u0E2B\u0E27! | "Couldn't hold back!" \u2014 implies uncontrollable urge, usually sexual |
+| \u0E41\u0E1A\u0E1A\u0E19\u0E35\u0E49\u0E01\u0E47\u0E44\u0E14\u0E49\u0E40\u0E2B\u0E23\u0E2D | "This is acceptable?" \u2014 rhetorical outrage/disbelief |
+| \u0E44\u0E21\u0E48\u0E2D\u0E32\u0E22\u0E1A\u0E49\u0E32\u0E07\u0E40\u0E2B\u0E23\u0E2D | "Aren't you ashamed?" \u2014 public shaming |
+| \u0E17\u0E33\u0E44\u0E1B\u0E44\u0E14\u0E49 | "How could they do this?" \u2014 disbelief/outrage |
+| \u0E40\u0E01\u0E48\u0E07\u0E08\u0E23\u0E34\u0E07\u0E46 | "Really skilled" \u2014 sarcastic, meaning the opposite |
+| \u0E19\u0E48\u0E32\u0E23\u0E31\u0E01\u0E21\u0E32\u0E01 | "Very cute" \u2014 often sarcastic when describing adults behaving badly |
+| \u0E1B\u0E23\u0E30\u0E40\u0E17\u0E28\u0E44\u0E17\u0E22\u0E40\u0E23\u0E32 | "Our Thailand" \u2014 used sarcastically when lamenting foreigner misbehaviour |
+| 555 | hahaha (Thai laughter \u2014 \u0E2B\u0E49\u0E32\u0E2B\u0E49\u0E32\u0E2B\u0E49\u0E32) |
+| \u0E2A\u0E32\u0E18\u0E38 | amen/bless \u2014 used both sincerely and sarcastically |
+
+### Banking / Payment / Scam Terms
+| Thai Term | Literal Meaning | ACTUAL MEANING |
+|---|---|---|
+| \u0E2A\u0E25\u0E34\u0E1B\u0E1B\u0E25\u0E2D\u0E21 | fake slip | fake bank transfer screenshot (mobile banking scam \u2014 scammer shows a fabricated PromptPay/banking confirmation to avoid paying) |
+| \u0E2A\u0E25\u0E34\u0E1B\u0E42\u0E2D\u0E19\u0E40\u0E07\u0E34\u0E19 | money transfer slip | bank transfer confirmation screenshot |
+| \u0E42\u0E2D\u0E19\u0E40\u0E07\u0E34\u0E19 | transfer money | bank transfer / PromptPay transfer |
+| \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E1E\u0E22\u0E4C / PromptPay | PromptPay | Thailand's instant payment system (like Venmo) |
+| QR \u0E42\u0E01\u0E07 | cheat QR | fake payment QR code |
+| \u0E08\u0E48\u0E32\u0E22\u0E2A\u0E25\u0E34\u0E1B\u0E1B\u0E25\u0E2D\u0E21 | paying with fake slip | using a fake bank transfer screenshot to avoid paying |
+| \u0E15\u0E23\u0E30\u0E40\u0E27\u0E19\u0E2B\u0E25\u0E2D\u0E01 | roaming to deceive | going from place to place scamming |
+| \u0E01\u0E34\u0E19\u0E1F\u0E23\u0E35 | eating free | dining and dashing / getting something without paying |
+| \u0E01\u0E34\u0E19\u0E41\u0E25\u0E49\u0E27\u0E44\u0E21\u0E48\u0E08\u0E48\u0E32\u0E22 | ate then didn't pay | dine and dash |
+| \u0E0A\u0E31\u0E01\u0E14\u0E32\u0E1A | drawing a sword | running out on a bill, dine and dash (common idiom) |
+| \u0E40\u0E1A\u0E35\u0E49\u0E22\u0E27 | swerving | dodging payment, weaseling out of paying |
+| \u0E42\u0E01\u0E07\u0E40\u0E07\u0E34\u0E19 | cheating money | financial fraud |
+| \u0E41\u0E01\u0E4A\u0E07\u0E04\u0E2D\u0E25\u0E40\u0E0B\u0E47\u0E19\u0E40\u0E15\u0E2D\u0E23\u0E4C | call center gang | phone scam syndicate |
+| \u0E41\u0E0A\u0E23\u0E4C\u0E25\u0E39\u0E01\u0E42\u0E0B\u0E48 | chain share | pyramid scheme / Ponzi scheme |
+| \u0E40\u0E07\u0E34\u0E19\u0E01\u0E39\u0E49\u0E19\u0E2D\u0E01\u0E23\u0E30\u0E1A\u0E1A | outside-system loan | illegal loan shark |
+| \u0E08\u0E33\u0E19\u0E33 | pawning | pawn shop (legitimate or illegal) |
+| \u0E17\u0E27\u0E07\u0E2B\u0E19\u0E35\u0E49 | debt collection | debt collectors (often aggressive/illegal methods) |
+
+### Common Thai Abbreviations in News Posts
+| Abbreviation | Full Thai | English |
+|---|---|---|
+| \u0E19\u0E17\u0E17. | \u0E19\u0E31\u0E01\u0E17\u0E48\u0E2D\u0E07\u0E40\u0E17\u0E35\u0E48\u0E22\u0E27 | tourist |
+| \u0E15\u0E23. | \u0E15\u0E33\u0E23\u0E27\u0E08 | police |
+| \u0E08\u0E19\u0E17. | \u0E40\u0E08\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 | officer/official |
+| \u0E23\u0E1E. | \u0E42\u0E23\u0E07\u0E1E\u0E22\u0E32\u0E1A\u0E32\u0E25 | hospital |
+| \u0E2A\u0E19. | \u0E2A\u0E16\u0E32\u0E19\u0E35\u0E15\u0E33\u0E23\u0E27\u0E08 | police station |
+| \u0E2D\u0E1A\u0E15. | \u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23\u0E2A\u0E48\u0E27\u0E19\u0E15\u0E33\u0E1A\u0E25 | sub-district administrative organization |
+| \u0E1C\u0E01\u0E01. | \u0E1C\u0E39\u0E49\u0E01\u0E33\u0E01\u0E31\u0E1A\u0E01\u0E32\u0E23 | police superintendent |
+| \u0E23\u0E2D\u0E07 \u0E1C\u0E01\u0E01. | \u0E23\u0E2D\u0E07\u0E1C\u0E39\u0E49\u0E01\u0E33\u0E01\u0E31\u0E1A\u0E01\u0E32\u0E23 | deputy superintendent |
+| \u0E1E\u0E07\u0E2A. | \u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E2A\u0E2D\u0E1A\u0E2A\u0E27\u0E19 | investigating officer |
+| \u0E2A\u0E20. | \u0E2A\u0E16\u0E32\u0E19\u0E35\u0E15\u0E33\u0E23\u0E27\u0E08\u0E20\u0E39\u0E18\u0E23 | provincial police station |
+| \u0E01\u0E01. | \u0E01\u0E34\u0E42\u0E25\u0E01\u0E23\u0E31\u0E21 | kilogram (in drug seizure reports) |
+
+### Contextual Translation Rules
+- When a post contains blurred/censored images + suggestive language, the story is about sexual behaviour in public, NOT about food or mundane activities
+- When "\u0E2D\u0E14\u0E43\u0E08\u0E44\u0E21\u0E48\u0E44\u0E2B\u0E27" + "\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E43\u0E2B\u0E49\u0E16\u0E36\u0E07\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21" appear together, the context is ALWAYS sexual
+- "\u0E01\u0E34\u0E19" (eat) has many slang uses: \u0E01\u0E34\u0E19\u0E1A\u0E27\u0E1A (making out), \u0E01\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E49\u0E32 (drinking alcohol, not eating), \u0E01\u0E34\u0E19\u0E15\u0E31\u0E1A (jealous/envious, not eating liver), \u0E01\u0E34\u0E19\u0E41\u0E23\u0E07 (exploiting someone's labour)
+- Headlines with "!" and words like "\u0E2B\u0E34\u0E27" (hungry) in quotation marks or with exclamation marks are usually sarcastic/sensationalized
 
 INTEREST SCORE (1-5) - BE VERY STRICT:
 
@@ -11260,7 +11442,10 @@ async function runScheduledScrape(callbacks) {
                   console.log(`   Score: ${effectiveScore}/5 | Category: ${article.category}${isSouthernFloodStory ? " \u2192 overridden to National (flood keyword)" : ""}`);
                   console.log(`   hasImage: ${!!hasImage} | isPublished: ${article.isPublished} | isReallyPosted: ${!!isReallyPosted} | isManuallyCreated: ${!!article.isManuallyCreated}`);
                 }
-                const shouldTriggerAutoPost = article.isPublished && effectiveScore >= 4 && !isReallyPosted && hasImage && !article.isManuallyCreated && effectiveCategory !== "National";
+                const shouldTriggerAutoPost = false;
+                if (article.isPublished && effectiveScore >= 4 && !isReallyPosted && hasImage && !article.isManuallyCreated && effectiveCategory !== "National") {
+                  console.log(`\u{1F6AB} [FB-AUTOPOST-KILLSWITCH] Auto-posting is DISABLED. Skipping article: ${article.title.substring(0, 50)}...`);
+                }
                 if (shouldTriggerAutoPost) {
                   console.log(`\u{1F680} Triggering Internal Facebook Auto-Poster for: ${article.title.substring(0, 50)}...`);
                   postArticleToFacebook(article, storage).then((result) => {
@@ -12286,10 +12471,183 @@ var scrapeJobManager = new ScrapeJobManager();
 // server/routes.ts
 init_facebook_service();
 
-// server/lib/instagram-service.ts
+// server/lib/publer-service.ts
+init_category_map();
+var PUBLER_API_KEY = process.env.PUBLER_API_KEY;
+var PUBLER_WORKSPACE_ID = process.env.PUBLER_WORKSPACE_ID;
+var PUBLER_INSTAGRAM_ACCOUNT_ID = process.env.PUBLER_INSTAGRAM_ACCOUNT_ID;
+var PUBLER_THREADS_ACCOUNT_ID = process.env.PUBLER_THREADS_ACCOUNT_ID;
+var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+var convertToJpg = (url) => {
+  if (url && url.includes("cloudinary.com") && url.endsWith(".webp")) {
+    return url.replace("/upload/", "/upload/f_jpg/").replace(".webp", ".jpg");
+  }
+  return url;
+};
+async function postArticleToPubler(article, storage2) {
+  console.log(`\u{1F680} [PUBLER-POST] Starting Publer post attempt for article: ${article.title.substring(0, 60)}...`);
+  if (!PUBLER_API_KEY || !PUBLER_WORKSPACE_ID) {
+    console.error("\u274C [PUBLER-POST] Publer credentials not configured");
+    return null;
+  }
+  let imageUrls = [];
+  if (article.imageUrls && Array.isArray(article.imageUrls) && article.imageUrls.length > 0) {
+    imageUrls = article.imageUrls.slice(0, 10).map(convertToJpg);
+  } else if (article.imageUrl) {
+    imageUrls = [convertToJpg(article.imageUrl)];
+  }
+  if (imageUrls.length === 0) {
+    console.error(`\u274C [PUBLER-POST] No images available for article ${article.id}`);
+    return null;
+  }
+  const baseUrl = "https://phuketradar.com";
+  const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
+  const directUrl = `${baseUrl}${articlePath}`;
+  const threadsUrl = article.switchyShortUrl || directUrl;
+  const headline = article.facebookHeadline || article.title;
+  const instagramCaption = `${headline}
+
+${article.excerpt}
+
+\u{1F4F0} Tap the link in Bio for the full story
+
+#Phuket #PhuketNews #Thailand #PhuketLife`;
+  const threadsText = `${headline}
+
+\u{1F4F0} ${threadsUrl}
+
+#Phuket #PhuketNews`;
+  const headers = {
+    "Authorization": `Bearer-API ${PUBLER_API_KEY}`,
+    "Publer-Workspace-Id": PUBLER_WORKSPACE_ID,
+    "Content-Type": "application/json"
+  };
+  const lockToken = `manual-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  console.log(`\u{1F512} [PUBLER-POST] Attempting to claim article for posting...`);
+  const claimed = await storage2.claimArticleForInstagramPosting(article.id, lockToken);
+  if (!claimed) {
+    console.log(`\u23ED\uFE0F  [PUBLER-POST] Could not claim article - already posted or being posted`);
+    return null;
+  }
+  try {
+    console.log(`\u{1F4F8} [PUBLER-POST] Uploading ${imageUrls.length} images...`);
+    const uploadRes = await fetch("https://app.publer.com/api/v1/media/from-url", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        media: imageUrls.map((url, i) => ({
+          url,
+          name: `phuket-radar-news-${article.id}-${i}`,
+          type: "image",
+          in_library: false
+        }))
+      })
+    });
+    if (!uploadRes.ok) {
+      console.error(`\u274C [PUBLER-POST] Media upload failed: ${await uploadRes.text()}`);
+      return null;
+    }
+    const uploadData = await uploadRes.json();
+    const jobId = uploadData.job_id;
+    console.log(`\u23F3 [PUBLER-POST] Media upload job started: ${jobId}`);
+    let mediaIds = [];
+    for (let i = 0; i < 20; i++) {
+      await sleep(2e3);
+      const statusRes = await fetch(`https://app.publer.com/api/v1/job_status/${jobId}`, { headers });
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (statusData.status === "complete" && statusData.payload?.length > 0) {
+          mediaIds = statusData.payload.map((p) => p.id).filter(Boolean);
+          if (mediaIds.length === imageUrls.length) break;
+        }
+      }
+    }
+    if (mediaIds.length === 0) {
+      console.error(`\u274C [PUBLER-POST] Media processing timed out or failed`);
+      return null;
+    }
+    console.log(`\u2705 [PUBLER-POST] Media ready: ${mediaIds.join(", ")}`);
+    const postType = mediaIds.length > 1 ? "carousel" : "photo";
+    console.log(`\u{1F4F8} [PUBLER-POST] Publishing to Instagram...`);
+    const igRes = await fetch("https://app.publer.com/api/v1/posts/schedule/publish", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        bulk: {
+          state: "publish",
+          posts: [{
+            networks: {
+              instagram: {
+                type: postType,
+                text: instagramCaption,
+                media: mediaIds.map((id) => ({ id }))
+              }
+            },
+            accounts: [{ id: PUBLER_INSTAGRAM_ACCOUNT_ID }]
+          }]
+        }
+      })
+    });
+    if (!igRes.ok) {
+      console.error(`\u274C [PUBLER-POST] Instagram publish failed: ${await igRes.text()}`);
+      return null;
+    }
+    const igData = await igRes.json();
+    const igJobId = igData.job_id;
+    console.log(`\u{1F9F5} [PUBLER-POST] Publishing to Threads...`);
+    const thRes = await fetch("https://app.publer.com/api/v1/posts/schedule/publish", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        bulk: {
+          state: "publish",
+          posts: [{
+            networks: {
+              threads: {
+                type: postType,
+                text: threadsText,
+                media: mediaIds.map((id) => ({ id }))
+              }
+            },
+            accounts: [{ id: PUBLER_THREADS_ACCOUNT_ID }]
+          }]
+        }
+      })
+    });
+    if (!thRes.ok) {
+      console.warn(`\u26A0\uFE0F [PUBLER-POST] Threads publish failed, but IG might still be processing: ${await thRes.text()}`);
+    }
+    let igPostId = igJobId;
+    for (let i = 0; i < 15; i++) {
+      await sleep(2e3);
+      const jobRes = await fetch(`https://app.publer.com/api/v1/job_status/${igJobId}`, { headers });
+      if (jobRes.ok) {
+        const jobData = await jobRes.json();
+        if (jobData.status === "complete") {
+          igPostId = jobData.payload?.[0]?.post?.id || igJobId;
+          break;
+        }
+      }
+    }
+    const postUrl = `https://www.instagram.com/reels/`;
+    await storage2.updateArticleInstagramPost(article.id, igPostId, postUrl, lockToken);
+    console.log(`\u2705 [PUBLER-POST] Success! Post ID: ${igPostId}`);
+    return {
+      status: "posted",
+      postId: igPostId,
+      postUrl
+    };
+  } catch (error) {
+    console.error(`\u274C [PUBLER-POST] Unexpected error:`, error);
+    await storage2.releaseInstagramPostLock(article.id, lockToken);
+    return null;
+  }
+}
+
+// server/lib/threads-service.ts
 init_category_map();
 var META_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
-var INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
+var THREADS_USER_ID = process.env.THREADS_USER_ID;
 function generateHashtags2(category) {
   const baseHashtag = "#Phuket";
   const categoryHashtags = {
@@ -12307,174 +12665,6 @@ function getArticleUrl2(article) {
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   return `${baseUrl}${articlePath}`;
 }
-async function postArticleToInstagram(article, storage2) {
-  if (false) {
-    console.log(`\u{1F6AB} [IG-POST] Instagram posting DISABLED in development environment`);
-    console.log(`\u{1F4F8} [IG-POST] Article: ${article.title.substring(0, 60)}... (would post in production)`);
-    return null;
-  }
-  console.log(`\u{1F4F8} [IG-POST] Starting Instagram post attempt for article: ${article.title.substring(0, 60)}...`);
-  console.log(`\u{1F4F8} [IG-POST] Article ID: ${article.id}`);
-  if (!META_ACCESS_TOKEN) {
-    console.error("\u274C [IG-POST] META_ACCESS_TOKEN not configured");
-    return null;
-  }
-  if (!INSTAGRAM_ACCOUNT_ID) {
-    console.error("\u274C [IG-POST] INSTAGRAM_ACCOUNT_ID not configured");
-    return null;
-  }
-  const primaryImageUrl = article.imageUrl || article.imageUrls && article.imageUrls[0];
-  if (!primaryImageUrl) {
-    console.error(`\u274C [IG-POST] Article ${article.id} has no image, skipping Instagram post`);
-    return null;
-  }
-  console.log(`\u{1F4F8} [IG-POST] Using image: ${primaryImageUrl}`);
-  const lockToken = `${article.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-  console.log(`\u{1F512} [IG-POST] Attempting to claim article for posting (lockToken: ${lockToken.substring(0, 40)}...)...`);
-  const claimed = await storage2.claimArticleForInstagramPosting(article.id, lockToken);
-  if (!claimed) {
-    console.log(`\u23ED\uFE0F  [IG-POST] Could not claim article - already posted or being posted by another process`);
-    const freshArticle = await storage2.getArticleById(article.id);
-    if (freshArticle?.instagramPostId && !freshArticle.instagramPostId.startsWith("IG-LOCK:")) {
-      console.log(`\u2705 [IG-POST] Article already posted (status: already-posted)`);
-      console.log(`\u{1F4F8} [IG-POST] Post ID: ${freshArticle.instagramPostId}`);
-      return {
-        status: "already-posted",
-        postId: freshArticle.instagramPostId,
-        postUrl: freshArticle.instagramPostUrl || `https://www.instagram.com/p/${freshArticle.instagramPostId}/`
-      };
-    }
-    console.log(`\u26A0\uFE0F  [IG-POST] Article is locked by another process - skipping`);
-    return null;
-  }
-  console.log(`\u2705 [IG-POST] Successfully claimed article - proceeding with Instagram API call...`);
-  try {
-    const hashtags = generateHashtags2(article.category);
-    const articleUrl = getArticleUrl2(article);
-    const caption = `${article.title}
-
-${article.excerpt}
-
-Read the full story (link in comments) \u{1F447}
-
-${hashtags}`;
-    console.log(`\u{1F4F8} [IG-POST] Creating media container...`);
-    console.log(`\u{1F4F8} [IG-POST] Account ID: ${INSTAGRAM_ACCOUNT_ID}`);
-    const containerResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          image_url: primaryImageUrl,
-          caption,
-          access_token: META_ACCESS_TOKEN
-        })
-      }
-    );
-    if (!containerResponse.ok) {
-      const errorText = await containerResponse.text();
-      console.error("\u274C [IG-POST] Failed to create media container:");
-      console.error(`\u274C [IG-POST] Status: ${containerResponse.status}`);
-      console.error(`\u274C [IG-POST] Response: ${errorText}`);
-      await storage2.releaseInstagramPostLock(article.id, lockToken);
-      return null;
-    }
-    const containerData = await containerResponse.json();
-    const containerId = containerData.id;
-    console.log(`\u2705 [IG-POST] Created media container: ${containerId}`);
-    console.log(`\u{1F4F8} [IG-POST] Waiting 3 seconds for media processing...`);
-    await new Promise((resolve) => setTimeout(resolve, 3e3));
-    console.log(`\u{1F4F8} [IG-POST] Publishing media container...`);
-    const publishResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media_publish`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          creation_id: containerId,
-          access_token: META_ACCESS_TOKEN
-        })
-      }
-    );
-    if (!publishResponse.ok) {
-      const errorText = await publishResponse.text();
-      console.error("\u274C [IG-POST] Failed to publish media:");
-      console.error(`\u274C [IG-POST] Status: ${publishResponse.status}`);
-      console.error(`\u274C [IG-POST] Response: ${errorText}`);
-      await storage2.releaseInstagramPostLock(article.id, lockToken);
-      return null;
-    }
-    const publishData = await publishResponse.json();
-    const mediaId = publishData.id;
-    console.log(`\u2705 [IG-POST] Published to Instagram! Media ID: ${mediaId}`);
-    console.log(`\u{1F4F8} [IG-POST] Adding comment with article link...`);
-    const commentResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${mediaId}/comments`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: `Read the full story: ${articleUrl}`,
-          access_token: META_ACCESS_TOKEN
-        })
-      }
-    );
-    if (commentResponse.ok) {
-      const commentData = await commentResponse.json();
-      console.log(`\u2705 [IG-POST] Added comment to post: ${commentData.id}`);
-    } else {
-      const commentErrorText = await commentResponse.text();
-      console.warn(`\u26A0\uFE0F  [IG-POST] Failed to add comment (status ${commentResponse.status}): ${commentErrorText}`);
-    }
-    const postUrl = `https://www.instagram.com/p/${mediaId}/`;
-    console.log(`\u{1F4F8} [IG-POST] Updating database with post ID and URL...`);
-    await storage2.updateArticleInstagramPost(article.id, mediaId, postUrl, lockToken);
-    console.log(`\u2705 [IG-POST] Database updated successfully!`);
-    console.log(`\u{1F4F8} [IG-POST] Post URL: ${postUrl}`);
-    return {
-      status: "posted",
-      postId: mediaId,
-      postUrl
-    };
-  } catch (error) {
-    console.error("\u274C [IG-POST] Unexpected error during Instagram posting:", error);
-    try {
-      await storage2.releaseInstagramPostLock(article.id, lockToken);
-    } catch (releaseError) {
-      console.error("\u274C [IG-POST] Failed to release lock after error:", releaseError);
-    }
-    return null;
-  }
-}
-
-// server/lib/threads-service.ts
-init_category_map();
-var META_ACCESS_TOKEN2 = process.env.FB_PAGE_ACCESS_TOKEN;
-var THREADS_USER_ID = process.env.THREADS_USER_ID;
-function generateHashtags3(category) {
-  const baseHashtag = "#Phuket";
-  const categoryHashtags = {
-    "Breaking": ["#PhuketNews", "#ThailandNews", "#BreakingNews"],
-    "Tourism": ["#PhuketTourism", "#ThailandTravel", "#VisitPhuket"],
-    "Business": ["#PhuketBusiness", "#ThailandBusiness", "#PhuketEconomy"],
-    "Events": ["#PhuketEvents", "#ThingsToDoInPhuket", "#PhuketLife"],
-    "Other": ["#PhuketNews", "#Thailand", "#PhuketLife"]
-  };
-  const categoryTags = categoryHashtags[category] || categoryHashtags["Other"];
-  return `${baseHashtag} ${categoryTags.join(" ")}`;
-}
-function getArticleUrl3(article) {
-  const baseUrl = false ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://phuketradar.com";
-  const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
-  return `${baseUrl}${articlePath}`;
-}
 async function postArticleToThreads(article, storage2) {
   if (false) {
     console.log(`\u{1F6AB} [THREADS-POST] Threads posting DISABLED in development environment`);
@@ -12483,7 +12673,7 @@ async function postArticleToThreads(article, storage2) {
   }
   console.log(`\u{1F9F5} [THREADS-POST] Starting Threads post attempt for article: ${article.title.substring(0, 60)}...`);
   console.log(`\u{1F9F5} [THREADS-POST] Article ID: ${article.id}`);
-  if (!META_ACCESS_TOKEN2) {
+  if (!META_ACCESS_TOKEN) {
     console.error("\u274C [THREADS-POST] META_ACCESS_TOKEN not configured");
     return null;
   }
@@ -12511,8 +12701,8 @@ async function postArticleToThreads(article, storage2) {
   }
   console.log(`\u2705 [THREADS-POST] Successfully claimed article - proceeding with Threads API call...`);
   try {
-    const hashtags = generateHashtags3(article.category);
-    const articleUrl = getArticleUrl3(article);
+    const hashtags = generateHashtags2(article.category);
+    const articleUrl = getArticleUrl2(article);
     const threadText = `${article.title}
 
 ${article.excerpt}
@@ -12525,7 +12715,7 @@ ${hashtags}`;
     const primaryImageUrl = article.imageUrl || article.imageUrls && article.imageUrls[0];
     const containerPayload = {
       text: threadText,
-      access_token: META_ACCESS_TOKEN2
+      access_token: META_ACCESS_TOKEN
     };
     if (primaryImageUrl) {
       containerPayload.media_type = "IMAGE";
@@ -12570,7 +12760,7 @@ ${hashtags}`;
         },
         body: JSON.stringify({
           creation_id: containerId,
-          access_token: META_ACCESS_TOKEN2
+          access_token: META_ACCESS_TOKEN
         })
       }
     );
@@ -14973,8 +15163,10 @@ async function registerRoutes(app2) {
       const { id } = req.params;
       const article = await storage.updateArticle(id, {
         isPublished: true,
-        facebookPostId: null
-        // Clear any previous posting attempts so button appears
+        facebookPostId: `LOCK:MANUAL:${id}`,
+        // Prevent n8n from auto-posting, button will still appear
+        instagramPostId: `IG-LOCK:MANUAL:${id}`,
+        threadsPostId: `THREADS-LOCK:MANUAL:${id}`
       });
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
@@ -15137,7 +15329,7 @@ async function registerRoutes(app2) {
       if (article.instagramPostId && !article.instagramPostId.startsWith("IG-LOCK:")) {
         return res.status(400).json({ error: "Article already posted to Instagram" });
       }
-      const igResult = await postArticleToInstagram(article, storage);
+      const igResult = await postArticleToPubler(article, storage);
       if (!igResult) {
         return res.status(500).json({ error: "Failed to post to Instagram" });
       }
