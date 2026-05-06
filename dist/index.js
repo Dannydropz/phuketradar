@@ -15224,7 +15224,7 @@ async function registerRoutes(app2) {
       if (!article.isPublished) {
         return res.status(400).json({ error: "Only published articles can be posted to Facebook" });
       }
-      if (article.facebookPostId && !force) {
+      if (article.facebookPostId && !article.facebookPostId.startsWith("LOCK:") && !force) {
         return res.status(400).json({
           error: "Article already posted to Facebook",
           hint: "Use { force: true } in request body to re-post with updated content"
@@ -15271,7 +15271,7 @@ async function registerRoutes(app2) {
     try {
       const allArticles = await storage.getPublishedArticles();
       const articlesToPost = allArticles.filter(
-        (article) => (article.imageUrl || article.imageUrls && article.imageUrls.length > 0) && !article.facebookPostId
+        (article) => (article.imageUrl || article.imageUrls && article.imageUrls.length > 0) && (!article.facebookPostId || article.facebookPostId.startsWith("LOCK:"))
       );
       console.log(`\u{1F4D8} Batch posting ${articlesToPost.length} articles to Facebook`);
       const results = {

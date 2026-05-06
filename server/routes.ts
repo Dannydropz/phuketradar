@@ -1804,7 +1804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // If already posted and not forcing, return error
-      if (article.facebookPostId && !force) {
+      if (article.facebookPostId && !article.facebookPostId.startsWith('LOCK:') && !force) {
         return res.status(400).json({
           error: "Article already posted to Facebook",
           hint: "Use { force: true } in request body to re-post with updated content"
@@ -1867,7 +1867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find all published articles with images that haven't been posted to Facebook
       const allArticles = await storage.getPublishedArticles();
       const articlesToPost = allArticles.filter(
-        (article) => (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && !article.facebookPostId
+        (article) => (article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) && (!article.facebookPostId || article.facebookPostId.startsWith('LOCK:'))
       );
 
       console.log(`📘 Batch posting ${articlesToPost.length} articles to Facebook`);
