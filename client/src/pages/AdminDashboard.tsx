@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, Instagram, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, Instagram, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -66,6 +66,10 @@ export default function AdminDashboard() {
   const [collapsedTimelines, setCollapsedTimelines] = useState<Set<string>>(new Set());
   const [manualScrapeUrl, setManualScrapeUrl] = useState("");
   const [manualScrapeDialogOpen, setManualScrapeDialogOpen] = useState(false);
+  // Deep Enrich status per article
+  const [deepEnrichStatus, setDeepEnrichStatus] = useState<Record<string, string>>({});
+  // Editor notes per article — session-only, NOT saved to DB
+  const [editorNotes, setEditorNotes] = useState<Record<string, string>>({});
 
   // Use ArticleListItem (lean type without content/embedding) for faster loading
   const { data: articles = [], isLoading, error } = useQuery<ArticleListItem[]>({
@@ -408,7 +412,7 @@ export default function AdminDashboard() {
     },
   });
 
-  // Upgrade & Enrich article with GPT-4o premium enrichment
+  // Quick Enrich — fast GPT-4o mini enrichment (saves to DB)
   const upgradeEnrichMutation = useMutation({
     mutationFn: async ({ id, targetScore = 4 }: { id: string; targetScore?: number }) => {
       const res = await apiRequest("POST", `/api/admin/articles/${id}/upgrade-enrich`, { targetScore });
@@ -418,13 +422,76 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
       toast({
-        title: "✨ Article Upgraded!",
-        description: `Story enhanced with premium AI. Score: ${data.changes?.previousScore || 'N/A'} → ${data.changes?.newScore || data.article?.interestScore}`,
+        title: "✨ Quick Enrich Complete!",
+        description: `Story enhanced. Score: ${data.changes?.previousScore || 'N/A'} → ${data.changes?.newScore || data.article?.interestScore}`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Upgrade Failed",
+        title: "Quick Enrich Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Deep Enrich — premium Sonnet 4-6 enrichment: fetches fresh comments + English sources
+  // Returns enriched content for review WITHOUT auto-saving
+  const deepEnrichMutation = useMutation({
+    mutationFn: async (articleId: string) => {
+      const res = await apiRequest("POST", `/api/admin/articles/${articleId}/enrich-premium`, {
+        editorNotes: editorNotes[articleId] || '',
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Deep Enrich failed");
+      }
+      return await res.json() as {
+        success: boolean;
+        enrichedTitle: string;
+        enrichedContent: string;
+        enrichedExcerpt: string;
+        meta: {
+          freshCommentCount: number;
+          hasEditorNotes: boolean;
+          model: string;
+        };
+      };
+    },
+    onSuccess: async (data, articleId) => {
+      const { meta } = data;
+      const statusMsg = [
+        `${meta.freshCommentCount} fresh comment${meta.freshCommentCount !== 1 ? 's' : ''} fetched`,
+        meta.hasEditorNotes ? 'editor notes injected' : null,
+      ].filter(Boolean).join(', ');
+      setDeepEnrichStatus(prev => ({ ...prev, [articleId]: statusMsg }));
+
+      // Fetch the full article so we can open it in the editor with the enriched content pre-filled
+      try {
+        const res = await apiRequest("GET", `/api/admin/articles/${articleId}`);
+        const fullArticle = await res.json() as Article;
+        // Pre-fill the enriched content into the editing state
+        const enrichedArticle: Article = {
+          ...fullArticle,
+          title: data.enrichedTitle,
+          content: data.enrichedContent,
+          excerpt: data.enrichedExcerpt,
+        };
+        setEditingArticle(enrichedArticle);
+        setEditorOpen(true);
+        refetchCategories();
+      } catch (_e) {
+        // If we can't load the full article, at least show the toast
+      }
+
+      toast({
+        title: "🚀 Deep Enrich Complete!",
+        description: statusMsg + " Review and save manually.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Deep Enrich Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -1286,6 +1353,25 @@ export default function AdminDashboard() {
                                 </a>
                               </div>
                             </div>
+                            <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[280px]">
+                              {/* Editor Notes — session-only input for Deep Enrich */}
+                              <div className="w-full">
+                                <label
+                                  htmlFor={`editor-notes-${article.id}`}
+                                  className="block text-xs font-medium text-muted-foreground mb-1"
+                                >
+                                  Editor Notes
+                                </label>
+                                <textarea
+                                  id={`editor-notes-${article.id}`}
+                                  rows={3}
+                                  value={editorNotes[article.id] || ''}
+                                  onChange={(e) => setEditorNotes(prev => ({ ...prev, [article.id]: e.target.value }))}
+                                  placeholder="Add any details you know — location context, backstory, corrections, things the source missed..."
+                                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-y min-h-[60px]"
+                                  data-testid={`editor-notes-${article.id}`}
+                                />
+                              </div>
                             <div className="flex items-center gap-2 justify-end md:justify-start">
                               <Button
                                 variant="outline"
@@ -1314,7 +1400,7 @@ export default function AdminDashboard() {
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              {/* Upgrade & Enrich Button - Show for low score articles */}
+                              {/* Quick Enrich Button - fast GPT-4o mini, saves to DB */}
                               {(article.interestScore ?? 3) < 4 && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -1324,7 +1410,7 @@ export default function AdminDashboard() {
                                       disabled={upgradeEnrichMutation.isPending}
                                       data-testid={`button-upgrade-${article.id}`}
                                       className="h-11 w-11 p-0 border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
-                                      aria-label="Upgrade & Enrich article"
+                                      aria-label="Quick Enrich article"
                                     >
                                       {upgradeEnrichMutation.isPending ? (
                                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1334,11 +1420,37 @@ export default function AdminDashboard() {
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p className="font-semibold">Upgrade & Enrich</p>
-                                    <p className="text-xs text-muted-foreground">Re-write this story with premium AI enrichment</p>
+                                    <p className="font-semibold">Quick Enrich</p>
+                                    <p className="text-xs text-muted-foreground">Fast re-write with GPT-4o mini (saves automatically)</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
+                              {/* Deep Enrich Button + Editor Notes — Sonnet 4-6, fetches fresh comments, opens editor for review */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => deepEnrichMutation.mutate(article.id)}
+                                    disabled={deepEnrichMutation.isPending && deepEnrichMutation.variables === article.id}
+                                    data-testid={`button-deep-enrich-${article.id}`}
+                                    className="h-11 w-11 p-0 border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                                    aria-label="Deep Enrich article with Sonnet"
+                                  >
+                                    {deepEnrichMutation.isPending && deepEnrichMutation.variables === article.id ? (
+                                      <RefreshCw className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Zap className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-semibold">Deep Enrich</p>
+                                  <p className="text-xs text-muted-foreground">Fetches fresh FB comments → Claude Sonnet. Opens for review (does not auto-save).</p>
+                                  {deepEnrichStatus[article.id] && (
+                                    <p className="text-xs text-amber-400 mt-1">{deepEnrichStatus[article.id]}</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
                               {/* Facebook Button - Always visible. Hollow = not posted, Filled = posted */}
                                 {article.facebookPostId && !article.facebookPostId.startsWith('LOCK:') ? (
                                   <Tooltip>
@@ -1437,7 +1549,7 @@ export default function AdminDashboard() {
                                         disabled={postToInstagramMutation.isPending || updateMutation.isPending || !article.isPublished || (!article.imageUrl && (!article.imageUrls || article.imageUrls.length === 0))}
                                         data-testid={`button-instagram-${article.id}`}
                                         className="h-11 w-11 p-0 border-pink-500 text-pink-500 hover:bg-pink-500/10"
-                                        aria-label="Post to Instagram"
+                                        aria-label="Post to Instagram &amp; Threads"
                                       >
                                         <Instagram className="w-4 h-4" />
                                       </Button>
@@ -1446,7 +1558,7 @@ export default function AdminDashboard() {
                                       {!article.isPublished ? "Publish article first" :
                                         (!article.imageUrl && (!article.imageUrls || article.imageUrls.length === 0)) ? "Article must have an image for Instagram" :
                                           article.instagramPostId?.startsWith('IG-LOCK:') ? "Clear stuck lock and post" :
-                                            "Post to Instagram"}
+                                            "Post to Instagram & Threads"}
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
@@ -1515,6 +1627,7 @@ export default function AdminDashboard() {
                                   </Button>
                                 </>
                               )}
+                            </div>
                             </div>
                           </div>
                         ))}

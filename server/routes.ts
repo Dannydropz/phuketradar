@@ -2179,6 +2179,335 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Deep Enrich — Premium Manual Enrichment via Claude Sonnet - PROTECTED
+  // Step 1: Fetch fresh comments from original Facebook post (ScrapeCreators)
+  // Step 2: Call Claude Sonnet 4-6 directly with full veteran-correspondent prompt
+  // Step 3: Return enriched content for review — does NOT auto-save
+  // ─────────────────────────────────────────────────────────────────────────────
+  app.post("/api/admin/articles/:id/enrich-premium", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { editorNotes } = req.body as { editorNotes?: string };
+
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      console.log(`\n🚀 [DEEP-ENRICH] Starting premium enrichment for: ${article.title.substring(0, 60)}...`);
+
+      // ── STEP 1: Fetch fresh Facebook comments ─────────────────────────────
+      let freshComments: string[] = [];
+      let freshCommentCount = 0;
+
+      const sourcePostUrl = article.sourceUrl;
+      if (sourcePostUrl && sourcePostUrl.includes('facebook.com')) {
+        try {
+          console.log(`   💬 [DEEP-ENRICH] Fetching fresh comments from: ${sourcePostUrl.substring(0, 80)}...`);
+          const { scrapePostComments } = await import("./services/scraper");
+          const comments = await scrapePostComments(sourcePostUrl, 20);
+          freshComments = comments.map(c => c.text);
+          freshCommentCount = freshComments.length;
+          console.log(`   ✅ [DEEP-ENRICH] Got ${freshCommentCount} fresh comments`);
+        } catch (commentError) {
+          console.warn(`   ⚠️ [DEEP-ENRICH] Comment fetch failed — proceeding without fresh comments:`, commentError);
+        }
+      } else {
+        console.log(`   ℹ️  [DEEP-ENRICH] No Facebook source URL — skipping comment fetch`);
+      }
+
+      // ── STEP 2: Build prompt and call Claude Sonnet 4-6 ─────────────────
+      if (!process.env.ANTHROPIC_API_KEY) {
+        return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured — cannot run Deep Enrich" });
+      }
+
+      // Use the original veteran-correspondent Sonnet system prompt
+      const sonnetSystemPrompt = `You are a veteran wire-service correspondent who has lived in Phuket for over a decade. You write breaking news for an audience of long-term expats and residents who know the island intimately — they know every soi, every shortcut, every police station. Never explain Phuket to them. Write like an insider talking to insiders.
+
+Your job is to transform raw translated Thai-language source material into a complete, professional English news article. You must:
+1. Report ONLY what the source explicitly states — never invent, embellish, or dramatize
+2. ADD relevant context and background using the verified reference material provided — but only when it connects specifically to THIS story, not as generic filler
+3. Write articles substantial enough to be genuinely useful, even when the source material is brief
+4. End every article with an "On the Ground" section — story-specific practical context written in an insider voice (see instructions in user message)
+
+VOICE: You are not writing a travel safety brochure. You are writing for people who live here. They don't need to be told what Bangla Road is or that Thailand drives on the left. They DO want to know which specific police station is handling this case, whether this stretch of road has had similar incidents, or what the actual practical implications are for their daily life.
+
+You produce JSON output only. No markdown, no commentary outside the JSON structure.`;
+
+      // Build the comments block from fresh comments (or fallback to empty)
+      const allComments = freshComments.length > 0 ? freshComments : [];
+      const commentsBlock = allComments.length > 0 ? `
+## THAI FACEBOOK COMMENTS — READ EVERY ONE CAREFULLY
+
+The comments below are from the original Thai Facebook post. They are a PRIMARY source — as important as the article text itself. You MUST read each comment individually and extract specific details.
+
+REQUIRED: Write a "## Public Reaction" section using ONLY concrete details from the comments below. Follow these rules:
+
+RULE 1 — QUOTE OR PARAPHRASE SPECIFIC COMMENTS
+Do NOT write vague summaries like "many commenters expressed frustration" or "several called for stricter measures."
+Instead, extract and attribute specific viewpoints:
+- BAD: "Commenters called for stricter measures to prevent such incidents."
+- GOOD: "One commenter suggested a fine of 10,000 USD, while others demanded the couple's faces be published publicly as a deterrent. Several linked the incident to Thailand's free visa policy, arguing it has attracted tourists who exploit local businesses."
+
+RULE 2 — EXTRACT AT LEAST 4 DISTINCT VIEWPOINTS from the comments. Group by theme: punishments suggested, blame attribution, pattern recognition, policy criticism, eyewitness additions, practical suggestions, emotional reactions.
+
+RULE 3 — INCLUDE ENGAGEMENT NUMBERS if visible (reaction count, comment count, shares).
+
+RULE 4 — PRESERVE SPECIFIC DETAILS: numbers, locations, names, policies mentioned in comments.
+
+RULE 5 — MINIMUM 4 sentences when 50+ comments. Minimum 6 sentences when 200+ comments.
+
+RULE 6 — Comments are in Thai. Translate and incorporate them. Do not skip comments because they are in Thai.
+
+COMMENTS:
+${allComments.join('\n')}
+` : '';
+
+      // Build editor notes block — only injected when non-empty
+      const trimmedEditorNotes = (editorNotes || '').trim();
+      const editorNotesBlock = trimmedEditorNotes ? `
+EDITOR NOTES (from Phuket Radar editor — treat as trusted local knowledge):
+${trimmedEditorNotes}
+
+These notes come from the editor who lives in Phuket and has direct local knowledge. You MUST incorporate any facts provided here into the article. These are more reliable than comment-sourced information and do not need "according to" attribution — they can be stated as fact. If the editor's notes contradict the source material, prioritise the editor's notes and note the discrepancy.
+` : '';
+
+      const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' });
+
+      const CATEGORY_CONTEXT_BLOCKS: Record<string, string> = {
+        'Crime': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Emergency: Tourist Police 1155, Police 191, Ambulance 1669, Fire 199\n- Stations: Phuket has 8 police stations (Phuket City, Chalong, Patong, Kathu, Thalang, Cherng Talay, Kamala, Wichit). Patong handles most tourist nightlife incidents.\n- Legal Context: Foreigners are entitled to consular access. Bail for foreigners is often higher; passport seizure is standard for serious charges.\n- Drugs: Severe penalties; Category 1 (meth, heroin, MDMA) possession can carry 1-10 years; trafficking carries life.`,
+        'Traffic': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Safety: Phuket roads have some of Thailand's highest accident rates, especially for motorbikes.\n- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle, Darasamut & Sam Kong intersections.\n- Hospitals: Vachira Phuket Hospital (government trauma center) and Bangkok Hospital Phuket (private, advanced trauma).\n- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.`,
+        'Accidents': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle.\n- Hospitals: Vachira Phuket Hospital (main government trauma center), Bangkok Hospital Phuket (best-equipped private trauma).\n- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.`,
+        'Tourism': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Demographics: 10-14 million visitors in 2025 (top markets: Russia, India, China).\n- Seasons: High season (Nov-April); Monsoon/low season (May-Oct) brings rough seas and red flags on west coast beaches.\n- Marine: Boat accidents peak in monsoon season. Similan/Surin Islands close May-Oct.`,
+        'Nightlife': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Bangla Road: Primary nightlife strip in Patong, pedestrianized from ~6 PM.\n- Closing Times: Standard venues 2 AM; extended zones (Bangla) 3-4 AM.\n- Safety: "Drink spiking" reported periodically. Common scams include inflated bills and "lady drink" surprises.`,
+        'Weather': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Seasons: Cool/dry (Nov-Feb), Hot (Mar-Apr, 35°C+), Monsoon (May-Oct).\n- Monsoon Impact: Heavy rain and flash flooding in low-lying areas (Patong, Sam Kong, Rassada, Koh Kaew underpass).`,
+      };
+      const GENERAL_CONTEXT_BLOCK = `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Emergency numbers: Tourist Police 1155, Police 191, Ambulance 1669\n- Phuket is a province of Thailand, not an independent jurisdiction; national laws apply`;
+      const contextBlock = CATEGORY_CONTEXT_BLOCKS[article.category] || GENERAL_CONTEXT_BLOCK;
+
+      const GENERAL_LOCATION_CONTEXT = `CRITICAL LOCATION RULES FOR ALL STORIES:\n- "Bangkok Road" (ถนนกรุงเทพ) is a street in PHUKET TOWN. It is NEVER in Bangkok city.\n- "Krabi Road" and "Phang Nga Road" are streets in PHUKET TOWN. They are NOT the neighboring provinces.\n- ALWAYS write "Soi [Name]" (e.g., Soi Bangla). NEVER write "[Name] Soi".\n- "Saphan Hin" = a park in Phuket Town, NOT a bridge.`;
+
+      const userPrompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
+ARTICLE CATEGORY: ${article.category}
+
+${contextBlock}
+
+${GENERAL_LOCATION_CONTEXT}
+
+---
+
+SOURCE MATERIAL:
+
+Title: ${article.title}
+
+Content:
+${article.content}
+
+Excerpt:
+${article.excerpt || ''}
+
+${commentsBlock}
+
+${editorNotesBlock}
+
+---
+
+You must follow ALL instructions below. Do not skip any REQUIRED section.
+
+
+========================================
+STEP 1: CHECKS (apply before writing)
+========================================
+
+SPECIFICITY RULES — NEVER VIOLATE THESE
+
+1. NEVER write "a foreign man/woman" or "a tourist" if the nationality is known. Use the nationality: "an Israeli man", "a Russian tourist", "two British women".
+
+2. NEVER write "a beach in Phuket" or "a road in Phuket" if the location name is in the source. Use the name: "Laem Krating beach", "Thaweewong Road in Patong".
+
+3. NEVER write "local authorities" or "police" if the station or unit is named. Use the name: "officers from Patong Police Station", "Kusoldharm Foundation rescue workers".
+
+4. NEVER write "recently" or "earlier this week" if a specific date/time is available. Use it: "at approximately 2:39 AM on Friday".
+
+5. NEVER write "a checkpoint" without the road name if available.
+
+6. If a detail is NOT in the source material, do not invent it — but if it IS there, you MUST include it.
+
+TENSE:
+- Past events = past tense. NEVER write "are being rescued" for a completed event.
+
+VEHICLES:
+- Thai "รถ" = "vehicle", NOT "car."
+- Only write "car" if the source says รถยนต์, รถเก๋ง, or รถ SUV.
+- Only write "motorbike" if the source says รถจักรยานยนต์, มอเตอร์ไซค์, or สกู๊ตเตอร์.
+- Default: "vehicle."
+
+LOCATIONS:
+- "Bangkok Road" in Phuket = a street in Phuket Town, NOT Bangkok city. Same for Krabi Road, Phang Nga Road.
+- Write "Soi Bangla" not "Bangla Soi."
+- "Saphan Hin" = a park in Phuket Town, NOT a bridge.
+
+FACTS:
+- Report ONLY what the source states. Do NOT upgrade language.
+- "reckless" does NOT mean "stunts." "disturbing" does NOT mean "caused chaos."
+- Do NOT describe areas: "Patong, a bustling tourist area..." — BANNED. Readers live here.
+
+BANNED PHRASES — delete any sentence containing these:
+- "underscores concerns", "highlights challenges", "raises questions about", "sparks debate"
+- "remains to be seen", "serves as a reminder", "tourists are advised to exercise caution"
+- "the incident has raised concerns", "in a country known for...", "the popular tourist destination"
+- "the tropical island", "the bustling", "the vibrant", "a wake-up call"
+
+========================================
+STEP 2: MINE THE COMMENTS
+========================================
+
+${allComments.length > 0 ? `Comments from the Thai Facebook post are provided above. You MUST use them. They often contain more facts than the original post.
+
+Do these four things:
+
+A. SARCASM CHECK:
+"นักท่องเที่ยวคุณภาพ" or "Quality tourist" with laughing emojis = SARCASM (means bad behavior).
+"555" = Thai laughter, usually mocking.
+
+B. EYEWITNESS DETAILS — find and include ALL of these:
+Specific times, corrections, extra details, aftermath info.
+Write them as: "Commenters on the original post reported that..." or "According to one commenter who claimed to witness the incident..."
+
+C. LOCAL KNOWLEDGE — find and include ALL of these:
+Location history, known problems, practical info.
+Weave into the article body naturally.
+
+D. PUBLIC REACTION — you MUST write this section:
+Create an <h3>Public Reaction</h3> section in the article.
+Summarize the mood: angry? sympathetic? mocking? divided?
+List at least 3 different viewpoints or themes from the comments.
+Minimum 2 sentences, maximum 4.` : 'No comments provided. Skip this step. Do NOT include a Public Reaction section.'}
+
+========================================
+STEP 3: WRITE THE ARTICLE
+========================================
+
+Write the article in this exact order:
+
+--- PART 1: DATELINE (REQUIRED) ---
+Bold caps location where the event happened.
+Example: <p><strong>PATONG, PHUKET —</strong> A British tourist was arrested...</p>
+
+--- PART 2: LEDE (REQUIRED) ---
+One paragraph. Who, What, Where, When. Specific details.
+
+--- PART 3: DETAILS (REQUIRED) ---
+All remaining facts from the source. Direct quotes if available.${allComments.length > 0 ? ' Include eyewitness details and local knowledge from comments here, attributed properly.' : ''}
+
+--- PART 4: BACKGROUND (INCLUDE if the reference material has facts about THIS specific story. SKIP if you can only write generic facts.) ---
+Use facts from the VERIFIED PHUKET REFERENCE section above.
+Rule: if the background sentence could appear in ANY Phuket news article, it is too generic. Delete it.
+
+${allComments.length > 0 ? `--- PART 5: PUBLIC REACTION (REQUIRED — you must include this) ---
+Heading: <h3>Public Reaction</h3>
+Content: Community response from the comments. At least 3 viewpoints. 2-4 sentences.
+DO NOT SKIP THIS SECTION.` : '--- PART 5: PUBLIC REACTION — SKIP (no comments provided) ---'}
+
+--- PART 6: ON THE GROUND (REQUIRED — you must include this in every article) ---
+Heading: <h3>On the Ground</h3>
+
+This section gives readers specific, practical, insider information about THIS story.
+
+Pick whichever of these apply to this story (skip ones that don't):
+• Police station handling the case → name it and give a landmark ("Thalang Police — just past the Heroines Monument heading north")
+• Hospital involved → name it ("Vachira is the receiving hospital for this side of the island")
+• Location history → mention it ("That section of road is a known blackspot, particularly after dark")
+• Action readers can take → state it
+• Current status → report it
+
+Write 2-4 sentences. Every sentence must be about THIS story, not general advice.
+DO NOT SKIP THIS SECTION.
+
+========================================
+STEP 4: FORMAT YOUR OUTPUT
+========================================
+
+HTML RULES:
+- Wrap every paragraph in <p></p> tags.
+- Use <h3> tags for section headings: Background, Public Reaction, On the Ground.
+- NEVER return a single block of unformatted text.
+
+WORD COUNT:
+- enrichedContent must be at least 200 words.
+
+HEADLINE:
+- AP style. Include specific names, places, numbers.
+- ✅ GOOD: "Russian Tourist Arrested With 3kg of Cocaine in Cherng Talay"
+- ❌ BAD: "Drug Arrest Raises Concerns in Phuket"
+
+EXCERPT:
+- 2-3 factual sentences describing what happened.
+- NEVER use "highlights concerns" or "raises questions."
+
+OUTPUT FORMAT:
+Return ONLY valid JSON. No markdown fences. No text before or after the JSON.
+
+Example:
+{"enrichedTitle":"French Tourist Arrested After Patong Bar Brawl","enrichedContent":"<p><strong>PATONG, PHUKET —</strong> A 34-year-old French national was arrested...</p><p>Police said...</p><h3>On the Ground</h3><p>Patong Police are handling the case...</p>","enrichedExcerpt":"A French tourist was arrested following an altercation at a Bangla Road bar early Wednesday morning."}
+
+Your output (valid JSON only):`;
+
+      console.log(`   🤖 [DEEP-ENRICH] Calling Claude Sonnet 4-6...`);
+      console.log(`   📊 Comments: ${freshCommentCount}, Editor notes: ${trimmedEditorNotes ? `${trimmedEditorNotes.length} chars` : 'none'}`);
+
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 3000,
+        temperature: 0.3,
+        system: sonnetSystemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const responseContent = response.content[0];
+      if (responseContent.type !== 'text') {
+        throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
+      }
+
+      // Strip any accidental markdown code fences before parsing
+      const cleaned = responseContent.text
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
+
+      const enrichmentResult = JSON.parse(cleaned);
+
+      // Apply paragraph formatting safeguard
+      const { ensureProperParagraphFormatting, enforceSoiNamingConvention } = await import("./lib/format-utils");
+      const formattedContent = enforceSoiNamingConvention(ensureProperParagraphFormatting(enrichmentResult.enrichedContent || article.content));
+
+      console.log(`   ✅ [DEEP-ENRICH] Sonnet enrichment complete`);
+      console.log(`   📝 New content length: ${formattedContent.length} chars`);
+
+      // Return enriched content for review — does NOT save to DB
+      res.json({
+        success: true,
+        enrichedTitle: enforceSoiNamingConvention(enrichmentResult.enrichedTitle || article.title),
+        enrichedContent: formattedContent,
+        enrichedExcerpt: enforceSoiNamingConvention(enrichmentResult.enrichedExcerpt || article.excerpt),
+        meta: {
+          freshCommentCount,
+          hasEditorNotes: !!trimmedEditorNotes,
+          model: "claude-sonnet-4-6",
+        },
+      });
+
+    } catch (error) {
+      console.error("Error in Deep Enrich:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Deep enrichment failed" });
+    }
+  });
+
   // Regenerate Facebook headline using Curiosity Gap strategy - PROTECTED
   // Generates all 3 headline variants and recommends the best one
   app.post("/api/admin/articles/:id/regenerate-headline", requireAdminAuth, async (req, res) => {
