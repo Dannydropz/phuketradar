@@ -28,6 +28,9 @@ import {
   Redo,
   Video,
   Link2,
+  Zap,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Article, Category } from '@shared/schema';
@@ -76,6 +79,8 @@ export function ArticleEditor({
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isGeneratingHeadline, setIsGeneratingHeadline] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isDeepEnriching, setIsDeepEnriching] = useState(false);
+  const [editorNotes, setEditorNotes] = useState('');
   const [previousScore, setPreviousScore] = useState<number>(article?.interestScore ?? 3);
 
   const editor = useEditor({
@@ -375,7 +380,7 @@ export function ArticleEditor({
               <SelectItem value="5">5 - Urgent (Auto-posted to socials)</SelectItem>
             </SelectContent>
           </Select>
-          {/* Show Upgrade & Enrich button for existing articles with low scores */}
+          {/* Show Quick Enrich button for existing articles with low scores */}
           {article?.id && (article?.interestScore ?? 3) < 4 && (
             <Button
               type="button"
@@ -411,12 +416,12 @@ export function ArticleEditor({
                   }
 
                   toast({
-                    title: "✨ Article Upgraded!",
-                    description: `Story enhanced with premium AI enrichment. Score: ${data.changes?.previousScore} → ${data.changes?.newScore}`,
+                    title: "✨ Quick Enrich Complete!",
+                    description: `Story enhanced with GPT-4o mini. Score: ${data.changes?.previousScore} → ${data.changes?.newScore}`,
                   });
                 } catch (error) {
                   toast({
-                    title: "Upgrade Failed",
+                    title: "Quick Enrich Failed",
                     description: error instanceof Error ? error.message : "Failed to upgrade article",
                     variant: "destructive",
                   });
@@ -424,21 +429,90 @@ export function ArticleEditor({
                   setIsUpgrading(false);
                 }
               }}
-              disabled={isUpgrading || isSaving}
+              disabled={isUpgrading || isDeepEnriching || isSaving}
               data-testid="button-upgrade-enrich"
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 border-0"
+              className="bg-purple-500 text-white hover:bg-purple-600 border-0"
             >
-              {isUpgrading ? '✨ Upgrading...' : '✨ Upgrade & Enrich'}
+              {isUpgrading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+              {isUpgrading ? 'Enriching...' : 'Quick Enrich'}
+            </Button>
+          )}
+
+          {/* Deep Enrich Button — Premium Sonnet 4-6 enrichment */}
+          {article?.id && (
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={async () => {
+                if (!article?.id) return;
+                setIsDeepEnriching(true);
+                try {
+                  const response = await fetch(`/api/admin/articles/${article.id}/enrich-premium`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ editorNotes }),
+                  });
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Deep Enrich failed');
+                  }
+                  const data = await response.json();
+
+                  // Update editor with enriched content
+                  setTitle(data.enrichedTitle);
+                  setExcerpt(data.enrichedExcerpt);
+                  if (editor && data.enrichedContent) {
+                    editor.commands.setContent(data.enrichedContent);
+                  }
+
+                  toast({
+                    title: "🚀 Deep Enrich Complete!",
+                    description: `Story enhanced with Claude Sonnet and fresh comments. Review and save.`,
+                  });
+                } catch (error) {
+                  toast({
+                    title: "Deep Enrich Failed",
+                    description: error instanceof Error ? error.message : "Deep enrichment failed",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsDeepEnriching(false);
+                }
+              }}
+              disabled={isDeepEnriching || isUpgrading || isSaving}
+              data-testid="button-deep-enrich"
+              className="bg-amber-500 text-white hover:bg-amber-600 border-0"
+            >
+              {isDeepEnriching ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+              {isDeepEnriching ? 'Processing...' : 'Deep Enrich'}
             </Button>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">
+
+        {/* Editor Notes for Deep Enrich */}
+        {article?.id && (
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="editor-notes-field" className="text-xs font-medium text-amber-600 dark:text-amber-400">
+              Editor Notes (Trusted Local Knowledge)
+            </Label>
+            <Textarea
+              id="editor-notes-field"
+              placeholder="Add any details you know — location context, backstory, corrections, things the source missed... (Used by Deep Enrich)"
+              value={editorNotes}
+              onChange={(e) => setEditorNotes(e.target.value)}
+              rows={3}
+              className="text-xs border-amber-200 focus-visible:ring-amber-500"
+            />
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground mt-2">
           Scores 4-5 trigger automatic posting to Facebook/Instagram/Threads when published.
-          {article?.id && (article?.interestScore ?? 3) < 4 && (
-            <span className="block mt-1 text-purple-600 dark:text-purple-400">
-              💡 Tip: Use "Upgrade & Enrich" to re-write this story with premium AI for high-quality journalism.
-            </span>
-          )}
+          <span className="block mt-1 text-purple-600 dark:text-purple-400">
+            💡 Use <strong>Quick Enrich</strong> for fast AI cleanup, or <strong>Deep Enrich</strong> for premium investigative reporting with fresh comments.
+          </span>
         </p>
       </div>
 
