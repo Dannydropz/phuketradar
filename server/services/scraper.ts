@@ -98,6 +98,8 @@ export class ScraperService {
   // Minimum word count to consider a post as having standalone content.
   // Posts below this are suspected reshare captions with no original body.
   private readonly RESHARE_WORD_THRESHOLD = 20;
+  
+  private newshawkDebugCount = 0;
 
   /**
    * Detect whether a raw API post is a reshare, and extract the original post URL if possible.
@@ -981,6 +983,48 @@ export class ScraperService {
         const lines = post.text ? post.text.split('\n').filter(line => line.trim()) : [];
         const title = lines[0]?.substring(0, 200) || post.text?.substring(0, 100) || "Video Story";
         const content = post.text || "";
+
+        // === NEWSHAWK SPECIFIC DEBUG & RESHARE DETECTION ===
+        const sourceNameMatch = actualSourceUrl.match(/facebook\.com\/([^\/\?]+)/);
+        const sourceNameFromUrl = sourceNameMatch?.[1]?.toLowerCase() || '';
+        const isNewshawk = sourceNameFromUrl.includes('newshawkphuket') || sourceUrl.toLowerCase().includes('newshawkphuket');
+
+        if (isNewshawk && this.newshawkDebugCount < 10) {
+          console.log(`\n[NEWSHAWK DEBUG] Post ${this.newshawkDebugCount + 1}:`, JSON.stringify(post).substring(0, 2000));
+          this.newshawkDebugCount++;
+        }
+
+        if (isNewshawk) {
+          let isStrictReshare = false;
+          
+          // 1. Explicit API fields for reshare
+          if (
+            (post as any).shared_post || 
+            (post as any).is_shared || 
+            (post as any).original_post_url || 
+            (post as any).is_reshare
+          ) {
+            isStrictReshare = true;
+          } else {
+            // 2. Fallback heuristic: check for links to other FB posts or short content length
+            const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/(?:posts|reel|share|share\/v)\/[^\s\?]+|permalink\.php\?story_fbid=[^\s&]+)/i;
+            const hasFbLink = fbPostUrlPattern.test(content);
+            
+            // Clean text to measure length
+            const textContent = content.replace(/https?:\/\/[^\s]+/g, '').replace(/#[^\s]+/g, '').replace(/@[^\s]+/g, '').trim();
+            const words = textContent.split(/\s+/).filter(w => w.length > 0);
+            
+            if (hasFbLink || words.length < 30) {
+              isStrictReshare = true;
+            }
+          }
+
+          if (isStrictReshare) {
+            console.log(`\n⏭️ SKIPPED — Newshawk reshare (original content not available)`);
+            console.log(`   Title: ${title.substring(0, 60)}...`);
+            continue; // Skip processing completely
+          }
+        }
 
         // Extract ALL image URLs from the post
         const imageUrls: string[] = [];

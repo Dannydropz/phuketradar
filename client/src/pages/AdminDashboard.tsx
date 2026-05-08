@@ -1130,6 +1130,11 @@ export default function AdminDashboard() {
                                       ) : (
                                         <Badge variant="outline">draft</Badge>
                                       )}
+                                      {parent.sourceUrl?.toLowerCase().includes('newshawkphuket') && (
+                                        <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">
+                                          Newshawk Phuket
+                                        </Badge>
+                                      )}
                                       {/* Timeline badge inline with other badges */}
                                       <Badge variant="outline" className="border-orange-500 text-orange-500 font-semibold bg-orange-500/10">
                                         Timeline
@@ -1214,6 +1219,11 @@ export default function AdminDashboard() {
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 mb-1">
                                             <Badge variant="secondary" className="text-[10px] h-5">Update</Badge>
+                                            {child.sourceUrl?.toLowerCase().includes('newshawkphuket') && (
+                                              <Badge variant="outline" className="text-[10px] h-5 border-blue-500 text-blue-600 bg-blue-50">
+                                                Newshawk Phuket
+                                              </Badge>
+                                            )}
                                             {child.interestScore && (
                                               <Badge variant="outline" className="text-[10px] h-5">
                                                 {child.interestScore}/5
@@ -1283,6 +1293,11 @@ export default function AdminDashboard() {
                                   >
                                     {article.isPublished ? "published" : "pending"}
                                   </Badge>
+                                  {article.sourceUrl?.toLowerCase().includes('newshawkphuket') && (
+                                    <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">
+                                      Newshawk Phuket
+                                    </Badge>
+                                  )}
                                   {article.interestScore !== null && article.interestScore !== undefined && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
