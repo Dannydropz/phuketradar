@@ -2473,14 +2473,36 @@ Your output (valid JSON only):`;
         throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
       }
 
-      // Strip any accidental markdown code fences before parsing
-      const cleaned = responseContent.text
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/```\s*$/i, '')
-        .trim();
+      // Strip markdown fences if present
+      let cleaned = responseContent.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
-      const enrichmentResult = JSON.parse(cleaned);
+      let enrichmentResult;
+      // Try parsing as-is first
+      try {
+        enrichmentResult = JSON.parse(cleaned);
+      } catch (parseError) {
+        // If parsing fails, try to fix common issues:
+        // 1. Extract just the JSON object if there's surrounding text
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            enrichmentResult = JSON.parse(jsonMatch[0]);
+          } catch (innerError) {
+            // 2. Last resort: try fixing unescaped newlines in HTML content
+            // Replace newlines inside string values that break JSON
+            const fixedNewlines = jsonMatch[0].replace(/(?<=:[ ]*"[^"]*)\n(?=[^"]*")/g, '\\n');
+            try {
+              enrichmentResult = JSON.parse(fixedNewlines);
+            } catch (finalError: any) {
+              console.error('[DEEP ENRICH] JSON parse failed. Full response:', responseContent.text);
+              throw new Error(`Failed to parse Sonnet response as JSON: ${finalError.message}. Raw response (first 500 chars): ${cleaned.substring(0, 500)}`);
+            }
+          }
+        } else {
+          console.error('[DEEP ENRICH] JSON parse failed. Full response:', responseContent.text);
+          throw new Error(`Sonnet response did not contain a JSON object. Raw response (first 500 chars): ${cleaned.substring(0, 500)}`);
+        }
+      }
 
       // Apply paragraph formatting safeguard
       const { ensureProperParagraphFormatting, enforceSoiNamingConvention } = await import("./lib/format-utils");

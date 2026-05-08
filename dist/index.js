@@ -1910,6 +1910,7 @@ var init_scraper = __esm({
       // Minimum word count to consider a post as having standalone content.
       // Posts below this are suspected reshare captions with no original body.
       RESHARE_WORD_THRESHOLD = 20;
+      newshawkDebugCount = 0;
       /**
        * Detect whether a raw API post is a reshare, and extract the original post URL if possible.
        *
@@ -2528,6 +2529,39 @@ var init_scraper = __esm({
             const lines = post.text ? post.text.split("\n").filter((line) => line.trim()) : [];
             const title = lines[0]?.substring(0, 200) || post.text?.substring(0, 100) || "Video Story";
             const content = post.text || "";
+            const sourceNameMatch = actualSourceUrl.match(/facebook\.com\/([^\/\?]+)/);
+            const sourceNameFromUrl = sourceNameMatch?.[1]?.toLowerCase() || "";
+            const isNewshawk = sourceNameFromUrl.includes("newshawkphuket") || sourceUrl.toLowerCase().includes("newshawkphuket");
+            if (isNewshawk && this.newshawkDebugCount < 10) {
+              console.log(`
+[NEWSHAWK DEBUG] Post ${this.newshawkDebugCount + 1}:`, JSON.stringify(post).substring(0, 2e3));
+              this.newshawkDebugCount++;
+            }
+            if (isNewshawk) {
+              let isStrictReshare = false;
+              if (post.shared_post || post.is_shared || post.original_post_url || post.is_reshare) {
+                isStrictReshare = true;
+              } else {
+                const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/(?:posts|reel|share|share\/v)\/[^\s\?]+|permalink\.php\?story_fbid=[^\s&]+)/i;
+                const hasFbLink = fbPostUrlPattern.test(content);
+                const textContent = content.replace(/https?:\/\/[^\s]+/g, "").replace(/#[^\s]+/g, "").replace(/@[^\s]+/g, "").trim();
+                const words = textContent.split(/\s+/).filter((w) => w.length > 0);
+                const wordCount2 = words.length;
+                const charCount = textContent.length;
+                if (isNewshawk && this.newshawkDebugCount < 10) {
+                  console.log(`[NEWSHAWK DEBUG] Word count: ${wordCount2}, Char count: ${charCount}, Has FB Link: ${hasFbLink}`);
+                }
+                if (hasFbLink && wordCount2 < 30 && charCount < 300 || wordCount2 < 10 && charCount < 80) {
+                  isStrictReshare = true;
+                }
+              }
+              if (isStrictReshare) {
+                console.log(`
+\u23ED\uFE0F SKIPPED \u2014 Newshawk reshare (original content not available)`);
+                console.log(`   Title: ${title.substring(0, 60)}...`);
+                continue;
+              }
+            }
             const imageUrls = [];
             let imageUrl;
             if (post.images && Array.isArray(post.images) && post.images.length > 0) {
@@ -7405,6 +7439,11 @@ var init_news_sources = __esm({
         name: "Phuket Times English",
         url: "https://www.facebook.com/PhuketTimes.News",
         enabled: true
+      },
+      {
+        name: "Newshawk Phuket",
+        url: "https://www.facebook.com/NewshawkPhuket",
+        enabled: true
       }
     ];
   }
@@ -11475,6 +11514,9 @@ async function runScheduledScrape(callbacks) {
               } else {
                 const interestScore = translation.interestScore || 0;
                 skippedNotNews++;
+                if (post.sourceUrl.toLowerCase().includes("newshawkphuket")) {
+                  console.log(`   [NEWSHAWK] Filtered as non-news: "${translation.translatedTitle || post.title.substring(0, 60)}" (AI score: ${interestScore}/5)`);
+                }
                 skipReasons.push({
                   reason: "Not news (AI classified)",
                   postTitle: post.title.substring(0, 60),
@@ -15808,8 +15850,29 @@ Your output (valid JSON only):`;
       if (responseContent.type !== "text") {
         throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
       }
-      const cleaned = responseContent.text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      const enrichmentResult = JSON.parse(cleaned);
+      let cleaned = responseContent.text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+      let enrichmentResult;
+      try {
+        enrichmentResult = JSON.parse(cleaned);
+      } catch (parseError) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            enrichmentResult = JSON.parse(jsonMatch[0]);
+          } catch (innerError) {
+            const fixedNewlines = jsonMatch[0].replace(/(?<=:[ ]*"[^"]*)\n(?=[^"]*")/g, "\\n");
+            try {
+              enrichmentResult = JSON.parse(fixedNewlines);
+            } catch (finalError) {
+              console.error("[DEEP ENRICH] JSON parse failed. Full response:", responseContent.text);
+              throw new Error(`Failed to parse Sonnet response as JSON: ${finalError.message}. Raw response (first 500 chars): ${cleaned.substring(0, 500)}`);
+            }
+          }
+        } else {
+          console.error("[DEEP ENRICH] JSON parse failed. Full response:", responseContent.text);
+          throw new Error(`Sonnet response did not contain a JSON object. Raw response (first 500 chars): ${cleaned.substring(0, 500)}`);
+        }
+      }
       const { ensureProperParagraphFormatting: ensureProperParagraphFormatting2, enforceSoiNamingConvention: enforceSoiNamingConvention2 } = await Promise.resolve().then(() => (init_format_utils(), format_utils_exports));
       const formattedContent = enforceSoiNamingConvention2(ensureProperParagraphFormatting2(enrichmentResult.enrichedContent || article.content));
       console.log(`   \u2705 [DEEP-ENRICH] Sonnet enrichment complete`);
