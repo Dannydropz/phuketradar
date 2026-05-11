@@ -1791,7 +1791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { force } = req.body || {};
+      const { force, caption } = req.body || {};
 
       const article = await storage.getArticleById(id);
 
@@ -1824,7 +1824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Article not found after clearing" });
         }
         // Use the cleared article for posting
-        const fbResult = await postArticleToFacebook(clearedArticle, storage);
+        const fbResult = await postArticleToFacebook(clearedArticle, storage, caption || undefined);
 
         if (!fbResult) {
           return res.status(500).json({ error: "Failed to re-post to Facebook" });
@@ -1841,7 +1841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const fbResult = await postArticleToFacebook(article, storage);
+      const fbResult = await postArticleToFacebook(article, storage, caption || undefined);
 
       if (!fbResult) {
         return res.status(500).json({ error: "Failed to post to Facebook" });
@@ -2233,7 +2233,9 @@ Your job is to transform raw translated Thai-language source material into a com
 
 VOICE: You are not writing a travel safety brochure. You are writing for people who live here. They don't need to be told what Bangla Road is or that Thailand drives on the left. They DO want to know which specific police station is handling this case, whether this stretch of road has had similar incidents, or what the actual practical implications are for their daily life.
 
-You produce JSON output only. No markdown, no commentary outside the JSON structure.`;
+You produce JSON output only. No markdown, no commentary outside the JSON structure.
+
+NEVER use em-dashes (—) in your writing. Use commas, periods, semicolons, or restructure the sentence instead. This applies to the title, content, and excerpt.`;
 
       // Build the comments block from fresh comments (or fallback to empty)
       const allComments = freshComments.length > 0 ? freshComments : [];
@@ -2511,12 +2513,64 @@ Your output (valid JSON only):`;
       console.log(`   ✅ [DEEP-ENRICH] Sonnet enrichment complete`);
       console.log(`   📝 New content length: ${formattedContent.length} chars`);
 
+      // ── Belt-and-suspenders: strip any surviving em-dashes from Sonnet output ──
+      const cleanEmDashes = (text: string) => text.replace(/ — /g, ', ').replace(/—/g, ', ');
+
+      const enrichedTitle = cleanEmDashes(enforceSoiNamingConvention(enrichmentResult.enrichedTitle || article.title));
+      const enrichedContent = cleanEmDashes(formattedContent);
+      const enrichedExcerpt = cleanEmDashes(enforceSoiNamingConvention(enrichmentResult.enrichedExcerpt || article.excerpt));
+
+      // ── STEP 3: Generate Facebook caption via GPT-4o mini ────────────────────
+      let facebookCaption = enrichedExcerpt; // safe fallback
+      try {
+        const { default: OpenAI } = await import("openai");
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+        const fbCaptionCompletion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You write Facebook post captions for a Phuket news page. Your captions stop the scroll and make people click. You write for expats and tourists who live in or visit Phuket."
+            },
+            {
+              role: "user",
+              content: `Write a Facebook caption for this news story. The caption will be posted with images so it needs to hook people into reading.
+
+RULES:
+- First line must be a punchy hook that creates curiosity or urgency. No more than 10 words. This is what people see before "See more".
+- Second line: 1-2 sentences summarising the key facts. Be specific — names, nationalities, locations, numbers.
+- Third line: a call to action or question that drives comments. Examples: "Have you seen this happen before?", "What do you think should happen?", "Tag someone who needs to see this."
+- Do NOT use em-dashes (—).
+- Do NOT use hashtags (we add those separately).
+- Do NOT write "Breaking:" or "BREAKING NEWS" — it looks spammy.
+- Keep total length under 280 characters (before the "See more" cutoff).
+- Write in a direct, conversational tone. Not formal news language.
+
+STORY TITLE: ${enrichedTitle}
+
+STORY SUMMARY: ${enrichedExcerpt}
+
+Return ONLY the caption text, no JSON, no labels, no quotes.`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 300,
+        });
+
+        facebookCaption = fbCaptionCompletion.choices[0].message.content?.trim() || enrichedExcerpt;
+        console.log(`   📱 [DEEP-ENRICH] Facebook caption generated (${facebookCaption.length} chars)`);
+      } catch (captionError) {
+        console.warn(`   ⚠️ [DEEP-ENRICH] Facebook caption generation failed — using excerpt fallback:`, captionError);
+      }
+
       // Return enriched content for review — does NOT save to DB
       res.json({
         success: true,
-        enrichedTitle: enforceSoiNamingConvention(enrichmentResult.enrichedTitle || article.title),
-        enrichedContent: formattedContent,
-        enrichedExcerpt: enforceSoiNamingConvention(enrichmentResult.enrichedExcerpt || article.excerpt),
+        enrichedTitle,
+        enrichedContent,
+        enrichedExcerpt,
+        facebookCaption,
         meta: {
           freshCommentCount,
           hasEditorNotes: !!trimmedEditorNotes,

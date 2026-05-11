@@ -41,7 +41,8 @@ function getArticleUrl(article: Article): string {
 
 export async function postArticleToFacebook(
   article: Article,
-  storage: IStorage
+  storage: IStorage,
+  captionOverride?: string
 ): Promise<{ status: 'posted' | 'already-posted'; postId: string; postUrl: string } | null> {
 
   // CRITICAL: Disable all Facebook posting in development environment
@@ -149,12 +150,19 @@ export async function postArticleToFacebook(
     }
 
     // Clean format: Teaser headline + simple CTA pointing to link in comment + hashtags
-    // Use different CTA when the story has video content
-    const hasVideo = !!(article.videoUrl || article.facebookEmbedUrl);
-    const ctaText = hasVideo
-      ? "👇 Tap the link in the first comment for the video and full story"
-      : "👇 Tap the link in the first comment for the full story";
-    const postMessage = `${headline}\n\n${ctaText}\n\n${hashtags}`;
+    // If a caption override is provided (from Deep Enrich FB caption), use it directly
+    let postMessage: string;
+    if (captionOverride && captionOverride.trim()) {
+      postMessage = `${captionOverride.trim()}\n\n${hashtags}`;
+      console.log(`📱 [FB-POST] Using custom caption override (${captionOverride.length} chars)`);
+    } else {
+      // Use different CTA when the story has video content
+      const hasVideo = !!(article.videoUrl || article.facebookEmbedUrl);
+      const ctaText = hasVideo
+        ? "👇 Tap the link in the first comment for the video and full story"
+        : "👇 Tap the link in the first comment for the full story";
+      postMessage = `${headline}\n\n${ctaText}\n\n${hashtags}`;
+    }
 
     console.log(`📘 [FB-POST] Posting to Facebook API...`);
     console.log(`📘 [FB-POST] Page ID: ${FB_PAGE_ID}`);
