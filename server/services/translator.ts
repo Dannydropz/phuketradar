@@ -733,6 +733,7 @@ export class TranslatorService {
     category: string;
     communityComments?: string[]; // Optional: Top comments from Facebook post for context
     sourceType?: string;
+    forceAnthropic?: boolean; // NEW: Explicitly force Anthropic (defaults to false for automated paths)
   }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o-mini"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
     // ── Source of Truth for Context Blocks ──────────────────────────────────
@@ -1115,8 +1116,10 @@ Example of correct output format:
 
 Your output (valid JSON only):`;
 
-    // ── Provider routing: OpenAI (default) or Anthropic Claude ──────────────
-    const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
+    // ── Provider routing: HARD-SEALED to OpenAI unless forced ──────────────
+    // We ignore ENRICHMENT_PROVIDER from .env to prevent automated leaks.
+    // Anthropic is reserved ONLY for explicit manual actions.
+    const enrichmentProvider = params.forceAnthropic ? 'anthropic' : 'openai';
     const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
 
     let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
@@ -2560,7 +2563,8 @@ Always output valid JSON.`,
     category: string,
     publishedAt: Date,
     additionalSources: { name: string; publishedDate: string; extractedText: string }[],
-    model: "claude-sonnet-4-5" | "claude-3-opus-20240229" = "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5" | "claude-3-opus-20240229" = "claude-sonnet-4-5",
+    forceAnthropic: boolean = false // NEW: Default to false to ensure background loop uses OpenAI
   ): Promise<ReEnrichmentResult> {
     if (additionalSources.length === 0) {
       return {
@@ -2667,7 +2671,9 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
   "newFactsSummary": "Brief 1-2 sentence description of what new facts were added, for your internal logging"
 }`;
 
-    const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
+    // ── Hard-seal: Re-enrichment defaults to OpenAI ────────────────────────
+    // Background loops should never trigger Anthropic usage.
+    const enrichmentProvider = forceAnthropic ? 'anthropic' : 'openai';
 
     try {
       let responseText = '';
@@ -2684,7 +2690,7 @@ OUTPUT FORMAT — Return ONLY valid JSON, no markdown fences:
         });
         responseText = response.content[0].type === 'text' ? response.content[0].text : '';
       } else {
-        const openaiModel = "gpt-4o";
+        const openaiModel = "gpt-4o-mini";
         console.log(`🔄 Calling OpenAI (${openaiModel}) for re-enrichment with ${additionalSources.length} sources...`);
         const response = await openai.chat.completions.create({
           model: openaiModel,

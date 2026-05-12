@@ -1010,11 +1010,20 @@ export class ScraperService {
             const fbPostUrlPattern = /https?:\/\/(?:www\.|web\.)?facebook\.com\/((?:[^\/]+)\/(?:posts|reel|share|share\/v)\/[^\s\?]+|permalink\.php\?story_fbid=[^\s&]+)/i;
             const hasFbLink = fbPostUrlPattern.test(content);
             
-            // Clean text to measure length
+            // Clean text to measure length (exclude hashtags and URLs)
             const textContent = content.replace(/https?:\/\/[^\s]+/g, '').replace(/#[^\s]+/g, '').replace(/@[^\s]+/g, '').trim();
             const words = textContent.split(/\s+/).filter(w => w.length > 0);
+            const wordCount = words.length;
+            const charCount = textContent.length;
             
-            if (hasFbLink || words.length < 30) {
+            if (isNewshawk && this.newshawkDebugCount < 10) {
+              console.log(`[NEWSHAWK DEBUG] Word count: ${wordCount}, Char count: ${charCount}, Has FB Link: ${hasFbLink}`);
+            }
+
+            // Logic: Skip if it's a short caption WITH a link (classic reshare pattern)
+            // or if it's extremely short even without a link (thin content)
+            // We use character count as a fallback for Thai text which lacks spaces
+            if ((hasFbLink && wordCount < 30 && charCount < 300) || (wordCount < 10 && charCount < 80)) {
               isStrictReshare = true;
             }
           }

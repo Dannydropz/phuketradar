@@ -266,7 +266,7 @@ export class ReEnrichmentService {
             }
 
             if (matchedSources.length > 0) {
-                console.log(`   🧠 Running Claude re-enrichment prompt with ${matchedSources.length} matched sources...`);
+                console.log(`   🧠 Running AI re-enrichment prompt with ${matchedSources.length} matched sources...`);
                 const result = await translatorService.reEnrichWithSources(
                     article.title,
                     article.content,

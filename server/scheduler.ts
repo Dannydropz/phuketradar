@@ -1487,6 +1487,11 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 // Not classified as actual news - skip regardless of interest score
                 const interestScore = translation.interestScore || 0;
                 skippedNotNews++;
+                
+                if (post.sourceUrl.toLowerCase().includes('newshawkphuket')) {
+                  console.log(`   [NEWSHAWK] Filtered as non-news: "${translation.translatedTitle || post.title.substring(0, 60)}" (AI score: ${interestScore}/5)`);
+                }
+
                 skipReasons.push({
                   reason: "Not news (AI classified)",
                   postTitle: post.title.substring(0, 60),
