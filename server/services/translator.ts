@@ -2357,11 +2357,9 @@ Always output valid JSON.`,
         }
 
         const enrichmentModel = "gpt-4o-mini"; // GPT-4o mini: ~23x cheaper than Claude Sonnet, prompt engineered to compensate
-        const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
-        const activeModelLabel = activeProvider === 'anthropic'
-          ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
-          : 'OpenAI GPT-4o mini';
-        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
+        // ⛔ HARD-SEALED: Automated pipeline ALWAYS uses OpenAI. Never reads ENRICHMENT_PROVIDER here.
+        // Anthropic is reserved exclusively for the manual Deep Enrich route (/api/admin/articles/:id/enrich-premium).
+        console.log(`   ✨ HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via OpenAI GPT-4o mini...`);
 
         try {
           const enrichmentResult = await this.enrichWithPremiumGPT4({

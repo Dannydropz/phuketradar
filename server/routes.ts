@@ -2054,7 +2054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upgrade & Enrich article with premium AI - PROTECTED
-  // Uses ENRICHMENT_PROVIDER env var (same as automatic pipeline: 'openai' or 'anthropic')
+  // Hard-sealed to OpenAI GPT-4o mini. Anthropic is ONLY used by the Deep Enrich endpoint.
   app.post("/api/admin/articles/:id/upgrade-enrich", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -2066,25 +2066,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Article not found" });
       }
 
-      const activeProvider = process.env.ENRICHMENT_PROVIDER || 'openai';
-      const activeModelLabel = activeProvider === 'anthropic'
-        ? `Anthropic ${process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'}`
-        : 'OpenAI GPT-4o';
-
+      // ⛔ HARD-SEALED: upgrade-enrich always uses OpenAI GPT-4o mini.
+      // Anthropic is reserved exclusively for the manual Deep Enrich route (/api/admin/articles/:id/enrich-premium).
       console.log(`\n✨ [UPGRADE-ENRICH] Starting premium enrichment for article: ${article.title.substring(0, 60)}...`);
       console.log(`   📊 Current score: ${article.interestScore || 'N/A'} → Target: ${targetScore}`);
       console.log(`   📝 Current content length: ${article.content?.length || 0} chars`);
-      console.log(`   🤖 Provider: ${activeModelLabel}`);
+      console.log(`   🤖 Provider: OpenAI GPT-4o mini`);
 
-      // Run premium enrichment using the configured provider (same as automatic pipeline)
+      // Run premium enrichment using OpenAI GPT-4o mini
       const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
         title: article.title,
         content: article.content || '',
         excerpt: article.excerpt || '',
         category: article.category,
-      }, "gpt-4o-mini"); // model param only used on OpenAI path; Anthropic path reads ANTHROPIC_MODEL from env
+      }, "gpt-4o-mini"); // forceAnthropic not passed → defaults to OpenAI
 
-      console.log(`   ✅ ${activeModelLabel} enrichment complete`);
+      console.log(`   ✅ OpenAI GPT-4o mini enrichment complete`);
       console.log(`   📝 New content length: ${enrichmentResult.enrichedContent?.length || 0} chars`);
 
       // Generate a new Facebook headline if one doesn't exist
