@@ -4404,7 +4404,7 @@ Example of correct output format:
 {"enrichedTitle":"French Tourist Arrested After Patong Bar Brawl","enrichedContent":"<p><strong>PATONG, PHUKET \u2014</strong> A 34-year-old French national was arrested...</p><p>Police said the altercation...</p><h3>On the Ground</h3><p>Patong Police are handling the case...</p>","enrichedExcerpt":"A French tourist was arrested following an altercation at a Bangla Road bar early Wednesday morning. The 34-year-old reportedly caused significant damage to the venue before being detained."}
 
 Your output (valid JSON only):`;
-        const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || "openai";
+        const enrichmentProvider = params.forceAnthropic ? "anthropic" : "openai";
         const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
         let result = {};
         console.log("=== ENRICHMENT DEBUG ===");
@@ -5585,9 +5585,7 @@ Always output valid JSON.`
               }
             }
             const enrichmentModel = "gpt-4o-mini";
-            const activeProvider = process.env.ENRICHMENT_PROVIDER || "openai";
-            const activeModelLabel = activeProvider === "anthropic" ? `Anthropic ${process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5"}` : "OpenAI GPT-4o mini";
-            console.log(`   \u2728 HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via ${activeModelLabel}...`);
+            console.log(`   \u2728 HIGH-PRIORITY STORY (score ${finalInterestScore}) - Applying premium enrichment via OpenAI GPT-4o mini...`);
             try {
               const enrichmentResult = await this.enrichWithPremiumGPT4({
                 title: enrichedTitle,
@@ -5731,7 +5729,7 @@ ${truncatedContent}`;
       /**
        * Re-enrich an existing article with new factual details from English-language sources
        */
-      async reEnrichWithSources(existingTitle, existingContent, existingExcerpt, category, publishedAt, additionalSources, model = "claude-sonnet-4-5") {
+      async reEnrichWithSources(existingTitle, existingContent, existingExcerpt, category, publishedAt, additionalSources, model = "claude-sonnet-4-5", forceAnthropic = false) {
         if (additionalSources.length === 0) {
           return {
             enrichedTitle: existingTitle,
@@ -5833,7 +5831,7 @@ OUTPUT FORMAT \u2014 Return ONLY valid JSON, no markdown fences:
   "hasNewInformation": true/false,
   "newFactsSummary": "Brief 1-2 sentence description of what new facts were added, for your internal logging"
 }`;
-        const enrichmentProvider = process.env.ENRICHMENT_PROVIDER || "openai";
+        const enrichmentProvider = forceAnthropic ? "anthropic" : "openai";
         try {
           let responseText = "";
           if (enrichmentProvider === "anthropic" && process.env.ANTHROPIC_API_KEY) {
@@ -5848,7 +5846,7 @@ OUTPUT FORMAT \u2014 Return ONLY valid JSON, no markdown fences:
             });
             responseText = response.content[0].type === "text" ? response.content[0].text : "";
           } else {
-            const openaiModel = "gpt-4o";
+            const openaiModel = "gpt-4o-mini";
             console.log(`\u{1F504} Calling OpenAI (${openaiModel}) for re-enrichment with ${additionalSources.length} sources...`);
             const response = await openai2.chat.completions.create({
               model: openaiModel,
@@ -6092,7 +6090,7 @@ function getArticleUrl(article) {
   const articlePath = buildArticleUrl({ category: article.category, slug: article.slug, id: article.id });
   return `${baseUrl}${articlePath}`;
 }
-async function postArticleToFacebook(article, storage2) {
+async function postArticleToFacebook(article, storage2, captionOverride) {
   if (false) {
     console.log(`\u{1F6AB} [FB-POST] Facebook posting DISABLED in development environment`);
     console.log(`\u{1F4D8} [FB-POST] Article: ${article.title?.substring(0, 60) ?? "Untitled"}... (would post in production)`);
@@ -6165,13 +6163,21 @@ async function postArticleToFacebook(article, storage2) {
         headline = article.title;
       }
     }
-    const hasVideo = !!(article.videoUrl || article.facebookEmbedUrl);
-    const ctaText = hasVideo ? "\u{1F447} Tap the link in the first comment for the video and full story" : "\u{1F447} Tap the link in the first comment for the full story";
-    const postMessage = `${headline}
+    let postMessage;
+    if (captionOverride && captionOverride.trim()) {
+      postMessage = `${captionOverride.trim()}
+
+${hashtags}`;
+      console.log(`\u{1F4F1} [FB-POST] Using custom caption override (${captionOverride.length} chars)`);
+    } else {
+      const hasVideo = !!(article.videoUrl || article.facebookEmbedUrl);
+      const ctaText = hasVideo ? "\u{1F447} Tap the link in the first comment for the video and full story" : "\u{1F447} Tap the link in the first comment for the full story";
+      postMessage = `${headline}
 
 ${ctaText}
 
 ${hashtags}`;
+    }
     console.log(`\u{1F4D8} [FB-POST] Posting to Facebook API...`);
     console.log(`\u{1F4D8} [FB-POST] Page ID: ${FB_PAGE_ID}`);
     console.log(`\u{1F4D8} [FB-POST] Token length: ${FB_PAGE_ACCESS_TOKEN.length} characters`);
@@ -9835,7 +9841,7 @@ var init_re_enrichment = __esm({
             await new Promise((resolve) => setTimeout(resolve, 2e3));
           }
           if (matchedSources.length > 0) {
-            console.log(`   \u{1F9E0} Running Claude re-enrichment prompt with ${matchedSources.length} matched sources...`);
+            console.log(`   \u{1F9E0} Running AI re-enrichment prompt with ${matchedSources.length} matched sources...`);
             const result = await translatorService.reEnrichWithSources(
               article.title,
               article.content,
@@ -15263,7 +15269,7 @@ async function registerRoutes(app2) {
   app2.post("/api/admin/articles/:id/facebook", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { force } = req.body || {};
+      const { force, caption } = req.body || {};
       const article = await storage.getArticleById(id);
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
@@ -15287,7 +15293,7 @@ async function registerRoutes(app2) {
         if (!clearedArticle) {
           return res.status(404).json({ error: "Article not found after clearing" });
         }
-        const fbResult2 = await postArticleToFacebook(clearedArticle, storage);
+        const fbResult2 = await postArticleToFacebook(clearedArticle, storage, caption || void 0);
         if (!fbResult2) {
           return res.status(500).json({ error: "Failed to re-post to Facebook" });
         }
@@ -15300,7 +15306,7 @@ async function registerRoutes(app2) {
           note: "Article was re-posted to Facebook with updated content"
         });
       }
-      const fbResult = await postArticleToFacebook(article, storage);
+      const fbResult = await postArticleToFacebook(article, storage, caption || void 0);
       if (!fbResult) {
         return res.status(500).json({ error: "Failed to post to Facebook" });
       }
@@ -15463,20 +15469,18 @@ async function registerRoutes(app2) {
       if (!article) {
         return res.status(404).json({ error: "Article not found" });
       }
-      const activeProvider = process.env.ENRICHMENT_PROVIDER || "openai";
-      const activeModelLabel = activeProvider === "anthropic" ? `Anthropic ${process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5"}` : "OpenAI GPT-4o";
       console.log(`
 \u2728 [UPGRADE-ENRICH] Starting premium enrichment for article: ${article.title.substring(0, 60)}...`);
       console.log(`   \u{1F4CA} Current score: ${article.interestScore || "N/A"} \u2192 Target: ${targetScore}`);
       console.log(`   \u{1F4DD} Current content length: ${article.content?.length || 0} chars`);
-      console.log(`   \u{1F916} Provider: ${activeModelLabel}`);
+      console.log(`   \u{1F916} Provider: OpenAI GPT-4o mini`);
       const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
         title: article.title,
         content: article.content || "",
         excerpt: article.excerpt || "",
         category: article.category
       }, "gpt-4o-mini");
-      console.log(`   \u2705 ${activeModelLabel} enrichment complete`);
+      console.log(`   \u2705 OpenAI GPT-4o mini enrichment complete`);
       console.log(`   \u{1F4DD} New content length: ${enrichmentResult.enrichedContent?.length || 0} chars`);
       let facebookHeadline = article.facebookHeadline;
       if (!facebookHeadline && enrichmentResult.enrichedTitle) {
@@ -15598,7 +15602,9 @@ Your job is to transform raw translated Thai-language source material into a com
 
 VOICE: You are not writing a travel safety brochure. You are writing for people who live here. They don't need to be told what Bangla Road is or that Thailand drives on the left. They DO want to know which specific police station is handling this case, whether this stretch of road has had similar incidents, or what the actual practical implications are for their daily life.
 
-You produce JSON output only. No markdown, no commentary outside the JSON structure.`;
+You produce JSON output only. No markdown, no commentary outside the JSON structure.
+
+NEVER use em-dashes (\u2014) in your writing. Use commas, periods, semicolons, or restructure the sentence instead. This applies to the title, content, and excerpt.`;
       const allComments = freshComments.length > 0 ? freshComments : [];
       const commentsBlock = allComments.length > 0 ? `
 ## THAI FACEBOOK COMMENTS \u2014 READ EVERY ONE CAREFULLY
@@ -15877,11 +15883,56 @@ Your output (valid JSON only):`;
       const formattedContent = enforceSoiNamingConvention2(ensureProperParagraphFormatting2(enrichmentResult.enrichedContent || article.content));
       console.log(`   \u2705 [DEEP-ENRICH] Sonnet enrichment complete`);
       console.log(`   \u{1F4DD} New content length: ${formattedContent.length} chars`);
+      const cleanEmDashes = (text2) => text2.replace(/ — /g, ", ").replace(/—/g, ", ");
+      const enrichedTitle = cleanEmDashes(enforceSoiNamingConvention2(enrichmentResult.enrichedTitle || article.title));
+      const enrichedContent = cleanEmDashes(formattedContent);
+      const enrichedExcerpt = cleanEmDashes(enforceSoiNamingConvention2(enrichmentResult.enrichedExcerpt || article.excerpt));
+      let facebookCaption = enrichedExcerpt;
+      try {
+        const { default: OpenAI11 } = await import("openai");
+        const openai11 = new OpenAI11({ apiKey: process.env.OPENAI_API_KEY });
+        const fbCaptionCompletion = await openai11.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You write Facebook post captions for a Phuket news page. Your captions stop the scroll and make people click. You write for expats and tourists who live in or visit Phuket."
+            },
+            {
+              role: "user",
+              content: `Write a Facebook caption for this news story. The caption will be posted with images so it needs to hook people into reading.
+
+RULES:
+- First line must be a punchy hook that creates curiosity or urgency. No more than 10 words. This is what people see before "See more".
+- Second line: 1-2 sentences summarising the key facts. Be specific \u2014 names, nationalities, locations, numbers.
+- Third line: a call to action or question that drives comments. Examples: "Have you seen this happen before?", "What do you think should happen?", "Tag someone who needs to see this."
+- Do NOT use em-dashes (\u2014).
+- Do NOT use hashtags (we add those separately).
+- Do NOT write "Breaking:" or "BREAKING NEWS" \u2014 it looks spammy.
+- Keep total length under 280 characters (before the "See more" cutoff).
+- Write in a direct, conversational tone. Not formal news language.
+
+STORY TITLE: ${enrichedTitle}
+
+STORY SUMMARY: ${enrichedExcerpt}
+
+Return ONLY the caption text, no JSON, no labels, no quotes.`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 300
+        });
+        facebookCaption = fbCaptionCompletion.choices[0].message.content?.trim() || enrichedExcerpt;
+        console.log(`   \u{1F4F1} [DEEP-ENRICH] Facebook caption generated (${facebookCaption.length} chars)`);
+      } catch (captionError) {
+        console.warn(`   \u26A0\uFE0F [DEEP-ENRICH] Facebook caption generation failed \u2014 using excerpt fallback:`, captionError);
+      }
       res.json({
         success: true,
-        enrichedTitle: enforceSoiNamingConvention2(enrichmentResult.enrichedTitle || article.title),
-        enrichedContent: formattedContent,
-        enrichedExcerpt: enforceSoiNamingConvention2(enrichmentResult.enrichedExcerpt || article.excerpt),
+        enrichedTitle,
+        enrichedContent,
+        enrichedExcerpt,
+        facebookCaption,
         meta: {
           freshCommentCount,
           hasEditorNotes: !!trimmedEditorNotes,
