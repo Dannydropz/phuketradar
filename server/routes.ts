@@ -1104,6 +1104,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/admin/skipped-low-value - PROTECTED
+  app.get("/api/admin/skipped-low-value", requireAdminAuth, async (req, res) => {
+    try {
+      const items = await storage.getSkippedLowValues();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching skipped low-value items:", error);
+      res.status(500).json({ error: "Failed to fetch skipped low-value items" });
+    }
+  });
+
+  // POST /api/admin/articles/rescue - PROTECTED
+  app.post("/api/admin/articles/rescue", requireAdminAuth, async (req, res) => {
+    try {
+      const { source_url, images, thai_caption, editor_notes } = req.body;
+
+      if (!thai_caption) {
+        return res.status(400).json({ error: "Thai caption is required" });
+      }
+
+      console.log(`[RESCUE] Manual story rescue requested for URL: ${source_url || 'N/A'}`);
+
+      // Step 1: Translate and rewrite
+      console.log(`[RESCUE] Translating and rewriting Thai caption...`);
+      const translation = await translatorService.translateAndRewrite(
+        "", // empty title
+        thai_caption,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        source_url
+      );
+
+      // Step 2: Determine if Anthropic should be forced based on environment
+      const forceAnthropic = process.env.ENRICHMENT_PROVIDER === 'anthropic';
+      console.log(`[RESCUE] Premium enrichment starting. forceAnthropic: ${forceAnthropic}`);
+
+      // Step 3: Run premium enrichment (bypassing scoring/Gemini validation, respects ENRICHMENT_PROVIDER)
+      const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
+        title: translation.translatedTitle,
+        content: translation.translatedContent,
+        excerpt: translation.excerpt,
+        category: translation.category,
+        sourceType: translation.sourceType || "INCIDENT_REPORT",
+        forceAnthropic,
+        editorNotes: editor_notes,
+      });
+
+      const enrichedTitle = enrichmentResult.enrichedTitle;
+      const enrichedContent = enrichmentResult.enrichedContent;
+      const enrichedExcerpt = enrichmentResult.enrichedExcerpt;
+
+      // Step 4: Classify the enriched article
+      console.log(`[RESCUE] Classifying enriched article...`);
+      const { classificationService } = await import("./services/classifier");
+      const classification = await classificationService.classifyArticle(enrichedTitle, enrichedExcerpt);
+
+      // Step 5: Get randomized journalist
+      const journalists = await storage.getAllJournalists();
+      const assignedJournalist = journalists[Math.floor(Math.random() * journalists.length)];
+
+      // Step 6: Generate slug
+      const slug = enrichedTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+      // Step 7: Auto-detect tags
+      const tags = detectTags(enrichedTitle, enrichedContent);
+
+      // Step 8: Entity extraction
+      let extractedEntities = null;
+      try {
+        const { entityExtractionService } = await import("./services/entity-extraction");
+        extractedEntities = await entityExtractionService.extractEntities(enrichedTitle, enrichedContent);
+      } catch (e) {
+        console.error("Failed to extract entities for rescue:", e);
+      }
+
+      // Step 9: Build article data
+      const articleData = {
+        slug,
+        title: enrichedTitle,
+        content: enrichedContent,
+        excerpt: enrichedExcerpt,
+        originalTitle: "",
+        originalContent: thai_caption,
+        imageUrl: (images && images.length > 0) ? images[0] : null,
+        imageUrls: images || null,
+        category: translation.category,
+        sourceUrl: source_url || 'https://phuketradar.com',
+        sourceName: "Facebook",
+        journalistId: assignedJournalist.id,
+        isPublished: false,
+        status: "pending",
+        interestScore: translation.interestScore || 3.0,
+        isManuallyCreated: true,
+        originalLanguage: "th",
+        translatedBy: forceAnthropic ? "anthropic" : "openai",
+        isDeveloping: translation.isDeveloping || false,
+        eventType: classification.eventType,
+        severity: classification.severity,
+        tags,
+        entities: extractedEntities,
+      };
+
+      console.log(`[RESCUE] Saving manually rescued article as draft: "${enrichedTitle}"`);
+      const article = await storage.createArticle(articleData);
+      res.json(article);
+    } catch (error: any) {
+      console.error("Error in manual story rescue:", error);
+      res.status(500).json({ error: error.message || "Failed to rescue story" });
+    }
+  });
+
   // Get single article by ID with full content (for editing) - PROTECTED
   app.get("/api/admin/articles/:id", requireAdminAuth, async (req, res) => {
     try {

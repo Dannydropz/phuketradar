@@ -659,6 +659,45 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 }
               }
 
+              // ── GATE B: Deterministic caption filter (saves enrichment credit) ──
+              const MEETING_CEREMONY = ["ประชุม", "ประชุมสภา", "สมัยสามัญ", "พิธี", "มอบ", "แถลง", "เปิดงาน", "ลงพื้นที่"];
+              const INCIDENT_MARKERS = ["อุบัติเหตุ", "ชน", "จับ", "จับกุม", "ยิง", "ไฟไหม้", "จม", "เสียชีวิต", "บาดเจ็บ", "ทะเลาะ", "ปล้น", "ขโมย"];
+
+              const combinedCaption = `${post.title || ""} ${post.content || ""}`;
+              const detectedMeetingMarkers = MEETING_CEREMONY.filter(marker => combinedCaption.includes(marker));
+              const hasMeetingCeremony = detectedMeetingMarkers.length > 0;
+              const hasIncident = INCIDENT_MARKERS.some(marker => combinedCaption.includes(marker));
+
+              if (hasMeetingCeremony && !hasIncident) {
+                console.log(`⏭️  [GATE B] Low-value post skipped pre-enrichment. Detected markers: ${detectedMeetingMarkers.join(", ")}`);
+                console.log(`   Source: ${post.sourceUrl}`);
+                
+                await storage.createSkippedLowValue({
+                  sourceUrl: post.sourceUrl,
+                  caption: combinedCaption,
+                  detectedMarkers: detectedMeetingMarkers
+                });
+
+                skippedNotNews++;
+                skipReasons.push({
+                  reason: "Low-value meeting/ceremony (Gate B)",
+                  postTitle: post.title.substring(0, 60),
+                  sourceUrl: post.sourceUrl,
+                  facebookPostId: post.facebookPostId,
+                  details: `Detected markers: ${detectedMeetingMarkers.join(", ")}`
+                });
+
+                if (callbacks?.onProgress) {
+                  callbacks.onProgress({
+                    totalPosts,
+                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                    createdArticles: createdCount,
+                    skippedNotNews,
+                  });
+                }
+                return; // Skip this post entirely
+              }
+
               // STEP 1: Extract entities from Thai title AND content (catches quantities like "734 packs")
               let extractedEntities: ExtractedEntities | undefined;
               let foundEntityDuplicate = false;
@@ -1219,6 +1258,26 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   // Auto-detect tags from translated title and content
                   // Pass category to exclude Phuket location tags from National stories
                   articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
+
+                  // ── GATE A: Post-score safety net ──
+                  const isLowValueHidden = (
+                    !!translation.sourceType && ["POLITICAL_STATEMENT", "OFFICIAL_ANNOUNCEMENT", "COMMUNITY_DISCUSSION"].includes(translation.sourceType) &&
+                    finalInterestScore <= 2
+                  );
+
+                  if (isLowValueHidden) {
+                    console.log(`⚠️ [GATE A] Low-value post (${translation.sourceType}, score ${finalInterestScore}/5) caught by safety net.`);
+                    console.log(`   Saving as status = 'low_value_hidden' and skipping second-pass enrichment.`);
+
+                    articleData.status = 'low_value_hidden';
+                    articleData.isPublished = false;
+                    articleData.reEnrichAt = null;
+
+                    const article = await storage.createArticle(articleData);
+                    console.log(`   ✅ Created hidden low-value article draft: ${article.title.substring(0, 50)}...`);
+                    createdCount++;
+                    return; // Skip second-pass enrichment and further processing
+                  }
 
                   // STEP 5.7: Check for duplicates and merge if found (NEW Second Pass Enrichment System)
                   const { StoryEnrichmentCoordinator } = await import("./services/story-enrichment-coordinator");

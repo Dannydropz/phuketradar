@@ -40,4 +40,28 @@ pool.on('remove', () => {
   console.log('[DB POOL] Database connection removed from pool');
 });
 
+// Auto-run migrations for skipped_low_value and status column
+(async () => {
+  console.log('[DB STARTUP] Ensuring schema migrations are applied...');
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS skipped_low_value (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        source_url TEXT,
+        caption TEXT NOT NULL,
+        detected_markers TEXT[] DEFAULT ARRAY[]::TEXT[],
+        timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('[DB STARTUP] Table skipped_low_value verified/created');
+
+    await pool.query(`
+      ALTER TABLE articles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+    `);
+    console.log('[DB STARTUP] Column articles.status verified/created');
+  } catch (err) {
+    console.error('[DB STARTUP] ❌ Failed to run startup migrations:', err);
+  }
+})();
+
 export const db = drizzle(pool, { schema });

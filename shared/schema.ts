@@ -84,6 +84,7 @@ export const articles = pgTable("articles", {
   // TODO: Add these columns once ALTER TABLE completes on production database
   needsReview: boolean("needs_review").default(false), // Flagged for manual review
   reviewReason: text("review_reason"), // Why this needs review (e.g., "truncated text", "low quality")
+  status: text("status").default("pending"),
 });
 
 export const discoveredVideos = pgTable("discovered_videos", {
@@ -136,6 +137,14 @@ export const scraperBlocklist = pgTable("scraper_blocklist", {
   sourceUrlIdx: index("blocklist_source_url_idx").on(table.sourceUrl),
   fbPostIdIdx: index("blocklist_fb_post_id_idx").on(table.sourceFacebookPostId),
 }));
+
+export const skippedLowValue = pgTable("skipped_low_value", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceUrl: text("source_url"),
+  caption: text("caption").notNull(),
+  detectedMarkers: text("detected_markers").array().default(sql`ARRAY[]::text[]`),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
 
 // Session table - auto-created by connect-pg-simple
 export const session = pgTable("session", {
@@ -287,6 +296,13 @@ export const insertScraperBlocklistSchema = createInsertSchema(scraperBlocklist)
 });
 export type InsertScraperBlocklist = z.infer<typeof insertScraperBlocklistSchema>;
 export type ScraperBlocklist = typeof scraperBlocklist.$inferSelect;
+
+export const insertSkippedLowValueSchema = createInsertSchema(skippedLowValue).omit({
+  id: true,
+  timestamp: true,
+});
+export type InsertSkippedLowValue = z.infer<typeof insertSkippedLowValueSchema>;
+export type SkippedLowValue = typeof skippedLowValue.$inferSelect;
 
 // Optimized article type for list views (excludes heavy fields)
 export type ArticleListItem = Omit<Article, 'content' | 'originalContent' | 'originalTitle' | 'entities' | 'embedding' | 'seriesId' | 'storySeriesTitle' | 'isParentStory' | 'seriesUpdateCount' | 'autoMatchEnabled'> & {

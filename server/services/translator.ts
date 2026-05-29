@@ -734,6 +734,7 @@ export class TranslatorService {
     communityComments?: string[]; // Optional: Top comments from Facebook post for context
     sourceType?: string;
     forceAnthropic?: boolean; // NEW: Explicitly force Anthropic (defaults to false for automated paths)
+    editorNotes?: string; // Optional: supplementary editor notes/context
   }, model: "gpt-4o" | "gpt-4o-mini" = "gpt-4o-mini"): Promise<{ enrichedTitle: string; enrichedContent: string; enrichedExcerpt: string }> {
 
     // ── Source of Truth for Context Blocks ──────────────────────────────────
@@ -877,6 +878,13 @@ ${params.communityComments.join('\n')}
       ? `\n🚨 SPARSE SOURCE WARNING — MANDATORY READ:\nThe source text has fewer than 30 words and there are NO community comments.\nThis means you have VERY LIMITED factual material to work with.\n\nYOU MUST:\n- Write ONLY about what is explicitly in the source text above.\n- Keep the article SHORT (2-3 paragraphs max). Do NOT pad it with invented details.\n- If you cannot identify who, what, where, or when from the source — DO NOT invent them.\n- Use the "Developing Story" marker (Part 7 below) since details are limited.\n- A short honest article is ALWAYS better than a long fabricated one.\n\nYOU MUST NOT:\n- Invent specific people (e.g., "tourists", "a foreign national", "a driver") if not in source.\n- Invent a location (e.g., "Patong", "Bangla Road") if not in source.\n- Invent an event type (e.g., "fight", "crash", "arrest") if not explicitly in source.\n- Fill the article body with generic Phuket background just to hit 200 words.\n\nIF the source is about a road rage / driving incident, write ONLY about the driving behavior shown. DO NOT assume a fight occurred unless the source explicitly says so.\n`
       : '';
 
+    const editorNotesBlock = params.editorNotes ? `
+## OPERATOR EDITOR NOTES — HIGH PRIORITY CONTEXT
+The operator has provided the following critical context/notes for this story.
+You MUST integrate these facts and instructions into the article structure and details:
+${params.editorNotes}
+` : '';
+
     const prompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
 Source type: ${params.sourceType || 'UNKNOWN'}
@@ -884,6 +892,7 @@ Source type: ${params.sourceType || 'UNKNOWN'}
 ${contextBlock}
 
 ${GENERAL_LOCATION_CONTEXT}
+${editorNotesBlock}
 
 ---
 

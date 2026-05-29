@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, type Category, type InsertCategory, type ScraperBlocklist, users, articles, subscribers, journalists, categories, scraperBlocklist } from "@shared/schema";
+import { type User, type InsertUser, type Article, type ArticleListItem, type InsertArticle, type Subscriber, type InsertSubscriber, type Journalist, type InsertJournalist, type Category, type InsertCategory, type ScraperBlocklist, type InsertSkippedLowValue, type SkippedLowValue, users, articles, subscribers, journalists, categories, scraperBlocklist, skippedLowValue } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, inArray, and, gte, isNull, or } from "drizzle-orm";
 import { generateUniqueSlug } from "./lib/seo-utils";
@@ -78,6 +78,10 @@ export interface IStorage {
   getRecentArticlesByCategory(category: string, hoursAgo: number, excludeId?: string): Promise<ArticleListItem[]>;
   getTrendingArticles(hoursAgo: number, limit: number): Promise<ArticleListItem[]>;
   incrementArticleViewCount(id: string): Promise<void>;
+
+  // Skipped low value methods
+  createSkippedLowValue(entry: InsertSkippedLowValue): Promise<SkippedLowValue>;
+  getSkippedLowValues(): Promise<SkippedLowValue[]>;
 }
 
 // Optimized field selection for article lists (excludes heavy content/embedding/entities fields)
@@ -138,6 +142,7 @@ const LEAN_ARTICLE_FIELDS = {
   switchyShortUrl: articles.switchyShortUrl,
   reEnrichAt: articles.reEnrichAt,
   reEnrichmentCompleted: articles.reEnrichmentCompleted,
+  status: articles.status,
 };
 
 export class DatabaseStorage implements IStorage {
@@ -839,6 +844,21 @@ export class DatabaseStorage implements IStorage {
         viewCount: sql`${articles.viewCount} + 1`,
       })
       .where(eq(articles.id, id));
+  }
+
+  async createSkippedLowValue(entry: InsertSkippedLowValue): Promise<SkippedLowValue> {
+    const [result] = await db
+      .insert(skippedLowValue)
+      .values(entry)
+      .returning();
+    return result;
+  }
+
+  async getSkippedLowValues(): Promise<SkippedLowValue[]> {
+    return await db
+      .select()
+      .from(skippedLowValue)
+      .orderBy(desc(skippedLowValue.timestamp));
   }
 }
 
