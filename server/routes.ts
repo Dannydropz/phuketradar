@@ -1124,59 +1124,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Thai caption is required" });
       }
 
-      console.log(`[RESCUE] Manual story rescue requested for URL: ${source_url || 'N/A'}`);
+      console.log(`[RESCUE] Refactored Manual story rescue requested for URL: ${source_url || 'N/A'}`);
 
-      // Step 1: Translate and rewrite
-      console.log(`[RESCUE] Translating and rewriting Thai caption...`);
-      const translation = await translatorService.translateAndRewrite(
-        "", // empty title
-        thai_caption,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        source_url
-      );
+      // 1. Parse pasted text to separate caption and comments using GPT-4o-mini
+      console.log(`[RESCUE] Parsing source text into caption and comments...`);
+      const parsed = await parseSourceText(thai_caption);
+      console.log(`[RESCUE] Parsed caption length: ${parsed.caption.length}, comments count: ${parsed.comments.length}`);
 
-      // Step 2: Determine if Anthropic should be forced based on environment
-      const forceAnthropic = process.env.ENRICHMENT_PROVIDER === 'anthropic';
-      console.log(`[RESCUE] Premium enrichment starting. forceAnthropic: ${forceAnthropic}`);
+      // 2. Classify category from parsed caption using GPT-4o-mini
+      console.log(`[RESCUE] Classifying category...`);
+      const category = await classifyCategory(parsed.caption);
+      console.log(`[RESCUE] Classified category: ${category}`);
 
-      // Step 3: Run premium enrichment (bypassing scoring/Gemini validation, respects ENRICHMENT_PROVIDER)
-      const enrichmentResult = await translatorService.enrichWithPremiumGPT4({
-        title: translation.translatedTitle,
-        content: translation.translatedContent,
-        excerpt: translation.excerpt,
-        category: translation.category,
-        sourceType: translation.sourceType || "INCIDENT_REPORT",
-        forceAnthropic,
+      // 3. Call premium Claude Sonnet 4.6 enrichment via the converged helper!
+      console.log(`[RESCUE] Running premium Claude Sonnet 4.6 enrichment...`);
+      const enrichmentResult = await runPremiumSonnetEnrichment({
+        category,
+        title: "", // No original title
+        content: parsed.caption,
+        comments: parsed.comments,
         editorNotes: editor_notes,
       });
 
-      const enrichedTitle = enrichmentResult.enrichedTitle;
-      const enrichedContent = enrichmentResult.enrichedContent;
-      const enrichedExcerpt = enrichmentResult.enrichedExcerpt;
+      const { enrichedTitle, enrichedContent, enrichedExcerpt, facebookCaption } = enrichmentResult;
 
-      // Step 4: Classify the enriched article
+      // 4. Classify the enriched article for eventType and severity
       console.log(`[RESCUE] Classifying enriched article...`);
       const { classificationService } = await import("./services/classifier");
       const classification = await classificationService.classifyArticle(enrichedTitle, enrichedExcerpt);
 
-      // Step 5: Get randomized journalist
+      // 5. Get randomized journalist
       const journalists = await storage.getAllJournalists();
       const assignedJournalist = journalists[Math.floor(Math.random() * journalists.length)];
 
-      // Step 6: Generate slug
+      // 6. Generate slug
       const slug = enrichedTitle
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
-      // Step 7: Auto-detect tags
+      // 7. Auto-detect tags
       const tags = detectTags(enrichedTitle, enrichedContent);
 
-      // Step 8: Entity extraction
+      // 8. Entity extraction
       let extractedEntities = null;
       try {
         const { entityExtractionService } = await import("./services/entity-extraction");
@@ -1185,36 +1175,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Failed to extract entities for rescue:", e);
       }
 
-      // Step 9: Build article data
+      // 9. Build and create article in the database as a pending draft!
       const articleData = {
         slug,
         title: enrichedTitle,
         content: enrichedContent,
         excerpt: enrichedExcerpt,
         originalTitle: "",
-        originalContent: thai_caption,
+        originalContent: parsed.caption,
         imageUrl: (images && images.length > 0) ? images[0] : null,
         imageUrls: images || null,
-        category: translation.category,
+        category: category,
         sourceUrl: source_url || 'https://phuketradar.com',
         sourceName: "Facebook",
         journalistId: assignedJournalist.id,
         isPublished: false,
         status: "pending",
-        interestScore: translation.interestScore || 3.0,
+        interestScore: 4.0, // Rescued premium stories start with a high interest score
         isManuallyCreated: true,
         originalLanguage: "th",
-        translatedBy: forceAnthropic ? "anthropic" : "openai",
-        isDeveloping: translation.isDeveloping || false,
+        translatedBy: "anthropic",
+        isDeveloping: false,
         eventType: classification.eventType,
         severity: classification.severity,
         tags,
         entities: extractedEntities,
+        facebookHeadline: enrichedTitle,
       };
 
       console.log(`[RESCUE] Saving manually rescued article as draft: "${enrichedTitle}"`);
       const article = await storage.createArticle(articleData);
-      res.json(article);
+
+      // Return the article, AND inject the generated facebookCaption in the response
+      // so the dashboard/editor can display it!
+      res.json({
+        ...article,
+        facebookCaption,
+      });
     } catch (error: any) {
       console.error("Error in manual story rescue:", error);
       res.status(500).json({ error: error.message || "Failed to rescue story" });
@@ -2293,51 +2290,105 @@ NEVER reveal the whole story. NEVER use useless CTAs like "see the photos".`,
     }
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Deep Enrich — Premium Manual Enrichment via Claude Sonnet - PROTECTED
-  // Step 1: Fetch fresh comments from original Facebook post (ScrapeCreators)
-  // Step 2: Call Claude Sonnet 4-6 directly with full veteran-correspondent prompt
-  // Step 3: Return enriched content for review — does NOT auto-save
-  // ─────────────────────────────────────────────────────────────────────────────
-  app.post("/api/admin/articles/:id/enrich-premium", requireAdminAuth, async (req, res) => {
+  // ── CUSTOM HELPER FUNCTIONS FOR PREMIUM AI ENRICHMENT ───────────────────────
+
+  interface ParsedSourceText {
+    caption: string;
+    comments: string[];
+  }
+
+  async function parseSourceText(sourceText: string): Promise<ParsedSourceText> {
     try {
-      const { id } = req.params;
-      const { editorNotes } = req.body as { editorNotes?: string };
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are an assistant that parses manually pasted Facebook post data for Phuket Radar.
+The user will provide a text block containing a Thai Facebook post caption and optionally some comments pasted below it.
 
-      const article = await storage.getArticleById(id);
-      if (!article) {
-        return res.status(404).json({ error: "Article not found" });
-      }
+Your task is to separate the main post caption from the comments.
+Return a JSON object with:
+1. "caption": The main post caption text.
+2. "comments": An array of individual comment strings if present. If no comments are found or the input is only a caption, return an empty array [].
 
-      console.log(`\n🚀 [DEEP-ENRICH] Starting premium enrichment for: ${article.title.substring(0, 60)}...`);
+Identify comments based on common patterns (e.g. usernames, timestamps, reply text, short conversational sentences, line breaks, or other comment-like structures).`
+          },
+          {
+            role: "user",
+            content: sourceText
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      });
+      const result = JSON.parse(response.choices[0].message.content || "{}");
+      return {
+        caption: result.caption || sourceText,
+        comments: result.comments || [],
+      };
+    } catch (err) {
+      console.error("Error parsing source text:", err);
+      return {
+        caption: sourceText,
+        comments: [],
+      };
+    }
+  }
 
-      // ── STEP 1: Fetch fresh Facebook comments ─────────────────────────────
-      let freshComments: string[] = [];
-      let freshCommentCount = 0;
+  async function classifyCategory(text: string): Promise<string> {
+    try {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a Phuket news classifier. Classify the following Thai or English text into exactly one of these categories: 'Crime', 'Traffic', 'Weather', 'Tourism', 'Politics', 'Business', 'National', 'Local'. Return ONLY the category name."
+          },
+          {
+            role: "user",
+            content: text.substring(0, 1000)
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
+      const category = response.choices[0].message.content?.trim() || "Local";
+      return category;
+    } catch (err) {
+      console.error("Error classifying category:", err);
+      return "Local";
+    }
+  }
 
-      const sourcePostUrl = article.sourceUrl;
-      if (sourcePostUrl && sourcePostUrl.includes('facebook.com')) {
-        try {
-          console.log(`   💬 [DEEP-ENRICH] Fetching fresh comments from: ${sourcePostUrl.substring(0, 80)}...`);
-          const { scrapePostComments } = await import("./services/scraper");
-          const comments = await scrapePostComments(sourcePostUrl, 20);
-          freshComments = comments.map(c => c.text);
-          freshCommentCount = freshComments.length;
-          console.log(`   ✅ [DEEP-ENRICH] Got ${freshCommentCount} fresh comments`);
-        } catch (commentError) {
-          console.warn(`   ⚠️ [DEEP-ENRICH] Comment fetch failed — proceeding without fresh comments:`, commentError);
-        }
-      } else {
-        console.log(`   ℹ️  [DEEP-ENRICH] No Facebook source URL — skipping comment fetch`);
-      }
+  async function runPremiumSonnetEnrichment(params: {
+    category: string;
+    title: string;
+    content: string;
+    excerpt?: string;
+    comments: string[];
+    editorNotes?: string;
+  }): Promise<{
+    enrichedTitle: string;
+    enrichedContent: string;
+    enrichedExcerpt: string;
+    facebookCaption: string;
+    meta: {
+      freshCommentCount: number;
+      hasEditorNotes: boolean;
+      model: string;
+    };
+  }> {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY not configured — cannot run Deep Enrich");
+    }
 
-      // ── STEP 2: Build prompt and call Claude Sonnet 4-6 ─────────────────
-      if (!process.env.ANTHROPIC_API_KEY) {
-        return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured — cannot run Deep Enrich" });
-      }
-
-      // Use the original veteran-correspondent Sonnet system prompt
-      const sonnetSystemPrompt = `You are a veteran wire-service correspondent who has lived in Phuket for over a decade. You write breaking news for an audience of long-term expats and residents who know the island intimately — they know every soi, every shortcut, every police station. Never explain Phuket to them. Write like an insider talking to insiders.
+    // Use the original veteran-correspondent Sonnet system prompt
+    const sonnetSystemPrompt = `You are a veteran wire-service correspondent who has lived in Phuket for over a decade. You write breaking news for an audience of long-term expats and residents who know the island intimately — they know every soi, every shortcut, every police station. Never explain Phuket to them. Write like an insider talking to insiders.
 
 Your job is to transform raw translated Thai-language source material into a complete, professional English news article. You must:
 1. Report ONLY what the source explicitly states — never invent, embellish, or dramatize
@@ -2351,9 +2402,9 @@ You produce JSON output only. No markdown, no commentary outside the JSON struct
 
 NEVER use em-dashes (—) in your writing. Use commas, periods, semicolons, or restructure the sentence instead. This applies to the title, content, and excerpt.`;
 
-      // Build the comments block from fresh comments (or fallback to empty)
-      const allComments = freshComments.length > 0 ? freshComments : [];
-      const commentsBlock = allComments.length > 0 ? `
+    // Build the comments block from fresh comments (or fallback to empty)
+    const allComments = params.comments || [];
+    const commentsBlock = allComments.length > 0 ? `
 ## THAI FACEBOOK COMMENTS — READ EVERY ONE CAREFULLY
 
 The comments below are from the original Thai Facebook post. They are a PRIMARY source — as important as the article text itself. You MUST read each comment individually and extract specific details.
@@ -2380,32 +2431,32 @@ COMMENTS:
 ${allComments.join('\n')}
 ` : '';
 
-      // Build editor notes block — only injected when non-empty
-      const trimmedEditorNotes = (editorNotes || '').trim();
-      const editorNotesBlock = trimmedEditorNotes ? `
+    // Build editor notes block — only injected when non-empty
+    const trimmedEditorNotes = (params.editorNotes || '').trim();
+    const editorNotesBlock = trimmedEditorNotes ? `
 EDITOR NOTES (from Phuket Radar editor — treat as trusted local knowledge):
 ${trimmedEditorNotes}
 
 These notes come from the editor who lives in Phuket and has direct local knowledge. You MUST incorporate any facts provided here into the article. These are more reliable than comment-sourced information and do not need "according to" attribution — they can be stated as fact. If the editor's notes contradict the source material, prioritise the editor's notes and note the discrepancy.
 ` : '';
 
-      const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' });
+    const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' });
 
-      const CATEGORY_CONTEXT_BLOCKS: Record<string, string> = {
-        'Crime': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Emergency: Tourist Police 1155, Police 191, Ambulance 1669, Fire 199\n- Stations: Phuket has 8 police stations (Phuket City, Chalong, Patong, Kathu, Thalang, Cherng Talay, Kamala, Wichit). Patong handles most tourist nightlife incidents.\n- Legal Context: Foreigners are entitled to consular access. Bail for foreigners is often higher; passport seizure is standard for serious charges.\n- Drugs: Severe penalties; Category 1 (meth, heroin, MDMA) possession can carry 1-10 years; trafficking carries life.`,
-        'Traffic': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Safety: Phuket roads have some of Thailand's highest accident rates, especially for motorbikes.\n- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle, Darasamut & Sam Kong intersections.\n- Hospitals: Vachira Phuket Hospital (government trauma center) and Bangkok Hospital Phuket (private, advanced trauma).\n- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.`,
-        'Accidents': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle.\n- Hospitals: Vachira Phuket Hospital (main government trauma center), Bangkok Hospital Phuket (best-equipped private trauma).\n- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.`,
-        'Tourism': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Demographics: 10-14 million visitors in 2025 (top markets: Russia, India, China).\n- Seasons: High season (Nov-April); Monsoon/low season (May-Oct) brings rough seas and red flags on west coast beaches.\n- Marine: Boat accidents peak in monsoon season. Similan/Surin Islands close May-Oct.`,
-        'Nightlife': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Bangla Road: Primary nightlife strip in Patong, pedestrianized from ~6 PM.\n- Closing Times: Standard venues 2 AM; extended zones (Bangla) 3-4 AM.\n- Safety: "Drink spiking" reported periodically. Common scams include inflated bills and "lady drink" surprises.`,
-        'Weather': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Seasons: Cool/dry (Nov-Feb), Hot (Mar-Apr, 35°C+), Monsoon (May-Oct).\n- Monsoon Impact: Heavy rain and flash flooding in low-lying areas (Patong, Sam Kong, Rassada, Koh Kaew underpass).`,
-      };
-      const GENERAL_CONTEXT_BLOCK = `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Emergency numbers: Tourist Police 1155, Police 191, Ambulance 1669\n- Phuket is a province of Thailand, not an independent jurisdiction; national laws apply`;
-      const contextBlock = CATEGORY_CONTEXT_BLOCKS[article.category] || GENERAL_CONTEXT_BLOCK;
+    const CATEGORY_CONTEXT_BLOCKS: Record<string, string> = {
+      'Crime': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Emergency: Tourist Police 1155, Police 191, Ambulance 1669, Fire 199\n- Stations: Phuket has 8 police stations (Phuket City, Chalong, Patong, Kathu, Thalang, Cherng Talay, Kamala, Wichit). Patong handles most tourist nightlife incidents.\n- Legal Context: Foreigners are entitled to consular access. Bail for foreigners is often higher; passport seizure is standard for serious charges.\n- Drugs: Severe penalties; Category 1 (meth, heroin, MDMA) possession can carry 1-10 years; trafficking carries life.`,
+      'Traffic': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Safety: Phuket roads have some of Thailand's highest accident rates, especially for motorbikes.\n- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle, Darasamut & Sam Kong intersections.\n- Hospitals: Vachira Phuket Hospital (government trauma center) and Bangkok Hospital Phuket (private, advanced trauma).\n- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.`,
+      'Accidents': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Known Blackspots: Patong Hill (steep/blind curves), Heroines Monument intersection, Thepkrasattri Road, Chalong Circle.\n- Hospitals: Vachira Phuket Hospital (main government trauma center), Bangkok Hospital Phuket (best-equipped private trauma).\n- Rescue: Kusoldharm Rescue Foundation (076-246 301) operates primary first-responder network.`,
+      'Tourism': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Demographics: 10-14 million visitors in 2025 (top markets: Russia, India, China).\n- Seasons: High season (Nov-April); Monsoon/low season (May-Oct) brings rough seas and red flags on west coast beaches.\n- Marine: Boat accidents peak in monsoon season. Similan/Surin Islands close May-Oct.`,
+      'Nightlife': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Bangla Road: Primary nightlife strip in Patong, pedestrianized from ~6 PM.\n- Closing Times: Standard venues 2 AM; extended zones (Bangla) 3-4 AM.\n- Safety: "Drink spiking" reported periodically. Common scams include inflated bills and "lady drink" surprises.`,
+      'Weather': `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Seasons: Cool/dry (Nov-Feb), Hot (Mar-Apr, 35°C+), Monsoon (May-Oct).\n- Monsoon Impact: Heavy rain and flash flooding in low-lying areas (Patong, Sam Kong, Rassada, Koh Kaew underpass).`,
+    };
+    const GENERAL_CONTEXT_BLOCK = `VERIFIED PHUKET REFERENCE — USE WHEN RELEVANT:\n- Emergency numbers: Tourist Police 1155, Police 191, Ambulance 1669\n- Phuket is a province of Thailand, not an independent jurisdiction; national laws apply`;
+    const contextBlock = CATEGORY_CONTEXT_BLOCKS[params.category] || GENERAL_CONTEXT_BLOCK;
 
-      const GENERAL_LOCATION_CONTEXT = `CRITICAL LOCATION RULES FOR ALL STORIES:\n- "Bangkok Road" (ถนนกรุงเทพ) is a street in PHUKET TOWN. It is NEVER in Bangkok city.\n- "Krabi Road" and "Phang Nga Road" are streets in PHUKET TOWN. They are NOT the neighboring provinces.\n- ALWAYS write "Soi [Name]" (e.g., Soi Bangla). NEVER write "[Name] Soi".\n- "Saphan Hin" = a park in Phuket Town, NOT a bridge.`;
+    const GENERAL_LOCATION_CONTEXT = `CRITICAL LOCATION RULES FOR ALL STORIES:\n- "Bangkok Road" (ถนนกรุงเทพ) is a street in PHUKET TOWN. It is NEVER in Bangkok city.\n- "Krabi Road" and "Phang Nga Road" are streets in PHUKET TOWN. They are NOT the neighboring provinces.\n- ALWAYS write "Soi [Name]" (e.g., Soi Bangla). NEVER write "[Name] Soi".\n- "Saphan Hin" = a park in Phuket Town, NOT a bridge.`;
 
-      const userPrompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
-ARTICLE CATEGORY: ${article.category}
+    const userPrompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
+ARTICLE CATEGORY: ${params.category}
 
 ${contextBlock}
 
@@ -2415,13 +2466,13 @@ ${GENERAL_LOCATION_CONTEXT}
 
 SOURCE MATERIAL:
 
-Title: ${article.title}
+Title: ${params.title || ''}
 
 Content:
-${article.content}
+${params.content}
 
 Excerpt:
-${article.excerpt || ''}
+${params.excerpt || ''}
 
 ${commentsBlock}
 
@@ -2570,86 +2621,74 @@ Example:
 
 Your output (valid JSON only):`;
 
-      console.log(`   🤖 [DEEP-ENRICH] Calling Claude Sonnet 4-6...`);
-      console.log(`   📊 Comments: ${freshCommentCount}, Editor notes: ${trimmedEditorNotes ? `${trimmedEditorNotes.length} chars` : 'none'}`);
+    console.log(`   🤖 [runPremiumSonnetEnrichment] Calling Claude Sonnet 4-6...`);
 
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const Anthropic = (await import("@anthropic-ai/sdk")).default;
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 3000,
-        temperature: 0.3,
-        system: sonnetSystemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      });
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 3000,
+      temperature: 0.3,
+      system: sonnetSystemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
 
-      const responseContent = response.content[0];
-      if (responseContent.type !== 'text') {
-        throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
-      }
+    const responseContent = response.content[0];
+    if (responseContent.type !== 'text') {
+      throw new Error(`Unexpected Anthropic response type: ${responseContent.type}`);
+    }
 
-      // Strip markdown fences if present
-      let cleaned = responseContent.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    // Strip markdown fences if present
+    let cleaned = responseContent.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
-      let enrichmentResult;
-      // Try parsing as-is first
-      try {
-        enrichmentResult = JSON.parse(cleaned);
-      } catch (parseError) {
-        // If parsing fails, try to fix common issues:
-        // 1. Extract just the JSON object if there's surrounding text
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+    let enrichmentResult;
+    try {
+      enrichmentResult = JSON.parse(cleaned);
+    } catch (parseError) {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          enrichmentResult = JSON.parse(jsonMatch[0]);
+        } catch (innerError) {
+          const fixedNewlines = jsonMatch[0].replace(/(?<=:[ ]*"[^"]*)\n(?=[^"]*")/g, '\\n');
           try {
-            enrichmentResult = JSON.parse(jsonMatch[0]);
-          } catch (innerError) {
-            // 2. Last resort: try fixing unescaped newlines in HTML content
-            // Replace newlines inside string values that break JSON
-            const fixedNewlines = jsonMatch[0].replace(/(?<=:[ ]*"[^"]*)\n(?=[^"]*")/g, '\\n');
-            try {
-              enrichmentResult = JSON.parse(fixedNewlines);
-            } catch (finalError: any) {
-              console.error('[DEEP ENRICH] JSON parse failed. Full response:', responseContent.text);
-              throw new Error(`Failed to parse Sonnet response as JSON: ${finalError.message}. Raw response (first 500 chars): ${cleaned.substring(0, 500)}`);
-            }
+            enrichmentResult = JSON.parse(fixedNewlines);
+          } catch (finalError: any) {
+            throw new Error(`Failed to parse Sonnet response as JSON: ${finalError.message}`);
           }
-        } else {
-          console.error('[DEEP ENRICH] JSON parse failed. Full response:', responseContent.text);
-          throw new Error(`Sonnet response did not contain a JSON object. Raw response (first 500 chars): ${cleaned.substring(0, 500)}`);
         }
+      } else {
+        throw new Error(`Sonnet response did not contain a JSON object`);
       }
+    }
 
-      // Apply paragraph formatting safeguard
-      const { ensureProperParagraphFormatting, enforceSoiNamingConvention } = await import("./lib/format-utils");
-      const formattedContent = enforceSoiNamingConvention(ensureProperParagraphFormatting(enrichmentResult.enrichedContent || article.content));
+    // Apply paragraph formatting safeguard
+    const { ensureProperParagraphFormatting, enforceSoiNamingConvention } = await import("./lib/format-utils");
+    const formattedContent = enforceSoiNamingConvention(ensureProperParagraphFormatting(enrichmentResult.enrichedContent || params.content));
 
-      console.log(`   ✅ [DEEP-ENRICH] Sonnet enrichment complete`);
-      console.log(`   📝 New content length: ${formattedContent.length} chars`);
+    const cleanEmDashes = (text: string) => text.replace(/ — /g, ', ').replace(/—/g, ', ');
 
-      // ── Belt-and-suspenders: strip any surviving em-dashes from Sonnet output ──
-      const cleanEmDashes = (text: string) => text.replace(/ — /g, ', ').replace(/—/g, ', ');
+    const enrichedTitle = cleanEmDashes(enforceSoiNamingConvention(enrichmentResult.enrichedTitle || params.title));
+    const enrichedContent = cleanEmDashes(formattedContent);
+    const enrichedExcerpt = cleanEmDashes(enforceSoiNamingConvention(enrichmentResult.enrichedExcerpt || params.excerpt || ''));
 
-      const enrichedTitle = cleanEmDashes(enforceSoiNamingConvention(enrichmentResult.enrichedTitle || article.title));
-      const enrichedContent = cleanEmDashes(formattedContent);
-      const enrichedExcerpt = cleanEmDashes(enforceSoiNamingConvention(enrichmentResult.enrichedExcerpt || article.excerpt));
+    // Generate Facebook caption via GPT-4o mini
+    let facebookCaption = enrichedExcerpt;
+    try {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // ── STEP 3: Generate Facebook caption via GPT-4o mini ────────────────────
-      let facebookCaption = enrichedExcerpt; // safe fallback
-      try {
-        const { default: OpenAI } = await import("openai");
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-        const fbCaptionCompletion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You write Facebook post captions for a Phuket news page. Your captions stop the scroll and make people click. You write for expats and tourists who live in or visit Phuket."
-            },
-            {
-              role: "user",
-              content: `Write a Facebook caption for this news story. The caption will be posted with images so it needs to hook people into reading.
+      const fbCaptionCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You write Facebook post captions for a Phuket news page. Your captions stop the scroll and make people click. You write for expats and tourists who live in or visit Phuket."
+          },
+          {
+            role: "user",
+            content: `Write a Facebook caption for this news story. The caption will be posted with images so it needs to hook people into reading.
 
 RULES:
 - First line must be a punchy hook that creates curiosity or urgency. No more than 10 words. This is what people see before "See more".
@@ -2666,30 +2705,86 @@ STORY TITLE: ${enrichedTitle}
 STORY SUMMARY: ${enrichedExcerpt}
 
 Return ONLY the caption text, no JSON, no labels, no quotes.`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 300,
-        });
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 300,
+      });
 
-        facebookCaption = fbCaptionCompletion.choices[0].message.content?.trim() || enrichedExcerpt;
-        console.log(`   📱 [DEEP-ENRICH] Facebook caption generated (${facebookCaption.length} chars)`);
-      } catch (captionError) {
-        console.warn(`   ⚠️ [DEEP-ENRICH] Facebook caption generation failed — using excerpt fallback:`, captionError);
+      facebookCaption = fbCaptionCompletion.choices[0].message.content?.trim() || enrichedExcerpt;
+      console.log(`   📱 [DEEP-ENRICH] Facebook caption generated (${facebookCaption.length} chars)`);
+    } catch (captionError) {
+      console.warn(`[runPremiumSonnetEnrichment] Facebook caption generation failed — using excerpt fallback:`, captionError);
+    }
+
+    return {
+      enrichedTitle,
+      enrichedContent,
+      enrichedExcerpt,
+      facebookCaption,
+      meta: {
+        freshCommentCount: allComments.length,
+        hasEditorNotes: !!trimmedEditorNotes,
+        model: "claude-sonnet-4-6",
       }
+    };
+  }
+
+  // Deep Enrich — Premium Manual Enrichment via Claude Sonnet - PROTECTED
+  // Step 1: Fetch fresh comments from original Facebook post (ScrapeCreators)
+  // Step 2: Call Claude Sonnet 4-6 directly with full veteran-correspondent prompt
+  // Step 3: Return enriched content for review — does NOT auto-save
+  // ─────────────────────────────────────────────────────────────────────────────
+  app.post("/api/admin/articles/:id/enrich-premium", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { editorNotes } = req.body as { editorNotes?: string };
+
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      console.log(`\n🚀 [DEEP-ENRICH] Starting premium enrichment for: ${article.title.substring(0, 60)}...`);
+
+      // ── STEP 1: Fetch fresh Facebook comments ─────────────────────────────
+      let freshComments: string[] = [];
+      const sourcePostUrl = article.sourceUrl;
+      if (sourcePostUrl && sourcePostUrl.includes('facebook.com')) {
+        try {
+          console.log(`   💬 [DEEP-ENRICH] Fetching fresh comments from: ${sourcePostUrl.substring(0, 80)}...`);
+          const { scrapePostComments } = await import("./services/scraper");
+          const comments = await scrapePostComments(sourcePostUrl, 20);
+          freshComments = comments.map(c => c.text);
+          console.log(`   ✅ [DEEP-ENRICH] Got ${freshComments.length} fresh comments`);
+        } catch (commentError) {
+          console.warn(`   ⚠️ [DEEP-ENRICH] Comment fetch failed — proceeding without fresh comments:`, commentError);
+        }
+      } else {
+        console.log(`   ℹ️  [DEEP-ENRICH] No Facebook source URL — skipping comment fetch`);
+      }
+
+      // ── STEP 2: Call Claude Sonnet 4-6 via unified helper ─────────────────
+      const enrichmentResult = await runPremiumSonnetEnrichment({
+        category: article.category,
+        title: article.title,
+        content: article.content || '',
+        excerpt: article.excerpt || '',
+        comments: freshComments,
+        editorNotes,
+      });
+
+      console.log(`   ✅ [DEEP-ENRICH] Sonnet enrichment complete`);
+      console.log(`   📝 New content length: ${enrichmentResult.enrichedContent.length} chars`);
 
       // Return enriched content for review — does NOT save to DB
       res.json({
         success: true,
-        enrichedTitle,
-        enrichedContent,
-        enrichedExcerpt,
-        facebookCaption,
-        meta: {
-          freshCommentCount,
-          hasEditorNotes: !!trimmedEditorNotes,
-          model: "claude-sonnet-4-6",
-        },
+        enrichedTitle: enrichmentResult.enrichedTitle,
+        enrichedContent: enrichmentResult.enrichedContent,
+        enrichedExcerpt: enrichmentResult.enrichedExcerpt,
+        facebookCaption: enrichmentResult.facebookCaption,
+        meta: enrichmentResult.meta,
       });
 
     } catch (error) {

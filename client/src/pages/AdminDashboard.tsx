@@ -105,6 +105,14 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
       setManualRescueOpen(false);
+
+      // Store the generated facebook caption in state
+      if ((article as any).facebookCaption) {
+        setFacebookCaptions(prev => ({
+          ...prev,
+          [article.id]: (article as any).facebookCaption
+        }));
+      }
       
       toast({
         title: "✨ Manual Rescue Complete!",
@@ -1972,7 +1980,10 @@ export default function AdminDashboard() {
             </div>
           ) : categories.length > 0 ? (
             <ArticleEditor
-              article={editingArticle || undefined}
+              article={editingArticle ? {
+                ...editingArticle,
+                facebookCaption: facebookCaptions[editingArticle.id] || (editingArticle as any).facebookCaption || ''
+              } as any : undefined}
               categories={categories}
               onSave={handleSaveArticle}
               onCancel={handleCancelEdit}
@@ -2107,7 +2118,7 @@ export default function AdminDashboard() {
           <div className="space-y-4 py-4 max-h-[75vh] overflow-y-auto pr-2">
             <div className="space-y-2">
               <Label htmlFor="rescue-url" className="text-sm font-semibold">
-                Original Post URL
+                Original Facebook Post URL (attribution only — NOT scraped)
               </Label>
               <Input
                 id="rescue-url"
@@ -2120,11 +2131,11 @@ export default function AdminDashboard() {
 
             <div className="space-y-2">
               <Label htmlFor="rescue-caption" className="text-sm font-semibold flex items-center gap-1">
-                Paste Thai Caption <span className="text-red-500">*</span>
+                Source Text &amp; Comments <span className="text-red-500">*</span>
               </Label>
               <Textarea
                 id="rescue-caption"
-                placeholder="Paste the raw Thai text from the post here..."
+                placeholder="Paste the Thai post text here. If the post has good comments, paste them below the caption too."
                 rows={5}
                 value={rescueThaiCaption}
                 onChange={(e) => setRescueThaiCaption(e.target.value)}
@@ -2224,12 +2235,12 @@ export default function AdminDashboard() {
                 {manualRescueMutation.isPending ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Enriching &amp; Translating...
+                    Rescuing &amp; Enriching...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    Enrich &amp; Preview
+                    Rescue &amp; Enrich
                   </>
                 )}
               </Button>
