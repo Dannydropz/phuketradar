@@ -659,43 +659,93 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 }
               }
 
-              // ── GATE B: Deterministic caption filter (saves enrichment credit) ──
-              const MEETING_CEREMONY = ["ประชุม", "ประชุมสภา", "สมัยสามัญ", "พิธี", "มอบ", "แถลง", "เปิดงาน", "ลงพื้นที่"];
+              // ── EXPAT RELEVANCE EXEMPTION (CHANGE 3) & GATE B (v2) ──
+              const EXPAT_RELEVANCE_TH = [
+                "วีซ่า", "ตม.", "ตรวจคนเข้าเมือง", "ชาวต่างชาติ", "ต่างด้าว", 
+                "รายงานตัว", "ใบอนุญาตทำงาน", "ภาษี", "สนามบิน", "ปิดหาด", 
+                "ปิดชายหาด", "นักท่องเที่ยว", "พาสปอร์ต", "หนังสือเดินทาง"
+              ];
+              const EXPAT_RELEVANCE_EN = [
+                "visa", "immigration", "foreigner", "90-day", "report", 
+                "work permit", "tax", "airport", "beach closure", "tourist", 
+                "overstay", "passport"
+              ];
+
               const INCIDENT_MARKERS = ["อุบัติเหตุ", "ชน", "จับ", "จับกุม", "ยิง", "ไฟไหม้", "จม", "เสียชีวิต", "บาดเจ็บ", "ทะเลาะ", "ปล้น", "ขโมย"];
-
               const combinedCaption = `${post.title || ""} ${post.content || ""}`;
-              const detectedMeetingMarkers = MEETING_CEREMONY.filter(marker => combinedCaption.includes(marker));
-              const hasMeetingCeremony = detectedMeetingMarkers.length > 0;
-              const hasIncident = INCIDENT_MARKERS.some(marker => combinedCaption.includes(marker));
+              const combinedCaptionLower = combinedCaption.toLowerCase();
 
-              if (hasMeetingCeremony && !hasIncident) {
-                console.log(`⏭️  [GATE B] Low-value post skipped pre-enrichment. Detected markers: ${detectedMeetingMarkers.join(", ")}`);
-                console.log(`   Source: ${post.sourceUrl}`);
-                
-                await storage.createSkippedLowValue({
-                  sourceUrl: post.sourceUrl,
-                  caption: combinedCaption,
-                  detectedMarkers: detectedMeetingMarkers
-                });
-
-                skippedNotNews++;
-                skipReasons.push({
-                  reason: "Low-value meeting/ceremony (Gate B)",
-                  postTitle: post.title.substring(0, 60),
-                  sourceUrl: post.sourceUrl,
-                  facebookPostId: post.facebookPostId,
-                  details: `Detected markers: ${detectedMeetingMarkers.join(", ")}`
-                });
-
-                if (callbacks?.onProgress) {
-                  callbacks.onProgress({
-                    totalPosts,
-                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles: createdCount,
-                    skippedNotNews,
-                  });
+              const hasIncident = INCIDENT_MARKERS.some(marker => {
+                if (marker === "ชน") {
+                  return combinedCaption.includes("ชน") && 
+                         !combinedCaption.includes("ประชาชน") && 
+                         !combinedCaption.includes("ชุมชน");
                 }
-                return; // Skip this post entirely
+                return combinedCaption.includes(marker);
+              });
+              const hasExpatRelevanceThai = EXPAT_RELEVANCE_TH.some(marker => combinedCaption.includes(marker));
+              const hasExpatRelevanceEnglish = EXPAT_RELEVANCE_EN.some(marker => combinedCaptionLower.includes(marker));
+              const hasExpatRelevance = hasExpatRelevanceThai || hasExpatRelevanceEnglish;
+
+              if (hasIncident) {
+                console.log(`[GATE B] Incident override active (incident markers matched). Skipping Gate B check.`);
+              } else if (hasExpatRelevance) {
+                console.log(`[GATE B] Expat-relevance exemption active (expat markers matched). Skipping Gate B check.`);
+              } else {
+                // MEETING_CEREMONY markers
+                const MEETING_CEREMONY = ["ประชุม", "ประชุมสภา", "สมัยสามัญ", "พิธี", "มอบ", "แถลง", "เปิดงาน", "ลงพื้นที่"];
+                const detectedMeetingMarkers = MEETING_CEREMONY.filter(marker => combinedCaption.includes(marker));
+                const hasMeetingCeremony = detectedMeetingMarkers.length > 0;
+
+                // GOVT_PROCESS markers (CHANGE 2)
+                const GOVT_PROCESS = ["นโยบาย", "ปฏิเสธ", "แถลงการณ์", "มติ", "รัฐสภา", "สภา", "เทศบาล", "อบต.", "อบจ.", "งบประมาณ", "ลงนาม"];
+                const detectedGovtMarkers = GOVT_PROCESS.filter(marker => combinedCaption.includes(marker));
+                let hasGovtProcess = detectedGovtMarkers.length > 0;
+
+                // Special check for "โครงการ" (project) - only triggers if combined with other govt/meeting markers
+                const hasProjectMarker = combinedCaption.includes("โครงการ");
+                if (hasProjectMarker) {
+                  if (hasMeetingCeremony || hasGovtProcess) {
+                    detectedGovtMarkers.push("โครงการ");
+                    hasGovtProcess = true;
+                  } else {
+                    console.log(`[GATE B] Detected 'โครงการ' alone - not triggering Gate B skip.`);
+                  }
+                }
+
+                if (hasMeetingCeremony || hasGovtProcess) {
+                  const skipReason = hasMeetingCeremony ? 'meeting' : 'govt_process';
+                  const allDetected = [...detectedMeetingMarkers, ...detectedGovtMarkers];
+
+                  console.log(`⏭️  [GATE B] Low-value post skipped pre-enrichment. Reason: ${skipReason}. Detected markers: ${allDetected.join(", ")}`);
+                  console.log(`   Source: ${post.sourceUrl}`);
+                  
+                  await storage.createSkippedLowValue({
+                    sourceUrl: post.sourceUrl,
+                    caption: combinedCaption,
+                    detectedMarkers: allDetected,
+                    skipReason: skipReason
+                  });
+
+                  skippedNotNews++;
+                  skipReasons.push({
+                    reason: `Low-value ${skipReason} (Gate B)`,
+                    postTitle: post.title.substring(0, 60),
+                    sourceUrl: post.sourceUrl,
+                    facebookPostId: post.facebookPostId,
+                    details: `Detected markers: ${allDetected.join(", ")}`
+                  });
+
+                  if (callbacks?.onProgress) {
+                    callbacks.onProgress({
+                      totalPosts,
+                      processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                      createdArticles: createdCount,
+                      skippedNotNews,
+                    });
+                  }
+                  return; // Skip this post entirely
+                }
               }
 
               // STEP 1: Extract entities from Thai title AND content (catches quantities like "734 packs")
@@ -1259,10 +1309,28 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   // Pass category to exclude Phuket location tags from National stories
                   articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
 
-                  // ── GATE A: Post-score safety net ──
+                  // ── GATE A: Post-score safety net (CHANGE 1) ──
+                  const EXPAT_RELEVANCE_EN_LOWER = [
+                    "visa", "immigration", "foreigner", "90-day", "report", 
+                    "work permit", "tax", "airport", "beach closure", "tourist", 
+                    "overstay", "passport"
+                  ];
+                  const EXPAT_RELEVANCE_TH = [
+                    "วีซ่า", "ตม.", "ตรวจคนเข้าเมือง", "ชาวต่างชาติ", "ต่างด้าว", 
+                    "รายงานตัว", "ใบอนุญาตทำงาน", "ภาษี", "สนามบิน", "ปิดหาด", 
+                    "ปิดชายหาด", "นักท่องเที่ยว", "พาสปอร์ต", "หนังสือเดินทาง"
+                  ];
+
+                  const translatedTextLower = `${translation.translatedTitle || ""} ${translation.translatedContent || ""}`.toLowerCase();
+                  const hasExpatRelevanceInTranslation = EXPAT_RELEVANCE_EN_LOWER.some(marker => translatedTextLower.includes(marker));
+                  const hasExpatRelevanceInThaiOriginal = EXPAT_RELEVANCE_TH.some(marker => combinedCaption.includes(marker));
+                  const isExpatExempt = hasExpatRelevanceInTranslation || hasExpatRelevanceInThaiOriginal;
+
                   const isLowValueHidden = (
+                    !hasIncident &&
+                    !isExpatExempt &&
                     !!translation.sourceType && ["POLITICAL_STATEMENT", "OFFICIAL_ANNOUNCEMENT", "COMMUNITY_DISCUSSION"].includes(translation.sourceType) &&
-                    finalInterestScore <= 2
+                    finalInterestScore <= 3
                   );
 
                   if (isLowValueHidden) {
@@ -1272,6 +1340,9 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                     articleData.status = 'low_value_hidden';
                     articleData.isPublished = false;
                     articleData.reEnrichAt = null;
+                    
+                    // Audit details inside reviewReason
+                    articleData.reviewReason = `Hidden by Gate A: classified as ${translation.sourceType} with score ${finalInterestScore}/5`;
 
                     const article = await storage.createArticle(articleData);
                     console.log(`   ✅ Created hidden low-value article draft: ${article.title.substring(0, 50)}...`);

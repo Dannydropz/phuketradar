@@ -209,6 +209,8 @@ var init_schema = __esm({
       sourceUrl: text("source_url"),
       caption: text("caption").notNull(),
       detectedMarkers: text("detected_markers").array().default(sql`ARRAY[]::text[]`),
+      skipReason: text("skip_reason"),
+      // 'meeting' | 'govt_process'
       timestamp: timestamp("timestamp").notNull().defaultNow()
     });
     session = pgTable("session", {
@@ -391,6 +393,10 @@ var init_db = __esm({
       );
     `);
         console.log("[DB STARTUP] Table skipped_low_value verified/created");
+        await pool.query(`
+      ALTER TABLE skipped_low_value ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+    `);
+        console.log("[DB STARTUP] Column skipped_low_value.skip_reason verified/created");
         await pool.query(`
       ALTER TABLE articles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
     `);
@@ -10695,37 +10701,97 @@ async function runScheduledScrape(callbacks) {
 `);
                 }
               }
-              const MEETING_CEREMONY = ["\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21", "\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21\u0E2A\u0E20\u0E32", "\u0E2A\u0E21\u0E31\u0E22\u0E2A\u0E32\u0E21\u0E31\u0E0D", "\u0E1E\u0E34\u0E18\u0E35", "\u0E21\u0E2D\u0E1A", "\u0E41\u0E16\u0E25\u0E07", "\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19", "\u0E25\u0E07\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48"];
+              const EXPAT_RELEVANCE_TH = [
+                "\u0E27\u0E35\u0E0B\u0E48\u0E32",
+                "\u0E15\u0E21.",
+                "\u0E15\u0E23\u0E27\u0E08\u0E04\u0E19\u0E40\u0E02\u0E49\u0E32\u0E40\u0E21\u0E37\u0E2D\u0E07",
+                "\u0E0A\u0E32\u0E27\u0E15\u0E48\u0E32\u0E07\u0E0A\u0E32\u0E15\u0E34",
+                "\u0E15\u0E48\u0E32\u0E07\u0E14\u0E49\u0E32\u0E27",
+                "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E15\u0E31\u0E27",
+                "\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E17\u0E33\u0E07\u0E32\u0E19",
+                "\u0E20\u0E32\u0E29\u0E35",
+                "\u0E2A\u0E19\u0E32\u0E21\u0E1A\u0E34\u0E19",
+                "\u0E1B\u0E34\u0E14\u0E2B\u0E32\u0E14",
+                "\u0E1B\u0E34\u0E14\u0E0A\u0E32\u0E22\u0E2B\u0E32\u0E14",
+                "\u0E19\u0E31\u0E01\u0E17\u0E48\u0E2D\u0E07\u0E40\u0E17\u0E35\u0E48\u0E22\u0E27",
+                "\u0E1E\u0E32\u0E2A\u0E1B\u0E2D\u0E23\u0E4C\u0E15",
+                "\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07"
+              ];
+              const EXPAT_RELEVANCE_EN = [
+                "visa",
+                "immigration",
+                "foreigner",
+                "90-day",
+                "report",
+                "work permit",
+                "tax",
+                "airport",
+                "beach closure",
+                "tourist",
+                "overstay",
+                "passport"
+              ];
               const INCIDENT_MARKERS = ["\u0E2D\u0E38\u0E1A\u0E31\u0E15\u0E34\u0E40\u0E2B\u0E15\u0E38", "\u0E0A\u0E19", "\u0E08\u0E31\u0E1A", "\u0E08\u0E31\u0E1A\u0E01\u0E38\u0E21", "\u0E22\u0E34\u0E07", "\u0E44\u0E1F\u0E44\u0E2B\u0E21\u0E49", "\u0E08\u0E21", "\u0E40\u0E2A\u0E35\u0E22\u0E0A\u0E35\u0E27\u0E34\u0E15", "\u0E1A\u0E32\u0E14\u0E40\u0E08\u0E47\u0E1A", "\u0E17\u0E30\u0E40\u0E25\u0E32\u0E30", "\u0E1B\u0E25\u0E49\u0E19", "\u0E02\u0E42\u0E21\u0E22"];
               const combinedCaption = `${post.title || ""} ${post.content || ""}`;
-              const detectedMeetingMarkers = MEETING_CEREMONY.filter((marker) => combinedCaption.includes(marker));
-              const hasMeetingCeremony = detectedMeetingMarkers.length > 0;
-              const hasIncident = INCIDENT_MARKERS.some((marker) => combinedCaption.includes(marker));
-              if (hasMeetingCeremony && !hasIncident) {
-                console.log(`\u23ED\uFE0F  [GATE B] Low-value post skipped pre-enrichment. Detected markers: ${detectedMeetingMarkers.join(", ")}`);
-                console.log(`   Source: ${post.sourceUrl}`);
-                await storage.createSkippedLowValue({
-                  sourceUrl: post.sourceUrl,
-                  caption: combinedCaption,
-                  detectedMarkers: detectedMeetingMarkers
-                });
-                skippedNotNews++;
-                skipReasons.push({
-                  reason: "Low-value meeting/ceremony (Gate B)",
-                  postTitle: post.title.substring(0, 60),
-                  sourceUrl: post.sourceUrl,
-                  facebookPostId: post.facebookPostId,
-                  details: `Detected markers: ${detectedMeetingMarkers.join(", ")}`
-                });
-                if (callbacks?.onProgress) {
-                  callbacks.onProgress({
-                    totalPosts,
-                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles: createdCount,
-                    skippedNotNews
-                  });
+              const combinedCaptionLower = combinedCaption.toLowerCase();
+              const hasIncident = INCIDENT_MARKERS.some((marker) => {
+                if (marker === "\u0E0A\u0E19") {
+                  return combinedCaption.includes("\u0E0A\u0E19") && !combinedCaption.includes("\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E0A\u0E19") && !combinedCaption.includes("\u0E0A\u0E38\u0E21\u0E0A\u0E19");
                 }
-                return;
+                return combinedCaption.includes(marker);
+              });
+              const hasExpatRelevanceThai = EXPAT_RELEVANCE_TH.some((marker) => combinedCaption.includes(marker));
+              const hasExpatRelevanceEnglish = EXPAT_RELEVANCE_EN.some((marker) => combinedCaptionLower.includes(marker));
+              const hasExpatRelevance = hasExpatRelevanceThai || hasExpatRelevanceEnglish;
+              if (hasIncident) {
+                console.log(`[GATE B] Incident override active (incident markers matched). Skipping Gate B check.`);
+              } else if (hasExpatRelevance) {
+                console.log(`[GATE B] Expat-relevance exemption active (expat markers matched). Skipping Gate B check.`);
+              } else {
+                const MEETING_CEREMONY = ["\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21", "\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21\u0E2A\u0E20\u0E32", "\u0E2A\u0E21\u0E31\u0E22\u0E2A\u0E32\u0E21\u0E31\u0E0D", "\u0E1E\u0E34\u0E18\u0E35", "\u0E21\u0E2D\u0E1A", "\u0E41\u0E16\u0E25\u0E07", "\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19", "\u0E25\u0E07\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48"];
+                const detectedMeetingMarkers = MEETING_CEREMONY.filter((marker) => combinedCaption.includes(marker));
+                const hasMeetingCeremony = detectedMeetingMarkers.length > 0;
+                const GOVT_PROCESS = ["\u0E19\u0E42\u0E22\u0E1A\u0E32\u0E22", "\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18", "\u0E41\u0E16\u0E25\u0E07\u0E01\u0E32\u0E23\u0E13\u0E4C", "\u0E21\u0E15\u0E34", "\u0E23\u0E31\u0E10\u0E2A\u0E20\u0E32", "\u0E2A\u0E20\u0E32", "\u0E40\u0E17\u0E28\u0E1A\u0E32\u0E25", "\u0E2D\u0E1A\u0E15.", "\u0E2D\u0E1A\u0E08.", "\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", "\u0E25\u0E07\u0E19\u0E32\u0E21"];
+                const detectedGovtMarkers = GOVT_PROCESS.filter((marker) => combinedCaption.includes(marker));
+                let hasGovtProcess = detectedGovtMarkers.length > 0;
+                const hasProjectMarker = combinedCaption.includes("\u0E42\u0E04\u0E23\u0E07\u0E01\u0E32\u0E23");
+                if (hasProjectMarker) {
+                  if (hasMeetingCeremony || hasGovtProcess) {
+                    detectedGovtMarkers.push("\u0E42\u0E04\u0E23\u0E07\u0E01\u0E32\u0E23");
+                    hasGovtProcess = true;
+                  } else {
+                    console.log(`[GATE B] Detected '\u0E42\u0E04\u0E23\u0E07\u0E01\u0E32\u0E23' alone - not triggering Gate B skip.`);
+                  }
+                }
+                if (hasMeetingCeremony || hasGovtProcess) {
+                  const skipReason = hasMeetingCeremony ? "meeting" : "govt_process";
+                  const allDetected = [...detectedMeetingMarkers, ...detectedGovtMarkers];
+                  console.log(`\u23ED\uFE0F  [GATE B] Low-value post skipped pre-enrichment. Reason: ${skipReason}. Detected markers: ${allDetected.join(", ")}`);
+                  console.log(`   Source: ${post.sourceUrl}`);
+                  await storage.createSkippedLowValue({
+                    sourceUrl: post.sourceUrl,
+                    caption: combinedCaption,
+                    detectedMarkers: allDetected,
+                    skipReason
+                  });
+                  skippedNotNews++;
+                  skipReasons.push({
+                    reason: `Low-value ${skipReason} (Gate B)`,
+                    postTitle: post.title.substring(0, 60),
+                    sourceUrl: post.sourceUrl,
+                    facebookPostId: post.facebookPostId,
+                    details: `Detected markers: ${allDetected.join(", ")}`
+                  });
+                  if (callbacks?.onProgress) {
+                    callbacks.onProgress({
+                      totalPosts,
+                      processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                      createdArticles: createdCount,
+                      skippedNotNews
+                    });
+                  }
+                  return;
+                }
               }
               let extractedEntities;
               let foundEntityDuplicate = false;
@@ -11417,13 +11483,48 @@ async function runScheduledScrape(callbacks) {
                     reEnrichAt: shouldAutoPublish && finalInterestScore >= 4 ? new Date(Date.now() + 2.5 * 60 * 60 * 1e3) : null
                   };
                   articleData.tags = detectTags(translation.translatedTitle, translation.translatedContent, translation.category);
-                  const isLowValueHidden = !!translation.sourceType && ["POLITICAL_STATEMENT", "OFFICIAL_ANNOUNCEMENT", "COMMUNITY_DISCUSSION"].includes(translation.sourceType) && finalInterestScore <= 2;
+                  const EXPAT_RELEVANCE_EN_LOWER = [
+                    "visa",
+                    "immigration",
+                    "foreigner",
+                    "90-day",
+                    "report",
+                    "work permit",
+                    "tax",
+                    "airport",
+                    "beach closure",
+                    "tourist",
+                    "overstay",
+                    "passport"
+                  ];
+                  const EXPAT_RELEVANCE_TH2 = [
+                    "\u0E27\u0E35\u0E0B\u0E48\u0E32",
+                    "\u0E15\u0E21.",
+                    "\u0E15\u0E23\u0E27\u0E08\u0E04\u0E19\u0E40\u0E02\u0E49\u0E32\u0E40\u0E21\u0E37\u0E2D\u0E07",
+                    "\u0E0A\u0E32\u0E27\u0E15\u0E48\u0E32\u0E07\u0E0A\u0E32\u0E15\u0E34",
+                    "\u0E15\u0E48\u0E32\u0E07\u0E14\u0E49\u0E32\u0E27",
+                    "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E15\u0E31\u0E27",
+                    "\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E17\u0E33\u0E07\u0E32\u0E19",
+                    "\u0E20\u0E32\u0E29\u0E35",
+                    "\u0E2A\u0E19\u0E32\u0E21\u0E1A\u0E34\u0E19",
+                    "\u0E1B\u0E34\u0E14\u0E2B\u0E32\u0E14",
+                    "\u0E1B\u0E34\u0E14\u0E0A\u0E32\u0E22\u0E2B\u0E32\u0E14",
+                    "\u0E19\u0E31\u0E01\u0E17\u0E48\u0E2D\u0E07\u0E40\u0E17\u0E35\u0E48\u0E22\u0E27",
+                    "\u0E1E\u0E32\u0E2A\u0E1B\u0E2D\u0E23\u0E4C\u0E15",
+                    "\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07"
+                  ];
+                  const translatedTextLower = `${translation.translatedTitle || ""} ${translation.translatedContent || ""}`.toLowerCase();
+                  const hasExpatRelevanceInTranslation = EXPAT_RELEVANCE_EN_LOWER.some((marker) => translatedTextLower.includes(marker));
+                  const hasExpatRelevanceInThaiOriginal = EXPAT_RELEVANCE_TH2.some((marker) => combinedCaption.includes(marker));
+                  const isExpatExempt = hasExpatRelevanceInTranslation || hasExpatRelevanceInThaiOriginal;
+                  const isLowValueHidden = !hasIncident && !isExpatExempt && !!translation.sourceType && ["POLITICAL_STATEMENT", "OFFICIAL_ANNOUNCEMENT", "COMMUNITY_DISCUSSION"].includes(translation.sourceType) && finalInterestScore <= 3;
                   if (isLowValueHidden) {
                     console.log(`\u26A0\uFE0F [GATE A] Low-value post (${translation.sourceType}, score ${finalInterestScore}/5) caught by safety net.`);
                     console.log(`   Saving as status = 'low_value_hidden' and skipping second-pass enrichment.`);
                     articleData.status = "low_value_hidden";
                     articleData.isPublished = false;
                     articleData.reEnrichAt = null;
+                    articleData.reviewReason = `Hidden by Gate A: classified as ${translation.sourceType} with score ${finalInterestScore}/5`;
                     const article2 = await storage.createArticle(articleData);
                     console.log(`   \u2705 Created hidden low-value article draft: ${article2.title.substring(0, 50)}...`);
                     createdCount++;

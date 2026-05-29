@@ -143,6 +143,7 @@ export const skippedLowValue = pgTable("skipped_low_value", {
   sourceUrl: text("source_url"),
   caption: text("caption").notNull(),
   detectedMarkers: text("detected_markers").array().default(sql`ARRAY[]::text[]`),
+  skipReason: text("skip_reason"), // 'meeting' | 'govt_process'
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 

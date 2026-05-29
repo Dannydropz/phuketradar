@@ -56,6 +56,11 @@ pool.on('remove', () => {
     console.log('[DB STARTUP] Table skipped_low_value verified/created');
 
     await pool.query(`
+      ALTER TABLE skipped_low_value ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+    `);
+    console.log('[DB STARTUP] Column skipped_low_value.skip_reason verified/created');
+
+    await pool.query(`
       ALTER TABLE articles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
     `);
     console.log('[DB STARTUP] Column articles.status verified/created');
