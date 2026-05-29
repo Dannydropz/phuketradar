@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, Instagram, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles, Zap } from "lucide-react";
+import { Download, Check, X, Eye, RefreshCw, LogOut, EyeOff, Trash2, AlertTriangle, Plus, Edit, Clock, Facebook, Instagram, ChevronDown, ChevronUp, Link, TrendingUp, Sparkles, Zap, GitMerge } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ import { ArticleImage } from "@/components/ArticleImage";
 import { ArticleEditor } from "@/components/ArticleEditor";
 import { TimelineManager } from "@/components/TimelineManager";
 import { BulkAddToTimelineDialog } from "@/components/BulkAddToTimelineDialog";
+import { MergeArticlesDialog } from "@/components/MergeArticlesDialog";
 import { buildArticleUrl } from "@shared/category-map";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -65,6 +66,7 @@ export default function AdminDashboard() {
   const [isLoadingFullArticle, setIsLoadingFullArticle] = useState(false);
   const [timelineArticle, setTimelineArticle] = useState<ArticleListItem | null>(null);
   const [bulkTimelineOpen, setBulkTimelineOpen] = useState(false);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [collapsedTimelines, setCollapsedTimelines] = useState<Set<string>>(new Set());
   const [manualScrapeUrl, setManualScrapeUrl] = useState("");
@@ -676,11 +678,62 @@ export default function AdminDashboard() {
     manualScrapeMutation.mutate(manualScrapeUrl);
   };
 
-  const [rescueSourceUrl, setRescueSourceUrl] = useState("");
+  const [rescueSourceUrls, setRescueSourceUrls] = useState<string[]>([""]);
   const [rescueThaiCaption, setRescueThaiCaption] = useState("");
   const [rescueEditorNotes, setRescueEditorNotes] = useState("");
   const [rescueImages, setRescueImages] = useState<string[]>([]);
   const [isUploadingRescueImages, setIsUploadingRescueImages] = useState(false);
+
+  const addRescueSourceUrlField = () => {
+    setRescueSourceUrls(prev => [...prev, ""]);
+  };
+
+  const updateRescueSourceUrlValue = (index: number, val: string) => {
+    setRescueSourceUrls(prev => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  };
+
+  const removeRescueSourceUrlField = (indexToRemove: number) => {
+    setRescueSourceUrls(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const renderSourceUrls = (sourceUrl: string, articleId: string, testIdPrefix: string, isPreview: boolean = false) => {
+    const urls = sourceUrl?.split(/\s*,\s*/).filter(Boolean) || [];
+    if (urls.length === 0) return null;
+    if (urls.length === 1) {
+      return (
+        <a
+          href={urls[0]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={isPreview ? "text-sm text-primary hover:underline font-medium" : "text-xs text-primary hover:underline font-medium"}
+          data-testid={testIdPrefix}
+        >
+          {isPreview ? "View original source →" : "View original source"}
+        </a>
+      );
+    }
+    return (
+      <div className={isPreview ? "flex flex-wrap items-center gap-2 text-sm text-muted-foreground" : "flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"}>
+        <span>Original sources:</span>
+        {urls.map((url, idx) => (
+          <a
+            key={idx}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium"
+            data-testid={`${testIdPrefix}-${idx}`}
+          >
+            {isPreview ? `Source ${idx + 1}` : `[Source ${idx + 1}]`}
+          </a>
+        ))}
+      </div>
+    );
+  };
 
   const handleRescueImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -739,7 +792,8 @@ export default function AdminDashboard() {
     }
 
     manualRescueMutation.mutate({
-      source_url: rescueSourceUrl,
+      source_url: rescueSourceUrls.filter(Boolean)[0] || "",
+      source_urls: rescueSourceUrls.filter(Boolean),
       thai_caption: rescueThaiCaption,
       editor_notes: rescueEditorNotes,
       images: rescueImages,
@@ -1183,6 +1237,19 @@ export default function AdminDashboard() {
                             <Trash2 className="w-4 h-4 md:mr-2" />
                             <span className="hidden md:inline">Delete Selected</span>
                           </Button>
+                          {selectedArticles.size >= 2 && (
+                            <Button
+                              variant="outline"
+                              size={undefined}
+                              onClick={() => setMergeModalOpen(true)}
+                              className="border-amber-500 text-amber-500 h-11 px-4 py-2 hover:bg-amber-500/10"
+                              data-testid="button-bulk-merge"
+                              aria-label="Merge Selected"
+                            >
+                              <GitMerge className="w-4 h-4 md:mr-2" />
+                              <span className="hidden md:inline">Merge Selected</span>
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size={undefined}
@@ -1528,15 +1595,7 @@ export default function AdminDashboard() {
                                 <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mb-2">
                                   {article.excerpt}
                                 </p>
-                                <a
-                                  href={article.sourceUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline"
-                                  data-testid={`link-source-${article.id}`}
-                                >
-                                  View original source
-                                </a>
+                                {renderSourceUrls(article.sourceUrl, article.id, `link-source-${article.id}`)}
                               </div>
                             </div>
                             <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[280px]">
@@ -1946,15 +2005,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <a
-                    href={previewArticle.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
-                    data-testid="link-preview-source"
-                  >
-                    View original source →
-                  </a>
+                  {renderSourceUrls(previewArticle.sourceUrl, previewArticle.id, "link-preview-source", true)}
                 </div>
               </div>
             </>
@@ -2005,6 +2056,13 @@ export default function AdminDashboard() {
       <BulkAddToTimelineDialog
         open={bulkTimelineOpen}
         onOpenChange={setBulkTimelineOpen}
+        selectedArticles={articles.filter(a => selectedArticles.has(a.id))}
+        onSuccess={() => setSelectedArticles(new Set())}
+      />
+
+      <MergeArticlesDialog
+        open={mergeModalOpen}
+        onOpenChange={setMergeModalOpen}
         selectedArticles={articles.filter(a => selectedArticles.has(a.id))}
         onSuccess={() => setSelectedArticles(new Set())}
       />
@@ -2103,7 +2161,7 @@ export default function AdminDashboard() {
       <Dialog open={manualRescueOpen} onOpenChange={(open) => {
         if (!open) {
           setManualRescueOpen(false);
-          setRescueSourceUrl("");
+          setRescueSourceUrls([""]);
           setRescueThaiCaption("");
           setRescueEditorNotes("");
           setRescueImages([]);
@@ -2117,16 +2175,43 @@ export default function AdminDashboard() {
           </DialogHeader>
           <div className="space-y-4 py-4 max-h-[75vh] overflow-y-auto pr-2">
             <div className="space-y-2">
-              <Label htmlFor="rescue-url" className="text-sm font-semibold">
-                Original Facebook Post URL (attribution only — NOT scraped)
+              <Label className="text-sm font-semibold flex justify-between items-center">
+                <span>Original Facebook Post URLs (attribution only — NOT scraped)</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={addRescueSourceUrlField}
+                  className="h-7 border-dashed border-white/10 hover:border-orange-500/50 hover:bg-orange-500/10 text-xs px-2 flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add another URL
+                </Button>
               </Label>
-              <Input
-                id="rescue-url"
-                placeholder="e.g. https://facebook.com/share/p/xxx"
-                value={rescueSourceUrl}
-                onChange={(e) => setRescueSourceUrl(e.target.value)}
-                className="w-full bg-background/50 border-white/10 focus:ring-orange-500/50"
-              />
+              <div className="space-y-2">
+                {rescueSourceUrls.map((url, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      placeholder={`Source URL #${idx + 1} (e.g. https://facebook.com/share/p/xxx)`}
+                      value={url}
+                      onChange={(e) => updateRescueSourceUrlValue(idx, e.target.value)}
+                      className="w-full bg-background/50 border-white/10 focus:ring-orange-500/50"
+                    />
+                    {rescueSourceUrls.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeRescueSourceUrlField(idx)}
+                        className="text-destructive hover:text-red-500 hover:bg-red-500/10"
+                        tabIndex={-1}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -2141,6 +2226,9 @@ export default function AdminDashboard() {
                 onChange={(e) => setRescueThaiCaption(e.target.value)}
                 className="w-full bg-background/50 border-white/10 focus:ring-orange-500/50 min-h-[120px]"
               />
+              <p className="text-xs text-muted-foreground">
+                💡 Pasting multiple posts about the same story? Paste them all here — they'll be merged into one article.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -2217,7 +2305,7 @@ export default function AdminDashboard() {
                 variant="outline"
                 onClick={() => {
                   setManualRescueOpen(false);
-                  setRescueSourceUrl("");
+                  setRescueSourceUrls([""]);
                   setRescueThaiCaption("");
                   setRescueEditorNotes("");
                   setRescueImages([]);

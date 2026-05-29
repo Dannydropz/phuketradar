@@ -503,14 +503,22 @@ export default function ArticleDetailNew() {
                                         <FaFacebook className="w-4 h-4 text-[#1877F2]" />
                                         <span>
                                             Video source:{" "}
-                                            <a
-                                                href={article.sourceUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-400 hover:text-blue-300 transition-colors underline underline-offset-2"
-                                            >
-                                                {article.sourceName || "Facebook"}
-                                            </a>
+                                            {(() => {
+                                                const urls = article.sourceUrl?.split(/\s*,\s*/).filter(Boolean) || [];
+                                                return urls.map((url, idx) => (
+                                                    <span key={url}>
+                                                        {idx > 0 && ", "}
+                                                        <a
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-400 hover:text-blue-300 transition-colors underline underline-offset-2"
+                                                        >
+                                                            {urls.length > 1 ? `Link ${idx + 1}` : (article.sourceName || "Facebook")}
+                                                        </a>
+                                                    </span>
+                                                ));
+                                            })()}
                                         </span>
                                     </div>
                                 </div>
@@ -582,7 +590,24 @@ export default function ArticleDetailNew() {
                         <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-2 text-sm text-zinc-500">
                             <FaFacebook className="w-5 h-5 text-[#1877F2]" />
                             <span>
-                                Source: <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">{article.sourceName || "Facebook"}</a> - translated from Thai
+                                Source:{" "}
+                                {(() => {
+                                    const urls = article.sourceUrl?.split(/\s*,\s*/).filter(Boolean) || [];
+                                    return urls.map((url, idx) => (
+                                        <span key={url}>
+                                            {idx > 0 && ", "}
+                                            <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="hover:text-blue-400 transition-colors underline decoration-dotted font-medium"
+                                            >
+                                                {urls.length > 1 ? `Link ${idx + 1}` : (article.sourceName || "Facebook")}
+                                            </a>
+                                        </span>
+                                    ));
+                                })()}
+                                {" "} - translated from Thai
                             </span>
                         </div>
                     </article>

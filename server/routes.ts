@@ -1118,13 +1118,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/admin/articles/rescue - PROTECTED
   app.post("/api/admin/articles/rescue", requireAdminAuth, async (req, res) => {
     try {
-      const { source_url, images, thai_caption, editor_notes } = req.body;
+      const { source_url, source_urls, images, thai_caption, editor_notes } = req.body;
 
       if (!thai_caption) {
         return res.status(400).json({ error: "Thai caption is required" });
       }
 
-      console.log(`[RESCUE] Refactored Manual story rescue requested for URL: ${source_url || 'N/A'}`);
+      const urlsArray = source_urls && Array.isArray(source_urls) ? source_urls.filter(Boolean) : (source_url ? [source_url] : []);
+      const finalSourceUrl = urlsArray.join(", ") || 'https://phuketradar.com';
+      console.log(`[RESCUE] Refactored Manual story rescue requested for URLs: ${finalSourceUrl}`);
 
       // 1. Parse pasted text to separate caption and comments using GPT-4o-mini
       console.log(`[RESCUE] Parsing source text into caption and comments...`);
@@ -1144,6 +1146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: parsed.caption,
         comments: parsed.comments,
         editorNotes: editor_notes,
+        isMultiSource: true,
       });
 
       const { enrichedTitle, enrichedContent, enrichedExcerpt, facebookCaption } = enrichmentResult;
@@ -1186,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: (images && images.length > 0) ? images[0] : null,
         imageUrls: images || null,
         category: category,
-        sourceUrl: source_url || 'https://phuketradar.com',
+        sourceUrl: finalSourceUrl,
         sourceName: "Facebook",
         journalistId: assignedJournalist.id,
         isPublished: false,
@@ -1215,6 +1218,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error in manual story rescue:", error);
       res.status(500).json({ error: error.message || "Failed to rescue story" });
+    }
+  });
+
+  // POST /api/admin/articles/merge - PROTECTED
+  app.post("/api/admin/articles/merge", requireAdminAuth, async (req, res) => {
+    try {
+      const { primaryId, supplementaryIds } = req.body;
+      if (!primaryId || !supplementaryIds || !Array.isArray(supplementaryIds) || supplementaryIds.length === 0) {
+        return res.status(400).json({ error: "primaryId and at least one supplementaryId are required" });
+      }
+
+      // 1. Fetch articles
+      const primaryArticle = await db.select().from(articles).where(eq(articles.id, primaryId)).limit(1).then(rows => rows[0]);
+      if (!primaryArticle) {
+        return res.status(404).json({ error: "Primary article not found" });
+      }
+
+      const supplementaryArticles: Article[] = [];
+      for (const id of supplementaryIds) {
+        const art = await db.select().from(articles).where(eq(articles.id, id)).limit(1).then(rows => rows[0]);
+        if (!art) {
+          return res.status(404).json({ error: `Supplementary article ${id} not found` });
+        }
+        supplementaryArticles.push(art);
+      }
+
+      console.log(`[MERGE] Merging ${supplementaryArticles.length} supplementary articles into primary article ${primaryId}`);
+
+      // Enforce: chosen primary must be published if any article is published
+      const publishedCount = (primaryArticle.isPublished ? 1 : 0) + supplementaryArticles.filter(a => a.isPublished).length;
+      if (publishedCount > 0 && !primaryArticle.isPublished) {
+        return res.status(400).json({ error: "A published article must be chosen as the primary article to protect link continuity." });
+      }
+
+      // 2. Concatenate source material of all selected entries (primary first)
+      let combinedSourceText = primaryArticle.originalContent || primaryArticle.content || "";
+      for (const s of supplementaryArticles) {
+        const text = s.originalContent || s.content || "";
+        if (text) {
+          combinedSourceText += "\n\n" + text;
+        }
+      }
+
+      // 3. Pool comments (fetch fresh comments for all selected entries)
+      let pooledComments: string[] = [];
+      const allUrls = [primaryArticle.sourceUrl, ...supplementaryArticles.map(a => a.sourceUrl)].filter(Boolean);
+      const uniqueUrls = Array.from(new Set(allUrls));
+
+      const { scrapePostComments } = await import("./services/scraper");
+      for (const url of uniqueUrls) {
+        if (url && url.includes('facebook.com')) {
+          try {
+            console.log(`   💬 [MERGE-ENRICH] Fetching comments from: ${url.substring(0, 80)}...`);
+            const comments = await scrapePostComments(url, 20);
+            pooledComments.push(...comments.map(c => c.text));
+          } catch (commentError) {
+            console.warn(`   ⚠️ [MERGE-ENRICH] Comment fetch failed for ${url}:`, commentError);
+          }
+        }
+      }
+
+      // 4. Concatenate editor notes / review reasons if any
+      let combinedEditorNotes = primaryArticle.reviewReason || "";
+      const extraNotes = supplementaryArticles.map(s => s.reviewReason).filter(Boolean);
+      if (extraNotes.length > 0) {
+        combinedEditorNotes += (combinedEditorNotes ? "\n\n" : "") + extraNotes.join("\n\n");
+      }
+
+      // 5. Run the premium Sonnet enrichment path on the combined material
+      console.log(`[MERGE] Running Claude Sonnet 4.6 enrichment on combined material...`);
+      const enrichmentResult = await runPremiumSonnetEnrichment({
+        category: primaryArticle.category,
+        title: primaryArticle.title,
+        content: combinedSourceText,
+        comments: pooledComments,
+        editorNotes: combinedEditorNotes || undefined,
+        isMultiSource: true, // Inject prompt synthesis rule
+      });
+
+      const { enrichedTitle, enrichedContent, enrichedExcerpt, facebookCaption } = enrichmentResult;
+
+      // 6. Pool all images from all merged entries onto primary
+      let pooledImages = [...(primaryArticle.imageUrls || [])];
+      if (primaryArticle.imageUrl && !pooledImages.includes(primaryArticle.imageUrl)) {
+        pooledImages.push(primaryArticle.imageUrl);
+      }
+      for (const s of supplementaryArticles) {
+        if (s.imageUrl && !pooledImages.includes(s.imageUrl)) {
+          pooledImages.push(s.imageUrl);
+        }
+        if (s.imageUrls) {
+          for (const img of s.imageUrls) {
+            if (img && !pooledImages.includes(img)) {
+              pooledImages.push(img);
+            }
+          }
+        }
+      }
+      pooledImages = pooledImages.filter(Boolean);
+      const newPrimaryImageUrl = pooledImages.length > 0 ? pooledImages[0] : null;
+
+      // Pool tags
+      let pooledTags = [...(primaryArticle.tags || [])];
+      for (const s of supplementaryArticles) {
+        if (s.tags) {
+          for (const tag of s.tags) {
+            if (tag && !pooledTags.includes(tag)) {
+              pooledTags.push(tag);
+            }
+          }
+        }
+      }
+
+      // Pool sourceUrls
+      let pooledSourceUrls = [primaryArticle.sourceUrl, ...supplementaryArticles.map(s => s.sourceUrl)]
+        .filter(Boolean);
+      const uniqueSourceUrls = Array.from(new Set(pooledSourceUrls)).join(", ");
+
+      // 7. Update primary article in database
+      const primaryUpdates = {
+        title: enrichedTitle,
+        content: enrichedContent,
+        excerpt: enrichedExcerpt,
+        imageUrl: newPrimaryImageUrl,
+        imageUrls: pooledImages,
+        tags: pooledTags,
+        sourceUrl: uniqueSourceUrls || primaryArticle.sourceUrl,
+        facebookHeadline: enrichedTitle,
+        interestScore: 4.0, // Rescued premium stories start with a high interest score
+      };
+
+      console.log(`[MERGE] Updating primary article ${primaryId} with merged content.`);
+      const updatedPrimary = await storage.updateArticle(primaryId, primaryUpdates);
+
+      // 8. Handle non-primary entries: tombstone, remove from database
+      for (const s of supplementaryArticles) {
+        // Write to tombstone table (scraper_blocklist)
+        try {
+          await storage.addToBlocklist({
+            sourceUrl: s.sourceUrl,
+            sourceFacebookPostId: s.sourceFacebookPostId || undefined,
+            reason: `merged_into_${primaryId}`,
+            articleTitle: s.title,
+          });
+          console.log(`🚫 [BLOCKLIST] Tombstoned merged supplementary article: "${s.title.substring(0, 60)}"`);
+        } catch (tombstoneError) {
+          console.error(`⚠️ [BLOCKLIST] Failed to tombstone supplementary article ${s.id}:`, tombstoneError);
+        }
+
+        // Hard-delete supplementary article from articles table
+        await db.delete(articles).where(eq(articles.id, s.id));
+        console.log(`🗑️ [MERGE] Deleted merged supplementary article ${s.id}`);
+      }
+
+      // 9. Return the updated primary article
+      res.json({
+        success: true,
+        message: "Articles successfully merged!",
+        article: {
+          ...updatedPrimary,
+          facebookCaption,
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Error in article merge:", error);
+      res.status(500).json({ error: error.message || "Failed to merge articles" });
     }
   });
 
@@ -2372,6 +2542,7 @@ Identify comments based on common patterns (e.g. usernames, timestamps, reply te
     excerpt?: string;
     comments: string[];
     editorNotes?: string;
+    isMultiSource?: boolean;
   }): Promise<{
     enrichedTitle: string;
     enrichedContent: string;
@@ -2457,7 +2628,7 @@ These notes come from the editor who lives in Phuket and has direct local knowle
 
     const userPrompt = `📅 TODAY'S DATE: ${currentDate} (Thailand Time)
 ARTICLE CATEGORY: ${params.category}
-
+${params.isMultiSource ? "\nThe source material below may come from multiple posts about the SAME event. Synthesise them into ONE coherent article. Do not produce a list or repeat the event multiple times. Reconcile details; if sources conflict, prefer the more specific one and note uncertainty plainly.\n" : ""}
 ${contextBlock}
 
 ${GENERAL_LOCATION_CONTEXT}

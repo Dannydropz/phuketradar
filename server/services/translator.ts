@@ -1129,7 +1129,7 @@ Your output (valid JSON only):`;
     // We ignore ENRICHMENT_PROVIDER from .env to prevent automated leaks.
     // Anthropic is reserved ONLY for explicit manual actions.
     const enrichmentProvider = params.forceAnthropic ? 'anthropic' : 'openai';
-    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
     let result: { enrichedTitle?: string; enrichedContent?: string; enrichedExcerpt?: string } = {};
 
@@ -2570,7 +2570,7 @@ Always output valid JSON.`,
     category: string,
     publishedAt: Date,
     additionalSources: { name: string; publishedDate: string; extractedText: string }[],
-    model: "claude-sonnet-4-5" | "claude-3-opus-20240229" = "claude-sonnet-4-5",
+    model: "claude-sonnet-4-6" | "claude-3-opus-20240229" = "claude-sonnet-4-6",
     forceAnthropic: boolean = false // NEW: Default to false to ensure background loop uses OpenAI
   ): Promise<ReEnrichmentResult> {
     if (additionalSources.length === 0) {
