@@ -33,6 +33,7 @@ import { DuplicateVerifierService } from "./services/duplicate-verifier";
 import { imageDownloaderService } from "./services/image-downloader";
 // AI image generation disabled - synthetic images looked inappropriate for news content
 // import { imageGeneratorService } from "./services/image-generator";
+import { GATE_C_CONFIG } from "./config/gate-c-config";
 import { detectTags } from "./lib/tag-detector";
 import type { InsertArticle } from "@shared/schema";
 
@@ -435,22 +436,54 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
 
 
 
-              // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
-              if (post.facebookPostId) {
-                const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
-                if (existingByPostId) {
+              // STEP -2 & -1: Gate C Check 1 - Duplicate source URL / FB Post ID
+              if (!GATE_C_CONFIG.enabled || GATE_C_CONFIG.check1DuplicateUrlEnabled) {
+                // STEP -2: Check if this source Facebook post ID already exists in database (fastest and most reliable check)
+                if (post.facebookPostId) {
+                  const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
+                  if (existingByPostId) {
+                    skippedSemanticDuplicates++;
+                    skipReasons.push({
+                      reason: "Duplicate: Source Facebook Post ID (Gate C Check 1)",
+                      postTitle: post.title.substring(0, 60),
+                      sourceUrl: post.sourceUrl,
+                      facebookPostId: post.facebookPostId,
+                      details: `Post ID: ${post.facebookPostId}`
+                    });
+                    console.log(`\n🚫 DUPLICATE DETECTED - Method: FACEBOOK POST ID CHECK (Gate C Check 1)`);
+                    console.log(`   Post ID: ${post.facebookPostId}`);
+                    console.log(`   New title: ${post.title.substring(0, 60)}...`);
+                    console.log(`   Existing: ${existingByPostId.title.substring(0, 60)}...`);
+                    console.log(`   ✅ Skipped before translation (saved API credits)\n`);
+
+                    // Update progress
+                    if (callbacks?.onProgress) {
+                      callbacks.onProgress({
+                        totalPosts,
+                        processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                        createdArticles: createdCount,
+                        skippedNotNews,
+                      });
+                    }
+                    return;
+                  }
+                }
+
+                // STEP -1: Check if this source URL already exists in database (fast check before expensive API calls)
+                const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
+                if (existingBySourceUrl) {
                   skippedSemanticDuplicates++;
                   skipReasons.push({
-                    reason: "Duplicate: Source Facebook Post ID",
+                    reason: "Duplicate: Source URL (Gate C Check 1)",
                     postTitle: post.title.substring(0, 60),
                     sourceUrl: post.sourceUrl,
                     facebookPostId: post.facebookPostId,
-                    details: `Post ID: ${post.facebookPostId}`
+                    details: `URL: ${post.sourceUrl}`
                   });
-                  console.log(`\n🚫 DUPLICATE DETECTED - Method: FACEBOOK POST ID CHECK`);
-                  console.log(`   Post ID: ${post.facebookPostId}`);
+                  console.log(`\n🚫 DUPLICATE DETECTED - Method: SOURCE URL CHECK (Gate C Check 1)`);
+                  console.log(`   URL: ${post.sourceUrl}`);
                   console.log(`   New title: ${post.title.substring(0, 60)}...`);
-                  console.log(`   Existing: ${existingByPostId.title.substring(0, 60)}...`);
+                  console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
                   console.log(`   ✅ Skipped before translation (saved API credits)\n`);
 
                   // Update progress
@@ -464,35 +497,6 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                   }
                   return;
                 }
-              }
-
-              // STEP -1: Check if this source URL already exists in database (fast check before expensive API calls)
-              const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
-              if (existingBySourceUrl) {
-                skippedSemanticDuplicates++;
-                skipReasons.push({
-                  reason: "Duplicate: Source URL",
-                  postTitle: post.title.substring(0, 60),
-                  sourceUrl: post.sourceUrl,
-                  facebookPostId: post.facebookPostId,
-                  details: `URL: ${post.sourceUrl}`
-                });
-                console.log(`\n🚫 DUPLICATE DETECTED - Method: SOURCE URL CHECK`);
-                console.log(`   URL: ${post.sourceUrl}`);
-                console.log(`   New title: ${post.title.substring(0, 60)}...`);
-                console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
-                console.log(`   ✅ Skipped before translation (saved API credits)\n`);
-
-                // Update progress
-                if (callbacks?.onProgress) {
-                  callbacks.onProgress({
-                    totalPosts,
-                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles: createdCount,
-                    skippedNotNews,
-                  });
-                }
-                return;
               }
 
               // STEP 0: Check for image URL duplicate (same image = same story)
@@ -656,6 +660,161 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
                 } else {
                   // Ambiguous case - accept by default
                   console.log(`   ⚠️  ACCEPTED: Uncertain analysis, erring on side of inclusion\n`);
+                }
+              }
+
+              // ── GATE C: Pre-score Filtering ──
+              if (GATE_C_CONFIG.enabled) {
+                const combinedCaptionGateC = `${post.title || ""} ${post.content || ""}`.trim();
+
+                // Check 2: Insufficient content length (Thai character count)
+                if (GATE_C_CONFIG.check2MinLengthEnabled) {
+                  const thaiCharCount = countThaiCharacters(combinedCaptionGateC);
+                  const isEmbeddableVideoUrl = post.sourceUrl && (
+                    post.sourceUrl.includes('/reel/') ||
+                    post.sourceUrl.includes('/reels/') ||
+                    post.sourceUrl.includes('/videos/') ||
+                    post.sourceUrl.includes('/watch')
+                  );
+                  const hasMedia = !!(
+                    post.imageUrl || 
+                    (post.imageUrls && post.imageUrls.length > 0) || 
+                    post.isVideo || 
+                    post.videoUrl || 
+                    post.videoThumbnail ||
+                    isEmbeddableVideoUrl
+                  );
+
+                  if (thaiCharCount < GATE_C_CONFIG.minCharThreshold && !hasMedia) {
+                    console.log(`⏭️  [GATE C] Low-value post skipped pre-enrichment. Reason: insufficient_content (${thaiCharCount} Thai chars, no media)`);
+                    console.log(`   Source: ${post.sourceUrl}`);
+                    
+                    await storage.createSkippedLowValue({
+                      sourceUrl: post.sourceUrl,
+                      caption: combinedCaptionGateC,
+                      detectedMarkers: [`thai_char_count:${thaiCharCount}`],
+                      skipReason: "gate_c_insufficient_content"
+                    });
+
+                    skippedNotNews++;
+                    skipReasons.push({
+                      reason: "Insufficient content (Gate C)",
+                      postTitle: post.title.substring(0, 60),
+                      sourceUrl: post.sourceUrl,
+                      facebookPostId: post.facebookPostId,
+                      details: `Thai characters: ${thaiCharCount} < ${GATE_C_CONFIG.minCharThreshold}, no media`
+                    });
+
+                    if (callbacks?.onProgress) {
+                      callbacks.onProgress({
+                        totalPosts,
+                        processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                        createdArticles: createdCount,
+                        skippedNotNews,
+                      });
+                    }
+                    return; // Skip this post entirely
+                  }
+                }
+
+                // Check 3: Resolution/non-event language
+                if (GATE_C_CONFIG.check3ResolvedUpdateEnabled) {
+                  const RESOLVED_KEYWORDS = [
+                    "พบตัวแล้ว",         // "found already"
+                    "ปลอดภัยดี",         // "safe and sound"
+                    "เปิดการจราจร",      // "reopened traffic"
+                    "เปิดทางแล้ว",        // "road opened already"
+                    "ได้รับการช่วยเหลือแล้ว", // "received help already"
+                    "ได้เบาะแสแล้ว",      // "got lead already"
+                    "ยกเลิกการประกาศ",   // "cancel announcement"
+                    "ยกเลิกการตามหา",   // "cancel search"
+                    "พบร่าง",            // "found body"
+                  ];
+
+                  const detectedKeyword = RESOLVED_KEYWORDS.find(keyword => combinedCaptionGateC.includes(keyword));
+                  if (detectedKeyword) {
+                    console.log(`⏭️  [GATE C] Low-value post skipped pre-enrichment. Reason: resolved_update (Matched: ${detectedKeyword})`);
+                    console.log(`   Source: ${post.sourceUrl}`);
+                    
+                    await storage.createSkippedLowValue({
+                      sourceUrl: post.sourceUrl,
+                      caption: combinedCaptionGateC,
+                      detectedMarkers: [detectedKeyword],
+                      skipReason: "gate_c_resolved_update"
+                    });
+
+                    skippedNotNews++;
+                    skipReasons.push({
+                      reason: "Resolved/Update post (Gate C)",
+                      postTitle: post.title.substring(0, 60),
+                      sourceUrl: post.sourceUrl,
+                      facebookPostId: post.facebookPostId,
+                      details: `Matched keyword: ${detectedKeyword}`
+                    });
+
+                    if (callbacks?.onProgress) {
+                      callbacks.onProgress({
+                        totalPosts,
+                        processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                        createdArticles: createdCount,
+                        skippedNotNews,
+                      });
+                    }
+                    return; // Skip this post entirely
+                  }
+                }
+
+                // Check 4: Pure mainstream-reshare detection
+                if (GATE_C_CONFIG.check4MainstreamShareEnabled && post.isResharedPost) {
+                  const sourceLower = (post.originalSourceName || "").toLowerCase();
+                  const MAINSTREAM_DOMAINS = [
+                    "ข่าวสด", "khaosod",
+                    "สนุก", "sanook",
+                    "ไทยรัฐ", "thairath",
+                    "เดลินิวส์", "dailynews",
+                    "คมชัดลึก", "komchadluek",
+                    "pptv", "พีพีทีวี",
+                    "amarin", "อมรินทร์",
+                    "workpoint", "เวิร์คพอยท์",
+                    "เรื่องเล่าเช้านี้", "ch3", "ch7", "one31", "ช่องวัน", "ช่อง 3", "ช่อง 7", "thairath online"
+                  ];
+
+                  const isMainstream = MAINSTREAM_DOMAINS.some(domain => sourceLower.includes(domain));
+                  if (isMainstream) {
+                    const sharerCaption = post.sharerCaption || "";
+                    const sharerWordCount = sharerCaption.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+                    if (sharerWordCount <= 5) {
+                      console.log(`⏭️  [GATE C] Low-value post skipped pre-enrichment. Reason: mainstream_reshare_no_value (From: ${post.originalSourceName})`);
+                      console.log(`   Source: ${post.sourceUrl}`);
+                      
+                      await storage.createSkippedLowValue({
+                        sourceUrl: post.sourceUrl,
+                        caption: combinedCaptionGateC,
+                        detectedMarkers: [`mainstream:${post.originalSourceName || "unknown"}`],
+                        skipReason: "gate_c_mainstream_reshare"
+                      });
+
+                      skippedNotNews++;
+                      skipReasons.push({
+                        reason: "Mainstream reshare without value (Gate C)",
+                        postTitle: post.title.substring(0, 60),
+                        sourceUrl: post.sourceUrl,
+                        facebookPostId: post.facebookPostId,
+                        details: `Reshared from mainstream source: ${post.originalSourceName} with no commentary`
+                      });
+
+                      if (callbacks?.onProgress) {
+                        callbacks.onProgress({
+                          totalPosts,
+                          processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                          createdArticles: createdCount,
+                          skippedNotNews,
+                        });
+                      }
+                      return; // Skip this post entirely
+                    }
+                  }
                 }
               }
 
@@ -2642,4 +2801,12 @@ export function startReEnrichmentPoller() {
       console.error("❌ Error in re-enrichment poller:", err);
     }
   }, 5 * 60 * 1000); // 5 minutes
+}
+
+/**
+ * Helper to count characters in the Thai Unicode range
+ */
+function countThaiCharacters(text: string): number {
+  const match = text.match(/[\u0E00-\u0E7F]/g);
+  return match ? match.length : 0;
 }

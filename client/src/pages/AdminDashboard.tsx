@@ -1899,18 +1899,36 @@ export default function AdminDashboard() {
                         ))}
 
                         {/* Render Skipped Low Value Items */}
-                        {showLowValue && skippedLowValues.map(item => (
-                          <div
-                            key={item.id}
-                            className="flex flex-col gap-3 p-4 border-2 border-red-500/30 bg-red-500/5 rounded-lg relative shadow-lg shadow-red-500/5"
-                          >
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-red-500 text-white border-none">
-                                  Skipped pre-enrichment
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                        {showLowValue && skippedLowValues.map(item => {
+                          const getSkipReasonLabel = (reason?: string) => {
+                            if (!reason) return "Skipped pre-enrichment";
+                            switch (reason) {
+                              case "meeting":
+                                return "Gate B: Meeting/Ceremony";
+                              case "govt_process":
+                                return "Gate B: Government Process";
+                              case "gate_c_insufficient_content":
+                                return "Gate C: Insufficient Content";
+                              case "gate_c_resolved_update":
+                                return "Gate C: Resolved/Update";
+                              case "gate_c_mainstream_reshare":
+                                return "Gate C: Mainstream Reshare";
+                              default:
+                                return `Skipped: ${reason}`;
+                            }
+                          };
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex flex-col gap-3 p-4 border-2 border-red-500/30 bg-red-500/5 rounded-lg relative shadow-lg shadow-red-500/5"
+                            >
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-red-500 text-white border-none">
+                                    {getSkipReasonLabel(item.skipReason)}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
                                 </span>
                               </div>
                               {item.sourceUrl && (
@@ -1933,8 +1951,8 @@ export default function AdminDashboard() {
                                 {item.caption}
                               </p>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </>
                     );
                   })()}

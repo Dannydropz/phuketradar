@@ -19,6 +19,7 @@ export interface ScrapedPost {
   sourceName?: string;
   isResharedPost?: boolean; // True when this post was a reshare and we fetched original content
   originalSourceName?: string; // Name of the original page the content was reshared from
+  sharerCaption?: string; // Raw caption text of the page that reshared the post
 }
 
 interface ScrapeCreatorsPost {
@@ -275,6 +276,7 @@ export class ScraperService {
         isResharedPost: true,
         originalSourceName: originalPageLabel,
         sourceName: post.sourceName || sourcePageName,
+        sharerCaption: sharerCaption.trim(),
       };
 
       console.log(`   ✅ RESHARE RESOLVED: Merged content (${originalWordCount} original words + ${sharerWordCount > 5 ? sharerWordCount + ' sharer words' : 'no sharer caption'})`);
