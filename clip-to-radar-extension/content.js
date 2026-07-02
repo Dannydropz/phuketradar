@@ -357,8 +357,13 @@ function updateButtonState(button, state, text) {
 
 // Inject "📡 Clip" button into post action bar
 function injectClipButton(postEl) {
-  // Avoid duplicate injection
-  if (postEl.querySelector('.clip-radar-btn')) return;
+  // If this post element is nested inside another role="article", it is a comment, not the post itself!
+  if (postEl.parentElement?.closest('[role="article"]')) {
+    return;
+  }
+
+  // Avoid duplicate injection using a custom class on the post container
+  if (postEl.classList.contains('clip-radar-processed')) return;
   
   // Look for action bar container (Like, Comment, Share wrapper)
   // Usually this is a div container at the bottom containing Like/Comment buttons
@@ -366,13 +371,21 @@ function injectClipButton(postEl) {
   let actionBar = postEl.querySelector('[role="toolbar"]');
   
   if (!actionBar) {
-    // Fallback: look for Like button and use its parent or sibling container
+    // Fallback: look for Like button and walk up to find the flex row containing Like and Comment
     const likeBtn = postEl.querySelector('[aria-label="Like"], [aria-label="ถูกใจ"]');
     if (likeBtn) {
-      actionBar = likeBtn.closest('div'); // Get nearest container
-      // If it doesn't look like a row, try going up a level
-      if (actionBar && actionBar.offsetWidth < 150) {
-        actionBar = actionBar.parentElement;
+      let current = likeBtn.closest('div');
+      let depth = 0;
+      while (current && depth < 5) {
+        const text = current.textContent || '';
+        const containsActions = (text.includes('Like') || text.includes('ถูกใจ')) && 
+                                (text.includes('Comment') || text.includes('แสดงความคิดเห็น'));
+        if (containsActions && current.childElementCount >= 2) {
+          actionBar = current;
+          break;
+        }
+        current = current.parentElement;
+        depth++;
       }
     }
   }
@@ -389,6 +402,9 @@ function injectClipButton(postEl) {
   }
   
   if (actionBar) {
+    // Mark post container as processed
+    postEl.classList.add('clip-radar-processed');
+    
     const clipBtn = document.createElement('button');
     clipBtn.className = 'clip-radar-btn';
     clipBtn.textContent = '📡 Clip';
