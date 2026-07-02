@@ -12675,6 +12675,10 @@ async function runManualPostScrape(postUrl, callbacks) {
 function startReEnrichmentPoller() {
   console.log("\u23F0 Starting re-enrichment poller (runs every 5 minutes)");
   setInterval(async () => {
+    if (process.env.RE_ENRICHMENT_ENABLED === "false") {
+      console.log("\u23F8\uFE0F [RE-ENRICHMENT] Poller check skipped: RE_ENRICHMENT_ENABLED=false");
+      return;
+    }
     try {
       const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
       const { articles: articles2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
@@ -17131,6 +17135,216 @@ Return ONLY the caption text, no JSON, no labels, no quotes.`
       res.status(500).json({ error: errorMessage });
     }
   });
+  function extractFacebookPostId(url) {
+    try {
+      const numericMatch = url.match(/\/(?:posts|reel|reels|videos|photo|permalink|story)\/(\d+)/);
+      if (numericMatch) {
+        return numericMatch[1];
+      }
+      const pfbidMatch = url.match(/\/posts\/(pfbid[\w]+)/) || url.match(/\/permalink\/(pfbid[\w]+)/);
+      if (pfbidMatch) {
+        return pfbidMatch[1];
+      }
+      const urlObj = new URL(url);
+      const storyFbid = urlObj.searchParams.get("story_fbid");
+      if (storyFbid) return storyFbid;
+      const fbid = urlObj.searchParams.get("fbid");
+      if (fbid) return fbid;
+      const id = urlObj.searchParams.get("id");
+      if (id) return id;
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+  function normalizeFacebookUrl(url, postId) {
+    if (postId) {
+      return `https://www.facebook.com/posts/${postId}`;
+    }
+    return url;
+  }
+  app2.get("/api/admin/clips/auth-test", async (req, res) => {
+    const apiKey = req.headers["x-api-key"] || req.headers["authorization"];
+    const expectedKey = process.env.CLIP_EXTENSION_API_KEY;
+    if (!expectedKey) {
+      console.error("\u274C CLIP_EXTENSION_API_KEY is not configured in env");
+      return res.status(500).json({ error: "Backend authorization configuration error" });
+    }
+    if (apiKey === expectedKey) {
+      return res.json({ success: true });
+    }
+    return res.status(401).json({ error: "Unauthorized" });
+  });
+  app2.post("/api/admin/clips", upload.array("images[]"), async (req, res) => {
+    try {
+      const apiKey = req.headers["x-api-key"] || req.headers["authorization"];
+      const expectedKey = process.env.CLIP_EXTENSION_API_KEY;
+      if (!expectedKey) {
+        console.error("\u274C CLIP_EXTENSION_API_KEY is not configured in env");
+        return res.status(500).json({ error: "Backend authorization configuration error" });
+      }
+      if (apiKey !== expectedKey) {
+        console.warn(`[CLIPS] Unauthorized clip attempt from ${req.ip}`);
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { sourceUrl, caption, authorName, timestamp: timestamp2 } = req.body;
+      if (!sourceUrl) {
+        return res.status(400).json({ error: "Source URL is required" });
+      }
+      if (!caption) {
+        return res.status(400).json({ error: "Caption text is required" });
+      }
+      console.log(`[CLIPS] Sourcing clip request for URL: ${sourceUrl}`);
+      const facebookPostId = extractFacebookPostId(sourceUrl);
+      const normalizedUrl = normalizeFacebookUrl(sourceUrl, facebookPostId);
+      console.log(`[CLIPS] Extracted Facebook Post ID: ${facebookPostId}`);
+      console.log(`[CLIPS] Normalized URL: ${normalizedUrl}`);
+      if (facebookPostId) {
+        const existingByPostId = await storage.getArticleBySourceFacebookPostId(facebookPostId);
+        if (existingByPostId) {
+          console.log(`[CLIPS] Duplicate detected via post ID: ${facebookPostId}`);
+          return res.status(409).json({ error: "Story already exists", articleId: existingByPostId.id });
+        }
+      }
+      const existingByUrl = await storage.getArticleBySourceUrl(normalizedUrl);
+      if (existingByUrl) {
+        console.log(`[CLIPS] Duplicate detected via source URL: ${normalizedUrl}`);
+        return res.status(409).json({ error: "Story already exists", articleId: existingByUrl.id });
+      }
+      const cloudinaryUrls = [];
+      const files = req.files || [];
+      if (files.length > 0) {
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+          console.warn("\u26A0\uFE0F Cloudinary not configured for clips.");
+          for (const file of files) {
+            try {
+              await fs3.unlink(file.path);
+            } catch (e) {
+            }
+          }
+        } else {
+          const { v2: cloudinary2 } = await import("cloudinary");
+          cloudinary2.config({
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET
+          });
+          for (const file of files) {
+            const originalPath = file.path;
+            try {
+              console.log(`[CLIPS] Optimizing and uploading image to Cloudinary: ${file.originalname}`);
+              const optimizedBuffer = await sharp4(originalPath).resize({ width: 1200, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+              const secureUrl = await new Promise((resolve, reject) => {
+                const ts = Date.now();
+                const randomSuffix = Math.random().toString(36).substring(2, 10);
+                const uploadStream = cloudinary2.uploader.upload_stream(
+                  {
+                    folder: "phuketradar",
+                    public_id: `clip-upload-${ts}-${randomSuffix}`,
+                    resource_type: "image",
+                    format: "webp"
+                  },
+                  (error, result) => {
+                    if (error) {
+                      reject(new Error(`Cloudinary upload failed: ${error.message}`));
+                    } else if (result?.secure_url) {
+                      resolve(result.secure_url);
+                    } else {
+                      reject(new Error("No URL returned from Cloudinary"));
+                    }
+                  }
+                );
+                uploadStream.end(optimizedBuffer);
+              });
+              cloudinaryUrls.push(secureUrl);
+            } catch (uploadError) {
+              console.error(`[CLIPS] Failed to upload image ${file.originalname} to Cloudinary:`, uploadError);
+            } finally {
+              try {
+                await fs3.unlink(originalPath);
+              } catch (e) {
+              }
+            }
+          }
+        }
+      }
+      console.log(`[CLIPS] Successfully uploaded ${cloudinaryUrls.length} images to Cloudinary.`);
+      let commentsArray = [];
+      try {
+        const { scrapePostComments: scrapePostComments2 } = await Promise.resolve().then(() => (init_scraper(), scraper_exports));
+        console.log(`[CLIPS] Fetching up to 30 comments from ScrapeCreators for: ${normalizedUrl}`);
+        const comments = await scrapePostComments2(normalizedUrl, 30);
+        commentsArray = comments.map((c) => c.text);
+        console.log(`[CLIPS] Fetched ${commentsArray.length} comments from ScrapeCreators.`);
+      } catch (commentError) {
+        console.warn(`[CLIPS] Comments fetch failed \u2014 proceeding without comments:`, commentError);
+      }
+      console.log(`[CLIPS] Classifying category...`);
+      const category = await classifyCategory(caption);
+      console.log(`[CLIPS] Classified category: ${category}`);
+      console.log(`[CLIPS] Running premium Sonnet enrichment...`);
+      const enrichmentResult = await runPremiumSonnetEnrichment({
+        category,
+        title: "",
+        content: caption,
+        comments: commentsArray,
+        isMultiSource: false
+      });
+      const { enrichedTitle, enrichedContent, enrichedExcerpt, facebookCaption } = enrichmentResult;
+      const { classificationService: classificationService2 } = await Promise.resolve().then(() => (init_classifier(), classifier_exports));
+      const classification = await classificationService2.classifyArticle(enrichedTitle, enrichedExcerpt);
+      const journalists2 = await storage.getAllJournalists();
+      const assignedJournalist = journalists2[Math.floor(Math.random() * journalists2.length)];
+      const slug = enrichedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const tags = detectTags(enrichedTitle, enrichedContent);
+      let extractedEntities = null;
+      try {
+        const { entityExtractionService: entityExtractionService2 } = await Promise.resolve().then(() => (init_entity_extraction(), entity_extraction_exports));
+        extractedEntities = await entityExtractionService2.extractEntities(enrichedTitle, enrichedContent);
+      } catch (e) {
+        console.error("[CLIPS] Failed to extract entities for clip:", e);
+      }
+      const articleData = {
+        slug,
+        title: enrichedTitle,
+        content: enrichedContent,
+        excerpt: enrichedExcerpt,
+        originalTitle: "",
+        originalContent: caption,
+        imageUrl: cloudinaryUrls && cloudinaryUrls.length > 0 ? cloudinaryUrls[0] : null,
+        imageUrls: cloudinaryUrls || null,
+        category,
+        sourceUrl: normalizedUrl,
+        sourceName: authorName || "Facebook",
+        sourceFacebookPostId: facebookPostId || null,
+        journalistId: assignedJournalist.id,
+        isPublished: false,
+        status: "pending",
+        interestScore: 4,
+        // Rescued premium stories start with a high interest score
+        isManuallyCreated: true,
+        originalLanguage: "th",
+        translatedBy: "anthropic",
+        isDeveloping: false,
+        eventType: classification.eventType,
+        severity: classification.severity,
+        tags,
+        entities: extractedEntities,
+        facebookHeadline: enrichedTitle
+      };
+      console.log(`[CLIPS] Saving clipped article as draft: "${enrichedTitle}"`);
+      const article = await storage.createArticle(articleData);
+      res.json({
+        success: true,
+        articleId: article.id,
+        title: enrichedTitle,
+        facebookCaption
+      });
+    } catch (error) {
+      console.error("[CLIPS] Error in clip endpoint:", error);
+      res.status(500).json({ error: error.message || "Failed to process clip" });
+    }
+  });
   const uploadVideo = multer({
     storage: storage_multer,
     limits: { fileSize: 500 * 1024 * 1024 },
@@ -17394,7 +17608,7 @@ app.use((req, res, next) => {
 });
 app.get("/api/debug/version", (req, res) => {
   res.json({
-    version: "1.0.5-debug-fix",
+    version: "1.0.6-clip-fix",
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     deployment: "verified",
     note: "Registered directly in index.ts"
