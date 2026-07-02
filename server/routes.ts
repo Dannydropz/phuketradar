@@ -3606,6 +3606,271 @@ Return ONLY the caption text, no JSON, no labels, no quotes.`
     }
   });
 
+  // Helper function to extract Facebook Post ID from URL
+  function extractFacebookPostId(url: string): string | null {
+    try {
+      const numericMatch = url.match(/\/(?:posts|reel|reels|videos|photo|permalink|story)\/(\d+)/);
+      if (numericMatch) {
+        return numericMatch[1];
+      }
+      const pfbidMatch = url.match(/\/posts\/(pfbid[\w]+)/) || url.match(/\/permalink\/(pfbid[\w]+)/);
+      if (pfbidMatch) {
+        return pfbidMatch[1];
+      }
+      const urlObj = new URL(url);
+      const storyFbid = urlObj.searchParams.get("story_fbid");
+      if (storyFbid) return storyFbid;
+      const fbid = urlObj.searchParams.get("fbid");
+      if (fbid) return fbid;
+      const id = urlObj.searchParams.get("id");
+      if (id) return id;
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // Helper function to normalize Facebook post URL
+  function normalizeFacebookUrl(url: string, postId: string | null): string {
+    if (postId) {
+      return `https://www.facebook.com/posts/${postId}`;
+    }
+    return url;
+  }
+
+  // Extension authentication test endpoint
+  app.get("/api/admin/clips/auth-test", async (req, res) => {
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+    const expectedKey = process.env.CLIP_EXTENSION_API_KEY;
+    
+    if (!expectedKey) {
+      console.error("❌ CLIP_EXTENSION_API_KEY is not configured in env");
+      return res.status(500).json({ error: "Backend authorization configuration error" });
+    }
+    
+    if (apiKey === expectedKey) {
+      return res.json({ success: true });
+    }
+    
+    return res.status(401).json({ error: "Unauthorized" });
+  });
+
+  // POST /api/admin/clips - Clip Facebook post directly from extension
+  app.post("/api/admin/clips", upload.array('images[]'), async (req, res) => {
+    try {
+      // 1. Authenticate using API Key
+      const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+      const expectedKey = process.env.CLIP_EXTENSION_API_KEY;
+      
+      if (!expectedKey) {
+        console.error("❌ CLIP_EXTENSION_API_KEY is not configured in env");
+        return res.status(500).json({ error: "Backend authorization configuration error" });
+      }
+      
+      if (apiKey !== expectedKey) {
+        console.warn(`[CLIPS] Unauthorized clip attempt from ${req.ip}`);
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { sourceUrl, caption, authorName, timestamp } = req.body;
+      
+      if (!sourceUrl) {
+        return res.status(400).json({ error: "Source URL is required" });
+      }
+      if (!caption) {
+        return res.status(400).json({ error: "Caption text is required" });
+      }
+      
+      console.log(`[CLIPS] Sourcing clip request for URL: ${sourceUrl}`);
+      
+      // 2. Extract Facebook Post ID and normalize URL
+      const facebookPostId = extractFacebookPostId(sourceUrl);
+      const normalizedUrl = normalizeFacebookUrl(sourceUrl, facebookPostId);
+      
+      console.log(`[CLIPS] Extracted Facebook Post ID: ${facebookPostId}`);
+      console.log(`[CLIPS] Normalized URL: ${normalizedUrl}`);
+      
+      // 3. Dedup Check
+      if (facebookPostId) {
+        const existingByPostId = await storage.getArticleBySourceFacebookPostId(facebookPostId);
+        if (existingByPostId) {
+          console.log(`[CLIPS] Duplicate detected via post ID: ${facebookPostId}`);
+          return res.status(409).json({ error: "Story already exists", articleId: existingByPostId.id });
+        }
+      }
+      
+      const existingByUrl = await storage.getArticleBySourceUrl(normalizedUrl);
+      if (existingByUrl) {
+        console.log(`[CLIPS] Duplicate detected via source URL: ${normalizedUrl}`);
+        return res.status(409).json({ error: "Story already exists", articleId: existingByUrl.id });
+      }
+      
+      // 4. Upload images to Cloudinary (process req.files)
+      const cloudinaryUrls: string[] = [];
+      const files = req.files as Express.Multer.File[] || [];
+      
+      if (files.length > 0) {
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+          console.warn("⚠️ Cloudinary not configured for clips.");
+          // Clean up temp files
+          for (const file of files) {
+            try { await fs.unlink(file.path); } catch (e) { /* ignore */ }
+          }
+        } else {
+          const { v2: cloudinary } = await import("cloudinary");
+          cloudinary.config({
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET,
+          });
+          
+          for (const file of files) {
+            const originalPath = file.path;
+            try {
+              console.log(`[CLIPS] Optimizing and uploading image to Cloudinary: ${file.originalname}`);
+              
+              const optimizedBuffer = await sharp(originalPath)
+                .resize({ width: 1200, withoutEnlargement: true })
+                .webp({ quality: 80 })
+                .toBuffer();
+                
+              const secureUrl = await new Promise<string>((resolve, reject) => {
+                const ts = Date.now();
+                const randomSuffix = Math.random().toString(36).substring(2, 10);
+                
+                const uploadStream = cloudinary.uploader.upload_stream(
+                  {
+                    folder: "phuketradar",
+                    public_id: `clip-upload-${ts}-${randomSuffix}`,
+                    resource_type: "image",
+                    format: "webp",
+                  },
+                  (error, result) => {
+                    if (error) {
+                      reject(new Error(`Cloudinary upload failed: ${error.message}`));
+                    } else if (result?.secure_url) {
+                      resolve(result.secure_url);
+                    } else {
+                      reject(new Error("No URL returned from Cloudinary"));
+                    }
+                  }
+                );
+                
+                uploadStream.end(optimizedBuffer);
+              });
+              
+              cloudinaryUrls.push(secureUrl);
+            } catch (uploadError) {
+              console.error(`[CLIPS] Failed to upload image ${file.originalname} to Cloudinary:`, uploadError);
+            } finally {
+              try { await fs.unlink(originalPath); } catch (e) { /* ignore */ }
+            }
+          }
+        }
+      }
+      
+      console.log(`[CLIPS] Successfully uploaded ${cloudinaryUrls.length} images to Cloudinary.`);
+      
+      // 5. Fetch comments from ScrapeCreators
+      let commentsArray: string[] = [];
+      try {
+        const { scrapePostComments } = await import("./services/scraper");
+        console.log(`[CLIPS] Fetching up to 30 comments from ScrapeCreators for: ${normalizedUrl}`);
+        const comments = await scrapePostComments(normalizedUrl, 30);
+        commentsArray = comments.map(c => c.text);
+        console.log(`[CLIPS] Fetched ${commentsArray.length} comments from ScrapeCreators.`);
+      } catch (commentError) {
+        console.warn(`[CLIPS] Comments fetch failed — proceeding without comments:`, commentError);
+      }
+      
+      // 6. Classify category from caption using GPT-4o-mini
+      console.log(`[CLIPS] Classifying category...`);
+      const category = await classifyCategory(caption);
+      console.log(`[CLIPS] Classified category: ${category}`);
+      
+      // 7. Trigger premium Claude Sonnet 4.6 enrichment
+      console.log(`[CLIPS] Running premium Sonnet enrichment...`);
+      const enrichmentResult = await runPremiumSonnetEnrichment({
+        category,
+        title: "",
+        content: caption,
+        comments: commentsArray,
+        isMultiSource: false,
+      });
+      
+      const { enrichedTitle, enrichedContent, enrichedExcerpt, facebookCaption } = enrichmentResult;
+      
+      // 8. Classify eventType and severity
+      const { classificationService } = await import("./services/classifier");
+      const classification = await classificationService.classifyArticle(enrichedTitle, enrichedExcerpt);
+      
+      // 9. Get randomized journalist
+      const journalists = await storage.getAllJournalists();
+      const assignedJournalist = journalists[Math.floor(Math.random() * journalists.length)];
+      
+      // 10. Generate slug
+      const slug = enrichedTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+        
+      // 11. Auto-detect tags
+      const tags = detectTags(enrichedTitle, enrichedContent);
+      
+      // 12. Entity extraction
+      let extractedEntities = null;
+      try {
+        const { entityExtractionService } = await import("./services/entity-extraction");
+        extractedEntities = await entityExtractionService.extractEntities(enrichedTitle, enrichedContent);
+      } catch (e) {
+        console.error("[CLIPS] Failed to extract entities for clip:", e);
+      }
+      
+      // 13. Build and create article in the database as a pending draft!
+      const articleData = {
+        slug,
+        title: enrichedTitle,
+        content: enrichedContent,
+        excerpt: enrichedExcerpt,
+        originalTitle: "",
+        originalContent: caption,
+        imageUrl: (cloudinaryUrls && cloudinaryUrls.length > 0) ? cloudinaryUrls[0] : null,
+        imageUrls: cloudinaryUrls || null,
+        category: category,
+        sourceUrl: normalizedUrl,
+        sourceName: authorName || "Facebook",
+        sourceFacebookPostId: facebookPostId || null,
+        journalistId: assignedJournalist.id,
+        isPublished: false,
+        status: "pending",
+        interestScore: 4.0, // Rescued premium stories start with a high interest score
+        isManuallyCreated: true,
+        originalLanguage: "th",
+        translatedBy: "anthropic",
+        isDeveloping: false,
+        eventType: classification.eventType,
+        severity: classification.severity,
+        tags,
+        entities: extractedEntities,
+        facebookHeadline: enrichedTitle,
+      };
+      
+      console.log(`[CLIPS] Saving clipped article as draft: "${enrichedTitle}"`);
+      const article = await storage.createArticle(articleData);
+      
+      res.json({
+        success: true,
+        articleId: article.id,
+        title: enrichedTitle,
+        facebookCaption
+      });
+      
+    } catch (error: any) {
+      console.error("[CLIPS] Error in clip endpoint:", error);
+      res.status(500).json({ error: error.message || "Failed to process clip" });
+    }
+  });
+
   // Configure multer for video uploads (larger file limit, video mime types)
   const uploadVideo = multer({
     storage: storage_multer,

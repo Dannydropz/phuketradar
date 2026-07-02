@@ -190,6 +190,44 @@ export default function AdminDashboard() {
     }
   }, [error, toast]);
 
+  // Check URL query parameters for articleId/edit and auto-open the editor
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const articleIdToEdit = params.get("edit") || params.get("articleId");
+    
+    if (articleIdToEdit && isAuthenticated) {
+      console.log(`[EDITOR] Auto-opening editor for article ID: ${articleIdToEdit}`);
+      setIsLoadingFullArticle(true);
+      setEditorOpen(true);
+      refetchCategories();
+      
+      apiRequest("GET", `/api/admin/articles/${articleIdToEdit}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error("Failed to fetch article details");
+          }
+          const fullArticle = await res.json() as Article;
+          setEditingArticle(fullArticle);
+          
+          // Clear query params so refresh doesn't keep opening it
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        })
+        .catch((err) => {
+          console.error("[EDITOR] Auto-open failed:", err);
+          setEditorOpen(false);
+          toast({
+            title: "Error Loading Article",
+            description: err instanceof Error ? err.message : "Could not load the requested article.",
+            variant: "destructive",
+          });
+        })
+        .finally(() => {
+          setIsLoadingFullArticle(false);
+        });
+    }
+  }, [isAuthenticated, refetchCategories, toast]);
+
   // Handle categories errors
   useEffect(() => {
     if (categoriesError) {
