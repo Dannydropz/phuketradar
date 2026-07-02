@@ -750,6 +750,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Environment: ${process.env.NODE_ENV}`);
     console.log("=".repeat(80) + "\n");
 
+    if (process.env.SCRAPER_ENABLED === "false") {
+      console.log(`[AUTO-SCRAPE] ⏸️ Scraper is disabled via SCRAPER_ENABLED env var.`);
+      return res.json({
+        success: false,
+        message: "Scraper is disabled (SCRAPER_ENABLED=false)",
+        timestamp,
+      });
+    }
+
     // Respond immediately
     res.json({
       success: true,
@@ -808,6 +817,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("📨 DAILY NEWSLETTER TRIGGERED 📨");
     console.log(`Time: ${timestamp}`);
     console.log("=".repeat(80) + "\n");
+
+    if (process.env.NEWSLETTER_ENABLED === "false") {
+      console.log(`[NEWSLETTER-CRON] ⏸️ Daily newsletter is disabled via NEWSLETTER_ENABLED env var.`);
+      return res.json({
+        success: false,
+        message: "Daily newsletter is disabled (NEWSLETTER_ENABLED=false)",
+        timestamp,
+      });
+    }
 
     try {
       // Generate HTML synchronously so errors surface to n8n

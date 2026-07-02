@@ -104,6 +104,18 @@ export async function runScheduledScrape(callbacks?: ScrapeProgressCallback) {
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log("=".repeat(80) + "\n");
 
+  if (process.env.SCRAPER_ENABLED === "false") {
+    console.log("⚠️ [SCRAPER] Scheduled scrape is disabled via SCRAPER_ENABLED=false env variable.");
+    return {
+      totalPosts: 0,
+      processedPosts: 0,
+      articlesCreated: 0,
+      skippedNotNews: 0,
+      skippedSemanticDuplicates: 0,
+      message: "Scraper is disabled via SCRAPER_ENABLED=false env variable."
+    };
+  }
+
   // Get batch size from environment (default: 12 posts per scrape - balanced for coverage + stability)
   const BATCH_SIZE = parseInt(process.env.SCRAPE_BATCH_SIZE || "12");
   console.log(`📦 Batch mode: Processing max ${BATCH_SIZE} posts per scrape to prevent server blocking`);
@@ -2754,6 +2766,10 @@ export function startReEnrichmentPoller() {
   console.log("⏰ Starting re-enrichment poller (runs every 5 minutes)");
 
   setInterval(async () => {
+    if (process.env.RE_ENRICHMENT_ENABLED === "false") {
+      console.log("⏸️ [RE-ENRICHMENT] Poller check skipped: RE_ENRICHMENT_ENABLED=false");
+      return;
+    }
     try {
       // Import here to avoid circular dependencies
       const { db } = await import("./db");

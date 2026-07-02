@@ -2080,7 +2080,8 @@ var init_scraper = __esm({
             // Attribution
             isResharedPost: true,
             originalSourceName: originalPageLabel,
-            sourceName: post.sourceName || sourcePageName
+            sourceName: post.sourceName || sourcePageName,
+            sharerCaption: sharerCaption.trim()
           };
           console.log(`   \u2705 RESHARE RESOLVED: Merged content (${originalWordCount} original words + ${sharerWordCount > 5 ? sharerWordCount + " sharer words" : "no sharer caption"})`);
           console.log(`   \u2705 Attribution: Originally posted by "${originalPageLabel}", reshared by "${sharerPageLabel}"`);
@@ -8248,6 +8249,41 @@ var init_image_downloader = __esm({
   }
 });
 
+// server/config/gate-c-config.ts
+var GATE_C_CONFIG;
+var init_gate_c_config = __esm({
+  "server/config/gate-c-config.ts"() {
+    "use strict";
+    GATE_C_CONFIG = {
+      // Master switch for the entire Gate C
+      get enabled() {
+        return process.env.GATE_C_ENABLED !== "false";
+      },
+      // Check 1: Duplicate source URL / FB Post ID (default: true)
+      get check1DuplicateUrlEnabled() {
+        return process.env.GATE_C_CHECK_1_DUPLICATE_URL !== "false";
+      },
+      // Check 2: Insufficient content length (default: true)
+      get check2MinLengthEnabled() {
+        return process.env.GATE_C_CHECK_2_MIN_LENGTH !== "false";
+      },
+      // Check 3: Resolution/non-event language (default: false for staggered rollout)
+      get check3ResolvedUpdateEnabled() {
+        return process.env.GATE_C_CHECK_3_RESOLVED_UPDATE === "true";
+      },
+      // Check 4: Pure mainstream-reshare detection (default: true)
+      get check4MainstreamShareEnabled() {
+        return process.env.GATE_C_CHECK_4_MAINSTREAM_SHARE !== "false";
+      },
+      // Threshold in Thai characters for Check 2 (default: 50)
+      get minCharThreshold() {
+        const threshold = parseInt(process.env.GATE_C_MIN_CHAR_THRESHOLD || "50", 10);
+        return isNaN(threshold) ? 50 : threshold;
+      }
+    };
+  }
+});
+
 // server/services/duplicate-detection.ts
 import OpenAI7 from "openai";
 var openai7, DuplicateDetectionService;
@@ -10243,6 +10279,17 @@ async function runScheduledScrape(callbacks) {
   console.log(`Trigger: AUTOMATED CRON SCHEDULE (every 4 hours)`);
   console.log(`Environment: ${"production"}`);
   console.log("=".repeat(80) + "\n");
+  if (process.env.SCRAPER_ENABLED === "false") {
+    console.log("\u26A0\uFE0F [SCRAPER] Scheduled scrape is disabled via SCRAPER_ENABLED=false env variable.");
+    return {
+      totalPosts: 0,
+      processedPosts: 0,
+      articlesCreated: 0,
+      skippedNotNews: 0,
+      skippedSemanticDuplicates: 0,
+      message: "Scraper is disabled via SCRAPER_ENABLED=false env variable."
+    };
+  }
   const BATCH_SIZE = parseInt(process.env.SCRAPE_BATCH_SIZE || "12");
   console.log(`\u{1F4E6} Batch mode: Processing max ${BATCH_SIZE} posts per scrape to prevent server blocking`);
   try {
@@ -10510,22 +10557,51 @@ async function runScheduledScrape(callbacks) {
                 }
                 return;
               }
-              if (post.facebookPostId) {
-                const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
-                if (existingByPostId) {
+              if (!GATE_C_CONFIG.enabled || GATE_C_CONFIG.check1DuplicateUrlEnabled) {
+                if (post.facebookPostId) {
+                  const existingByPostId = await storage.getArticleBySourceFacebookPostId(post.facebookPostId);
+                  if (existingByPostId) {
+                    skippedSemanticDuplicates++;
+                    skipReasons.push({
+                      reason: "Duplicate: Source Facebook Post ID (Gate C Check 1)",
+                      postTitle: post.title.substring(0, 60),
+                      sourceUrl: post.sourceUrl,
+                      facebookPostId: post.facebookPostId,
+                      details: `Post ID: ${post.facebookPostId}`
+                    });
+                    console.log(`
+\u{1F6AB} DUPLICATE DETECTED - Method: FACEBOOK POST ID CHECK (Gate C Check 1)`);
+                    console.log(`   Post ID: ${post.facebookPostId}`);
+                    console.log(`   New title: ${post.title.substring(0, 60)}...`);
+                    console.log(`   Existing: ${existingByPostId.title.substring(0, 60)}...`);
+                    console.log(`   \u2705 Skipped before translation (saved API credits)
+`);
+                    if (callbacks?.onProgress) {
+                      callbacks.onProgress({
+                        totalPosts,
+                        processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                        createdArticles: createdCount,
+                        skippedNotNews
+                      });
+                    }
+                    return;
+                  }
+                }
+                const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
+                if (existingBySourceUrl) {
                   skippedSemanticDuplicates++;
                   skipReasons.push({
-                    reason: "Duplicate: Source Facebook Post ID",
+                    reason: "Duplicate: Source URL (Gate C Check 1)",
                     postTitle: post.title.substring(0, 60),
                     sourceUrl: post.sourceUrl,
                     facebookPostId: post.facebookPostId,
-                    details: `Post ID: ${post.facebookPostId}`
+                    details: `URL: ${post.sourceUrl}`
                   });
                   console.log(`
-\u{1F6AB} DUPLICATE DETECTED - Method: FACEBOOK POST ID CHECK`);
-                  console.log(`   Post ID: ${post.facebookPostId}`);
+\u{1F6AB} DUPLICATE DETECTED - Method: SOURCE URL CHECK (Gate C Check 1)`);
+                  console.log(`   URL: ${post.sourceUrl}`);
                   console.log(`   New title: ${post.title.substring(0, 60)}...`);
-                  console.log(`   Existing: ${existingByPostId.title.substring(0, 60)}...`);
+                  console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
                   console.log(`   \u2705 Skipped before translation (saved API credits)
 `);
                   if (callbacks?.onProgress) {
@@ -10538,33 +10614,6 @@ async function runScheduledScrape(callbacks) {
                   }
                   return;
                 }
-              }
-              const existingBySourceUrl = await storage.getArticleBySourceUrl(post.sourceUrl);
-              if (existingBySourceUrl) {
-                skippedSemanticDuplicates++;
-                skipReasons.push({
-                  reason: "Duplicate: Source URL",
-                  postTitle: post.title.substring(0, 60),
-                  sourceUrl: post.sourceUrl,
-                  facebookPostId: post.facebookPostId,
-                  details: `URL: ${post.sourceUrl}`
-                });
-                console.log(`
-\u{1F6AB} DUPLICATE DETECTED - Method: SOURCE URL CHECK`);
-                console.log(`   URL: ${post.sourceUrl}`);
-                console.log(`   New title: ${post.title.substring(0, 60)}...`);
-                console.log(`   Existing: ${existingBySourceUrl.title.substring(0, 60)}...`);
-                console.log(`   \u2705 Skipped before translation (saved API credits)
-`);
-                if (callbacks?.onProgress) {
-                  callbacks.onProgress({
-                    totalPosts,
-                    processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
-                    createdArticles: createdCount,
-                    skippedNotNews
-                  });
-                }
-                return;
               }
               if (post.imageUrls && post.imageUrls.length > 0) {
                 let foundDuplicate = false;
@@ -10699,6 +10748,152 @@ async function runScheduledScrape(callbacks) {
                 } else {
                   console.log(`   \u26A0\uFE0F  ACCEPTED: Uncertain analysis, erring on side of inclusion
 `);
+                }
+              }
+              if (GATE_C_CONFIG.enabled) {
+                const combinedCaptionGateC = `${post.title || ""} ${post.content || ""}`.trim();
+                if (GATE_C_CONFIG.check2MinLengthEnabled) {
+                  const thaiCharCount = countThaiCharacters(combinedCaptionGateC);
+                  const isEmbeddableVideoUrl2 = post.sourceUrl && (post.sourceUrl.includes("/reel/") || post.sourceUrl.includes("/reels/") || post.sourceUrl.includes("/videos/") || post.sourceUrl.includes("/watch"));
+                  const hasMedia = !!(post.imageUrl || post.imageUrls && post.imageUrls.length > 0 || post.isVideo || post.videoUrl || post.videoThumbnail || isEmbeddableVideoUrl2);
+                  if (thaiCharCount < GATE_C_CONFIG.minCharThreshold && !hasMedia) {
+                    console.log(`\u23ED\uFE0F  [GATE C] Low-value post skipped pre-enrichment. Reason: insufficient_content (${thaiCharCount} Thai chars, no media)`);
+                    console.log(`   Source: ${post.sourceUrl}`);
+                    await storage.createSkippedLowValue({
+                      sourceUrl: post.sourceUrl,
+                      caption: combinedCaptionGateC,
+                      detectedMarkers: [`thai_char_count:${thaiCharCount}`],
+                      skipReason: "gate_c_insufficient_content"
+                    });
+                    skippedNotNews++;
+                    skipReasons.push({
+                      reason: "Insufficient content (Gate C)",
+                      postTitle: post.title.substring(0, 60),
+                      sourceUrl: post.sourceUrl,
+                      facebookPostId: post.facebookPostId,
+                      details: `Thai characters: ${thaiCharCount} < ${GATE_C_CONFIG.minCharThreshold}, no media`
+                    });
+                    if (callbacks?.onProgress) {
+                      callbacks.onProgress({
+                        totalPosts,
+                        processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                        createdArticles: createdCount,
+                        skippedNotNews
+                      });
+                    }
+                    return;
+                  }
+                }
+                if (GATE_C_CONFIG.check3ResolvedUpdateEnabled) {
+                  const RESOLVED_KEYWORDS = [
+                    "\u0E1E\u0E1A\u0E15\u0E31\u0E27\u0E41\u0E25\u0E49\u0E27",
+                    // "found already"
+                    "\u0E1B\u0E25\u0E2D\u0E14\u0E20\u0E31\u0E22\u0E14\u0E35",
+                    // "safe and sound"
+                    "\u0E40\u0E1B\u0E34\u0E14\u0E01\u0E32\u0E23\u0E08\u0E23\u0E32\u0E08\u0E23",
+                    // "reopened traffic"
+                    "\u0E40\u0E1B\u0E34\u0E14\u0E17\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27",
+                    // "road opened already"
+                    "\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E0A\u0E48\u0E27\u0E22\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E41\u0E25\u0E49\u0E27",
+                    // "received help already"
+                    "\u0E44\u0E14\u0E49\u0E40\u0E1A\u0E32\u0E30\u0E41\u0E2A\u0E41\u0E25\u0E49\u0E27",
+                    // "got lead already"
+                    "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E1B\u0E23\u0E30\u0E01\u0E32\u0E28",
+                    // "cancel announcement"
+                    "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E15\u0E32\u0E21\u0E2B\u0E32",
+                    // "cancel search"
+                    "\u0E1E\u0E1A\u0E23\u0E48\u0E32\u0E07"
+                    // "found body"
+                  ];
+                  const detectedKeyword = RESOLVED_KEYWORDS.find((keyword) => combinedCaptionGateC.includes(keyword));
+                  if (detectedKeyword) {
+                    console.log(`\u23ED\uFE0F  [GATE C] Low-value post skipped pre-enrichment. Reason: resolved_update (Matched: ${detectedKeyword})`);
+                    console.log(`   Source: ${post.sourceUrl}`);
+                    await storage.createSkippedLowValue({
+                      sourceUrl: post.sourceUrl,
+                      caption: combinedCaptionGateC,
+                      detectedMarkers: [detectedKeyword],
+                      skipReason: "gate_c_resolved_update"
+                    });
+                    skippedNotNews++;
+                    skipReasons.push({
+                      reason: "Resolved/Update post (Gate C)",
+                      postTitle: post.title.substring(0, 60),
+                      sourceUrl: post.sourceUrl,
+                      facebookPostId: post.facebookPostId,
+                      details: `Matched keyword: ${detectedKeyword}`
+                    });
+                    if (callbacks?.onProgress) {
+                      callbacks.onProgress({
+                        totalPosts,
+                        processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                        createdArticles: createdCount,
+                        skippedNotNews
+                      });
+                    }
+                    return;
+                  }
+                }
+                if (GATE_C_CONFIG.check4MainstreamShareEnabled && post.isResharedPost) {
+                  const sourceLower = (post.originalSourceName || "").toLowerCase();
+                  const MAINSTREAM_DOMAINS = [
+                    "\u0E02\u0E48\u0E32\u0E27\u0E2A\u0E14",
+                    "khaosod",
+                    "\u0E2A\u0E19\u0E38\u0E01",
+                    "sanook",
+                    "\u0E44\u0E17\u0E22\u0E23\u0E31\u0E10",
+                    "thairath",
+                    "\u0E40\u0E14\u0E25\u0E34\u0E19\u0E34\u0E27\u0E2A\u0E4C",
+                    "dailynews",
+                    "\u0E04\u0E21\u0E0A\u0E31\u0E14\u0E25\u0E36\u0E01",
+                    "komchadluek",
+                    "pptv",
+                    "\u0E1E\u0E35\u0E1E\u0E35\u0E17\u0E35\u0E27\u0E35",
+                    "amarin",
+                    "\u0E2D\u0E21\u0E23\u0E34\u0E19\u0E17\u0E23\u0E4C",
+                    "workpoint",
+                    "\u0E40\u0E27\u0E34\u0E23\u0E4C\u0E04\u0E1E\u0E2D\u0E22\u0E17\u0E4C",
+                    "\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E40\u0E25\u0E48\u0E32\u0E40\u0E0A\u0E49\u0E32\u0E19\u0E35\u0E49",
+                    "ch3",
+                    "ch7",
+                    "one31",
+                    "\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E31\u0E19",
+                    "\u0E0A\u0E48\u0E2D\u0E07 3",
+                    "\u0E0A\u0E48\u0E2D\u0E07 7",
+                    "thairath online"
+                  ];
+                  const isMainstream = MAINSTREAM_DOMAINS.some((domain) => sourceLower.includes(domain));
+                  if (isMainstream) {
+                    const sharerCaption = post.sharerCaption || "";
+                    const sharerWordCount = sharerCaption.trim().split(/\s+/).filter((w) => w.length > 0).length;
+                    if (sharerWordCount <= 5) {
+                      console.log(`\u23ED\uFE0F  [GATE C] Low-value post skipped pre-enrichment. Reason: mainstream_reshare_no_value (From: ${post.originalSourceName})`);
+                      console.log(`   Source: ${post.sourceUrl}`);
+                      await storage.createSkippedLowValue({
+                        sourceUrl: post.sourceUrl,
+                        caption: combinedCaptionGateC,
+                        detectedMarkers: [`mainstream:${post.originalSourceName || "unknown"}`],
+                        skipReason: "gate_c_mainstream_reshare"
+                      });
+                      skippedNotNews++;
+                      skipReasons.push({
+                        reason: "Mainstream reshare without value (Gate C)",
+                        postTitle: post.title.substring(0, 60),
+                        sourceUrl: post.sourceUrl,
+                        facebookPostId: post.facebookPostId,
+                        details: `Reshared from mainstream source: ${post.originalSourceName} with no commentary`
+                      });
+                      if (callbacks?.onProgress) {
+                        callbacks.onProgress({
+                          totalPosts,
+                          processedPosts: createdCount + skippedNotNews + skippedSemanticDuplicates,
+                          createdArticles: createdCount,
+                          skippedNotNews
+                        });
+                      }
+                      return;
+                    }
+                  }
                 }
               }
               const EXPAT_RELEVANCE_TH = [
@@ -12516,6 +12711,10 @@ function startReEnrichmentPoller() {
     }
   }, 5 * 60 * 1e3);
 }
+function countThaiCharacters(text2) {
+  const match = text2.match(/[\u0E00-\u0E7F]/g);
+  return match ? match.length : 0;
+}
 var init_scheduler = __esm({
   "server/scheduler.ts"() {
     "use strict";
@@ -12531,6 +12730,7 @@ var init_scheduler = __esm({
     init_image_analysis();
     init_duplicate_verifier();
     init_image_downloader();
+    init_gate_c_config();
     init_tag_detector();
   }
 });
@@ -14688,6 +14888,14 @@ async function registerRoutes(app2) {
     console.log(`Trigger: AUTOMATED CRON (GitHub Actions)`);
     console.log(`Environment: ${"production"}`);
     console.log("=".repeat(80) + "\n");
+    if (process.env.SCRAPER_ENABLED === "false") {
+      console.log(`[AUTO-SCRAPE] \u23F8\uFE0F Scraper is disabled via SCRAPER_ENABLED env var.`);
+      return res.json({
+        success: false,
+        message: "Scraper is disabled (SCRAPER_ENABLED=false)",
+        timestamp: timestamp2
+      });
+    }
     res.json({
       success: true,
       message: "Auto-scrape started in background",
@@ -14733,6 +14941,14 @@ async function registerRoutes(app2) {
     console.log("\u{1F4E8} DAILY NEWSLETTER TRIGGERED \u{1F4E8}");
     console.log(`Time: ${timestamp2}`);
     console.log("=".repeat(80) + "\n");
+    if (process.env.NEWSLETTER_ENABLED === "false") {
+      console.log(`[NEWSLETTER-CRON] \u23F8\uFE0F Daily newsletter is disabled via NEWSLETTER_ENABLED env var.`);
+      return res.json({
+        success: false,
+        message: "Daily newsletter is disabled (NEWSLETTER_ENABLED=false)",
+        timestamp: timestamp2
+      });
+    }
     try {
       const html = await generateDailyNewsletterHTML();
       if (!html) {

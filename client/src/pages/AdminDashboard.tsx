@@ -1951,8 +1951,9 @@ export default function AdminDashboard() {
                                 {item.caption}
                               </p>
                             </div>
-                          );
-                        })}
+                          </div>
+                        );
+                      })}
                       </>
                     );
                   })()}
