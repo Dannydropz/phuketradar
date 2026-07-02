@@ -150,7 +150,7 @@ app.use((req, res, next) => {
 // Debug version endpoint - register EARLY and SYNCHRONOUSLY
 app.get("/api/debug/version", (req, res) => {
   res.json({
-    version: "1.0.5-debug-fix",
+    version: "1.0.6-clip-fix",
     timestamp: new Date().toISOString(),
     deployment: "verified",
     note: "Registered directly in index.ts"
