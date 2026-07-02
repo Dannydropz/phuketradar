@@ -2129,7 +2129,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fbResult = await postArticleToFacebook(clearedArticle, storage, caption || undefined);
 
         if (!fbResult) {
-          return res.status(500).json({ error: "Failed to re-post to Facebook" });
+          if (!process.env.FB_PAGE_ACCESS_TOKEN) {
+            return res.status(400).json({ error: "Failed to re-post: FB_PAGE_ACCESS_TOKEN is not configured on the server." });
+          }
+          return res.status(500).json({ error: "Failed to re-post to Facebook: Graph API call failed. Check server logs for details." });
         }
 
         const updatedArticle = await storage.getArticleById(id);
@@ -2146,7 +2149,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fbResult = await postArticleToFacebook(article, storage, caption || undefined);
 
       if (!fbResult) {
-        return res.status(500).json({ error: "Failed to post to Facebook" });
+        if (!process.env.FB_PAGE_ACCESS_TOKEN) {
+          return res.status(400).json({ error: "Failed to post: FB_PAGE_ACCESS_TOKEN is not configured on the server." });
+        }
+        return res.status(500).json({ error: "Failed to post to Facebook: Graph API call failed. Check server logs for details." });
       }
 
       // Reload article to get updated state (service handles DB update)
@@ -2156,9 +2162,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...updatedArticle,
         status: fbResult.status,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error posting to Facebook:", error);
-      res.status(500).json({ error: "Failed to post to Facebook" });
+      res.status(500).json({ error: `Failed to post to Facebook: ${error.message || error}` });
     }
   });
 

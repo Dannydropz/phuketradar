@@ -6148,11 +6148,7 @@ function getArticleUrl(article) {
   return `${baseUrl}${articlePath}`;
 }
 async function postArticleToFacebook(article, storage2, captionOverride) {
-  if (false) {
-    console.log(`\u{1F6AB} [FB-POST] Facebook posting DISABLED in development environment`);
-    console.log(`\u{1F4D8} [FB-POST] Article: ${article.title?.substring(0, 60) ?? "Untitled"}... (would post in production)`);
-    return null;
-  }
+  const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
   console.log(`\u{1F4D8} [FB-POST] Starting Facebook post attempt for article: ${article.title?.substring(0, 60) ?? "Untitled"}...`);
   console.log(`\u{1F4D8} [FB-POST] Article ID: ${article.id}`);
   if (!article.title) {
@@ -6197,6 +6193,18 @@ async function postArticleToFacebook(article, storage2, captionOverride) {
   }
   console.log(`\u2705 [FB-POST] Successfully claimed article - proceeding with Facebook API call...`);
   try {
+    if (false) {
+      console.log(`\u26A0\uFE0F [FB-POST] Facebook posting MOCKED in development environment`);
+      const mockPostId = `MOCK_FB_${article.id}`;
+      const mockPostUrl = `https://www.facebook.com/${mockPostId}`;
+      await storage2.finalizeArticleFacebookPost(article.id, lockToken, mockPostId, mockPostUrl);
+      console.log(`\u2705 [FB-POST] Mock post finalized in DB for article ${article.id}`);
+      return {
+        status: "posted",
+        postId: mockPostId,
+        postUrl: mockPostUrl
+      };
+    }
     const hashtags = generateHashtags(article.category);
     const articleUrl = getArticleUrl(article);
     let headline = article.facebookHeadline;
@@ -6462,12 +6470,11 @@ ${hashtags}`;
     return null;
   }
 }
-var FB_PAGE_ACCESS_TOKEN, FB_PAGE_ID;
+var FB_PAGE_ID;
 var init_facebook_service = __esm({
   "server/lib/facebook-service.ts"() {
     "use strict";
     init_category_map();
-    FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
     FB_PAGE_ID = "786684811203574";
   }
 });
@@ -15936,7 +15943,10 @@ async function registerRoutes(app2) {
         }
         const fbResult2 = await postArticleToFacebook(clearedArticle, storage, caption || void 0);
         if (!fbResult2) {
-          return res.status(500).json({ error: "Failed to re-post to Facebook" });
+          if (!process.env.FB_PAGE_ACCESS_TOKEN) {
+            return res.status(400).json({ error: "Failed to re-post: FB_PAGE_ACCESS_TOKEN is not configured on the server." });
+          }
+          return res.status(500).json({ error: "Failed to re-post to Facebook: Graph API call failed. Check server logs for details." });
         }
         const updatedArticle2 = await storage.getArticleById(id);
         console.log(`\u2705 [FB-REPOST] Successfully re-posted article with new post ID: ${fbResult2.postId}`);
@@ -15949,7 +15959,10 @@ async function registerRoutes(app2) {
       }
       const fbResult = await postArticleToFacebook(article, storage, caption || void 0);
       if (!fbResult) {
-        return res.status(500).json({ error: "Failed to post to Facebook" });
+        if (!process.env.FB_PAGE_ACCESS_TOKEN) {
+          return res.status(400).json({ error: "Failed to post: FB_PAGE_ACCESS_TOKEN is not configured on the server." });
+        }
+        return res.status(500).json({ error: "Failed to post to Facebook: Graph API call failed. Check server logs for details." });
       }
       const updatedArticle = await storage.getArticleById(id);
       res.json({
@@ -15958,7 +15971,7 @@ async function registerRoutes(app2) {
       });
     } catch (error) {
       console.error("Error posting to Facebook:", error);
-      res.status(500).json({ error: "Failed to post to Facebook" });
+      res.status(500).json({ error: `Failed to post to Facebook: ${error.message || error}` });
     }
   });
   app2.post("/api/admin/facebook/batch-post", requireAdminAuth, async (req, res) => {

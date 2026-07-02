@@ -2,7 +2,6 @@ import type { Article } from "@shared/schema";
 import type { IStorage } from "../storage";
 import { buildArticleUrl } from "@shared/category-map";
 
-const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 const FB_PAGE_ID = "786684811203574"; // Phuket Radar page ID
 
 interface FacebookPostResponse {
@@ -45,12 +44,7 @@ export async function postArticleToFacebook(
   captionOverride?: string
 ): Promise<{ status: 'posted' | 'already-posted'; postId: string; postUrl: string } | null> {
 
-  // CRITICAL: Disable all Facebook posting in development environment
-  if (process.env.NODE_ENV === "development") {
-    console.log(`🚫 [FB-POST] Facebook posting DISABLED in development environment`);
-    console.log(`📘 [FB-POST] Article: ${article.title?.substring(0, 60) ?? 'Untitled'}... (would post in production)`);
-    return null;
-  }
+  const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 
   console.log(`📘 [FB-POST] Starting Facebook post attempt for article: ${article.title?.substring(0, 60) ?? 'Untitled'}...`);
   console.log(`📘 [FB-POST] Article ID: ${article.id}`);
@@ -116,6 +110,22 @@ export async function postArticleToFacebook(
   console.log(`✅ [FB-POST] Successfully claimed article - proceeding with Facebook API call...`);
 
   try {
+    // CRITICAL: Mock Facebook posting in development environment to allow testing and prevent local 500 errors
+    if (process.env.NODE_ENV === "development") {
+      console.log(`⚠️ [FB-POST] Facebook posting MOCKED in development environment`);
+      const mockPostId = `MOCK_FB_${article.id}`;
+      const mockPostUrl = `https://www.facebook.com/${mockPostId}`;
+
+      await storage.finalizeArticleFacebookPost(article.id, lockToken, mockPostId, mockPostUrl);
+      console.log(`✅ [FB-POST] Mock post finalized in DB for article ${article.id}`);
+
+      return {
+        status: 'posted',
+        postId: mockPostId,
+        postUrl: mockPostUrl
+      };
+    }
+
     const hashtags = generateHashtags(article.category);
     const articleUrl = getArticleUrl(article);
 
