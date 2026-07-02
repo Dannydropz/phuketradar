@@ -357,22 +357,35 @@ function updateButtonState(button, state, text) {
 
 // Inject "📡 Clip" button into post action bar
 function injectClipButton(postEl) {
-  // If this post element is nested inside another role="article", it is a comment, not the post itself!
-  if (postEl.parentElement?.closest('[role="article"]')) {
+  // If this element is nested inside a comment block or list, skip it!
+  const isInsideComment = postEl.closest('[role="group"]') || 
+                          postEl.closest('ul') || 
+                          postEl.closest('.comment-list') || 
+                          postEl.parentElement?.closest('[role="article"]');
+  if (isInsideComment) {
     return;
   }
 
   // Avoid duplicate injection using a custom class on the post container
   if (postEl.classList.contains('clip-radar-processed')) return;
   
-  // Look for action bar container (Like, Comment, Share wrapper)
-  let actionBar = postEl.querySelector('[role="toolbar"]');
+  // Find the action bar (excluding any that are inside the comments container)
+  const actionBars = Array.from(postEl.querySelectorAll('[role="toolbar"]'));
+  let actionBar = actionBars.find(bar => {
+    const insideComment = bar.closest('[role="group"]') || bar.closest('ul') || bar.closest('.comment-list');
+    return !insideComment;
+  });
   
   if (!actionBar) {
-    // Fallback: look for Like button and use its parent container
-    const likeBtn = postEl.querySelector('[aria-label="Like"], [aria-label="ถูกใจ"]');
-    if (likeBtn) {
-      actionBar = likeBtn.closest('div'); // Get nearest container
+    // Fallback: look for Like button (excluding comments)
+    const likeBtns = Array.from(postEl.querySelectorAll('[aria-label="Like"], [aria-label="ถูกใจ"]'));
+    const postLikeBtn = likeBtns.find(btn => {
+      const insideComment = btn.closest('[role="group"]') || btn.closest('ul') || btn.closest('.comment-list');
+      return !insideComment;
+    });
+    
+    if (postLikeBtn) {
+      actionBar = postLikeBtn.closest('div'); // Get nearest container
       // If it doesn't look like a row (too narrow), try going up a level
       if (actionBar && actionBar.offsetWidth < 150) {
         actionBar = actionBar.parentElement;
@@ -380,10 +393,13 @@ function injectClipButton(postEl) {
     }
   }
   
-  // Sibling lookup: if we still can't find it, look for a div with Like/Comment button indicators
+  // Sibling lookup: look for a div with Like/Comment indicators (excluding comments)
   if (!actionBar) {
-    const footers = Array.from(postEl.querySelectorAll('div'));
-    actionBar = footers.find(div => {
+    const divs = Array.from(postEl.querySelectorAll('div'));
+    actionBar = divs.find(div => {
+      const insideComment = div.closest('[role="group"]') || div.closest('ul') || div.closest('.comment-list');
+      if (insideComment) return false;
+      
       const txt = div.textContent || '';
       return (txt.includes('Like') || txt.includes('ถูกใจ')) && 
              (txt.includes('Comment') || txt.includes('แสดงความคิดเห็น')) &&
@@ -391,7 +407,15 @@ function injectClipButton(postEl) {
     });
   }
   
+  // Sibling check: ensure we didn't accidentally catch a comment reply action bar
   if (actionBar) {
+    const isCommentBar = actionBar.textContent.includes('Reply') || 
+                         actionBar.textContent.includes('ตอบกลับ') ||
+                         actionBar.querySelector('[aria-label*="Reply"], [aria-label*="ตอบกลับ"]');
+    if (isCommentBar) {
+      return;
+    }
+    
     // Mark post container as processed
     postEl.classList.add('clip-radar-processed');
     
