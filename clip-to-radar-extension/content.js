@@ -366,31 +366,21 @@ function injectClipButton(postEl) {
   if (postEl.classList.contains('clip-radar-processed')) return;
   
   // Look for action bar container (Like, Comment, Share wrapper)
-  // Usually this is a div container at the bottom containing Like/Comment buttons
-  // Look for role="toolbar" or div containing buttons with Like/Comment/Share text
   let actionBar = postEl.querySelector('[role="toolbar"]');
   
   if (!actionBar) {
-    // Fallback: look for Like button and walk up to find the flex row containing Like and Comment
+    // Fallback: look for Like button and use its parent container
     const likeBtn = postEl.querySelector('[aria-label="Like"], [aria-label="ถูกใจ"]');
     if (likeBtn) {
-      let current = likeBtn.closest('div');
-      let depth = 0;
-      while (current && depth < 5) {
-        const text = current.textContent || '';
-        const containsActions = (text.includes('Like') || text.includes('ถูกใจ')) && 
-                                (text.includes('Comment') || text.includes('แสดงความคิดเห็น'));
-        if (containsActions && current.childElementCount >= 2) {
-          actionBar = current;
-          break;
-        }
-        current = current.parentElement;
-        depth++;
+      actionBar = likeBtn.closest('div'); // Get nearest container
+      // If it doesn't look like a row (too narrow), try going up a level
+      if (actionBar && actionBar.offsetWidth < 150) {
+        actionBar = actionBar.parentElement;
       }
     }
   }
   
-  // If we still can't find it, look for a footer action bar container
+  // Sibling lookup: if we still can't find it, look for a div with Like/Comment button indicators
   if (!actionBar) {
     const footers = Array.from(postEl.querySelectorAll('div'));
     actionBar = footers.find(div => {
