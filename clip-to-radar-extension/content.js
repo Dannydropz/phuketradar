@@ -73,18 +73,13 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Find the post container element starting from a child node
 function findPostContainer(element) {
-  // Strategy 1: Find by role="article"
-  let container = element.closest('[role="article"]');
-  if (container) return container;
-  
-  // Strategy 2: Look for common Facebook feed item classes or attributes
-  container = element.closest('div[data-testid="post_container"]');
-  if (container) return container;
-  
-  // Strategy 3: Walk up parent tree until we find something that looks like a post
+  // Strategy 1: Walk up parent tree to find a container with [role="article"] that contains an h2 or h3 heading
   let current = element.parentElement;
   let depth = 0;
-  while (current && depth < 12) {
+  while (current && depth < 20) {
+    if (current.matches('[role="article"]') && current.querySelector('h2, h3')) {
+      return current;
+    }
     const isFeedUnit = current.getAttribute('data-pagelet')?.startsWith('FeedUnit_') || 
                        current.id?.startsWith('feed_item_') || 
                        current.className?.includes('feed-item');
@@ -93,7 +88,11 @@ function findPostContainer(element) {
     depth++;
   }
   
-  return null;
+  // Fallback: standard closest logic
+  let container = element.closest('[role="article"]');
+  if (container) return container;
+  
+  return element.closest('div[data-testid="post_container"]');
 }
 
 // Extract Facebook Post URL (permalink)
@@ -226,15 +225,23 @@ function extractImages(postEl) {
   const images = [];
   const allImgs = Array.from(postEl.querySelectorAll('img'));
   
-  // Identify if comment section exists in this post container to exclude comments avatar/images
-  // Comments usually reside in sub-elements with specific roles or classes
-  const commentsContainer = postEl.querySelector('[role="group"], ul, ol, .comment-list');
-  
   allImgs.forEach(img => {
-    // 1. Exclude comment section images if we found comments container
-    if (commentsContainer && commentsContainer.contains(img)) {
-      return;
+    // 1. Exclude comment section images using a robust parent-walk up to postEl
+    let parent = img.parentElement;
+    let insideComment = false;
+    while (parent && parent !== postEl) {
+      if (parent.matches('[role="article"]') || 
+          parent.closest('[role="group"]') || 
+          parent.closest('ul') || 
+          parent.closest('.comment-list') ||
+          parent.classList.contains('comment') ||
+          parent.id?.includes('comment')) {
+        insideComment = true;
+        break;
+      }
+      parent = parent.parentElement;
     }
+    if (insideComment) return;
     
     const src = img.src;
     if (!src) return;
@@ -301,10 +308,23 @@ async function extractCaption(postEl) {
   if (textDivs.length > 0) {
     // Filter out comments and header divs
     const mainTextDivs = textDivs.filter(div => {
-      // Exclude if inside comments or header details
-      const isComment = div.closest('[role="group"]') || div.closest('ul') || div.closest('.comment-list');
+      // Exclude if inside comments or header details using a robust parent-walk
+      let parent = div.parentElement;
+      let insideComment = false;
+      while (parent && parent !== postEl) {
+        if (parent.matches('[role="article"]') || 
+            parent.closest('[role="group"]') || 
+            parent.closest('ul') || 
+            parent.closest('.comment-list') ||
+            parent.classList.contains('comment')) {
+          insideComment = true;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+      
       const isHeader = div.closest('h2') || div.closest('h3');
-      return !isComment && !isHeader;
+      return !insideComment && !isHeader;
     });
     
     if (mainTextDivs.length > 0) {
@@ -357,6 +377,13 @@ function updateButtonState(button, state, text) {
 
 // Inject "📡 Clip" button into post action bar
 function injectClipButton(postEl) {
+  // A valid post container MUST contain an h2 or h3 heading (representing the author header).
+  // Comments never use h2 or h3 tags, so this immediately filters out comment elements.
+  const hasHeader = postEl.querySelector('h2, h3');
+  if (!hasHeader) {
+    return;
+  }
+
   // If this element is nested inside a comment block or list, skip it!
   const isInsideComment = postEl.closest('[role="group"]') || 
                           postEl.closest('ul') || 
