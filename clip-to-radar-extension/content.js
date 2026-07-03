@@ -85,14 +85,18 @@ function debugLog(msg) {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Walk up from a button to find the nearest post-level container
+// Walk up from a button to find the nearest post-level container.
+// We want the INNERMOST role="article" that directly wraps this post,
+// not a parent feed container that wraps multiple posts.
 function findPostContainer(element) {
+  // First, find the closest role="article" ancestor
+  const closest = element.closest('[role="article"]');
+  if (closest) return closest;
+  
+  // Fallback: look for data-pagelet feed units
   let current = element;
   let depth = 0;
   while (current && depth < 30) {
-    if (current.getAttribute && current.getAttribute('role') === 'article') {
-      return current;
-    }
     const pagelet = current.getAttribute && current.getAttribute('data-pagelet');
     if (pagelet && pagelet.startsWith('FeedUnit_')) {
       return current;
@@ -100,7 +104,7 @@ function findPostContainer(element) {
     current = current.parentElement;
     depth++;
   }
-  return element.closest('[role="article"]') || document.body;
+  return document.body;
 }
 
 // Extract Facebook Post URL (permalink)
@@ -165,13 +169,27 @@ function extractTimestamp(postEl) {
 
 function extractImages(postEl) {
   const images = [];
+  
+  // Collect all nested role="article" elements (other posts, comments)
+  // so we can exclude images inside them
+  const nestedArticles = Array.from(postEl.querySelectorAll('[role="article"]'));
+  
   postEl.querySelectorAll('img').forEach(img => {
     const src = img.src;
     if (!src) return;
+    
+    // Skip images that are inside a NESTED article (another post or comment)
+    const isInNestedArticle = nestedArticles.some(nested => nested.contains(img));
+    if (isInNestedArticle) return;
+    
+    // Skip emojis and resource images
     if (src.includes('emoji') || src.includes('rsrc.php')) return;
+    
+    // Skip small images (avatars, reaction icons, etc.)
     const w = img.width || img.naturalWidth || 0;
     const h = img.height || img.naturalHeight || 0;
     if (w > 0 && h > 0 && (w <= 60 || h <= 60)) return;
+    
     if (!images.includes(src)) images.push(src);
   });
   return images;
