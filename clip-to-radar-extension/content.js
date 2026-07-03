@@ -375,24 +375,29 @@ function updateButtonState(button, state, text) {
   }
 }
 
+// Check if an element is a genuine top-level post container
+function isMainPost(el) {
+  // A valid post container MUST contain an h2 or h3 heading representing the author header
+  if (!el.querySelector('h2, h3')) {
+    return false;
+  }
+  
+  // A main post must NOT be nested inside another post container
+  const postSelectors = '[role="article"], div[data-testid="fbfeed_story"], div[data-testid="post_container"], div[data-pagelet^="FeedUnit_"]';
+  if (el.parentElement?.closest(postSelectors)) {
+    return false;
+  }
+  
+  // A main post must NOT be inside a comment thread or group
+  if (el.closest('[role="group"]') || el.closest('ul') || el.closest('.comment-list') || el.closest('ol')) {
+    return false;
+  }
+  
+  return true;
+}
+
 // Inject "📡 Clip" button into post action bar
 function injectClipButton(postEl) {
-  // A valid post container MUST contain an h2 or h3 heading (representing the author header).
-  // Comments never use h2 or h3 tags, so this immediately filters out comment elements.
-  const hasHeader = postEl.querySelector('h2, h3');
-  if (!hasHeader) {
-    return;
-  }
-
-  // If this element is nested inside a comment block or list, skip it!
-  const isInsideComment = postEl.closest('[role="group"]') || 
-                          postEl.closest('ul') || 
-                          postEl.closest('.comment-list') || 
-                          postEl.parentElement?.closest('[role="article"]');
-  if (isInsideComment) {
-    return;
-  }
-
   // Avoid duplicate injection using a custom class on the post container
   if (postEl.classList.contains('clip-radar-processed')) return;
   
@@ -508,9 +513,15 @@ function injectClipButton(postEl) {
 function initialize() {
   console.log('[CLIP] Content script initialized on facebook.com');
   
-  // Find all posts and inject button
-  const posts = document.querySelectorAll('[role="article"]');
-  posts.forEach(injectClipButton);
+  const postSelectors = '[role="article"], div[data-testid="fbfeed_story"], div[data-testid="post_container"], div[data-pagelet^="FeedUnit_"]';
+  
+  // Find all candidate posts and inject button
+  const candidates = document.querySelectorAll(postSelectors);
+  candidates.forEach(el => {
+    if (isMainPost(el)) {
+      injectClipButton(el);
+    }
+  });
   
   // Set up MutationObserver to watch for new posts injected during scroll
   const observer = new MutationObserver((mutations) => {
@@ -521,12 +532,16 @@ function initialize() {
         if (node.nodeType !== Node.ELEMENT_NODE) return;
         
         // If the node is itself a post
-        if (node.matches && node.matches('[role="article"]')) {
+        if (node.matches && node.matches(postSelectors) && isMainPost(node)) {
           injectClipButton(node);
         } else {
           // If a post is nested inside the added node
-          const nestedPosts = node.querySelectorAll('[role="article"]');
-          nestedPosts.forEach(injectClipButton);
+          const nestedPosts = node.querySelectorAll(postSelectors);
+          nestedPosts.forEach(el => {
+            if (isMainPost(el)) {
+              injectClipButton(el);
+            }
+          });
         }
       });
     }
