@@ -377,19 +377,21 @@ function updateButtonState(button, state, text) {
 
 // Check if an element is a genuine top-level post container
 function isMainPost(el) {
-  // A valid post container MUST contain an h2 or h3 heading representing the author header
-  if (!el.querySelector('h2, h3')) {
+  // 1. A valid post container MUST contain a heading (h1-h6 or role="heading") representing the author/page name.
+  // Comments never use headings, so this instantly filters them out.
+  if (!el.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')) {
     return false;
   }
   
-  // A main post must NOT be nested inside another post container
-  const postSelectors = '[role="article"], div[data-testid="fbfeed_story"], div[data-testid="post_container"], div[data-pagelet^="FeedUnit_"]';
-  if (el.parentElement?.closest(postSelectors)) {
-    return false;
-  }
-  
-  // A main post must NOT be inside a comment thread or group
+  // 2. A main post must NOT be inside a comment thread, group, or list
   if (el.closest('[role="group"]') || el.closest('ul') || el.closest('.comment-list') || el.closest('ol')) {
+    return false;
+  }
+  
+  // 3. A post container must contain the Like action button.
+  // If it doesn't have a Like button, it's not a post card with an action toolbar.
+  const hasLikeButton = el.querySelector('[aria-label="Like"], [aria-label="ถูกใจ"]');
+  if (!hasLikeButton) {
     return false;
   }
   
