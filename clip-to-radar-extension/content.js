@@ -47,40 +47,11 @@ style.textContent = `
     border-color: rgba(168, 85, 247, 0.4) !important;
     color: #a855f7 !important;
   }
-  #clip-radar-debug {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    background: rgba(0,0,0,0.85);
-    color: #0f0;
-    font-family: monospace;
-    font-size: 11px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    z-index: 99999;
-    max-width: 400px;
-    max-height: 200px;
-    overflow-y: auto;
-    pointer-events: auto;
-    border: 1px solid #333;
-  }
 `;
 document.head.appendChild(style);
 
-// Debug panel
-const debugPanel = document.createElement('div');
-debugPanel.id = 'clip-radar-debug';
-debugPanel.innerHTML = '<b>📡 Clip to Radar</b> - scanning...';
-document.body.appendChild(debugPanel);
-
 function debugLog(msg) {
   console.log('[CLIP] ' + msg);
-  debugPanel.innerHTML += '<br>' + msg;
-  // Keep only last 10 lines
-  const lines = debugPanel.innerHTML.split('<br>');
-  if (lines.length > 10) {
-    debugPanel.innerHTML = lines.slice(-10).join('<br>');
-  }
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -233,8 +204,10 @@ function updateButtonState(button, state, text) {
   }
 }
 
-// Create a click handler for a clip button
-function makeClipHandler(clipBtn) {
+// Create a click handler for a clip button.
+// postContainer is resolved at INJECTION time from the Share button's position,
+// NOT at click time from the Clip button (which may be outside the article).
+function makeClipHandler(clipBtn, postContainer) {
   return async (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -242,7 +215,9 @@ function makeClipHandler(clipBtn) {
     clipBtn.className = 'clip-radar-btn clipping';
     clipBtn.textContent = '📡 Clipping...';
     try {
-      const postContainer = findPostContainer(clipBtn);
+      if (!postContainer || postContainer === document.body) {
+        throw new Error('Could not find post container.');
+      }
       const sourceUrl = extractPostUrl(postContainer);
       if (!sourceUrl) throw new Error('Could not extract post URL.');
       const authorName = extractAuthorName(postContainer);
@@ -275,6 +250,9 @@ function scanAndInject() {
   const ariaShareBtns = document.querySelectorAll('[aria-label="Share"], [aria-label="แชร์"], [aria-label="Send"], [aria-label="ส่ง"]');
   
   ariaShareBtns.forEach(shareEl => {
+    // Resolve the post container NOW from the Share button (which IS inside the article)
+    const postContainer = findPostContainer(shareEl);
+    
     let actionBar = shareEl;
     for (let i = 0; i < 8; i++) {
       actionBar = actionBar.parentElement;
@@ -286,7 +264,7 @@ function scanAndInject() {
     const btn = document.createElement('button');
     btn.className = 'clip-radar-btn';
     btn.textContent = '📡 Clip';
-    btn.addEventListener('click', makeClipHandler(btn));
+    btn.addEventListener('click', makeClipHandler(btn, postContainer));
     actionBar.appendChild(btn);
     injectedCount++;
   });
@@ -320,6 +298,9 @@ function scanAndInject() {
       let shareElement = textNode.parentElement;
       if (!shareElement) return;
       
+      // Resolve the post container NOW from the Share text node's position
+      const postContainer = findPostContainer(shareElement);
+      
       // Walk up to find the clickable container (role="button" or similar)
       let clickable = shareElement.closest('[role="button"]') || shareElement;
       
@@ -327,9 +308,7 @@ function scanAndInject() {
       let actionBar = clickable.parentElement;
       let attempts = 0;
       while (actionBar && attempts < 5) {
-        // The action bar row should contain multiple children (Like, Comment, Share)
         if (actionBar.childElementCount >= 3) break;
-        // Also check if sibling elements exist with "Like" or "Comment" text
         const siblingText = actionBar.textContent || '';
         if ((siblingText.includes('Like') || siblingText.includes('ถูกใจ')) &&
             (siblingText.includes('Comment') || siblingText.includes('แสดงความคิดเห็น'))) {
@@ -341,15 +320,13 @@ function scanAndInject() {
       
       if (!actionBar || actionBar.querySelector('.clip-radar-btn')) return;
       
-      // Extra check: if this action bar also contains "Reply" or "ตอบกลับ", 
-      // it's a comment bar, skip it
       const barText = actionBar.textContent || '';
       if (barText.includes('Reply') || barText.includes('ตอบกลับ')) return;
       
       const btn = document.createElement('button');
       btn.className = 'clip-radar-btn';
       btn.textContent = '📡 Clip';
-      btn.addEventListener('click', makeClipHandler(btn));
+      btn.addEventListener('click', makeClipHandler(btn, postContainer));
       actionBar.appendChild(btn);
       injectedCount++;
     });
@@ -395,7 +372,7 @@ function scanAndInject() {
             const btn = document.createElement('button');
             btn.className = 'clip-radar-btn';
             btn.textContent = '📡 Clip';
-            btn.addEventListener('click', makeClipHandler(btn));
+            btn.addEventListener('click', makeClipHandler(btn, article));
             div.appendChild(btn);
             injectedCount++;
             debugLog('Injected via Strategy 3 (article scan)');
